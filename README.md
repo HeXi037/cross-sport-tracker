@@ -3,7 +3,7 @@ cross-sport-tracker
 Track scores, run tournaments, and (later) crown a Master of All across sports.
 MVP scope: Padel + Bowling.
 Stack: Next.js (UI) + FastAPI (Python 3.12 API) + PostgreSQL.
-Hosting: Cheap, self-hosted on a single VPS via Docker Compose + Caddy (free TLS).
+Hosting: Cheap, self-hosted on a single VPS via Docker Compose + nginx.
 
 Status & Scope
 

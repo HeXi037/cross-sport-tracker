@@ -1,7 +1,7 @@
 # backend/app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import sports, rulesets, players, matches, leaderboards
+from .routers import sports, rulesets, players, matches, leaderboards, streams
 import os
 
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
@@ -36,3 +36,4 @@ app.include_router(rulesets.router,    prefix="/api/v0")
 app.include_router(players.router,     prefix="/api/v0")
 app.include_router(matches.router,     prefix="/api/v0")
 app.include_router(leaderboards.router, prefix="/api/v0")
+app.include_router(streams.router,      prefix="/api/v0")

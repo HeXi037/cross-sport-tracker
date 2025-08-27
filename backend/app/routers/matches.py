@@ -1,6 +1,7 @@
 # backend/app/routers/matches.py
 import uuid
 import json
+import importlib
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,9 +9,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..db import get_session
 from ..models import Match, MatchParticipant, ScoreEvent
 from ..schemas import MatchCreate, EventIn
+from .streams import broadcast
 
 # Resource-only prefix; versioning is added in main.py
 router = APIRouter(prefix="/matches", tags=["matches"])
+
+# GET /api/v0/matches
+@router.get("")
+async def list_matches(session: AsyncSession = Depends(get_session)):
+    matches = (await session.execute(select(Match))).scalars().all()
+    return [
+        {"id": m.id, "sport": m.sport_id, "bestOf": m.best_of}
+        for m in matches
+    ]
 
 # POST /api/v0/matches
 @router.post("")
@@ -21,7 +32,7 @@ async def create_match(body: MatchCreate, session: AsyncSession = Depends(get_se
         sport_id=body.sport,
         ruleset_id=body.rulesetId,
         best_of=body.bestOf,
-        details=None,   # <-- was metadata=None; we renamed the column to 'details'
+        details=None,
     )
     session.add(match)
 
@@ -64,6 +75,7 @@ async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
             {"id": e.id, "type": e.type, "payload": e.payload, "createdAt": e.created_at.isoformat()}
             for e in events
         ],
+        "summary": m.details,
     }
 
 # POST /api/v0/matches/{mid}/events
@@ -73,13 +85,34 @@ async def append_event(mid: str, ev: EventIn, session: AsyncSession = Depends(ge
     if not m:
         raise HTTPException(404, "match not found")
 
-    # For now just persist the event as-is; later we’ll validate via ruleset/scoring engine
+    try:
+        engine = importlib.import_module(f"..scoring.{m.sport_id}", package="backend.app")
+    except ModuleNotFoundError:
+        raise HTTPException(400, "unknown sport")
+
+    existing = (
+        await session.execute(
+            select(ScoreEvent).where(ScoreEvent.match_id == mid).order_by(ScoreEvent.created_at)
+        )
+    ).scalars().all()
+    state = engine.init_state({})
+    for old in existing:
+        state = engine.apply(old.payload, state)
+
+    payload = json.loads(ev.model_dump_json())
+    try:
+        state = engine.apply(payload, state)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
     e = ScoreEvent(
         id=uuid.uuid4().hex,
         match_id=mid,
         type=ev.type,
-        payload=json.loads(ev.model_dump_json()),
+        payload=payload,
     )
     session.add(e)
+    m.details = engine.summary(state)
     await session.commit()
+    await broadcast(mid, {"event": e.payload, "summary": m.details})
     return {"ok": True, "eventId": e.id}

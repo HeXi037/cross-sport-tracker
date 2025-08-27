@@ -17,6 +17,9 @@ export default async function Page() {
       <ul>
         {sports.map((s: any) => <li key={s.id}>{s.name} ({s.id})</li>)}
       </ul>
+      <nav>
+        <a href="/players">Players</a> | <a href="/matches">Matches</a>
+      </nav>
     </main>
   );
 }

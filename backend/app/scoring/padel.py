@@ -40,3 +40,17 @@ def summary(state: Dict) -> Dict:
         "games": state["games"],
         "sets": state["sets"],
     }
+
+
+def record_sets(set_scores, state=None):
+    state = state or init_state({})
+    events = []
+    for ga, gb in set_scores:
+        target = {"A": ga, "B": gb}
+        while state["games"]["A"] < target["A"] or state["games"]["B"] < target["B"]:
+            side = "A" if state["games"]["A"] < target["A"] else "B"
+            for _ in range(4):
+                ev = {"type": "POINT", "by": side}
+                events.append(ev)
+                state = apply(ev, state)
+    return events, state

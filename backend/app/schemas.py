@@ -1,4 +1,5 @@
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Tuple
+from datetime import datetime
 from pydantic import BaseModel
 
 # Basic DTOs
@@ -30,6 +31,26 @@ class MatchCreate(BaseModel):
     rulesetId: Optional[str] = None
     participants: List[Participant]
     bestOf: Optional[int] = None
+    playedAt: Optional[datetime] = None
+    location: Optional[str] = None
+
+
+class ParticipantByName(BaseModel):
+    side: Literal["A", "B"]
+    playerNames: List[str]
+
+
+class MatchCreateByName(BaseModel):
+    sport: str
+    rulesetId: Optional[str] = None
+    participants: List[ParticipantByName]
+    bestOf: Optional[int] = None
+    playedAt: Optional[datetime] = None
+    location: Optional[str] = None
+
+
+class SetsIn(BaseModel):
+    sets: List[Tuple[int, int]]
 
 class EventIn(BaseModel):
     type: Literal["POINT", "ROLL", "UNDO"]

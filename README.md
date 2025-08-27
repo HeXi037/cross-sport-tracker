@@ -114,9 +114,12 @@ API (v0)
 GET  /api/v0/sports
 GET  /api/v0/rulesets?sport=padel
 POST /api/v0/players
+GET  /api/v0/players?q=name
 POST /api/v0/matches
+POST /api/v0/matches/by-name
 GET  /api/v0/matches/{id}
 POST /api/v0/matches/{id}/events
+POST /api/v0/matches/{id}/sets
 GET  /api/v0/leaderboards?sport=padel
 WS   /api/v0/matches/{id}/stream
 
@@ -131,7 +134,9 @@ POST /api/v0/matches
     { "side": "A", "playerIds": ["p1","p2"] },
     { "side": "B", "playerIds": ["p3","p4"] }
   ],
-  "bestOf": 3
+  "bestOf": 3,
+  "playedAt": "2024-06-01T10:00:00Z",
+  "location": "Local Club"
 }
 
 
@@ -142,6 +147,11 @@ POST /api/v0/matches/m_123/events
 
 POST /api/v0/matches/m_456/events
 { "type": "ROLL", "pins": 7 }     // bowling
+
+Record completed padel sets
+
+POST /api/v0/matches/m_123/sets
+{ "sets": [[2,6],[6,4],[1,6]] }
 
 Dev Quickstart (local)
 

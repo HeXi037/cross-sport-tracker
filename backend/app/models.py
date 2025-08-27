@@ -53,7 +53,7 @@ class Match(Base):
     stage_id = Column(String, ForeignKey("stage.id"), nullable=True)
     ruleset_id = Column(String, ForeignKey("ruleset.id"), nullable=True)
     best_of = Column(Integer, nullable=True)
-    meta = Column(JSON, nullable=True)
+    details = Column(JSON, nullable=True)
 
 class MatchParticipant(Base):
     __tablename__ = "match_participant"

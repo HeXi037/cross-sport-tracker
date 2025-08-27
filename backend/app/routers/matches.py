@@ -7,9 +7,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Match, MatchParticipant, ScoreEvent
-from ..schemas import MatchCreate, EventIn
+from ..models import Match, MatchParticipant, Player, ScoreEvent
+from ..schemas import MatchCreate, MatchCreateByName, Participant, EventIn, SetsIn
 from .streams import broadcast
+from ..scoring import padel as padel_engine
 
 # Resource-only prefix; versioning is added in main.py
 router = APIRouter(prefix="/matches", tags=["matches"])
@@ -19,7 +20,13 @@ router = APIRouter(prefix="/matches", tags=["matches"])
 async def list_matches(session: AsyncSession = Depends(get_session)):
     matches = (await session.execute(select(Match))).scalars().all()
     return [
-        {"id": m.id, "sport": m.sport_id, "bestOf": m.best_of}
+        {
+            "id": m.id,
+            "sport": m.sport_id,
+            "bestOf": m.best_of,
+            "playedAt": m.played_at.isoformat() if m.played_at else None,
+            "location": m.location,
+        }
         for m in matches
     ]
 
@@ -32,6 +39,8 @@ async def create_match(body: MatchCreate, session: AsyncSession = Depends(get_se
         sport_id=body.sport,
         ruleset_id=body.rulesetId,
         best_of=body.bestOf,
+        played_at=body.playedAt,
+        location=body.location,
         details=None,
     )
     session.add(match)
@@ -47,6 +56,33 @@ async def create_match(body: MatchCreate, session: AsyncSession = Depends(get_se
 
     await session.commit()
     return {"id": mid}
+
+
+@router.post("/by-name")
+async def create_match_by_name(body: MatchCreateByName, session: AsyncSession = Depends(get_session)):
+    name_to_id = {}
+    names = [n for part in body.participants for n in part.playerNames]
+    if names:
+        rows = (
+            await session.execute(select(Player).where(Player.name.in_(names)))
+        ).scalars().all()
+        name_to_id = {p.name: p.id for p in rows}
+    missing = [n for n in names if n not in name_to_id]
+    if missing:
+        raise HTTPException(400, f"unknown players: {', '.join(missing)}")
+    parts = []
+    for part in body.participants:
+        ids = [name_to_id[n] for n in part.playerNames]
+        parts.append(Participant(side=part.side, playerIds=ids))
+    mc = MatchCreate(
+        sport=body.sport,
+        rulesetId=body.rulesetId,
+        participants=parts,
+        bestOf=body.bestOf,
+        playedAt=body.playedAt,
+        location=body.location,
+    )
+    return await create_match(mc, session)
 
 # GET /api/v0/matches/{mid}
 @router.get("/{mid}")
@@ -70,6 +106,8 @@ async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
         "sport": m.sport_id,
         "rulesetId": m.ruleset_id,
         "bestOf": m.best_of,
+        "playedAt": m.played_at.isoformat() if m.played_at else None,
+        "location": m.location,
         "participants": [{"id": p.id, "side": p.side, "playerIds": p.player_ids} for p in parts],
         "events": [
             {"id": e.id, "type": e.type, "payload": e.payload, "createdAt": e.created_at.isoformat()}
@@ -116,3 +154,37 @@ async def append_event(mid: str, ev: EventIn, session: AsyncSession = Depends(ge
     await session.commit()
     await broadcast(mid, {"event": e.payload, "summary": m.details})
     return {"ok": True, "eventId": e.id}
+
+
+@router.post("/{mid}/sets")
+async def record_sets_endpoint(mid: str, body: SetsIn, session: AsyncSession = Depends(get_session)):
+    m = (await session.execute(select(Match).where(Match.id == mid))).scalar_one_or_none()
+    if not m:
+        raise HTTPException(404, "match not found")
+    if m.sport_id != "padel":
+        raise HTTPException(400, "set recording only supported for padel")
+
+    existing = (
+        await session.execute(
+            select(ScoreEvent).where(ScoreEvent.match_id == mid).order_by(ScoreEvent.created_at)
+        )
+    ).scalars().all()
+    state = padel_engine.init_state({})
+    for old in existing:
+        state = padel_engine.apply(old.payload, state)
+
+    new_events, state = padel_engine.record_sets(body.sets, state)
+
+    for ev in new_events:
+        e = ScoreEvent(
+            id=uuid.uuid4().hex,
+            match_id=mid,
+            type=ev["type"],
+            payload=ev,
+        )
+        session.add(e)
+
+    m.details = padel_engine.summary(state)
+    await session.commit()
+    await broadcast(mid, {"summary": m.details})
+    return {"ok": True, "added": len(new_events)}

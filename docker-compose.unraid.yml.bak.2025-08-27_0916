@@ -1,0 +1,53 @@
+services:
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+      - NODE_ENV=production
+    ports:
+      - "13000:3000"
+    restart: unless-stopped
+    networks: [cst_net]
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - PYTHONPATH=/app
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "12800:8000"
+    restart: unless-stopped
+    networks: [cst_net]
+
+  # keep nightly backups using the same external DB
+  db_backup:
+    image: postgres:16
+    environment:
+      - PGPASSWORD=${POSTGRES_PASSWORD}   # raw (not URL-encoded)
+      - PGUSER=${POSTGRES_USER}
+      - PGDATABASE=${POSTGRES_DB}
+    volumes:
+      - /mnt/user/appdata/cross-sport-tracker/backups:/backups
+    entrypoint: >
+      sh -c 'while :; do
+               now=$$(date +%F_%H-%M-%S);
+               pg_dump -h postgres -U $$PGUSER $$PGDATABASE > /backups/backup_$$now.sql;
+               sleep 86400;
+             done'
+    restart: unless-stopped
+    networks: [cst_net]
+
+networks:
+  cst_net:
+    external: true

@@ -1,7 +1,7 @@
 from alembic import op
 import sqlalchemy as sa
 
-revision = '0003_match_meta_and_unique_player_names'
+revision = '0003_match_meta_unique_names'
 down_revision = '0002_match_details'
 branch_labels = None
 depends_on = None

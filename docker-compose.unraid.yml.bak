@@ -1,0 +1,56 @@
+  GNU nano 8.3                                                                                                                             docker-compose.unraid.yml                                                                                                                                        
+services:
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+      - NODE_ENV=production
+    restart: unless-stopped
+    ports:
+      - "13000:3000"   # host:container
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    restart: unless-stopped
+    depends_on: [postgres]
+    ports:
+      - "12800:8000"   # host:container
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - /mnt/user/appdata/cross-sport-tracker/postgres:/var/lib/postgresql/data
+
+  db_backup:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      - PGPASSWORD=${POSTGRES_PASSWORD}
+    depends_on: [postgres]
+    volumes:
+      - /mnt/user/appdata/cross-sport-tracker/backups:/backups
+    entrypoint: >
+      sh -c 'while :; do
+               now=$$(date +%F_%H-%M-%S);
+               pg_dump -h postgres -U ${POSTGRES_USER} ${POSTGRES_DB} > /backups/backup_$$now.sql;
+               sleep 86400;
+             done'
+
+
+

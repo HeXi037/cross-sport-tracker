@@ -4,12 +4,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
 from ..models import Sport
-from ..schemas import SportRead
 
-router = APIRouter(prefix="/api/v0/sports", tags=["sports"])
+router = APIRouter(prefix="/sports", tags=["sports"])
 
-
-@router.get("", response_model=list[SportRead])
+# GET /api/v0/sports
+@router.get("")  # or use "/" — both work as the router's root
 async def list_sports(session: AsyncSession = Depends(get_session)):
-    result = await session.execute(select(Sport))
-    return [SportRead.model_validate(row) for row in result.scalars().all()]
+    rows = (await session.execute(select(Sport))).scalars().all()
+    return [{"id": s.id, "name": s.name} for s in rows]

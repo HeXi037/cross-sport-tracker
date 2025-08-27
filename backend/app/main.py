@@ -1,41 +1,38 @@
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-
+# backend/app/main.py
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from .routers import sports, rulesets, players, matches, leaderboards
+import os
 
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
-async def http_error_handler(request: Request, exc: HTTPException):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "type": "about:blank",
-            "title": exc.detail,
-            "status": exc.status_code,
-        },
-        media_type="application/problem+json",
-    )
+app = FastAPI(
+    title="Cross Sport Tracker API",
+    version="0.1.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
+)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in ALLOWED_ORIGINS if o.strip()],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-async def validation_error_handler(request: Request, exc: RequestValidationError):
-    return JSONResponse(
-        status_code=422,
-        content={
-            "type": "about:blank",
-            "title": "Validation Error",
-            "status": 422,
-            "detail": exc.errors(),
-        },
-        media_type="application/problem+json",
-    )
+@app.get("/api/healthz")
+def healthz():
+    return {"status": "ok"}
 
+@app.get("/api")
+def api_root():
+    return {"message": "Cross Sport Tracker API. See /api/docs."}
 
-app = FastAPI()
-app.add_exception_handler(HTTPException, http_error_handler)
-app.add_exception_handler(RequestValidationError, validation_error_handler)
-
-app.include_router(sports.router)
-app.include_router(rulesets.router)
-app.include_router(players.router)
-app.include_router(matches.router)
-app.include_router(leaderboards.router)
+# Mount once with versioning
+app.include_router(sports.router,      prefix="/api/v0")
+app.include_router(rulesets.router,    prefix="/api/v0")
+app.include_router(players.router,     prefix="/api/v0")
+app.include_router(matches.router,     prefix="/api/v0")
+app.include_router(leaderboards.router, prefix="/api/v0")

@@ -1,94 +1,85 @@
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+# backend/app/routers/matches.py
+import uuid
+import json
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Match, MatchParticipant, ScoreEvent, RuleSet
-from ..models import generate_ulid
-from ..schemas import MatchCreate, MatchRead, MatchParticipantCreate, ScoreEventCreate
-from ..schemas import Event
-from ..scoring import get_engine
+from ..models import Match, MatchParticipant, ScoreEvent
+from ..schemas import MatchCreate, EventIn
 
-router = APIRouter(prefix="/api/v0/matches", tags=["matches"])
+# Resource-only prefix; versioning is added in main.py
+router = APIRouter(prefix="/matches", tags=["matches"])
 
+# POST /api/v0/matches
+@router.post("")
+async def create_match(body: MatchCreate, session: AsyncSession = Depends(get_session)):
+    mid = uuid.uuid4().hex
+    match = Match(
+        id=mid,
+        sport_id=body.sport,
+        ruleset_id=body.rulesetId,
+        best_of=body.bestOf,
+        details=None,   # <-- was metadata=None; we renamed the column to 'details'
+    )
+    session.add(match)
 
-class ConnectionManager:
-    def __init__(self):
-        self.active: dict[str, list[WebSocket]] = {}
-
-    async def connect(self, match_id: str, websocket: WebSocket):
-        await websocket.accept()
-        self.active.setdefault(match_id, []).append(websocket)
-
-    def disconnect(self, match_id: str, websocket: WebSocket):
-        if match_id in self.active:
-            self.active[match_id].remove(websocket)
-
-    async def broadcast(self, match_id: str, message: dict):
-        for ws in self.active.get(match_id, []):
-            await ws.send_json(message)
-
-
-manager = ConnectionManager()
-
-
-async def _compute_summary(match: Match, session: AsyncSession) -> dict:
-    engine = get_engine(match.sport_id)
-    ruleset = None
-    if match.ruleset_id:
-        ruleset = await session.get(RuleSet, match.ruleset_id)
-    config = ruleset.config if ruleset else {}
-    state = engine.init_state(config)
-    result = await session.execute(select(ScoreEvent).where(ScoreEvent.match_id == match.id).order_by(ScoreEvent.created_at))
-    for ev in result.scalars().all():
-        evt = Event(type=ev.type, **ev.payload)
-        state = engine.apply(evt, state)
-    return engine.summary(state)
-
-
-@router.post("", response_model=MatchRead)
-async def create_match(match: MatchCreate, session: AsyncSession = Depends(get_session)):
-    db_match = Match(id=generate_ulid(), sport_id=match.sport_id, ruleset_id=match.ruleset_id, metadata=match.metadata)
-    session.add(db_match)
-    for p in match.participants:
-        mp = MatchParticipant(id=generate_ulid(), match_id=db_match.id, side=p.side, player_ids=p.player_ids)
+    for part in body.participants:
+        mp = MatchParticipant(
+            id=uuid.uuid4().hex,
+            match_id=mid,
+            side=part.side,
+            player_ids=part.playerIds,
+        )
         session.add(mp)
+
     await session.commit()
-    await session.refresh(db_match)
-    summary = await _compute_summary(db_match, session)
-    participants = [MatchParticipantCreate(side=mp.side, player_ids=mp.player_ids) for mp in db_match.participants]
-    return MatchRead(id=db_match.id, sport_id=db_match.sport_id, ruleset_id=db_match.ruleset_id, participants=participants, metadata=db_match.metadata, summary=summary)
+    return {"id": mid}
 
+# GET /api/v0/matches/{mid}
+@router.get("/{mid}")
+async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
+    m = (await session.execute(select(Match).where(Match.id == mid))).scalar_one_or_none()
+    if not m:
+        raise HTTPException(404, "match not found")
 
-@router.get("/{match_id}", response_model=MatchRead)
-async def get_match(match_id: str, session: AsyncSession = Depends(get_session)):
-    match = await session.get(Match, match_id)
-    if not match:
-        raise HTTPException(status_code=404, detail="Match not found")
-    summary = await _compute_summary(match, session)
-    participants = [MatchParticipantCreate(side=mp.side, player_ids=mp.player_ids) for mp in match.participants]
-    return MatchRead(id=match.id, sport_id=match.sport_id, ruleset_id=match.ruleset_id, participants=participants, metadata=match.metadata, summary=summary)
+    parts = (
+        await session.execute(select(MatchParticipant).where(MatchParticipant.match_id == mid))
+    ).scalars().all()
 
+    events = (
+        await session.execute(
+            select(ScoreEvent).where(ScoreEvent.match_id == mid).order_by(ScoreEvent.created_at)
+        )
+    ).scalars().all()
 
-@router.post("/{match_id}/events")
-async def add_event(match_id: str, body: ScoreEventCreate, session: AsyncSession = Depends(get_session)):
-    match = await session.get(Match, match_id)
-    if not match:
-        raise HTTPException(status_code=404, detail="Match not found")
-    event = body.event
-    db_event = ScoreEvent(id=generate_ulid(), match_id=match_id, type=event.type, payload=event.model_dump(exclude={"type"}))
-    session.add(db_event)
+    return {
+        "id": m.id,
+        "sport": m.sport_id,
+        "rulesetId": m.ruleset_id,
+        "bestOf": m.best_of,
+        "participants": [{"id": p.id, "side": p.side, "playerIds": p.player_ids} for p in parts],
+        "events": [
+            {"id": e.id, "type": e.type, "payload": e.payload, "createdAt": e.created_at.isoformat()}
+            for e in events
+        ],
+    }
+
+# POST /api/v0/matches/{mid}/events
+@router.post("/{mid}/events")
+async def append_event(mid: str, ev: EventIn, session: AsyncSession = Depends(get_session)):
+    m = (await session.execute(select(Match).where(Match.id == mid))).scalar_one_or_none()
+    if not m:
+        raise HTTPException(404, "match not found")
+
+    # For now just persist the event as-is; later we’ll validate via ruleset/scoring engine
+    e = ScoreEvent(
+        id=uuid.uuid4().hex,
+        match_id=mid,
+        type=ev.type,
+        payload=json.loads(ev.model_dump_json()),
+    )
+    session.add(e)
     await session.commit()
-    summary = await _compute_summary(match, session)
-    await manager.broadcast(match_id, {"summary": summary})
-    return {"summary": summary}
-
-
-@router.websocket("/{match_id}/stream")
-async def stream(match_id: str, websocket: WebSocket):
-    await manager.connect(match_id, websocket)
-    try:
-        while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        manager.disconnect(match_id, websocket)
+    return {"ok": True, "eventId": e.id}

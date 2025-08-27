@@ -1,37 +1,35 @@
-import asyncio
-
+import asyncio, uuid
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
+from app.models import Sport, RuleSet
+import os
 
-from app.db import SessionLocal
-from app.models import Sport, RuleSet, generate_ulid
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-SPORTS = [
-    ("padel", "Padel"),
-    ("bowling", "Bowling"),
-]
+engine = create_async_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
+Session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-RULESETS = [
-    ("padel", "default", {"goldenPoint": False, "tiebreakTo": 7, "sets": 3}),
-    ("padel", "golden-point", {"goldenPoint": True, "tiebreakTo": 7, "sets": 3}),
-    ("bowling", "standard", {"frames": 10, "tenthFrameBonus": True}),
-]
+async def main():
+    async with Session() as s:
+        existing = (await s.execute(select(Sport))).scalars().all()
+        have = {x.id for x in existing}
+        for sid, name in [("padel", "Padel"), ("bowling", "Bowling")]:
+            if sid not in have:
+                s.add(Sport(id=sid, name=name))
+        await s.commit()
 
-
-async def seed():
-    async with SessionLocal() as session:
-        for sid, name in SPORTS:
-            exists = await session.get(Sport, sid)
-            if not exists:
-                session.add(Sport(id=sid, name=name))
-        await session.commit()
-        for sport_id, name, config in RULESETS:
-            result = await session.execute(
-                select(RuleSet).where(RuleSet.sport_id == sport_id, RuleSet.name == name)
-            )
-            if not result.scalars().first():
-                session.add(RuleSet(id=generate_ulid(), sport_id=sport_id, name=name, config=config))
-        await session.commit()
-
+        # basic rulesets
+        rs = (await s.execute(select(RuleSet))).scalars().all()
+        if not rs:
+            s.add_all([
+                RuleSet(id=str(uuid.uuid4()), sport_id="padel", name="Padel default", config={"goldenPoint": False, "tiebreakTo": 7, "sets": 3}),
+                RuleSet(id=str(uuid.uuid4()), sport_id="padel", name="Padel golden point", config={"goldenPoint": True, "tiebreakTo": 7, "sets": 3}),
+                RuleSet(id=str(uuid.uuid4()), sport_id="bowling", name="Bowling standard", config={"frames": 10, "tenthFrameBonus": True}),
+            ])
+            await s.commit()
 
 if __name__ == "__main__":
-    asyncio.run(seed())
+    asyncio.run(main())

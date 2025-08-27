@@ -1,15 +1,11 @@
-from . import Event
-
-
+# stub – will implement full rules later
 def init_state(config: dict) -> dict:
-    return {"score": {"A": 0, "B": 0}, "config": config}
+    return {"config": config, "points": {"A": 0, "B": 0}}
 
-
-def apply(event: Event, state: dict) -> dict:
-    if event.type == "POINT" and event.by:
-        state["score"][event.by] += 1
+def apply(event: dict, state: dict) -> dict:
+    if event.get("type") == "POINT" and event.get("by") in ("A", "B"):
+        state["points"][event["by"]] += 1
     return state
 
-
 def summary(state: dict) -> dict:
-    return state["score"]
+    return {"detail": state}

@@ -1,74 +1,78 @@
-from datetime import datetime
-from typing import List, Optional
-
-import ulid
-from sqlalchemy import String, ForeignKey, JSON, DateTime, Float
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-
-
-def generate_ulid() -> str:
-    return str(ulid.new())
-
-
-class Base(DeclarativeBase):
-    pass
-
+from sqlalchemy.orm import relationship
+from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Integer, Float
+from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.sql import func
+from .db import Base
 
 class Sport(Base):
     __tablename__ = "sport"
-    id: Mapped[str] = mapped_column(String, primary_key=True)
-    name: Mapped[str] = mapped_column(String, unique=True)
-
+    id = Column(String, primary_key=True)   # e.g., "padel", "bowling"
+    name = Column(String, nullable=False, unique=True)
 
 class RuleSet(Base):
     __tablename__ = "ruleset"
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_ulid)
-    sport_id: Mapped[str] = mapped_column(ForeignKey("sport.id"))
-    name: Mapped[str] = mapped_column(String)
-    config: Mapped[dict] = mapped_column(JSON)
-    sport: Mapped["Sport"] = relationship()
+    id = Column(String, primary_key=True)
+    sport_id = Column(String, ForeignKey("sport.id"), nullable=False)
+    name = Column(String, nullable=False)
+    config = Column(JSON, nullable=False)
 
+class Club(Base):
+    __tablename__ = "club"
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False, unique=True)
 
 class Player(Base):
     __tablename__ = "player"
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_ulid)
-    name: Mapped[str] = mapped_column(String)
+    id = Column(String, primary_key=True)
+    user_id = Column(String, nullable=True)
+    name = Column(String, nullable=False)
+    club_id = Column(String, ForeignKey("club.id"), nullable=True)
 
+class Team(Base):
+    __tablename__ = "team"
+    id = Column(String, primary_key=True)
+    player_ids = Column(ARRAY(String), nullable=False)
+
+class Tournament(Base):
+    __tablename__ = "tournament"
+    id = Column(String, primary_key=True)
+    sport_id = Column(String, ForeignKey("sport.id"), nullable=False)
+    club_id = Column(String, ForeignKey("club.id"), nullable=True)
+    name = Column(String, nullable=False)
+
+class Stage(Base):
+    __tablename__ = "stage"
+    id = Column(String, primary_key=True)
+    tournament_id = Column(String, ForeignKey("tournament.id"), nullable=False)
+    type = Column(String, nullable=False)  # "round_robin" | "single_elim"
 
 class Match(Base):
     __tablename__ = "match"
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_ulid)
-    sport_id: Mapped[str] = mapped_column(ForeignKey("sport.id"))
-    ruleset_id: Mapped[Optional[str]] = mapped_column(ForeignKey("ruleset.id"), nullable=True)
-    metadata: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    sport: Mapped["Sport"] = relationship()
-    ruleset: Mapped[Optional["RuleSet"]] = relationship()
-    participants: Mapped[List["MatchParticipant"]] = relationship(back_populates="match")
-    events: Mapped[List["ScoreEvent"]] = relationship(back_populates="match")
-
+    id = Column(String, primary_key=True)
+    sport_id = Column(String, ForeignKey("sport.id"), nullable=False)
+    stage_id = Column(String, ForeignKey("stage.id"), nullable=True)
+    ruleset_id = Column(String, ForeignKey("ruleset.id"), nullable=True)
+    best_of = Column(Integer, nullable=True)
+    meta = Column(JSON, nullable=True)
 
 class MatchParticipant(Base):
     __tablename__ = "match_participant"
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_ulid)
-    match_id: Mapped[str] = mapped_column(ForeignKey("match.id"))
-    side: Mapped[str] = mapped_column(String)
-    player_ids: Mapped[list] = mapped_column(JSON)
-    match: Mapped["Match"] = relationship(back_populates="participants")
-
+    id = Column(String, primary_key=True)
+    match_id = Column(String, ForeignKey("match.id"), nullable=False)
+    side = Column(String, nullable=False)  # "A" | "B"
+    player_ids = Column(ARRAY(String), nullable=False)
 
 class ScoreEvent(Base):
     __tablename__ = "score_event"
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_ulid)
-    match_id: Mapped[str] = mapped_column(ForeignKey("match.id"))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    type: Mapped[str] = mapped_column(String)
-    payload: Mapped[dict] = mapped_column(JSON)
-    match: Mapped["Match"] = relationship(back_populates="events")
-
+    id = Column(String, primary_key=True)
+    match_id = Column(String, ForeignKey("match.id"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    type = Column(String, nullable=False)
+    payload = Column(JSON, nullable=False)
 
 class Rating(Base):
     __tablename__ = "rating"
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_ulid)
-    player_id: Mapped[str] = mapped_column(ForeignKey("player.id"))
-    sport_id: Mapped[str] = mapped_column(ForeignKey("sport.id"))
-    value: Mapped[float] = mapped_column(Float, default=1000.0)
+    id = Column(String, primary_key=True)
+    player_id = Column(String, ForeignKey("player.id"), nullable=False)
+    sport_id = Column(String, ForeignKey("sport.id"), nullable=False)
+    value = Column(Float, nullable=False, default=1000)

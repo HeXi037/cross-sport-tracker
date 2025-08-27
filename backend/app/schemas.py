@@ -1,69 +1,37 @@
-from typing import List, Optional, Literal
+from typing import List, Literal, Optional
 from pydantic import BaseModel
 
-
-class SportRead(BaseModel):
+# Basic DTOs
+class SportOut(BaseModel):
     id: str
     name: str
 
-    class Config:
-        orm_mode = True
-
-
-class RuleSetRead(BaseModel):
+class RuleSetOut(BaseModel):
     id: str
     sport_id: str
     name: str
     config: dict
 
-    class Config:
-        orm_mode = True
-
-
 class PlayerCreate(BaseModel):
     name: str
+    club_id: Optional[str] = None
 
-
-class PlayerRead(BaseModel):
+class PlayerOut(BaseModel):
     id: str
     name: str
+    club_id: Optional[str] = None
 
-    class Config:
-        orm_mode = True
-
-
-class MatchParticipantCreate(BaseModel):
+class Participant(BaseModel):
     side: Literal["A", "B"]
-    player_ids: List[str]
-
+    playerIds: List[str]
 
 class MatchCreate(BaseModel):
-    sport_id: str
-    ruleset_id: Optional[str] = None
-    participants: List[MatchParticipantCreate]
-    metadata: Optional[dict] = None
+    sport: str
+    rulesetId: Optional[str] = None
+    participants: List[Participant]
+    bestOf: Optional[int] = None
 
-
-class MatchRead(BaseModel):
-    id: str
-    sport_id: str
-    ruleset_id: Optional[str] = None
-    participants: List[MatchParticipantCreate]
-    metadata: Optional[dict] = None
-    summary: dict
-
-
-class Event(BaseModel):
+class EventIn(BaseModel):
     type: Literal["POINT", "ROLL", "UNDO"]
     by: Optional[Literal["A", "B"]] = None
     pins: Optional[int] = None
-
-
-class ScoreEventCreate(BaseModel):
-    event: Event
-
-
-class LeaderboardEntry(BaseModel):
-    player_id: str
-    player_name: str
-    value: float

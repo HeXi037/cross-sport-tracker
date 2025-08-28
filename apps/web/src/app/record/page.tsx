@@ -1,26 +1,31 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 
+interface Player {
+  id: string;
+  name: string;
+}
+
 export default function RecordPage() {
   const router = useRouter();
-  const [names, setNames] = useState({ a1: "", a2: "", b1: "", b2: "" });
-  const [suggest, setSuggest] = useState<Record<string, any[]>>({});
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [ids, setIds] = useState({ a1: "", a2: "", b1: "", b2: "" });
   const [sets, setSets] = useState([{ A: "", B: "" }]);
   const [playedAt, setPlayedAt] = useState("");
   const [location, setLocation] = useState("");
 
-  async function search(term: string, key: string) {
-    if (!term) return;
-    const res = await fetch(`${base}/v0/players?q=${encodeURIComponent(term)}`);
-    if (res.ok) setSuggest(s => ({ ...s, [key]: await res.json() }));
-  }
+  useEffect(() => {
+    fetch(`${base}/v0/players`)
+      .then(res => res.json())
+      .then(setPlayers)
+      .catch(() => {});
+  }, []);
 
-  function onNameChange(key: string, value: string) {
-    setNames({ ...names, [key]: value });
-    search(value, key);
+  function onIdChange(key: keyof typeof ids, value: string) {
+    setIds({ ...ids, [key]: value });
   }
 
   function onSetChange(idx: number, field: "A" | "B", value: string) {
@@ -37,19 +42,22 @@ export default function RecordPage() {
     const body = {
       sport: "padel",
       participants: [
-        { side: "A", playerNames: [names.a1, names.a2] },
-        { side: "B", playerNames: [names.b1, names.b2] }
+        { side: "A", playerIds: [ids.a1, ids.a2].filter(Boolean) },
+        { side: "B", playerIds: [ids.b1, ids.b2].filter(Boolean) }
       ],
       bestOf: 3,
       playedAt: playedAt ? new Date(playedAt).toISOString() : undefined,
       location: location || undefined,
     };
-    const res = await fetch(`${base}/v0/matches/by-name`, {
+    const res = await fetch(`${base}/v0/matches`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (!res.ok) return;
+    if (!res.ok) {
+      alert("Failed to create match");
+      return;
+    }
     const { id } = await res.json();
     const payload = { sets: sets.map(s => [Number(s.A), Number(s.B)]) };
     await fetch(`${base}/v0/matches/${id}/sets`, {
@@ -64,16 +72,32 @@ export default function RecordPage() {
     <main style={{ padding: 24 }}>
       <h1>Record Match</h1>
       <div>
-        <input value={names.a1} onChange={e => onNameChange("a1", e.target.value)} list="a1" placeholder="Player A1" />
-        <datalist id="a1">{(suggest.a1 || []).map(p => <option key={p.id} value={p.name} />)}</datalist>
-        <input value={names.a2} onChange={e => onNameChange("a2", e.target.value)} list="a2" placeholder="Player A2" />
-        <datalist id="a2">{(suggest.a2 || []).map(p => <option key={p.id} value={p.name} />)}</datalist>
+        <select value={ids.a1} onChange={e => onIdChange("a1", e.target.value)}>
+          <option value="">Player A1</option>
+          {players.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+        <select value={ids.a2} onChange={e => onIdChange("a2", e.target.value)}>
+          <option value="">Player A2</option>
+          {players.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
       </div>
       <div>
-        <input value={names.b1} onChange={e => onNameChange("b1", e.target.value)} list="b1" placeholder="Player B1" />
-        <datalist id="b1">{(suggest.b1 || []).map(p => <option key={p.id} value={p.name} />)}</datalist>
-        <input value={names.b2} onChange={e => onNameChange("b2", e.target.value)} list="b2" placeholder="Player B2" />
-        <datalist id="b2">{(suggest.b2 || []).map(p => <option key={p.id} value={p.name} />)}</datalist>
+        <select value={ids.b1} onChange={e => onIdChange("b1", e.target.value)}>
+          <option value="">Player B1</option>
+          {players.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+        <select value={ids.b2} onChange={e => onIdChange("b2", e.target.value)}>
+          <option value="">Player B2</option>
+          {players.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
       </div>
       <div>
         {sets.map((s, idx) => (
@@ -93,3 +117,4 @@ export default function RecordPage() {
     </main>
   );
 }
+

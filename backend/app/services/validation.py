@@ -47,3 +47,5 @@ def validate_set_scores(sets: List[Dict[str, Any]], max_sets: int = 5) -> None:
         if a == b:
             raise ValidationError(f"Set #{i} cannot be a tie.")
 
+    return None
+

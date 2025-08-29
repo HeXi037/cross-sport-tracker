@@ -186,6 +186,22 @@ async def record_sets_endpoint(mid: str, body: SetsIn, session: AsyncSession = D
     for old in existing:
         state = padel_engine.apply(old.payload, state)
 
+    # Validate set scores before applying them. Normalize any supported
+    # structure (dict, object with ``A``/``B`` attributes, or 2-item tuple)
+    # into a list of {"A": int, "B": int} for the validator.
+    try:
+        normalized_sets = []
+        for s in body.sets:
+            if isinstance(s, dict):
+                normalized_sets.append({"A": s.get("A"), "B": s.get("B")})
+            elif isinstance(s, (list, tuple)) and len(s) == 2:
+                normalized_sets.append({"A": s[0], "B": s[1]})
+            else:
+                normalized_sets.append({"A": getattr(s, "A", None), "B": getattr(s, "B", None)})
+        padel_engine.validate_set_scores(normalized_sets)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
     new_events, state = padel_engine.record_sets(body.sets, state)
 
     for ev in new_events:

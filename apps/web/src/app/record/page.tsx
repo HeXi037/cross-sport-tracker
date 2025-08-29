@@ -10,16 +10,12 @@ export default function RecordPage() {
 
   const [names, setNames] = useState({ a1: "", a2: "", b1: "", b2: "" });
   const [suggest, setSuggest] = useState<Record<string, any[]>>({});
-  const [sets, setSets] = useState<Array<{ A: string; B: string }>>([
-    { A: "", B: "" },
-  ]);
+  const [sets, setSets] = useState<Array<{ A: string; B: string }>>([{ A: "", B: "" }]);
   const [playedAt, setPlayedAt] = useState("");
   const [location, setLocation] = useState("");
 
   // QoL: debounce lookups so we don't spam the API
-  const timers = useRef<
-    Record<string, ReturnType<typeof setTimeout> | undefined>
-  >({});
+  const timers = useRef<Record<string, ReturnType<typeof setTimeout> | undefined>>({});
 
   async function search(term: string, key: string) {
     if (timers.current[key]) clearTimeout(timers.current[key]!);
@@ -27,9 +23,7 @@ export default function RecordPage() {
 
     timers.current[key] = setTimeout(async () => {
       try {
-        const res = await fetch(
-          `${base}/v0/players?q=${encodeURIComponent(term)}`
-        );
+        const res = await fetch(`${base}/v0/players?q=${encodeURIComponent(term)}`);
         if (!res.ok) return;
         const data = await res.json();
         setSuggest((s) => ({ ...s, [key]: data }));
@@ -59,12 +53,8 @@ export default function RecordPage() {
   async function submit() {
     // QoL: parse and drop incomplete/blank rows to avoid NaN payloads
     const parsedSets = sets
-      .map(
-        (s) => [parseInt(s.A, 10), parseInt(s.B, 10)] as [number, number]
-      )
-      .filter(
-        ([a, b]) => Number.isFinite(a) && Number.isFinite(b)
-      );
+      .map((s) => [parseInt(s.A, 10), parseInt(s.B, 10)] as [number, number])
+      .filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b));
 
     if (parsedSets.length === 0) {
       alert("Please enter at least one completed set score.");
@@ -203,11 +193,7 @@ export default function RecordPage() {
       <section style={{ marginBottom: 16 }}>
         <h2>Details</h2>
         <div style={{ display: "flex", gap: 8 }}>
-          <input
-            type="date"
-            value={playedAt}
-            onChange={(e) => setPlayedAt(e.target.value)}
-          />
+          <input type="date" value={playedAt} onChange={(e) => setPlayedAt(e.target.value)} />
           <input
             value={location}
             onChange={(e) => setLocation(e.target.value)}

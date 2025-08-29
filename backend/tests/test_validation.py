@@ -1,7 +1,5 @@
 import pytest
-
 from app.services.validation import validate_set_scores, ValidationError
-
 
 def test_accepts_valid_sets() -> None:
     validate_set_scores([{"A": 21, "B": 18}])

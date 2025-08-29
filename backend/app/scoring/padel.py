@@ -1,7 +1,7 @@
 """Padel scoring engine.
 Tracks points -> games -> sets using simplified tennis rules."""
 
-from typing import Dict, Iterable, Sequence, Tuple
+from typing import Dict
 
 
 def init_state(config: Dict) -> Dict:
@@ -42,7 +42,7 @@ def summary(state: Dict) -> Dict:
     }
 
 
-def validate_set_scores(set_scores: Iterable) -> None:
+def validate_set_scores(set_scores) -> None:
     """Validate a sequence of set score objects.
 
     Each element may be a mapping with ``A``/``B`` keys, a two-item tuple/list,
@@ -62,7 +62,7 @@ def validate_set_scores(set_scores: Iterable) -> None:
             raise ValueError(f"Set #{idx} scores must be integers")
 
 
-def record_sets(set_scores: Sequence[Tuple[int, int]], state=None):
+def record_sets(set_scores, state=None):
     """Generate point events to reach the provided set scores.
 
     ``set_scores`` is an iterable of ``(games_A, games_B)`` tuples.  The

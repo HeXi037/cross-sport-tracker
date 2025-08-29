@@ -7,24 +7,29 @@ class SportOut(BaseModel):
     id: str
     name: str
 
+
 class RuleSetOut(BaseModel):
     id: str
     sport_id: str
     name: str
     config: dict
 
+
 class PlayerCreate(BaseModel):
     name: str
     club_id: Optional[str] = None
+
 
 class PlayerOut(BaseModel):
     id: str
     name: str
     club_id: Optional[str] = None
 
+
 class Participant(BaseModel):
     side: Literal["A", "B"]
     playerIds: List[str]
+
 
 class MatchCreate(BaseModel):
     sport: str
@@ -47,10 +52,13 @@ class MatchCreateByName(BaseModel):
     bestOf: Optional[int] = None
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
+    createMissing: bool = False  # opt-in auto-create for unknown player names
 
 
 class SetsIn(BaseModel):
+    # API expects 2-item arrays (tuples) per set: [[A,B], ...]
     sets: List[Tuple[int, int]]
+
 
 class EventIn(BaseModel):
     type: Literal["POINT", "ROLL", "UNDO"]

@@ -16,6 +16,7 @@ from ..services.validation import validate_set_scores, ValidationError
 # Resource-only prefix; versioning is added in main.py
 router = APIRouter(prefix="/matches", tags=["matches"])
 
+
 # GET /api/v0/matches
 @router.get("")
 async def list_matches(session: AsyncSession = Depends(get_session)):
@@ -30,6 +31,7 @@ async def list_matches(session: AsyncSession = Depends(get_session)):
         }
         for m in matches
     ]
+
 
 # POST /api/v0/matches
 @router.post("")
@@ -59,22 +61,32 @@ async def create_match(body: MatchCreate, session: AsyncSession = Depends(get_se
     return {"id": mid}
 
 
+# POST /api/v0/matches/by-name
 @router.post("/by-name")
 async def create_match_by_name(body: MatchCreateByName, session: AsyncSession = Depends(get_session)):
-    name_to_id = {}
+    name_to_id: dict[str, str] = {}
     names = [n for part in body.participants for n in part.playerNames]
     if names:
-        rows = (
-            await session.execute(select(Player).where(Player.name.in_(names)))
-        ).scalars().all()
+        rows = (await session.execute(select(Player).where(Player.name.in_(names)))).scalars().all()
         name_to_id = {p.name: p.id for p in rows}
+
     missing = [n for n in names if n not in name_to_id]
     if missing:
-        raise HTTPException(400, f"unknown players: {', '.join(missing)}")
-    parts = []
+        if not body.createMissing:
+            raise HTTPException(400, f"unknown players: {', '.join(missing)}")
+        # Create missing players (assumes name uniqueness at DB level)
+        for n in missing:
+            session.add(Player(id=uuid.uuid4().hex, name=n))
+        await session.commit()
+        # Refresh mapping
+        rows = (await session.execute(select(Player).where(Player.name.in_(names)))).scalars().all()
+        name_to_id = {p.name: p.id for p in rows}
+
+    parts: list[Participant] = []
     for part in body.participants:
         ids = [name_to_id[n] for n in part.playerNames]
         parts.append(Participant(side=part.side, playerIds=ids))
+
     mc = MatchCreate(
         sport=body.sport,
         rulesetId=body.rulesetId,
@@ -84,6 +96,7 @@ async def create_match_by_name(body: MatchCreateByName, session: AsyncSession = 
         location=body.location,
     )
     return await create_match(mc, session)
+
 
 # GET /api/v0/matches/{mid}
 @router.get("/{mid}")
@@ -117,6 +130,7 @@ async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
         "summary": m.details,
     }
 
+
 # POST /api/v0/matches/{mid}/events
 @router.post("/{mid}/events")
 async def append_event(mid: str, ev: EventIn, session: AsyncSession = Depends(get_session)):
@@ -134,6 +148,7 @@ async def append_event(mid: str, ev: EventIn, session: AsyncSession = Depends(ge
             select(ScoreEvent).where(ScoreEvent.match_id == mid).order_by(ScoreEvent.created_at)
         )
     ).scalars().all()
+
     state = engine.init_state({})
     for old in existing:
         state = engine.apply(old.payload, state)
@@ -157,6 +172,7 @@ async def append_event(mid: str, ev: EventIn, session: AsyncSession = Depends(ge
     return {"ok": True, "eventId": e.id}
 
 
+# POST /api/v0/matches/{mid}/sets
 @router.post("/{mid}/sets")
 async def record_sets_endpoint(mid: str, body: SetsIn, session: AsyncSession = Depends(get_session)):
     m = (await session.execute(select(Match).where(Match.id == mid))).scalar_one_or_none()
@@ -164,15 +180,11 @@ async def record_sets_endpoint(mid: str, body: SetsIn, session: AsyncSession = D
         raise HTTPException(404, "match not found")
     if m.sport_id != "padel":
         raise HTTPException(400, "set recording only supported for padel")
-    # Validate set scores before applying them.
-    # Normalize Pydantic models (with attributes A/B) or dicts to a list[dict] for the validator.
+
+    # Normalize tuple-style sets to dicts so our validator (which expects A/B keys) is satisfied.
+    # SetsIn guarantees each item is a 2-tuple[int, int].
+    normalized_sets = [{"A": s[0], "B": s[1]} for s in body.sets]
     try:
-        normalized_sets = []
-        for s in body.sets:
-            if isinstance(s, dict):
-                normalized_sets.append({"A": s.get("A"), "B": s.get("B")})
-            else:
-                normalized_sets.append({"A": getattr(s, "A", None), "B": getattr(s, "B", None)})
         validate_set_scores(normalized_sets)
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
@@ -182,25 +194,10 @@ async def record_sets_endpoint(mid: str, body: SetsIn, session: AsyncSession = D
             select(ScoreEvent).where(ScoreEvent.match_id == mid).order_by(ScoreEvent.created_at)
         )
     ).scalars().all()
+
     state = padel_engine.init_state({})
     for old in existing:
         state = padel_engine.apply(old.payload, state)
-
-    # Validate set scores before applying them. Normalize any supported
-    # structure (dict, object with ``A``/``B`` attributes, or 2-item tuple)
-    # into a list of {"A": int, "B": int} for the validator.
-    try:
-        normalized_sets = []
-        for s in body.sets:
-            if isinstance(s, dict):
-                normalized_sets.append({"A": s.get("A"), "B": s.get("B")})
-            elif isinstance(s, (list, tuple)) and len(s) == 2:
-                normalized_sets.append({"A": s[0], "B": s[1]})
-            else:
-                normalized_sets.append({"A": getattr(s, "A", None), "B": getattr(s, "B", None)})
-        padel_engine.validate_set_scores(normalized_sets)
-    except ValueError as exc:
-        raise HTTPException(400, str(exc))
 
     new_events, state = padel_engine.record_sets(body.sets, state)
 

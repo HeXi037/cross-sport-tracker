@@ -37,12 +37,13 @@ services:
       - PGPASSWORD=${POSTGRES_PASSWORD}   # raw (not URL-encoded)
       - PGUSER=${POSTGRES_USER}
       - PGDATABASE=${POSTGRES_DB}
+      - POSTGRES_HOST=${POSTGRES_HOST:-postgresql16}
     volumes:
       - /mnt/user/appdata/cross-sport-tracker/backups:/backups
     entrypoint: >
       sh -c 'while :; do
                now=$$(date +%F_%H-%M-%S);
-               pg_dump -h postgres -U $$PGUSER $$PGDATABASE > /backups/backup_$$now.sql;
+               pg_dump -h $${POSTGRES_HOST:-postgresql16} -U $$PGUSER $$PGDATABASE > /backups/backup_$$now.sql;
                sleep 86400;
              done'
     restart: unless-stopped

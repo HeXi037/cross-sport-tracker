@@ -11,6 +11,7 @@ from ..models import Match, MatchParticipant, Player, ScoreEvent
 from ..schemas import MatchCreate, MatchCreateByName, Participant, EventIn, SetsIn
 from .streams import broadcast
 from ..scoring import padel as padel_engine
+from ..services.validation import validate_set_scores, ValidationError
 
 # Resource-only prefix; versioning is added in main.py
 router = APIRouter(prefix="/matches", tags=["matches"])
@@ -163,6 +164,18 @@ async def record_sets_endpoint(mid: str, body: SetsIn, session: AsyncSession = D
         raise HTTPException(404, "match not found")
     if m.sport_id != "padel":
         raise HTTPException(400, "set recording only supported for padel")
+    # Validate set scores before applying them.
+    # Normalize Pydantic models (with attributes A/B) or dicts to a list[dict] for the validator.
+    try:
+        normalized_sets = []
+        for s in body.sets:
+            if isinstance(s, dict):
+                normalized_sets.append({"A": s.get("A"), "B": s.get("B")})
+            else:
+                normalized_sets.append({"A": getattr(s, "A", None), "B": getattr(s, "B", None)})
+        validate_set_scores(normalized_sets)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
     existing = (
         await session.execute(

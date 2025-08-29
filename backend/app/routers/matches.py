@@ -11,6 +11,7 @@ from ..models import Match, MatchParticipant, Player, ScoreEvent
 from ..schemas import MatchCreate, MatchCreateByName, Participant, EventIn, SetsIn
 from .streams import broadcast
 from ..scoring import padel as padel_engine
+from ..services.validation import validate_set_scores, ValidationError
 
 # Resource-only prefix; versioning is added in main.py
 router = APIRouter(prefix="/matches", tags=["matches"])
@@ -164,18 +165,8 @@ async def record_sets_endpoint(mid: str, body: SetsIn, session: AsyncSession = D
     if m.sport_id != "padel":
         raise HTTPException(400, "set recording only supported for padel")
 
-    existing = (
-        await session.execute(
-            select(ScoreEvent).where(ScoreEvent.match_id == mid).order_by(ScoreEvent.created_at)
-        )
-    ).scalars().all()
-    state = padel_engine.init_state({})
-    for old in existing:
-        state = padel_engine.apply(old.payload, state)
-
-    # Validate set scores before applying them. Normalize any supported
-    # structure (dict, object with ``A``/``B`` attributes, or 2-item tuple)
-    # into a list of {"A": int, "B": int} for the validator.
+    # Validate set scores before applying them.
+    # Normalize Pydantic models, dicts, or 2-item tuples into list[dict] for the validator.
     try:
         normalized_sets = []
         for s in body.sets:
@@ -185,9 +176,18 @@ async def record_sets_endpoint(mid: str, body: SetsIn, session: AsyncSession = D
                 normalized_sets.append({"A": s[0], "B": s[1]})
             else:
                 normalized_sets.append({"A": getattr(s, "A", None), "B": getattr(s, "B", None)})
-        padel_engine.validate_set_scores(normalized_sets)
-    except ValueError as exc:
-        raise HTTPException(400, str(exc))
+        validate_set_scores(normalized_sets)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    existing = (
+        await session.execute(
+            select(ScoreEvent).where(ScoreEvent.match_id == mid).order_by(ScoreEvent.created_at)
+        )
+    ).scalars().all()
+    state = padel_engine.init_state({})
+    for old in existing:
+        state = padel_engine.apply(old.payload, state)
 
     new_events, state = padel_engine.record_sets(body.sets, state)
 

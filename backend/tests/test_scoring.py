@@ -22,3 +22,8 @@ def test_record_sets():
     events, state = padel.record_sets([(6, 4), (6, 2)])
     assert state["sets"]["A"] == 2
     assert len(events) == (6 + 4 + 6 + 2) * 4
+
+
+def test_validate_tuple_set_scores():
+    # Should not raise when provided with tuple-based scores
+    padel.validate_set_scores([(6, 4), (6, 2)])

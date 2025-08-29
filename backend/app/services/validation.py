@@ -1,6 +1,5 @@
 from typing import Any, Dict, List
 
-
 class ValidationError(Exception):
     """Raised when submitted set scores are invalid."""
 

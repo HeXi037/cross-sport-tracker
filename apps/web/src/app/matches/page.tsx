@@ -244,8 +244,8 @@ export default function MatchPage({ params }: { params: { mid: string } }) {
             <h2 style={{ marginTop: 0 }}>Add Event</h2>
             {match.sport === "padel" && (
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button disabled={posting} onClick={() => sendPadelPoint("A")}>Point A</button>
-                <button disabled={posting} onClick={() => sendPadelPoint("B")}>Point B</button>
+                <button className="btn" disabled={posting} onClick={() => sendPadelPoint("A")}>Point A</button>
+                <button className="btn" disabled={posting} onClick={() => sendPadelPoint("B")}>Point B</button>
               </div>
             )}
 
@@ -290,6 +290,7 @@ function BowlingControls({
   return (
     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
       <input
+        className="input"
         type="number"
         min={0}
         max={10}
@@ -300,6 +301,7 @@ function BowlingControls({
         aria-label="Pins knocked down"
       />
       <button
+        className="btn"
         disabled={disabled || pins === "" || Number(pins) < 0 || Number(pins) > 10}
         onClick={() => {
           const n = Number(pins);

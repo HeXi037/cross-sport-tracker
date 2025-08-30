@@ -41,8 +41,8 @@ export default function MatchDetail({ params }: { params: { mid: string } }) {
     <main style={{ padding: 24 }}>
       <h1>Match {mid}</h1>
       <div>Summary: {JSON.stringify(summary)}</div>
-      <button onClick={() => send("A")}>Point A</button>
-      <button onClick={() => send("B")}>Point B</button>
+      <button className="btn" onClick={() => send("A")}>Point A</button>
+      <button className="btn" onClick={() => send("B")}>Point B</button>
       <ul>
         {events.map((e: any) => <li key={e.id}>{e.type || e.event?.type} {JSON.stringify(e.payload || e)}</li>)}
       </ul>

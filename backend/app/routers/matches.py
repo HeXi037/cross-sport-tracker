@@ -30,8 +30,17 @@ router = APIRouter(prefix="/matches", tags=["matches"])
 
 # GET /api/v0/matches
 @router.get("", response_model=list[MatchSummaryOut])
-async def list_matches(session: AsyncSession = Depends(get_session)):
-    matches = (await session.execute(select(Match))).scalars().all()
+async def list_matches(
+    playerId: str | None = None, session: AsyncSession = Depends(get_session)
+):
+    stmt = select(Match)
+    if playerId:
+        stmt = (
+            stmt.join(MatchParticipant)
+            .where(MatchParticipant.player_ids.any(playerId))
+            .distinct()
+        )
+    matches = (await session.execute(stmt)).scalars().all()
     return [
         MatchSummaryOut(
             id=m.id,

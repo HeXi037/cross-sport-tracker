@@ -4,6 +4,14 @@ import Link from 'next/link';
 import { apiFetch } from '../lib/api';
 
 type Sport = { id: string; name: string };
+type MatchRow = {
+  id: string;
+  sport: string;
+  bestOf: number | null;
+  playedAt: string | null;
+  location: string | null;
+};
+
 const sportIcons: Record<string, string> = {
   padel: '🎾',
   bowling: '🎳',
@@ -11,6 +19,7 @@ const sportIcons: Record<string, string> = {
 
 export default async function HomePage() {
   let sports: Sport[] = [];
+  let matches: MatchRow[] = [];
   try {
     const r = await apiFetch('/v0/sports', { cache: 'no-store' });
     if (r.ok) {
@@ -19,18 +28,26 @@ export default async function HomePage() {
   } catch {
     // ignore; render with empty list
   }
+  try {
+    const r = await apiFetch('/v0/matches', { cache: 'no-store' });
+    if (r.ok) {
+      matches = (await r.json()) as MatchRow[];
+    }
+  } catch {
+    // ignore; render with empty list
+  }
 
   return (
-    <main className="mx-auto max-w-3xl p-6 space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold">cross-sport-tracker</h1>
-        <p className="text-gray-700">Padel + Bowling MVP</p>
-      </header>
+    <main className="container">
+      <section className="card">
+        <h1 className="heading">cross-sport-tracker</h1>
+        <p>Padel + Bowling MVP</p>
+      </section>
 
-      <section>
-        <h2 className="mb-2 text-lg font-medium">Sports</h2>
+      <section className="section">
+        <h2 className="heading">Sports</h2>
         {sports.length === 0 ? (
-          <p className="text-gray-600">No sports found.</p>
+          <p>No sports found.</p>
         ) : (
           <ul className="sport-list">
             {sports.map((s) => {
@@ -44,7 +61,7 @@ export default async function HomePage() {
                   ) : (
                     s.name
                   )}
-                  <span className="text-gray-500">{s.id}</span>
+                  <span className="sport-id">{s.id}</span>
                 </li>
               );
             })}
@@ -52,11 +69,27 @@ export default async function HomePage() {
         )}
       </section>
 
-      <nav className="flex gap-3">
-        <Link href="/players">Players</Link>
-        <Link href="/matches">Matches</Link>
-        <Link href="/record">Record</Link>
-      </nav>
+      <section className="section">
+        <h2 className="heading">Recent Matches</h2>
+        {matches.length === 0 ? (
+          <p>No matches recorded yet.</p>
+        ) : (
+          <ul className="match-list">
+            {matches.slice(0, 5).map((m) => (
+              <li key={m.id} className="card match-item">
+                <div>
+                  <Link href={`/matches/${m.id}`}>Match {m.id}</Link>
+                </div>
+                <div className="match-meta">
+                  {m.sport} · Best of {m.bestOf ?? '—'} ·{' '}
+                  {m.playedAt ? new Date(m.playedAt).toLocaleString() : '—'}
+                  {m.location ? ` · ${m.location}` : ''}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </main>
   );
 }

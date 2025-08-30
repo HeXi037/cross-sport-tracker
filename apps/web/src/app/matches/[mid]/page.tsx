@@ -30,6 +30,8 @@ type MatchDetail = {
 const BASE: string =
   (process.env.NEXT_PUBLIC_API_BASE_URL as string | undefined) ?? '/api';
 
+type PlayerMap = Record<string, string>;
+
 // type guard for numbers
 const isNumber = (x: unknown): x is number => typeof x === 'number';
 
@@ -47,7 +49,7 @@ export default function MatchDetailPage({
   params: { mid: string };
 }) {
   const { mid } = params;
-  const [data, setData] = React.useState<MatchDetail | null>(null);
+  const [data, setData] = React.useState<(MatchDetail & { names: PlayerMap }) | null>(null);
   const [loading, setLoading] = React.useState<boolean>(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -60,7 +62,18 @@ export default function MatchDetailPage({
         throw new Error(`HTTP ${r.status}`);
       }
       const j = (await r.json()) as MatchDetail;
-      setData(j);
+      const ids = Array.from(new Set(j.participants.flatMap((p) => p.playerIds)));
+      const names: PlayerMap = {};
+      await Promise.all(
+        ids.map(async (pid) => {
+          const pr = await fetch(`${BASE}/v0/players/${pid}`, { cache: 'no-store' });
+          if (pr.ok) {
+            const pj = (await pr.json()) as { id: string; name: string };
+            names[pj.id] = pj.name;
+          }
+        })
+      );
+      setData({ ...j, names });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load');
     } finally {
@@ -102,12 +115,19 @@ export default function MatchDetailPage({
     );
   }
 
+  const nameList = (ids: string[]) => ids.map((id) => data.names[id] ?? id).join(' & ');
+  const sideA = data.participants.find((p) => p.side === 'A');
+  const sideB = data.participants.find((p) => p.side === 'B');
+
   return (
     <main className="mx-auto max-w-3xl p-6 space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Match {data.id}</h1>
+        <h1 className="text-2xl font-semibold">
+          {nameList(sideA?.playerIds ?? [])} vs {nameList(sideB?.playerIds ?? [])}
+        </h1>
         <p className="text-sm text-gray-600">
-          Sport: <strong>{data.sport}</strong>
+          Match ID: <strong>{data.id}</strong>
+          {' · '}Sport: <strong>{data.sport}</strong>
           {' · '}Best of: <strong>{data.bestOf ?? '—'}</strong>
           {' · '}Played:{' '}
           <strong>{data.playedAt ? new Date(data.playedAt).toLocaleString() : '—'}</strong>
@@ -120,7 +140,7 @@ export default function MatchDetailPage({
         <ul className="list-disc pl-6">
           {data.participants.map((p) => (
             <li key={p.id}>
-              Side {p.side} — players: {p.playerIds.join(', ')}
+              Side {p.side} — players: {p.playerIds.map((id) => data.names[id] ?? id).join(', ')}
             </li>
           ))}
         </ul>

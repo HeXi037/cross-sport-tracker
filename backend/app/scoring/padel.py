@@ -42,32 +42,6 @@ def summary(state: Dict) -> Dict:
     }
 
 
-def validate_set_scores(set_scores) -> None:
-    """Validate a sequence of set score objects.
-
-    Each element may be a mapping with ``A``/``B`` keys, a two-item tuple/list,
-    or an object exposing ``A`` and ``B`` attributes.  All values must be
-    integers.  Raises ``ValueError`` with a descriptive message on failure.
-    """
-
-    for idx, s in enumerate(set_scores, start=1):
-        if isinstance(s, dict):
-            a, b = s.get("A"), s.get("B")
-        elif isinstance(s, (list, tuple)) and len(s) == 2:
-            a, b = s[0], s[1]
-        else:
-            a, b = getattr(s, "A", None), getattr(s, "B", None)
-
-        if not isinstance(a, int) or not isinstance(b, int):
-            raise ValueError(f"Set #{idx} scores must be integers")
-
-        if a < 0 or b < 0:
-            raise ValueError(f"Set #{idx} scores must be non-negative")
-
-        if a == b:
-            raise ValueError(f"Set #{idx} scores cannot be tied")
-
-
 def record_sets(set_scores, state=None):
     """Generate point events to reach the provided set scores.
 

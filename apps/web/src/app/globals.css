@@ -103,6 +103,27 @@ a {
   gap: 0.5rem;
 }
 
+.sport-id {
+  color: #555;
+  font-size: 0.9rem;
+}
+
+/* Match list */
+.match-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.match-item {
+  margin-bottom: 8px;
+}
+
+.match-meta {
+  color: #555;
+  font-size: 0.9rem;
+}
+
 .mt-8 {
   margin-top: 8px;
 }

@@ -3,6 +3,7 @@ import pytest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from app.scoring import padel, bowling
+from app.services import validate_set_scores, ValidationError
 
 
 def test_padel_game_win():
@@ -26,16 +27,11 @@ def test_record_sets():
     assert len(events) == (6 + 4 + 6 + 2) * 4
 
 
-def test_validate_tuple_set_scores():
-    # Should not raise when provided with tuple-based scores
-    padel.validate_set_scores([(6, 4), (6, 2)])
-
-
 def test_validate_set_scores_negative():
-    with pytest.raises(ValueError, match="non-negative"):
-        padel.validate_set_scores([(6, -4)])
+    with pytest.raises(ValidationError, match=">= 0"):
+        validate_set_scores([{"A": 6, "B": -4}])
 
 
 def test_validate_set_scores_tie():
-    with pytest.raises(ValueError, match="cannot be tied"):
-        padel.validate_set_scores([(4, 4)])
+    with pytest.raises(ValidationError, match="cannot be a tie"):
+        validate_set_scores([{"A": 4, "B": 4}])

@@ -23,9 +23,10 @@ export default function RecordPage() {
   useEffect(() => {
     async function loadPlayers() {
       try {
-        const res = await fetch(`${base}/v0/players`);
+        const res = await fetch(`${base}/v0/players?limit=100&offset=0`);
         if (res.ok) {
-          setPlayers(await res.json());
+          const data = await res.json();
+          setPlayers(data.players);
         }
       } catch {
         // ignore errors

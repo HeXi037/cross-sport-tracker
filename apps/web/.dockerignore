@@ -1,0 +1,24 @@
+# Ignore node dependencies
+node_modules
+
+# Ignore Next.js build output
+.next
+
+# Ignore logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Ignore coverage and build artifacts
+coverage
+dist
+
+# Ignore IDE files
+.vscode
+.DS_Store
+
+# Ignore git metadata
+.git
+.gitignore

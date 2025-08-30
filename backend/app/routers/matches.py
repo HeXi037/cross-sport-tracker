@@ -4,7 +4,7 @@ import json
 import importlib
 from collections import Counter
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
@@ -17,6 +17,7 @@ from ..schemas import (
     SetsIn,
     MatchIdOut,
     MatchSummaryOut,
+    MatchListOut,
     MatchOut,
     ParticipantOut,
     ScoreEventOut,
@@ -29,10 +30,25 @@ from ..services.validation import validate_set_scores, ValidationError
 router = APIRouter(prefix="/matches", tags=["matches"])
 
 # GET /api/v0/matches
-@router.get("", response_model=list[MatchSummaryOut])
-async def list_matches(session: AsyncSession = Depends(get_session)):
-    matches = (await session.execute(select(Match))).scalars().all()
-    return [
+@router.get("", response_model=MatchListOut)
+async def list_matches(
+    limit: int = 50,
+    cursor: str | None = None,
+    offset: int = 0,
+    session: AsyncSession = Depends(get_session),
+):
+    stmt = select(Match)
+    count_stmt = select(func.count()).select_from(Match)
+    total = (await session.execute(count_stmt)).scalar()
+    if cursor:
+        stmt = stmt.where(Match.id > cursor)
+        offset_val = 0
+    else:
+        stmt = stmt.offset(offset)
+        offset_val = offset
+    stmt = stmt.order_by(Match.id).limit(limit)
+    rows = (await session.execute(stmt)).scalars().all()
+    matches = [
         MatchSummaryOut(
             id=m.id,
             sport=m.sport_id,
@@ -40,8 +56,16 @@ async def list_matches(session: AsyncSession = Depends(get_session)):
             playedAt=m.played_at,
             location=m.location,
         )
-        for m in matches
+        for m in rows
     ]
+    next_cursor = rows[-1].id if len(rows) == limit else None
+    return MatchListOut(
+        matches=matches,
+        total=total,
+        limit=limit,
+        offset=offset_val,
+        nextCursor=next_cursor,
+    )
 
 # POST /api/v0/matches
 @router.post("", response_model=MatchIdOut)

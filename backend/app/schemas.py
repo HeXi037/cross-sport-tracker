@@ -93,6 +93,14 @@ class MatchSummaryOut(BaseModel):
     location: Optional[str] = None
 
 
+class MatchListOut(BaseModel):
+    matches: List[MatchSummaryOut]
+    total: int
+    limit: int
+    offset: int
+    nextCursor: Optional[str] = None
+
+
 class MatchOut(MatchSummaryOut):
     rulesetId: Optional[str] = None
     participants: List[ParticipantOut]

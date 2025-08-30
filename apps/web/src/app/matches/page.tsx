@@ -9,15 +9,23 @@ type MatchRow = {
   location: string | null;
 };
 
-async function getMatches(): Promise<MatchRow[]> {
-  const r = await apiFetch("/v0/matches", { cache: "no-store" });
+type MatchListOut = {
+  matches: MatchRow[];
+  total: number;
+  limit: number;
+  offset: number;
+  nextCursor?: string | null;
+};
+
+async function getMatches(): Promise<MatchListOut> {
+  const r = await apiFetch("/v0/matches?limit=50", { cache: "no-store" });
   if (!r.ok) throw new Error(`Failed to load matches: ${r.status}`);
-  return (await r.json()) as MatchRow[];
+  return (await r.json()) as MatchListOut;
 }
 
 export default async function MatchesPage() {
   try {
-    const matches = await getMatches();
+    const { matches } = await getMatches();
 
     return (
       <main className="mx-auto max-w-3xl p-6 space-y-4">

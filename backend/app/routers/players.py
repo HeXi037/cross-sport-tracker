@@ -31,3 +31,11 @@ async def list_players(q: str = "", session: AsyncSession = Depends(get_session)
         stmt = stmt.where(Player.name.ilike(f"%{q}%"))
     rows = (await session.execute(stmt)).scalars().all()
     return [{"id": p.id, "name": p.name, "club_id": p.club_id} for p in rows]
+
+# GET /api/v0/players/{player_id}
+@router.get("/{player_id}")
+async def get_player(player_id: str, session: AsyncSession = Depends(get_session)):
+    p = await session.get(Player, player_id)
+    if not p:
+        raise HTTPException(404, "player not found")
+    return {"id": p.id, "name": p.name, "club_id": p.club_id}

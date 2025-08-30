@@ -4,9 +4,15 @@ import { useEffect, useState } from "react";
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 const sports = ["padel", "bowling"];
 
+interface Leader {
+  playerId: string;
+  playerName: string;
+  rating: number;
+}
+
 export default function LeaderboardPage() {
   const [sport, setSport] = useState<string>("padel");
-  const [leaders, setLeaders] = useState<any[]>([]);
+  const [leaders, setLeaders] = useState<Leader[]>([]);
   const [loading, setLoading] = useState(false);
 
   async function load() {
@@ -15,7 +21,7 @@ export default function LeaderboardPage() {
       const res = await fetch(`${base}/v0/leaderboards?sport=${sport}`, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
-        setLeaders(data.leaders || []);
+        setLeaders((data.leaders || []) as Leader[]);
       } else {
         setLeaders([]);
       }
@@ -33,8 +39,8 @@ export default function LeaderboardPage() {
   }, [sport]);
 
   return (
-    <main style={{ padding: 24 }}>
-      <h1>Leaderboard</h1>
+    <main className="container">
+      <h1 className="heading">Leaderboard</h1>
       <label>
         Sport:
         <select
@@ -95,9 +101,7 @@ export default function LeaderboardPage() {
             {leaders.map((l, i) => (
               <tr key={l.playerId}>
                 <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{i + 1}</td>
-                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>
-                  {l.playerName}
-                </td>
+                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{l.playerName}</td>
                 <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{l.rating}</td>
               </tr>
             ))}

@@ -5,14 +5,18 @@ import { useRouter } from "next/navigation";
 
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 
+interface Player {
+  id: string;
+  name: string;
+  club_id?: string | null;
+}
+
 export default function RecordPage() {
   const router = useRouter();
 
-  const [players, setPlayers] = useState<any[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
   const [ids, setIds] = useState({ a1: "", a2: "", b1: "", b2: "" });
-  const [sets, setSets] = useState<Array<{ A: string; B: string }>>([
-    { A: "", B: "" },
-  ]);
+  const [sets, setSets] = useState<Array<{ A: string; B: string }>>([{ A: "", B: "" }]);
   const [playedAt, setPlayedAt] = useState("");
   const [location, setLocation] = useState("");
 
@@ -47,14 +51,9 @@ export default function RecordPage() {
   }
 
   async function submit() {
-    // QoL: parse and drop incomplete/blank rows to avoid NaN payloads
     const parsedSets = sets
-      .map(
-        (s) => [parseInt(s.A, 10), parseInt(s.B, 10)] as [number, number]
-      )
-      .filter(
-        ([a, b]) => Number.isFinite(a) && Number.isFinite(b)
-      );
+      .map((s) => [parseInt(s.A, 10), parseInt(s.B, 10)] as [number, number])
+      .filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b));
 
     if (parsedSets.length === 0) {
       alert("Please enter at least one completed set score.");
@@ -66,7 +65,6 @@ export default function RecordPage() {
       return;
     }
 
-    // 1) Create the match using player IDs
     const body = {
       sport: "padel",
       participants: [
@@ -89,7 +87,6 @@ export default function RecordPage() {
     }
     const { id } = (await createRes.json()) as { id: string };
 
-    // 2) Push the set results
     const setsRes = await fetch(`${base}/v0/matches/${id}/sets`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -104,20 +101,20 @@ export default function RecordPage() {
   }
 
   return (
-    <main style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
-      <h1>Record Match</h1>
+    <main className="container">
+      <h1 className="heading">Record Match</h1>
 
-      <section style={{ marginBottom: 16 }}>
-        <h2>Players</h2>
+      <section className="section">
+        <h2 className="heading">Players</h2>
         <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
           <div>
-              <select
-                className="input"
-                value={ids.a1}
-                onChange={(e) => onIdChange("a1", e.target.value)}
-              >
+            <select
+              className="input"
+              value={ids.a1}
+              onChange={(e) => onIdChange("a1", e.target.value)}
+            >
               <option value="">Player A1</option>
-              {players.map((p: any) => (
+              {players.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
@@ -125,13 +122,13 @@ export default function RecordPage() {
             </select>
           </div>
           <div>
-              <select
-                className="input"
-                value={ids.a2}
-                onChange={(e) => onIdChange("a2", e.target.value)}
-              >
+            <select
+              className="input"
+              value={ids.a2}
+              onChange={(e) => onIdChange("a2", e.target.value)}
+            >
               <option value="">Player A2</option>
-              {players.map((p: any) => (
+              {players.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
@@ -139,13 +136,13 @@ export default function RecordPage() {
             </select>
           </div>
           <div>
-              <select
-                className="input"
-                value={ids.b1}
-                onChange={(e) => onIdChange("b1", e.target.value)}
-              >
+            <select
+              className="input"
+              value={ids.b1}
+              onChange={(e) => onIdChange("b1", e.target.value)}
+            >
               <option value="">Player B1</option>
-              {players.map((p: any) => (
+              {players.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
@@ -153,13 +150,13 @@ export default function RecordPage() {
             </select>
           </div>
           <div>
-              <select
-                className="input"
-                value={ids.b2}
-                onChange={(e) => onIdChange("b2", e.target.value)}
-              >
+            <select
+              className="input"
+              value={ids.b2}
+              onChange={(e) => onIdChange("b2", e.target.value)}
+            >
               <option value="">Player B2</option>
-              {players.map((p: any) => (
+              {players.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
@@ -169,60 +166,53 @@ export default function RecordPage() {
         </div>
       </section>
 
-      <section style={{ marginBottom: 16 }}>
-        <h2>Sets</h2>
+      <section className="section">
+        <h2 className="heading">Sets</h2>
         <div style={{ display: "grid", gap: 8 }}>
           {sets.map((s, idx) => (
             <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input
-                  className="input"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={s.A}
-                  onChange={(e) => onSetChange(idx, "A", e.target.value)}
-                  placeholder="A"
-                  style={{ width: 64 }}
-                />
-              <span>-</span>
-                <input
-                  className="input"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={s.B}
-                  onChange={(e) => onSetChange(idx, "B", e.target.value)}
-                  placeholder="B"
-                  style={{ width: 64 }}
-                />
+              <input
+                className="input"
+                value={s.A}
+                onChange={(e) => onSetChange(idx, "A", e.target.value)}
+                placeholder="A"
+              />
+              <span>–</span>
+              <input
+                className="input"
+                value={s.B}
+                onChange={(e) => onSetChange(idx, "B", e.target.value)}
+                placeholder="B"
+              />
             </div>
           ))}
         </div>
-          <button className="btn" style={{ marginTop: 8 }} onClick={addSet} type="button">
-            Add Set
-          </button>
+        <button className="button mt-8" onClick={addSet} type="button">
+          Add Set
+        </button>
       </section>
 
-      <section style={{ marginBottom: 16 }}>
-        <h2>Details</h2>
+      <section className="section">
+        <h2 className="heading">Details</h2>
         <div style={{ display: "flex", gap: 8 }}>
-            <input
-              className="input"
-              type="date"
-              value={playedAt}
-              onChange={(e) => setPlayedAt(e.target.value)}
-            />
-            <input
-              className="input"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder="Location"
-            />
+          <input
+            className="input"
+            type="date"
+            value={playedAt}
+            onChange={(e) => setPlayedAt(e.target.value)}
+          />
+          <input
+            className="input"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="Location"
+          />
         </div>
       </section>
 
-        <button className="btn" onClick={submit} type="button">
-          Save
-        </button>
+      <button className="button" onClick={submit} type="button">
+        Save
+      </button>
     </main>
   );
 }
-

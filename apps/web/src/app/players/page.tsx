@@ -27,8 +27,13 @@ export default function PlayersPage() {
     <main style={{ padding: 24 }}>
       <h1>Players</h1>
       <ul>{players.map(p => <li key={p.id}>{p.name}</li>)}</ul>
-      <input value={name} onChange={e => setName(e.target.value)} placeholder="name" />
-      <button onClick={create}>Add</button>
+      <input
+        className="input"
+        value={name}
+        onChange={e => setName(e.target.value)}
+        placeholder="name"
+      />
+      <button className="btn" onClick={create}>Add</button>
     </main>
   );
 }

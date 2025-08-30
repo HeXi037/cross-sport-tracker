@@ -111,10 +111,11 @@ export default function RecordPage() {
         <h2>Players</h2>
         <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
           <div>
-            <select
-              value={ids.a1}
-              onChange={(e) => onIdChange("a1", e.target.value)}
-            >
+              <select
+                className="input"
+                value={ids.a1}
+                onChange={(e) => onIdChange("a1", e.target.value)}
+              >
               <option value="">Player A1</option>
               {players.map((p: any) => (
                 <option key={p.id} value={p.id}>
@@ -124,10 +125,11 @@ export default function RecordPage() {
             </select>
           </div>
           <div>
-            <select
-              value={ids.a2}
-              onChange={(e) => onIdChange("a2", e.target.value)}
-            >
+              <select
+                className="input"
+                value={ids.a2}
+                onChange={(e) => onIdChange("a2", e.target.value)}
+              >
               <option value="">Player A2</option>
               {players.map((p: any) => (
                 <option key={p.id} value={p.id}>
@@ -137,10 +139,11 @@ export default function RecordPage() {
             </select>
           </div>
           <div>
-            <select
-              value={ids.b1}
-              onChange={(e) => onIdChange("b1", e.target.value)}
-            >
+              <select
+                className="input"
+                value={ids.b1}
+                onChange={(e) => onIdChange("b1", e.target.value)}
+              >
               <option value="">Player B1</option>
               {players.map((p: any) => (
                 <option key={p.id} value={p.id}>
@@ -150,10 +153,11 @@ export default function RecordPage() {
             </select>
           </div>
           <div>
-            <select
-              value={ids.b2}
-              onChange={(e) => onIdChange("b2", e.target.value)}
-            >
+              <select
+                className="input"
+                value={ids.b2}
+                onChange={(e) => onIdChange("b2", e.target.value)}
+              >
               <option value="">Player B2</option>
               {players.map((p: any) => (
                 <option key={p.id} value={p.id}>
@@ -170,50 +174,54 @@ export default function RecordPage() {
         <div style={{ display: "grid", gap: 8 }}>
           {sets.map((s, idx) => (
             <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={s.A}
-                onChange={(e) => onSetChange(idx, "A", e.target.value)}
-                placeholder="A"
-                style={{ width: 64 }}
-              />
+                <input
+                  className="input"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={s.A}
+                  onChange={(e) => onSetChange(idx, "A", e.target.value)}
+                  placeholder="A"
+                  style={{ width: 64 }}
+                />
               <span>-</span>
-              <input
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={s.B}
-                onChange={(e) => onSetChange(idx, "B", e.target.value)}
-                placeholder="B"
-                style={{ width: 64 }}
-              />
+                <input
+                  className="input"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={s.B}
+                  onChange={(e) => onSetChange(idx, "B", e.target.value)}
+                  placeholder="B"
+                  style={{ width: 64 }}
+                />
             </div>
           ))}
         </div>
-        <button style={{ marginTop: 8 }} onClick={addSet} type="button">
-          Add Set
-        </button>
+          <button className="btn" style={{ marginTop: 8 }} onClick={addSet} type="button">
+            Add Set
+          </button>
       </section>
 
       <section style={{ marginBottom: 16 }}>
         <h2>Details</h2>
         <div style={{ display: "flex", gap: 8 }}>
-          <input
-            type="date"
-            value={playedAt}
-            onChange={(e) => setPlayedAt(e.target.value)}
-          />
-          <input
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="Location"
-          />
+            <input
+              className="input"
+              type="date"
+              value={playedAt}
+              onChange={(e) => setPlayedAt(e.target.value)}
+            />
+            <input
+              className="input"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="Location"
+            />
         </div>
       </section>
 
-      <button onClick={submit} type="button">
-        Save
-      </button>
+        <button className="btn" onClick={submit} type="button">
+          Save
+        </button>
     </main>
   );
 }

@@ -202,11 +202,16 @@ DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/crosssport
 
 # Backend
 SECRET_KEY=change-me
+# When cookies/credentials are enabled, list each trusted origin explicitly
+ALLOW_CREDENTIALS=true
 ALLOWED_ORIGINS=https://yourdomain.com
 
 # Web
 NEXT_PUBLIC_API_BASE_URL=https://yourdomain.com/api
 NODE_ENV=production
+
+# If ALLOW_CREDENTIALS=true, the backend will error on startup if
+# ALLOWED_ORIGINS contains '*' to prevent insecure CORS configuration.
 
 
 docker-compose.prod.yml (place in repo root):
@@ -241,6 +246,7 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - SECRET_KEY=${SECRET_KEY}
+      - ALLOW_CREDENTIALS=${ALLOW_CREDENTIALS}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     command: >
       sh -c "alembic upgrade head &&

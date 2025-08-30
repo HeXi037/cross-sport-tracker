@@ -86,7 +86,7 @@ export default function RecordSportPage() {
       return;
     }
 
-    const body: any = {
+    const body: Record<string, unknown> = {
       sport,
       participants: [
         { side: "A", playerIds: [ids.a1, ids.a2].filter(Boolean) },

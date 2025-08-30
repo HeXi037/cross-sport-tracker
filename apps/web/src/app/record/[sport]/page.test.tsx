@@ -23,7 +23,6 @@ describe("RecordSportPage", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) });
-    // @ts-expect-error override global fetch for test
     global.fetch = fetchMock;
 
     const alertMock = vi.spyOn(window, "alert").mockImplementation(() => {});

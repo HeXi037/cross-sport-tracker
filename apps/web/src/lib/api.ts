@@ -14,5 +14,10 @@ export function apiUrl(path: string): string {
 }
 
 export async function apiFetch(path: string, init?: RequestInit) {
-  return fetch(apiUrl(path), init);
+  try {
+    return await fetch(apiUrl(path), init);
+  } catch (err) {
+    console.error('API request failed', err);
+    throw err;
+  }
 }

@@ -2,6 +2,7 @@
 import uuid
 import json
 import importlib
+from collections import Counter
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -71,6 +72,11 @@ async def create_match_by_name(body: MatchCreateByName, session: AsyncSession = 
     missing = [n for n in names if n not in name_to_id]
     if missing:
         raise HTTPException(400, f"unknown players: {', '.join(missing)}")
+    id_to_name = {pid: name for name, pid in name_to_id.items()}
+    dup_ids = [pid for pid, cnt in Counter(name_to_id[n] for n in names).items() if cnt > 1]
+    if dup_ids:
+        dups = [id_to_name[pid] for pid in dup_ids]
+        raise HTTPException(400, f"duplicate players: {', '.join(dups)}")
     parts = []
     for part in body.participants:
         ids = [name_to_id[n] for n in part.playerNames]

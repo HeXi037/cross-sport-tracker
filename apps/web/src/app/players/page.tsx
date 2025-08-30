@@ -13,21 +13,45 @@ interface Player {
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   async function load() {
-    const res = await fetch(`${base}/v0/players`, { cache: "no-store" });
-    if (res.ok) setPlayers(await res.json());
+    const res = await fetch(`${base}/v0/players?limit=100&offset=0`, {
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setPlayers(data.players);
+    }
   }
   useEffect(() => {
     load();
   }, []);
 
   async function create() {
-    await fetch(`${base}/v0/players`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
+    setError(null);
+    try {
+      const res = await fetch(`${base}/v0/players`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as
+          | Record<string, unknown>
+          | null;
+        let message = "Failed to create player.";
+        if (data) {
+          if (typeof data["detail"] === "string") message = data["detail"];
+          else if (typeof data["message"] === "string") message = data["message"];
+        }
+        setError(message);
+        return;
+      }
+    } catch {
+      setError("Failed to create player.");
+      return;
+    }
     setName("");
     load();
   }
@@ -51,6 +75,7 @@ export default function PlayersPage() {
       <button className="button" onClick={create}>
         Add
       </button>
+      {error && <p className="text-red-500 mt-2">{error}</p>}
     </main>
   );
 }

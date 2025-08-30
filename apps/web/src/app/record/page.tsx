@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
@@ -23,9 +23,10 @@ export default function RecordPage() {
   useEffect(() => {
     async function loadPlayers() {
       try {
-        const res = await fetch(`${base}/v0/players`);
+        const res = await fetch(`${base}/v0/players?limit=100&offset=0`);
         if (res.ok) {
-          setPlayers(await res.json());
+          const data = await res.json();
+          setPlayers(data.players);
         }
       } catch {
         // ignore errors
@@ -62,6 +63,12 @@ export default function RecordPage() {
 
     if (![ids.a1, ids.a2, ids.b1, ids.b2].every(Boolean)) {
       alert("Please select all four players.");
+      return;
+    }
+
+    const idValues = [ids.a1, ids.a2, ids.b1, ids.b2];
+    if (new Set(idValues).size !== idValues.length) {
+      alert("Please select four unique players.");
       return;
     }
 
@@ -104,6 +111,10 @@ export default function RecordPage() {
     router.push(`/matches/${id}`);
   }
 
+  function isUsedElsewhere(id: string, key: keyof typeof ids) {
+    return Object.entries(ids).some(([k, v]) => k !== key && v === id);
+  }
+
   return (
     <main className="container">
       <h1 className="heading">Record Match</h1>
@@ -119,7 +130,11 @@ export default function RecordPage() {
             >
               <option value="">Player A1</option>
               {players.map((p) => (
-                <option key={p.id} value={p.id}>
+                <option
+                  key={p.id}
+                  value={p.id}
+                  disabled={isUsedElsewhere(p.id, "a1")}
+                >
                   {p.name}
                 </option>
               ))}
@@ -133,7 +148,11 @@ export default function RecordPage() {
             >
               <option value="">Player A2</option>
               {players.map((p) => (
-                <option key={p.id} value={p.id}>
+                <option
+                  key={p.id}
+                  value={p.id}
+                  disabled={isUsedElsewhere(p.id, "a2")}
+                >
                   {p.name}
                 </option>
               ))}
@@ -147,7 +166,11 @@ export default function RecordPage() {
             >
               <option value="">Player B1</option>
               {players.map((p) => (
-                <option key={p.id} value={p.id}>
+                <option
+                  key={p.id}
+                  value={p.id}
+                  disabled={isUsedElsewhere(p.id, "b1")}
+                >
                   {p.name}
                 </option>
               ))}
@@ -161,7 +184,11 @@ export default function RecordPage() {
             >
               <option value="">Player B2</option>
               {players.map((p) => (
-                <option key={p.id} value={p.id}>
+                <option
+                  key={p.id}
+                  value={p.id}
+                  disabled={isUsedElsewhere(p.id, "b2")}
+                >
                   {p.name}
                 </option>
               ))}

@@ -22,6 +22,13 @@ class PlayerOut(BaseModel):
     name: str
     club_id: Optional[str] = None
 
+
+class PlayerListOut(BaseModel):
+    players: List[PlayerOut]
+    total: int
+    limit: int
+    offset: int
+
 class Participant(BaseModel):
     side: Literal["A", "B"]
     playerIds: List[str]

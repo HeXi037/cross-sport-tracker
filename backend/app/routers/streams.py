@@ -23,24 +23,29 @@ async def broadcast(mid: str, message: dict) -> None:
 async def match_stream(ws: WebSocket, mid: str) -> None:
     """Stream match updates via a Redis pub/sub channel."""
     await ws.accept()
-    pubsub = redis_client.pubsub()
-    await pubsub.subscribe(mid)
-
-    async def sender() -> None:
-        async for msg in pubsub.listen():
-            if msg.get("type") == "message":
-                await ws.send_json(json.loads(msg["data"]))
-
-    send_task = asyncio.create_task(sender())
     try:
-        while True:
-            await ws.receive_text()
-    except WebSocketDisconnect:
-        pass
-    finally:
-        send_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await send_task
-        await pubsub.unsubscribe(mid)
-        await pubsub.close()
+        async with redis_client.pubsub() as pubsub:
+            await pubsub.subscribe(mid)
+
+            async def sender() -> None:
+                try:
+                    async for msg in pubsub.listen():
+                        if msg.get("type") == "message":
+                            await ws.send_json(json.loads(msg["data"]))
+                except redis.ConnectionError:
+                    await ws.close()
+
+            send_task = asyncio.create_task(sender())
+            try:
+                while True:
+                    await ws.receive_text()
+            except WebSocketDisconnect:
+                pass
+            finally:
+                send_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await send_task
+                await pubsub.unsubscribe(mid)
+    except redis.ConnectionError:
+        await ws.close()
 

@@ -83,10 +83,24 @@ a {
 }
 .nav ul {
   display: flex;
+  justify-content: center;
   gap: 1rem;
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+/* Sport list */
+.sport-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.sport-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .mt-8 {

@@ -1,12 +1,12 @@
 # backend/app/routers/players.py
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
 from ..models import Player
-from ..schemas import PlayerCreate, PlayerOut
+from ..schemas import PlayerCreate, PlayerOut, PlayerListOut
 
 # Resource-only prefix; versioning added in main.py
 router = APIRouter(prefix="/players", tags=["players"])
@@ -24,13 +24,23 @@ async def create_player(body: PlayerCreate, session: AsyncSession = Depends(get_
     return PlayerOut(id=pid, name=p.name, club_id=p.club_id)
 
 # GET /api/v0/players
-@router.get("", response_model=list[PlayerOut])
-async def list_players(q: str = "", session: AsyncSession = Depends(get_session)):
+@router.get("", response_model=PlayerListOut)
+async def list_players(
+    q: str = "",
+    limit: int = 50,
+    offset: int = 0,
+    session: AsyncSession = Depends(get_session),
+):
     stmt = select(Player)
+    count_stmt = select(func.count()).select_from(Player)
     if q:
         stmt = stmt.where(Player.name.ilike(f"%{q}%"))
+        count_stmt = count_stmt.where(Player.name.ilike(f"%{q}%"))
+    total = (await session.execute(count_stmt)).scalar()
+    stmt = stmt.limit(limit).offset(offset)
     rows = (await session.execute(stmt)).scalars().all()
-    return [PlayerOut(id=p.id, name=p.name, club_id=p.club_id) for p in rows]
+    players = [PlayerOut(id=p.id, name=p.name, club_id=p.club_id) for p in rows]
+    return PlayerListOut(players=players, total=total, limit=limit, offset=offset)
 
 # GET /api/v0/players/{player_id}
 @router.get("/{player_id}", response_model=PlayerOut)

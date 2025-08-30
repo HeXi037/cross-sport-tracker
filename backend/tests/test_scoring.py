@@ -1,4 +1,6 @@
 import os, sys
+import pytest
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from app.scoring import padel, bowling
 
@@ -27,3 +29,13 @@ def test_record_sets():
 def test_validate_tuple_set_scores():
     # Should not raise when provided with tuple-based scores
     padel.validate_set_scores([(6, 4), (6, 2)])
+
+
+def test_validate_set_scores_negative():
+    with pytest.raises(ValueError, match="non-negative"):
+        padel.validate_set_scores([(6, -4)])
+
+
+def test_validate_set_scores_tie():
+    with pytest.raises(ValueError, match="cannot be tied"):
+        padel.validate_set_scores([(4, 4)])

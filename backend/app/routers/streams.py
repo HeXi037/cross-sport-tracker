@@ -16,7 +16,14 @@ redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 
 async def broadcast(mid: str, message: dict) -> None:
     """Publish a message for a match to all subscribers."""
-    await redis_client.publish(mid, json.dumps(message))
+    try:
+        await redis_client.publish(mid, json.dumps(message))
+    except redis.ConnectionError:
+        # If Redis is unavailable, ignore the error so that match
+        # operations don't fail just because realtime updates cannot
+        # be published. The caller doesn't need to know whether the
+        # message was broadcast successfully.
+        return None
 
 
 @router.websocket("/matches/{mid}/stream")

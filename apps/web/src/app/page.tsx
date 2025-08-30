@@ -1,30 +1,47 @@
-export const dynamic = 'force-dynamic'; // make sure it fetches per request
+export const dynamic = 'force-dynamic'; // fetch per request on the server
 
-import Link from "next/link";
+import Link from 'next/link';
+import { apiFetch } from '../lib/api';
 
-async function getSports() {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
-  const res = await fetch(`${base}/v0/sports`, { cache: 'no-store' });
-  if (!res.ok) throw new Error('Failed to fetch sports');
-  return res.json();
-}
+type Sport = { id: string; name: string };
 
-export default async function Page() {
-  const sports = await getSports().catch(() => []);
+export default async function HomePage() {
+  let sports: Sport[] = [];
+  try {
+    const r = await apiFetch('/v0/sports', { cache: 'no-store' });
+    if (r.ok) {
+      sports = (await r.json()) as Sport[];
+    }
+  } catch {
+    // ignore; render with empty list
+  }
+
   return (
-    <main className="container">
-      <h1 className="heading">cross-sport-tracker</h1>
-      <p>Padel + Bowling MVP</p>
-      <h2 className="heading">Sports</h2>
-      <ul>
-        {sports.map((s: { id: string; name: string }) => (
-          <li key={s.id}>
-            {s.name} ({s.id})
-          </li>
-        ))}
-      </ul>
-      <nav>
-        <Link href="/players">Players</Link> | <Link href="/matches">Matches</Link> | <Link href="/record">Record</Link>
+    <main className="mx-auto max-w-3xl p-6 space-y-6">
+      <header>
+        <h1 className="text-2xl font-semibold">cross-sport-tracker</h1>
+        <p className="text-gray-700">Padel + Bowling MVP</p>
+      </header>
+
+      <section>
+        <h2 className="mb-2 text-lg font-medium">Sports</h2>
+        {sports.length === 0 ? (
+          <p className="text-gray-600">No sports found.</p>
+        ) : (
+          <ul className="list-disc pl-6">
+            {sports.map((s) => (
+              <li key={s.id}>
+                {s.name} <span className="text-gray-500">({s.id})</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <nav className="space-x-3">
+        <Link href="/players">Players</Link>
+        <Link href="/matches">Matches</Link>
+        <Link href="/record">Record</Link>
       </nav>
     </main>
   );

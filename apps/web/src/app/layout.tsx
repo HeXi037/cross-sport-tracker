@@ -15,17 +15,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <header style={{ backgroundColor: '#f5f5f5', padding: '1rem' }}>
+        <header className="nav">
           <nav>
-            <ul
-              style={{
-                display: 'flex',
-                gap: '1rem',
-                listStyle: 'none',
-                margin: 0,
-                padding: 0,
-              }}
-            >
+            <ul>
               <li>
                 <Link href="/">Home</Link>
               </li>

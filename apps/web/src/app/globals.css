@@ -1,12 +1,21 @@
 /* apps/web/src/app/globals.css */
 
-/* Color palette inspired by the Norwegian flag */
+/* Subtle red, blue and white palette */
 :root {
-  color-scheme: light dark;
-  --color-bg: #ffffff;
-  --color-text: #00205b;
-  --color-accent: #ba0c2f;
-  --color-accent-hover: #8e0a23;
+  color-scheme: light;
+  /* Base colors */
+  --color-bg: #f0f2f5; /* soft off-white to reduce glare */
+  --color-surface: #ffffff;
+  --color-text: #0a1f44; /* deep navy */
+
+  /* Accents */
+  --color-accent-red: #ba0c2f;
+  --color-accent-red-hover: #8e0a23;
+  --color-accent-blue: #1a73e8;
+
+  /* Navigation */
+  --color-nav-bg: #0a1f44;
+  --color-nav-text: #ffffff;
 }
 
 html,
@@ -19,7 +28,7 @@ body {
 }
 
 a {
-  color: var(--color-accent);
+  color: var(--color-accent-blue);
 }
 
 /* Reusable layout helpers */
@@ -31,12 +40,12 @@ a {
 
 .heading {
   margin-top: 0;
-  color: var(--color-accent);
+  color: var(--color-accent-red);
 }
 
 .button {
-  background: var(--color-accent);
-  color: var(--color-bg);
+  background: var(--color-accent-red);
+  color: var(--color-surface);
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
@@ -44,7 +53,7 @@ a {
 }
 
 .button:hover {
-  background: var(--color-accent-hover);
+  background: var(--color-accent-red-hover);
 }
 
 .section {
@@ -54,8 +63,30 @@ a {
 .card {
   margin-top: 16px;
   padding: 12px;
-  border: 1px solid #eee;
+  background: var(--color-surface);
   border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Navigation bar */
+.nav {
+  background: var(--color-nav-bg);
+  color: var(--color-nav-text);
+  padding: 1rem;
+}
+.nav a {
+  color: var(--color-nav-text);
+  text-decoration: none;
+}
+.nav a:hover {
+  text-decoration: underline;
+}
+.nav ul {
+  display: flex;
+  gap: 1rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 .mt-8 {
@@ -67,5 +98,5 @@ a {
 }
 
 .error {
-  color: var(--color-accent);
+  color: var(--color-accent-red);
 }

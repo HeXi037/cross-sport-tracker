@@ -13,9 +13,7 @@ export default async function HomePage() {
   let sports: Sport[] = [];
   try {
     const r = await apiFetch('/v0/sports', { cache: 'no-store' });
-    if (r.ok) {
-      sports = (await r.json()) as Sport[];
-    }
+    sports = (await r.json()) as Sport[];
   } catch {
     // ignore; render with empty list
   }

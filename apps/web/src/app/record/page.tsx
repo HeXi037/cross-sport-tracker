@@ -7,9 +7,7 @@ export default async function RecordPage() {
   let sports: Sport[] = [];
   try {
     const res = await apiFetch("/v0/sports", { cache: "no-store" });
-    if (res.ok) {
-      sports = (await res.json()) as Sport[];
-    }
+    sports = (await res.json()) as Sport[];
   } catch {
     // ignore errors
   }

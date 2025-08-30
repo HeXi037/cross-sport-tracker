@@ -11,7 +11,6 @@ type MatchRow = {
 
 async function getMatches(): Promise<MatchRow[]> {
   const r = await apiFetch("/v0/matches", { cache: "no-store" });
-  if (!r.ok) throw new Error(`Failed to load matches: ${r.status}`);
   return (await r.json()) as MatchRow[];
 }
 

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { apiFetch } from '../../../lib/api';
 
 type Participant = {
   id: string;
@@ -27,9 +28,6 @@ type MatchDetail = {
   summary: unknown;
 };
 
-const BASE: string =
-  (process.env.NEXT_PUBLIC_API_BASE_URL as string | undefined) ?? '/api';
-
 // type guard for numbers
 const isNumber = (x: unknown): x is number => typeof x === 'number';
 
@@ -55,10 +53,7 @@ export default function MatchDetailPage({
     setLoading(true);
     setError(null);
     try {
-      const r = await fetch(`${BASE}/v0/matches/${mid}`, { cache: 'no-store' });
-      if (!r.ok) {
-        throw new Error(`HTTP ${r.status}`);
-      }
+      const r = await apiFetch(`/v0/matches/${mid}`, { cache: 'no-store' });
       const j = (await r.json()) as MatchDetail;
       setData(j);
     } catch (e) {

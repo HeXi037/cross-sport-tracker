@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-
-const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
+import { apiFetch } from "../../lib/api";
 const sports = ["padel", "bowling"];
 
 interface Leader {
@@ -18,13 +17,11 @@ export default function LeaderboardPage() {
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch(`${base}/v0/leaderboards?sport=${sport}`, { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        setLeaders((data.leaders || []) as Leader[]);
-      } else {
-        setLeaders([]);
-      }
+      const res = await apiFetch(`/v0/leaderboards?sport=${sport}`, {
+        cache: "no-store",
+      });
+      const data = await res.json();
+      setLeaders((data.leaders || []) as Leader[]);
     } catch (e) {
       console.error(e);
       setLeaders([]);

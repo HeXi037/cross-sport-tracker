@@ -2,8 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-
-const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
+import { apiFetch } from "../../../lib/api";
 
 interface Player {
   id: string;
@@ -28,13 +27,11 @@ export default function RecordSportPage() {
   useEffect(() => {
     async function loadPlayers() {
       try {
-        const res = await fetch(`${base}/v0/players?limit=100&offset=0`);
-        if (res.ok) {
-          const data = await res.json();
-          setPlayers(data.players);
-        }
-      } catch {
-        // ignore errors
+        const res = await apiFetch(`/v0/players?limit=100&offset=0`);
+        const data = await res.json();
+        setPlayers(data.players);
+      } catch (e) {
+        console.error(e);
       }
     }
     loadPlayers();
@@ -103,30 +100,27 @@ export default function RecordSportPage() {
       body.bestOf = 3;
     }
 
-    const createRes = await fetch(`${base}/v0/matches`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!createRes.ok) {
-      alert("Failed to create match.");
-      return;
-    }
-    const { id } = (await createRes.json()) as { id: string };
-
-    if (isPadel && parsedSets.length > 0) {
-      const setsRes = await fetch(`${base}/v0/matches/${id}/sets`, {
+    try {
+      const createRes = await apiFetch(`/v0/matches`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sets: parsedSets }),
+        body: JSON.stringify(body),
       });
-      if (!setsRes.ok) {
-        alert("Failed to submit set scores.");
-        return;
-      }
-    }
+      const { id } = (await createRes.json()) as { id: string };
 
-    router.push(`/matches/${id}`);
+      if (isPadel && parsedSets.length > 0) {
+        await apiFetch(`/v0/matches/${id}/sets`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sets: parsedSets }),
+        });
+      }
+
+      router.push(`/matches/${id}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to submit match.";
+      alert(msg);
+    }
   }
 
   function isUsedElsewhere(id: string, key: keyof typeof ids) {

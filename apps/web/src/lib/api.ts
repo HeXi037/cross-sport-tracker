@@ -13,6 +13,40 @@ export function apiUrl(path: string): string {
   return `${b}${p}`;
 }
 
+export class ApiError extends Error {
+  status?: number;
+  body?: unknown;
+  constructor(message: string, status?: number, body?: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.body = body;
+  }
+}
+
 export async function apiFetch(path: string, init?: RequestInit) {
-  return fetch(apiUrl(path), init);
+  try {
+    const res = await fetch(apiUrl(path), init);
+    if (!res.ok) {
+      let body: unknown;
+      try {
+        body = await res.json();
+      } catch {
+        try {
+          body = await res.text();
+        } catch {
+          body = undefined;
+        }
+      }
+      throw new ApiError(
+        `Request failed with status ${res.status}`,
+        res.status,
+        body,
+      );
+    }
+    return res;
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+    throw new ApiError('Network request failed');
+  }
 }

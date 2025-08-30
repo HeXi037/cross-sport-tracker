@@ -61,6 +61,12 @@ def validate_set_scores(set_scores) -> None:
         if not isinstance(a, int) or not isinstance(b, int):
             raise ValueError(f"Set #{idx} scores must be integers")
 
+        if a < 0 or b < 0:
+            raise ValueError(f"Set #{idx} scores must be non-negative")
+
+        if a == b:
+            raise ValueError(f"Set #{idx} scores cannot be tied")
+
 
 def record_sets(set_scores, state=None):
     """Generate point events to reach the provided set scores.

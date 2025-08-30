@@ -4,6 +4,10 @@ import Link from 'next/link';
 import { apiFetch } from '../lib/api';
 
 type Sport = { id: string; name: string };
+const sportIcons: Record<string, string> = {
+  padel: '🎾',
+  bowling: '🎳',
+};
 
 export default async function HomePage() {
   let sports: Sport[] = [];
@@ -28,17 +32,27 @@ export default async function HomePage() {
         {sports.length === 0 ? (
           <p className="text-gray-600">No sports found.</p>
         ) : (
-          <ul className="list-disc pl-6">
-            {sports.map((s) => (
-              <li key={s.id}>
-                {s.name} <span className="text-gray-500">({s.id})</span>
-              </li>
-            ))}
+          <ul className="sport-list">
+            {sports.map((s) => {
+              const icon = sportIcons[s.id];
+              return (
+                <li key={s.id} className="sport-item">
+                  {icon ? (
+                    <span role="img" aria-label={s.name} title={s.name}>
+                      {icon}
+                    </span>
+                  ) : (
+                    s.name
+                  )}
+                  <span className="text-gray-500">({s.id})</span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
 
-      <nav className="space-x-3">
+      <nav className="flex gap-3">
         <Link href="/players">Players</Link>
         <Link href="/matches">Matches</Link>
         <Link href="/record">Record</Link>

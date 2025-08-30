@@ -56,3 +56,35 @@ class EventIn(BaseModel):
     type: Literal["POINT", "ROLL", "UNDO"]
     by: Optional[Literal["A", "B"]] = None
     pins: Optional[int] = None
+
+
+# Response models
+
+
+class ParticipantOut(BaseModel):
+    id: str
+    side: Literal["A", "B"]
+    playerIds: List[str]
+
+
+class ScoreEventOut(BaseModel):
+    id: str
+    type: str
+    payload: dict
+    createdAt: datetime
+
+
+class MatchSummaryOut(BaseModel):
+    id: str
+    sport: str
+    bestOf: Optional[int] = None
+    playedAt: Optional[datetime] = None
+    location: Optional[str] = None
+
+
+class MatchOut(MatchSummaryOut):
+    rulesetId: Optional[str] = None
+    participants: List[ParticipantOut]
+    events: List[ScoreEventOut]
+    summary: Optional[dict] = None
+

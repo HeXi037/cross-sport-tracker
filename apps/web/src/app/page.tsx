@@ -44,7 +44,7 @@ export default async function HomePage() {
                   ) : (
                     s.name
                   )}
-                  <span className="text-gray-500">({s.id})</span>
+                  <span className="text-gray-500">{s.id}</span>
                 </li>
               );
             })}

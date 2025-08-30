@@ -1,249 +1,33 @@
-"use client";
+import Link from "next/link";
+import { apiFetch } from "../../lib/api";
 
-import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+type Sport = { id: string; name: string };
 
-const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
-
-interface Player {
-  id: string;
-  name: string;
-  club_id?: string | null;
-}
-
-export default function RecordPage() {
-  const router = useRouter();
-
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [ids, setIds] = useState({ a1: "", a2: "", b1: "", b2: "" });
-  const [sets, setSets] = useState<Array<{ A: string; B: string }>>([{ A: "", B: "" }]);
-  const [playedAt, setPlayedAt] = useState("");
-  const [location, setLocation] = useState("");
-
-  useEffect(() => {
-    async function loadPlayers() {
-      try {
-        const res = await fetch(`${base}/v0/players?limit=100&offset=0`);
-        if (res.ok) {
-          const data = await res.json();
-          setPlayers(data.players);
-        }
-      } catch {
-        // ignore errors
-      }
+export default async function RecordPage() {
+  let sports: Sport[] = [];
+  try {
+    const res = await apiFetch("/v0/sports", { cache: "no-store" });
+    if (res.ok) {
+      sports = (await res.json()) as Sport[];
     }
-    loadPlayers();
-  }, []);
-
-  function onIdChange(key: keyof typeof ids, value: string) {
-    setIds((n) => ({ ...n, [key]: value }));
-  }
-
-  function onSetChange(idx: number, field: "A" | "B", value: string) {
-    setSets((prev) => {
-      const copy = prev.slice();
-      copy[idx] = { ...copy[idx], [field]: value };
-      return copy;
-    });
-  }
-
-  function addSet() {
-    setSets((prev) => [...prev, { A: "", B: "" }]);
-  }
-
-  async function submit() {
-    const parsedSets = sets
-      .map((s) => [parseInt(s.A, 10), parseInt(s.B, 10)] as [number, number])
-      .filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b));
-
-    if (parsedSets.length === 0) {
-      alert("Please enter at least one completed set score.");
-      return;
-    }
-
-    if (![ids.a1, ids.a2, ids.b1, ids.b2].every(Boolean)) {
-      alert("Please select all four players.");
-      return;
-    }
-
-    const idValues = [ids.a1, ids.a2, ids.b1, ids.b2];
-    if (new Set(idValues).size !== idValues.length) {
-      alert("Please select four unique players.");
-      return;
-    }
-
-    const body = {
-      sport: "padel",
-      participants: [
-        { side: "A", playerIds: [ids.a1, ids.a2] },
-        { side: "B", playerIds: [ids.b1, ids.b2] },
-      ],
-      bestOf: 3,
-      // Avoid sending timezone-aware timestamps; the API expects a naive
-      // datetime string.  Using Date#toISOString() would include a "Z" suffix
-      // (UTC) which caused the backend to reject the request.  Instead, send
-      // an ISO date without timezone information if a value was provided.
-      playedAt: playedAt ? `${playedAt}T00:00:00` : undefined,
-      location: location || undefined,
-    };
-
-    const createRes = await fetch(`${base}/v0/matches`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!createRes.ok) {
-      alert("Failed to create match.");
-      return;
-    }
-    const { id } = (await createRes.json()) as { id: string };
-
-    const setsRes = await fetch(`${base}/v0/matches/${id}/sets`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sets: parsedSets }),
-    });
-    if (!setsRes.ok) {
-      alert("Failed to submit set scores.");
-      return;
-    }
-
-    router.push(`/matches/${id}`);
-  }
-
-  function isUsedElsewhere(id: string, key: keyof typeof ids) {
-    return Object.entries(ids).some(([k, v]) => k !== key && v === id);
+  } catch {
+    // ignore errors
   }
 
   return (
     <main className="container">
       <h1 className="heading">Record Match</h1>
-
-      <section className="section">
-        <h2 className="heading">Players</h2>
-        <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
-          <div>
-            <select
-              className="input"
-              value={ids.a1}
-              onChange={(e) => onIdChange("a1", e.target.value)}
-            >
-              <option value="">Player A1</option>
-              {players.map((p) => (
-                <option
-                  key={p.id}
-                  value={p.id}
-                  disabled={isUsedElsewhere(p.id, "a1")}
-                >
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <select
-              className="input"
-              value={ids.a2}
-              onChange={(e) => onIdChange("a2", e.target.value)}
-            >
-              <option value="">Player A2</option>
-              {players.map((p) => (
-                <option
-                  key={p.id}
-                  value={p.id}
-                  disabled={isUsedElsewhere(p.id, "a2")}
-                >
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <select
-              className="input"
-              value={ids.b1}
-              onChange={(e) => onIdChange("b1", e.target.value)}
-            >
-              <option value="">Player B1</option>
-              {players.map((p) => (
-                <option
-                  key={p.id}
-                  value={p.id}
-                  disabled={isUsedElsewhere(p.id, "b1")}
-                >
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <select
-              className="input"
-              value={ids.b2}
-              onChange={(e) => onIdChange("b2", e.target.value)}
-            >
-              <option value="">Player B2</option>
-              {players.map((p) => (
-                <option
-                  key={p.id}
-                  value={p.id}
-                  disabled={isUsedElsewhere(p.id, "b2")}
-                >
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </section>
-
-      <section className="section">
-        <h2 className="heading">Sets</h2>
-        <div style={{ display: "grid", gap: 8 }}>
-          {sets.map((s, idx) => (
-            <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input
-                className="input"
-                value={s.A}
-                onChange={(e) => onSetChange(idx, "A", e.target.value)}
-                placeholder="A"
-              />
-              <span>–</span>
-              <input
-                className="input"
-                value={s.B}
-                onChange={(e) => onSetChange(idx, "B", e.target.value)}
-                placeholder="B"
-              />
-            </div>
+      {sports.length === 0 ? (
+        <p className="text-gray-600">No sports found.</p>
+      ) : (
+        <ul className="sport-list">
+          {sports.map((s) => (
+            <li key={s.id} className="sport-item">
+              <Link href={`/record/${s.id}`}>{s.name}</Link>
+            </li>
           ))}
-        </div>
-        <button className="button mt-8" onClick={addSet} type="button">
-          Add Set
-        </button>
-      </section>
-
-      <section className="section">
-        <h2 className="heading">Details</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            className="input"
-            type="date"
-            value={playedAt}
-            onChange={(e) => setPlayedAt(e.target.value)}
-          />
-          <input
-            className="input"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="Location"
-          />
-        </div>
-      </section>
-
-      <button className="button" onClick={submit} type="button">
-        Save
-      </button>
+        </ul>
+      )}
     </main>
   );
 }

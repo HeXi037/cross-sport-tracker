@@ -1,6 +1,8 @@
 # backend/app/main.py
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from .routers import sports, rulesets, players, matches, leaderboards, streams
 import os
 
@@ -13,6 +15,11 @@ app = FastAPI(
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(status_code=400, content={"detail": exc.errors()})
 
 app.add_middleware(
     CORSMiddleware,

@@ -6,13 +6,22 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 # Set up an in-memory SQLite database for tests
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_players.db"
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from app import db
 from app.routers import players
 from app.models import Player, Club
 
 app = FastAPI()
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(status_code=400, content={"detail": exc.errors()})
+
+
 app.include_router(players.router)
 
 @pytest.fixture(scope="module", autouse=True)
@@ -48,3 +57,11 @@ def test_list_players_pagination() -> None:
         assert data["offset"] == 1
         assert data["total"] == base_total + 5
         assert len(data["players"]) == 2
+
+
+def test_list_players_invalid_params() -> None:
+    with TestClient(app) as client:
+        resp = client.get("/players", params={"limit": 0})
+        assert resp.status_code == 400
+        resp = client.get("/players", params={"offset": -1})
+        assert resp.status_code == 400

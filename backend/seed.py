@@ -62,19 +62,16 @@ async def main():
         await s.commit()
 
         # sample player
-        existing_players = {
-            x.id for x in (await s.execute(select(Player))).scalars().all()
-        }
-        players = [
-            Player(
-                id="01ARZ3NDEKTSV4RRFFQ69G5FAV",
-                name="Demo Player",
-                club_id="demo-club",
-            ),
-        ]
-        for p in players:
-            if p.id not in existing_players:
-                s.add(p)
+        player_id = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+        player_name = "Demo Player"
+        existing_player = (
+            await s.execute(select(Player).where(Player.name == player_name))
+        ).scalars().first()
+        if existing_player:
+            if existing_player.id != player_id:
+                existing_player.id = player_id
+        else:
+            s.add(Player(id=player_id, name=player_name, club_id="demo-club"))
         await s.commit()
 
 if __name__ == "__main__":

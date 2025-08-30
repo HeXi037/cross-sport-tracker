@@ -1,4 +1,3 @@
-# backend/app/routers/players.py
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func

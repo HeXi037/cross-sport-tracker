@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
@@ -29,12 +29,17 @@ export default function PlayersPage() {
   }, []);
 
   async function create() {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setError("Name cannot be empty");
+      return;
+    }
     setError(null);
     try {
       const res = await fetch(`${base}/v0/players`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name: trimmed }),
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => null)) as
@@ -72,7 +77,11 @@ export default function PlayersPage() {
         onChange={(e) => setName(e.target.value)}
         placeholder="name"
       />
-      <button className="button" onClick={create}>
+      <button
+        className="button"
+        onClick={create}
+        disabled={name.trim() === ""}
+      >
         Add
       </button>
       {error && <p className="text-red-500 mt-2">{error}</p>}

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 
@@ -26,7 +27,13 @@ export default function PlayersPage() {
   return (
     <main style={{ padding: 24 }}>
       <h1>Players</h1>
-      <ul>{players.map(p => <li key={p.id}>{p.name}</li>)}</ul>
+      <ul>
+        {players.map(p => (
+          <li key={p.id}>
+            <Link href={`/players/${p.id}`}>{p.name}</Link>
+          </li>
+        ))}
+      </ul>
       <input value={name} onChange={e => setName(e.target.value)} placeholder="name" />
       <button onClick={create}>Add</button>
     </main>

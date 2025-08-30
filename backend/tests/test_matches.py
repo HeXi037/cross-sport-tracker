@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 import pytest
 from fastapi import HTTPException
+import ulid
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -27,7 +28,7 @@ async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
         await conn.run_sync(Player.__table__.create)
 
     async with db.AsyncSessionLocal() as session:
-        session.add(Player(id="p1", name="Alice"))
+        session.add(Player(id=str(ulid.new()), name="Alice"))
         await session.commit()
         body = MatchCreateByName(
             sport="padel",

@@ -3,6 +3,7 @@ import os
 import sys
 
 import redis.asyncio as redis
+import ulid
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -14,7 +15,9 @@ def test_broadcast_connection_error(monkeypatch):
         raise redis.ConnectionError("unavailable")
     monkeypatch.setattr(streams.redis_client, "publish", fake_publish)
 
+    mid = str(ulid.new())
+
     async def call():
-        await streams.broadcast("m1", {"foo": "bar"})
+        await streams.broadcast(mid, {"foo": "bar"})
 
     asyncio.run(call())

@@ -1,5 +1,5 @@
 # backend/app/routers/matches.py
-import uuid
+import ulid
 import json
 import importlib
 from collections import Counter
@@ -46,7 +46,7 @@ async def list_matches(session: AsyncSession = Depends(get_session)):
 # POST /api/v0/matches
 @router.post("", response_model=MatchIdOut)
 async def create_match(body: MatchCreate, session: AsyncSession = Depends(get_session)):
-    mid = uuid.uuid4().hex
+    mid = str(ulid.new())
     match = Match(
         id=mid,
         sport_id=body.sport,
@@ -60,7 +60,7 @@ async def create_match(body: MatchCreate, session: AsyncSession = Depends(get_se
 
     for part in body.participants:
         mp = MatchParticipant(
-            id=uuid.uuid4().hex,
+            id=str(ulid.new()),
             match_id=mid,
             side=part.side,
             player_ids=part.playerIds,
@@ -169,7 +169,7 @@ async def append_event(mid: str, ev: EventIn, session: AsyncSession = Depends(ge
         raise HTTPException(400, str(exc))
 
     e = ScoreEvent(
-        id=uuid.uuid4().hex,
+        id=str(ulid.new()),
         match_id=mid,
         type=ev.type,
         payload=payload,
@@ -217,7 +217,7 @@ async def record_sets_endpoint(mid: str, body: SetsIn, session: AsyncSession = D
 
     for ev in new_events:
         e = ScoreEvent(
-            id=uuid.uuid4().hex,
+            id=str(ulid.new()),
             match_id=mid,
             type=ev["type"],
             payload=ev,

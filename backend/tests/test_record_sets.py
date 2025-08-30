@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+import ulid
 
 from app.db import Base, get_session
 from app.models import Match, Sport, ScoreEvent
@@ -67,7 +68,7 @@ def seed_match(session_maker, mid: str) -> None:
 
 def test_record_sets_success(client_and_session):
     client, session_maker = client_and_session
-    mid = "m1"
+    mid = str(ulid.new())
     seed_match(session_maker, mid)
 
     resp = client.post(f"/matches/{mid}/sets", json={"sets": [[6, 4], [6, 2]]})
@@ -87,7 +88,7 @@ def test_record_sets_success(client_and_session):
 
 def test_record_sets_invalid(client_and_session):
     client, session_maker = client_and_session
-    mid = "m2"
+    mid = str(ulid.new())
     seed_match(session_maker, mid)
 
     resp = client.post(f"/matches/{mid}/sets", json={"sets": [[6, 6]]})

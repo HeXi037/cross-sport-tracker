@@ -1,4 +1,4 @@
-import uuid
+import ulid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +16,7 @@ async def create_player(body: PlayerCreate, session: AsyncSession = Depends(get_
     exists = (await session.execute(select(Player).where(Player.name == body.name))).scalar_one_or_none()
     if exists:
         raise HTTPException(400, "player name already exists")
-    pid = uuid.uuid4().hex
+    pid = str(ulid.new())
     p = Player(id=pid, name=body.name, club_id=body.club_id)
     session.add(p)
     await session.commit()

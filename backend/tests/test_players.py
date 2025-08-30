@@ -1,4 +1,4 @@
-import os, sys, asyncio, pytest
+import os, sys, asyncio, pytest, re
 
 # Ensure the backend app modules can be imported
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -14,6 +14,8 @@ from app.models import Player, Club
 
 app = FastAPI()
 app.include_router(players.router)
+
+ULID_RE = re.compile(r"^[0-9A-HJKMNP-TV-Z]{26}$")
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():
@@ -40,6 +42,7 @@ def test_list_players_pagination() -> None:
         for i in range(5):
             resp = client.post("/players", json={"name": f"P{i}"})
             assert resp.status_code == 200
+            assert ULID_RE.match(resp.json()["id"])
         # Request a limited subset
         resp = client.get("/players", params={"limit": 2, "offset": 1})
         assert resp.status_code == 200
@@ -48,3 +51,5 @@ def test_list_players_pagination() -> None:
         assert data["offset"] == 1
         assert data["total"] == base_total + 5
         assert len(data["players"]) == 2
+        for p in data["players"]:
+            assert ULID_RE.match(p["id"])

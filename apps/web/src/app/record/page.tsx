@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
@@ -8,40 +8,30 @@ const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 export default function RecordPage() {
   const router = useRouter();
 
-  const [names, setNames] = useState({ a1: "", a2: "", b1: "", b2: "" });
-  const [suggest, setSuggest] = useState<Record<string, any[]>>({});
+  const [players, setPlayers] = useState<any[]>([]);
+  const [ids, setIds] = useState({ a1: "", a2: "", b1: "", b2: "" });
   const [sets, setSets] = useState<Array<{ A: string; B: string }>>([
     { A: "", B: "" },
   ]);
   const [playedAt, setPlayedAt] = useState("");
   const [location, setLocation] = useState("");
 
-  // QoL: debounce lookups so we don't spam the API
-  const timers = useRef<
-    Record<string, ReturnType<typeof setTimeout> | undefined>
-  >({});
-
-  async function search(term: string, key: string) {
-    if (timers.current[key]) clearTimeout(timers.current[key]!);
-    if (!term) return;
-
-    timers.current[key] = setTimeout(async () => {
+  useEffect(() => {
+    async function loadPlayers() {
       try {
-        const res = await fetch(
-          `${base}/v0/players?q=${encodeURIComponent(term)}`
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        setSuggest((s) => ({ ...s, [key]: data }));
+        const res = await fetch(`${base}/v0/players`);
+        if (res.ok) {
+          setPlayers(await res.json());
+        }
       } catch {
-        // ignore transient errors
+        // ignore errors
       }
-    }, 250);
-  }
+    }
+    loadPlayers();
+  }, []);
 
-  function onNameChange(key: keyof typeof names, value: string) {
-    setNames((n) => ({ ...n, [key]: value }));
-    search(value, key);
+  function onIdChange(key: keyof typeof ids, value: string) {
+    setIds((n) => ({ ...n, [key]: value }));
   }
 
   function onSetChange(idx: number, field: "A" | "B", value: string) {
@@ -71,19 +61,24 @@ export default function RecordPage() {
       return;
     }
 
-    // 1) Create the match using player *names*
+    if (![ids.a1, ids.a2, ids.b1, ids.b2].every(Boolean)) {
+      alert("Please select all four players.");
+      return;
+    }
+
+    // 1) Create the match using player IDs
     const body = {
       sport: "padel",
       participants: [
-        { side: "A", playerNames: [names.a1, names.a2] },
-        { side: "B", playerNames: [names.b1, names.b2] },
+        { side: "A", playerIds: [ids.a1, ids.a2] },
+        { side: "B", playerIds: [ids.b1, ids.b2] },
       ],
       bestOf: 3,
       playedAt: playedAt ? new Date(playedAt).toISOString() : undefined,
       location: location || undefined,
     };
 
-    const createRes = await fetch(`${base}/v0/matches/by-name`, {
+    const createRes = await fetch(`${base}/v0/matches`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -116,56 +111,56 @@ export default function RecordPage() {
         <h2>Players</h2>
         <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
           <div>
-            <input
-              value={names.a1}
-              onChange={(e) => onNameChange("a1", e.target.value)}
-              list="a1"
-              placeholder="Player A1"
-            />
-            <datalist id="a1">
-              {(suggest.a1 || []).map((p: any) => (
-                <option key={p.id} value={p.name} />
+            <select
+              value={ids.a1}
+              onChange={(e) => onIdChange("a1", e.target.value)}
+            >
+              <option value="">Player A1</option>
+              {players.map((p: any) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
               ))}
-            </datalist>
+            </select>
           </div>
           <div>
-            <input
-              value={names.a2}
-              onChange={(e) => onNameChange("a2", e.target.value)}
-              list="a2"
-              placeholder="Player A2"
-            />
-            <datalist id="a2">
-              {(suggest.a2 || []).map((p: any) => (
-                <option key={p.id} value={p.name} />
+            <select
+              value={ids.a2}
+              onChange={(e) => onIdChange("a2", e.target.value)}
+            >
+              <option value="">Player A2</option>
+              {players.map((p: any) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
               ))}
-            </datalist>
+            </select>
           </div>
           <div>
-            <input
-              value={names.b1}
-              onChange={(e) => onNameChange("b1", e.target.value)}
-              list="b1"
-              placeholder="Player B1"
-            />
-            <datalist id="b1">
-              {(suggest.b1 || []).map((p: any) => (
-                <option key={p.id} value={p.name} />
+            <select
+              value={ids.b1}
+              onChange={(e) => onIdChange("b1", e.target.value)}
+            >
+              <option value="">Player B1</option>
+              {players.map((p: any) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
               ))}
-            </datalist>
+            </select>
           </div>
           <div>
-            <input
-              value={names.b2}
-              onChange={(e) => onNameChange("b2", e.target.value)}
-              list="b2"
-              placeholder="Player B2"
-            />
-            <datalist id="b2">
-              {(suggest.b2 || []).map((p: any) => (
-                <option key={p.id} value={p.name} />
+            <select
+              value={ids.b2}
+              onChange={(e) => onIdChange("b2", e.target.value)}
+            >
+              <option value="">Player B2</option>
+              {players.map((p: any) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
               ))}
-            </datalist>
+            </select>
           </div>
         </div>
       </section>

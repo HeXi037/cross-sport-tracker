@@ -213,15 +213,15 @@ export default function MatchPage({ params }: { params: { mid: string } }) {
   }, [details, match?.sport]);
 
   return (
-    <main style={{ padding: 24, maxWidth: 800 }}>
-      <div style={{ marginBottom: 12 }}>
+    <main className="container">
+      <div className="mb-12">
         <Link href="/matches">← Back to matches</Link>
       </div>
 
-      <h1>Match {mid}</h1>
+      <h1 className="heading">Match {mid}</h1>
 
       {loading && <p>Loading…</p>}
-      {err && <p style={{ color: "crimson" }}>{err}</p>}
+      {err && <p className="error">{err}</p>}
 
       {!loading && !err && match && (
         <>
@@ -231,21 +231,21 @@ export default function MatchPage({ params }: { params: { mid: string } }) {
             <strong>Live:</strong> {wsState === "open" ? "connected" : wsState}
           </p>
 
-          <section style={{ marginTop: 16, padding: 12, border: "1px solid #eee", borderRadius: 8 }}>
-            <h2 style={{ marginTop: 0 }}>Score</h2>
+          <section className="card">
+            <h2 className="heading">Score</h2>
             {prettyScore || <p>No pretty score for this sport yet.</p>}
-            <details style={{ marginTop: 8 }}>
+            <details className="mt-8">
               <summary>Raw details JSON</summary>
               <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(details ?? match.details ?? {}, null, 2)}</pre>
             </details>
           </section>
 
-          <section style={{ marginTop: 16, padding: 12, border: "1px solid #eee", borderRadius: 8 }}>
-            <h2 style={{ marginTop: 0 }}>Add Event</h2>
+          <section className="card">
+            <h2 className="heading">Add Event</h2>
             {match.sport === "padel" && (
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button disabled={posting} onClick={() => sendPadelPoint("A")}>Point A</button>
-                <button disabled={posting} onClick={() => sendPadelPoint("B")}>Point B</button>
+                <button className="button" disabled={posting} onClick={() => sendPadelPoint("A")}>Point A</button>
+                <button className="button" disabled={posting} onClick={() => sendPadelPoint("B")}>Point B</button>
               </div>
             )}
 
@@ -258,8 +258,8 @@ export default function MatchPage({ params }: { params: { mid: string } }) {
             )}
           </section>
 
-          <section style={{ marginTop: 16, padding: 12, border: "1px solid #eee", borderRadius: 8 }}>
-            <h2 style={{ marginTop: 0 }}>Events</h2>
+          <section className="card">
+            <h2 className="heading">Events</h2>
             {events.length === 0 ? (
               <p>No events yet.</p>
             ) : (
@@ -300,6 +300,7 @@ function BowlingControls({
         aria-label="Pins knocked down"
       />
       <button
+        className="button"
         disabled={disabled || pins === "" || Number(pins) < 0 || Number(pins) > 10}
         onClick={() => {
           const n = Number(pins);

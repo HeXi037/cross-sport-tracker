@@ -1,3 +1,71 @@
 /* apps/web/src/app/globals.css */
-:root { color-scheme: light dark; }
-html, body { padding: 0; margin: 0; font-family: system-ui, sans-serif; }
+
+/* Color palette inspired by the Norwegian flag */
+:root {
+  color-scheme: light dark;
+  --color-bg: #ffffff;
+  --color-text: #00205b;
+  --color-accent: #ba0c2f;
+  --color-accent-hover: #8e0a23;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+a {
+  color: var(--color-accent);
+}
+
+/* Reusable layout helpers */
+.container {
+  padding: 24px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.heading {
+  margin-top: 0;
+  color: var(--color-accent);
+}
+
+.button {
+  background: var(--color-accent);
+  color: var(--color-bg);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: var(--color-accent-hover);
+}
+
+.section {
+  margin-bottom: 16px;
+}
+
+.card {
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+
+.mt-8 {
+  margin-top: 8px;
+}
+
+.mb-12 {
+  margin-bottom: 12px;
+}
+
+.error {
+  color: var(--color-accent);
+}

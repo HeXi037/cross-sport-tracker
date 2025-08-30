@@ -24,11 +24,11 @@ export default function PlayersPage() {
   }
 
   return (
-    <main style={{ padding: 24 }}>
-      <h1>Players</h1>
+    <main className="container">
+      <h1 className="heading">Players</h1>
       <ul>{players.map(p => <li key={p.id}>{p.name}</li>)}</ul>
       <input value={name} onChange={e => setName(e.target.value)} placeholder="name" />
-      <button onClick={create}>Add</button>
+      <button className="button" onClick={create}>Add</button>
     </main>
   );
 }

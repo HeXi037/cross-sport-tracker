@@ -104,11 +104,11 @@ export default function RecordPage() {
   }
 
   return (
-    <main style={{ padding: 24, fontFamily: "system-ui, sans-serif" }}>
-      <h1>Record Match</h1>
+    <main className="container">
+      <h1 className="heading">Record Match</h1>
 
-      <section style={{ marginBottom: 16 }}>
-        <h2>Players</h2>
+      <section className="section">
+        <h2 className="heading">Players</h2>
         <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
           <div>
             <select
@@ -165,8 +165,8 @@ export default function RecordPage() {
         </div>
       </section>
 
-      <section style={{ marginBottom: 16 }}>
-        <h2>Sets</h2>
+      <section className="section">
+        <h2 className="heading">Sets</h2>
         <div style={{ display: "grid", gap: 8 }}>
           {sets.map((s, idx) => (
             <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -190,13 +190,13 @@ export default function RecordPage() {
             </div>
           ))}
         </div>
-        <button style={{ marginTop: 8 }} onClick={addSet} type="button">
+        <button className="button mt-8" onClick={addSet} type="button">
           Add Set
         </button>
       </section>
 
-      <section style={{ marginBottom: 16 }}>
-        <h2>Details</h2>
+      <section className="section">
+        <h2 className="heading">Details</h2>
         <div style={{ display: "flex", gap: 8 }}>
           <input
             type="date"
@@ -211,7 +211,7 @@ export default function RecordPage() {
         </div>
       </section>
 
-      <button onClick={submit} type="button">
+      <button className="button" onClick={submit} type="button">
         Save
       </button>
     </main>

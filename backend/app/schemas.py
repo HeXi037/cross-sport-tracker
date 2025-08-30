@@ -74,6 +74,10 @@ class ScoreEventOut(BaseModel):
     createdAt: datetime
 
 
+class MatchIdOut(BaseModel):
+    id: str
+
+
 class MatchSummaryOut(BaseModel):
     id: str
     sport: str

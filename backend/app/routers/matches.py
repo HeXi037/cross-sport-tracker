@@ -14,6 +14,7 @@ from ..schemas import (
     Participant,
     EventIn,
     SetsIn,
+    MatchIdOut,
     MatchSummaryOut,
     MatchOut,
     ParticipantOut,
@@ -42,7 +43,7 @@ async def list_matches(session: AsyncSession = Depends(get_session)):
     ]
 
 # POST /api/v0/matches
-@router.post("")
+@router.post("", response_model=MatchIdOut)
 async def create_match(body: MatchCreate, session: AsyncSession = Depends(get_session)):
     mid = uuid.uuid4().hex
     match = Match(
@@ -66,10 +67,10 @@ async def create_match(body: MatchCreate, session: AsyncSession = Depends(get_se
         session.add(mp)
 
     await session.commit()
-    return {"id": mid}
+    return MatchIdOut(id=mid)
 
 
-@router.post("/by-name")
+@router.post("/by-name", response_model=MatchIdOut)
 async def create_match_by_name(body: MatchCreateByName, session: AsyncSession = Depends(get_session)):
     name_to_id = {}
     names = [n for part in body.participants for n in part.playerNames]

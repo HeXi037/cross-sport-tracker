@@ -9,7 +9,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
 from ..models import Match, MatchParticipant, Player, ScoreEvent
-from ..schemas import MatchCreate, MatchCreateByName, Participant, EventIn, SetsIn
+from ..schemas import (
+    MatchCreate,
+    MatchCreateByName,
+    Participant,
+    EventIn,
+    SetsIn,
+    MatchIdOut,
+    MatchSummaryOut,
+    MatchOut,
+    ParticipantOut,
+    ScoreEventOut,
+)
 from .streams import broadcast
 from ..scoring import padel as padel_engine
 from ..services.validation import validate_set_scores, ValidationError
@@ -18,22 +29,22 @@ from ..services.validation import validate_set_scores, ValidationError
 router = APIRouter(prefix="/matches", tags=["matches"])
 
 # GET /api/v0/matches
-@router.get("")
+@router.get("", response_model=list[MatchSummaryOut])
 async def list_matches(session: AsyncSession = Depends(get_session)):
     matches = (await session.execute(select(Match))).scalars().all()
     return [
-        {
-            "id": m.id,
-            "sport": m.sport_id,
-            "bestOf": m.best_of,
-            "playedAt": m.played_at.isoformat() if m.played_at else None,
-            "location": m.location,
-        }
+        MatchSummaryOut(
+            id=m.id,
+            sport=m.sport_id,
+            bestOf=m.best_of,
+            playedAt=m.played_at,
+            location=m.location,
+        )
         for m in matches
     ]
 
 # POST /api/v0/matches
-@router.post("")
+@router.post("", response_model=MatchIdOut)
 async def create_match(body: MatchCreate, session: AsyncSession = Depends(get_session)):
     mid = uuid.uuid4().hex
     match = Match(
@@ -57,10 +68,10 @@ async def create_match(body: MatchCreate, session: AsyncSession = Depends(get_se
         session.add(mp)
 
     await session.commit()
-    return {"id": mid}
+    return MatchIdOut(id=mid)
 
 
-@router.post("/by-name")
+@router.post("/by-name", response_model=MatchIdOut)
 async def create_match_by_name(body: MatchCreateByName, session: AsyncSession = Depends(get_session)):
     name_to_id = {}
     names = [n for part in body.participants for n in part.playerNames]
@@ -92,7 +103,7 @@ async def create_match_by_name(body: MatchCreateByName, session: AsyncSession = 
     return await create_match(mc, session)
 
 # GET /api/v0/matches/{mid}
-@router.get("/{mid}")
+@router.get("/{mid}", response_model=MatchOut)
 async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
     m = (await session.execute(select(Match).where(Match.id == mid))).scalar_one_or_none()
     if not m:
@@ -108,20 +119,27 @@ async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
         )
     ).scalars().all()
 
-    return {
-        "id": m.id,
-        "sport": m.sport_id,
-        "rulesetId": m.ruleset_id,
-        "bestOf": m.best_of,
-        "playedAt": m.played_at.isoformat() if m.played_at else None,
-        "location": m.location,
-        "participants": [{"id": p.id, "side": p.side, "playerIds": p.player_ids} for p in parts],
-        "events": [
-            {"id": e.id, "type": e.type, "payload": e.payload, "createdAt": e.created_at.isoformat()}
+    return MatchOut(
+        id=m.id,
+        sport=m.sport_id,
+        rulesetId=m.ruleset_id,
+        bestOf=m.best_of,
+        playedAt=m.played_at,
+        location=m.location,
+        participants=[
+            ParticipantOut(id=p.id, side=p.side, playerIds=p.player_ids) for p in parts
+        ],
+        events=[
+            ScoreEventOut(
+                id=e.id,
+                type=e.type,
+                payload=e.payload,
+                createdAt=e.created_at,
+            )
             for e in events
         ],
-        "summary": m.details,
-    }
+        summary=m.details,
+    )
 
 # POST /api/v0/matches/{mid}/events
 @router.post("/{mid}/events")

@@ -8,7 +8,7 @@ os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_players.db"
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from app.db import Base, engine
+from app import db
 from app.routers import players
 from app.models import Player, Club
 
@@ -18,9 +18,14 @@ app.include_router(players.router)
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():
     async def init_models():
+        if os.path.exists("./test_players.db"):
+            os.remove("./test_players.db")
+        db.engine = None
+        db.AsyncSessionLocal = None
+        engine = db.get_engine()
         async with engine.begin() as conn:
             await conn.run_sync(
-                Base.metadata.create_all,
+                db.Base.metadata.create_all,
                 tables=[Club.__table__, Player.__table__],
             )
     asyncio.run(init_models())
@@ -30,7 +35,8 @@ def setup_db():
 
 def test_list_players_pagination() -> None:
     with TestClient(app) as client:
-        # Create some players
+        # Track existing players and create some new ones
+        base_total = client.get("/players").json().get("total", 0)
         for i in range(5):
             resp = client.post("/players", json={"name": f"P{i}"})
             assert resp.status_code == 200
@@ -40,5 +46,5 @@ def test_list_players_pagination() -> None:
         data = resp.json()
         assert data["limit"] == 2
         assert data["offset"] == 1
-        assert data["total"] == 5
+        assert data["total"] == base_total + 5
         assert len(data["players"]) == 2

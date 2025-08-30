@@ -15,15 +15,18 @@ def anyio_backend():
 @pytest.mark.anyio
 async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
     os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
-    from app.db import engine, AsyncSessionLocal
+    from app import db
     from app.models import Player
     from app.schemas import MatchCreateByName, ParticipantByName
     from app.routers.matches import create_match_by_name
 
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
     async with engine.begin() as conn:
         await conn.run_sync(Player.__table__.create)
 
-    async with AsyncSessionLocal() as session:
+    async with db.AsyncSessionLocal() as session:
         session.add(Player(id="p1", name="Alice"))
         await session.commit()
         body = MatchCreateByName(

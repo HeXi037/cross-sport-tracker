@@ -3,7 +3,7 @@ import os
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-from app.models import Sport, RuleSet
+from app.models import Sport, RuleSet, Club, Player
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
@@ -50,6 +50,27 @@ async def main():
         for rs in rulesets:
             if rs.id not in existing_rs:
                 s.add(rs)
+        await s.commit()
+
+        # sample club
+        existing_clubs = {
+            x.id for x in (await s.execute(select(Club))).scalars().all()
+        }
+        for cid, name in [("demo-club", "Demo Club")]:
+            if cid not in existing_clubs:
+                s.add(Club(id=cid, name=name))
+        await s.commit()
+
+        # sample player
+        existing_players = {
+            x.id for x in (await s.execute(select(Player))).scalars().all()
+        }
+        players = [
+            Player(id="demo-player", name="Demo Player", club_id="demo-club"),
+        ]
+        for p in players:
+            if p.id not in existing_players:
+                s.add(p)
         await s.commit()
 
 if __name__ == "__main__":

@@ -165,7 +165,14 @@ cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 alembic upgrade head
+python seed.py  # adds default sports, rulesets, demo club/player
 uvicorn app.main:app --reload  # http://localhost:8000, docs at /docs
+
+Seed inserts:
+- Sports: Padel, Bowling
+- RuleSets: padel-default, padel-golden, bowling-standard
+- Club: Demo Club (id: demo-club)
+- Player: Demo Player (id: demo-player, club: Demo Club)
 
 # Web
 cd ../../apps/web

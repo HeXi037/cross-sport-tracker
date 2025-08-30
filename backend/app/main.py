@@ -6,7 +6,21 @@ from .routers import sports, rulesets, players, matches, leaderboards, streams
 from .exceptions import DomainException, ProblemDetail
 import os
 
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv("ALLOWED_ORIGINS", "*").split(",")
+    if o.strip()
+]
+ALLOW_CREDENTIALS = os.getenv("ALLOW_CREDENTIALS", "true").lower() == "true"
+
+# CORS safety check
+if ALLOW_CREDENTIALS and (not ALLOWED_ORIGINS or "*" in ALLOWED_ORIGINS):
+    raise ValueError(
+        "ALLOWED_ORIGINS cannot be '*' when credentials are allowed. "
+        "Set ALLOWED_ORIGINS to a comma-separated list of origins or set "
+        "ALLOW_CREDENTIALS=false."
+    )
 
 app = FastAPI(
     title="Cross Sport Tracker API",
@@ -18,8 +32,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in ALLOWED_ORIGINS if o.strip()],
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS or ["*"],
+    allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )

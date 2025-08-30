@@ -15,8 +15,13 @@ export default function PlayersPage() {
   const [name, setName] = useState("");
 
   async function load() {
-    const res = await fetch(`${base}/v0/players`, { cache: "no-store" });
-    if (res.ok) setPlayers(await res.json());
+    const res = await fetch(`${base}/v0/players?limit=100&offset=0`, {
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setPlayers(data.players);
+    }
   }
   useEffect(() => {
     load();

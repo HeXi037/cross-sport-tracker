@@ -1,12 +1,13 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
-import RecordPage from "./page";
+import RecordSportPage from "./page";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
+  useParams: () => ({ sport: "padel" }),
 }));
 
-describe("RecordPage", () => {
+describe("RecordSportPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -21,13 +22,13 @@ describe("RecordPage", () => {
 
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => players });
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) });
     // @ts-expect-error override global fetch for test
     global.fetch = fetchMock;
 
     const alertMock = vi.spyOn(window, "alert").mockImplementation(() => {});
 
-    render(<RecordPage />);
+    render(<RecordSportPage />);
 
     await screen.findAllByText("Alice");
 
@@ -46,7 +47,7 @@ describe("RecordPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
-    expect(alertMock).toHaveBeenCalledWith("Please select four unique players.");
+    expect(alertMock).toHaveBeenCalledWith("Please select unique players.");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

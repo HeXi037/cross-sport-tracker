@@ -1,6 +1,5 @@
 # backend/app/routers/matches.py
 import uuid
-import json
 import importlib
 from collections import Counter
 from fastapi import APIRouter, Depends, HTTPException
@@ -162,7 +161,7 @@ async def append_event(mid: str, ev: EventIn, session: AsyncSession = Depends(ge
     for old in existing:
         state = engine.apply(old.payload, state)
 
-    payload = json.loads(ev.model_dump_json())
+    payload = ev.model_dump()
     try:
         state = engine.apply(payload, state)
     except ValueError as exc:

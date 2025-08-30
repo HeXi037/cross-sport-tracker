@@ -72,7 +72,11 @@ export default function RecordPage() {
         { side: "B", playerIds: [ids.b1, ids.b2] },
       ],
       bestOf: 3,
-      playedAt: playedAt ? new Date(playedAt).toISOString() : undefined,
+      // Avoid sending timezone-aware timestamps; the API expects a naive
+      // datetime string.  Using Date#toISOString() would include a "Z" suffix
+      // (UTC) which caused the backend to reject the request.  Instead, send
+      // an ISO date without timezone information if a value was provided.
+      playedAt: playedAt ? `${playedAt}T00:00:00` : undefined,
       location: location || undefined,
     };
 

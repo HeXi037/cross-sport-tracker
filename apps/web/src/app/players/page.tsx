@@ -1,8 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-
-const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
+import { apiFetch } from "../../lib/api";
 
 interface Player {
   id: string;
@@ -16,12 +15,19 @@ export default function PlayersPage() {
   const [error, setError] = useState<string | null>(null);
 
   async function load() {
-    const res = await fetch(`${base}/v0/players?limit=100&offset=0`, {
-      cache: "no-store",
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setPlayers(data.players);
+    setError(null);
+    try {
+      const res = await apiFetch("/v0/players?limit=100&offset=0", {
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPlayers(data.players);
+      } else {
+        setError("Failed to load players.");
+      }
+    } catch (err) {
+      setError("Unable to reach the server.");
     }
   }
   useEffect(() => {
@@ -36,7 +42,7 @@ export default function PlayersPage() {
     }
     setError(null);
     try {
-      const res = await fetch(`${base}/v0/players`, {
+      const res = await apiFetch("/v0/players", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: trimmed }),
@@ -84,7 +90,14 @@ export default function PlayersPage() {
       >
         Add
       </button>
-      {error && <p className="text-red-500 mt-2">{error}</p>}
+      {error && (
+        <div className="text-red-500 mt-2">
+          {error}
+          <button className="ml-2 underline" onClick={load}>
+            Retry
+          </button>
+        </div>
+      )}
     </main>
   );
 }

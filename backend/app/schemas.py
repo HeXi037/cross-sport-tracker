@@ -29,6 +29,20 @@ class PlayerListOut(BaseModel):
     limit: int
     offset: int
 
+
+class LeaderboardEntryOut(BaseModel):
+    playerId: str
+    playerName: str
+    rating: float
+
+
+class LeaderboardOut(BaseModel):
+    sport: str
+    leaders: List[LeaderboardEntryOut]
+    total: int
+    limit: int
+    offset: int
+
 class Participant(BaseModel):
     side: Literal["A", "B"]
     playerIds: List[str]

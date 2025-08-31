@@ -84,17 +84,17 @@ export default async function MatchesPage() {
     const matches = await enrichMatches(rows);
 
     return (
-      <main className="mx-auto max-w-3xl p-6 space-y-4">
-        <h1 className="text-2xl font-semibold">Matches</h1>
-        <ul className="space-y-2">
+      <main className="container">
+        <h1 className="heading">Matches</h1>
+        <ul className="match-list">
           {matches.map((m) => (
-            <li key={m.id} className="rounded border p-3">
-              <div className="font-medium">
+            <li key={m.id} className="card match-item">
+              <div style={{ fontWeight: 500 }}>
                 <Link href={`/matches/${m.id}`}>
                   {m.names.A.join(" & ")} vs {m.names.B.join(" & ")}
                 </Link>
               </div>
-              <div className="text-sm text-gray-700">
+              <div className="match-meta">
                 {formatSummary(m.summary)}
                 {m.summary ? " · " : ""}
                 {m.sport} · Best of {m.bestOf ?? "—"} · {" "}
@@ -108,10 +108,10 @@ export default async function MatchesPage() {
     );
   } catch {
     return (
-      <main className="mx-auto max-w-3xl p-6 space-y-4">
-        <h1 className="text-2xl font-semibold">Matches</h1>
-        <p className="text-red-600">Failed to load matches.</p>
-        <Link href="/matches" className="text-blue-600 underline">
+      <main className="container">
+        <h1 className="heading">Matches</h1>
+        <p className="error">Failed to load matches.</p>
+        <Link href="/matches" style={{ textDecoration: "underline" }}>
           Retry
         </Link>
       </main>

@@ -49,23 +49,30 @@ export default function LeaderboardPage() {
   }, [sport]);
 
   return (
-    <main className="mx-auto max-w-3xl p-6 space-y-6">
-      <div className="text-sm">
-        <Link href="/matches" className="underline underline-offset-2">
+    <main className="container">
+      <div style={{ marginBottom: "1rem", fontSize: "0.9rem" }}>
+        <Link href="/matches" style={{ textDecoration: "underline" }}>
           ← Back to matches
         </Link>
       </div>
 
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">Leaderboards</h1>
-        <label className="text-sm">
+      <header
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "1rem",
+        }}
+      >
+        <h1 className="heading">Leaderboards</h1>
+        <label style={{ fontSize: "0.9rem" }}>
           Sport{" "}
           <select
             value={sport}
             onChange={(e) =>
               setSport(e.target.value as (typeof SPORTS)[number])
             }
-            className="border rounded px-2 py-1"
+            style={{ marginLeft: "0.25rem" }}
           >
             {SPORTS.map((s) => (
               <option key={s} value={s}>
@@ -77,30 +84,50 @@ export default function LeaderboardPage() {
       </header>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading…</p>
+        <p>Loading...</p>
       ) : leaders.length === 0 ? (
-        <p className="text-sm text-gray-500">{error ?? "No data."}</p>
+        <p>{error ?? "No data."}</p>
       ) : (
-        <table className="w-full text-sm">
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            marginTop: "1rem",
+            fontSize: "0.9rem",
+          }}
+        >
           <thead>
-            <tr className="text-left">
-              <th className="py-1 pr-4">#</th>
-              <th className="py-1 pr-4">Player</th>
-              <th className="py-1 pr-4">Rating</th>
-              <th className="py-1 pr-4">W</th>
-              <th className="py-1">L</th>
+            <tr>
+              <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>#</th>
+              <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>
+                Player
+              </th>
+              <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>
+                Rating
+              </th>
+              <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>W</th>
+              <th style={{ textAlign: "left", padding: "4px 0" }}>L</th>
             </tr>
           </thead>
           <tbody>
             {leaders.map((row) => (
-              <tr key={`${row.rank}-${row.player.id}`} className="border-t">
-                <td className="py-1 pr-4 tabular-nums">{row.rank}</td>
-                <td className="py-1 pr-4">{row.player.name}</td>
-                <td className="py-1 pr-4 tabular-nums">
+              <tr
+                key={`${row.rank}-${row.player.id}`}
+                style={{ borderTop: "1px solid #ccc" }}
+              >
+                <td style={{ padding: "4px 16px 4px 0" }}>{row.rank}</td>
+                <td style={{ padding: "4px 16px 4px 0" }}>
+                  {row.player.name}
+                </td>
+                <td style={{ padding: "4px 16px 4px 0" }}>
                   {row.rating ?? "—"}
                 </td>
-                <td className="py-1 pr-4 tabular-nums">{row.wins ?? "—"}</td>
-                <td className="py-1 tabular-nums">{row.losses ?? "—"}</td>
+                <td style={{ padding: "4px 16px 4px 0" }}>
+                  {row.wins ?? "—"}
+                </td>
+                <td style={{ padding: "4px 0" }}>
+                  {row.losses ?? "—"}
+                </td>
               </tr>
             ))}
           </tbody>

@@ -13,7 +13,7 @@ type MatchRow = {
 };
 
 const sportIcons: Record<string, string> = {
-  padel: '🎾',
+  padel: '\uD83C\uDFBE', // tennis ball
   bowling: '🎳',
 };
 
@@ -41,7 +41,7 @@ export default async function HomePage() {
     <main className="container">
       <section className="card">
         <h1 className="heading">cross-sport-tracker</h1>
-        <p>Padel + Bowling MVP</p>
+        <p>Ongoing self-hosted project</p>
       </section>
 
       <section className="section">

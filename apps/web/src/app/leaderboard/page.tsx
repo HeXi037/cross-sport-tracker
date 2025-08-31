@@ -5,9 +5,11 @@ const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 const sports = ["padel", "bowling"];
 
 interface Leader {
+  rank: number;
   playerId: string;
   playerName: string;
   rating: number;
+  rankChange: number;
 }
 
 export default function LeaderboardPage() {
@@ -95,14 +97,26 @@ export default function LeaderboardPage() {
               >
                 Rating
               </th>
+              <th
+                style={{
+                  border: "1px solid #ccc",
+                  padding: "0.5rem",
+                  textAlign: "left",
+                }}
+              >
+                Change
+              </th>
             </tr>
           </thead>
           <tbody>
-            {leaders.map((l, i) => (
+            {leaders.map((l) => (
               <tr key={l.playerId}>
-                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{i + 1}</td>
+                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{l.rank}</td>
                 <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{l.playerName}</td>
                 <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{l.rating}</td>
+                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>
+                  {l.rankChange > 0 ? `+${l.rankChange}` : l.rankChange}
+                </td>
               </tr>
             ))}
           </tbody>

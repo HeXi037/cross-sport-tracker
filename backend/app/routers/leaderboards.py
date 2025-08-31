@@ -29,9 +29,13 @@ async def leaderboard(
     rows = (await session.execute(stmt.limit(limit).offset(offset))).all()
     leaders = [
         LeaderboardEntryOut(
-            playerId=r.Rating.player_id, playerName=r.Player.name, rating=r.Rating.value
+            rank=offset + i + 1,
+            playerId=r.Rating.player_id,
+            playerName=r.Player.name,
+            rating=r.Rating.value,
+            rankChange=0,  # TODO: compute change based on last 5 matches
         )
-        for r in rows
+        for i, r in enumerate(rows)
     ]
     return LeaderboardOut(
         sport=sport, leaders=leaders, total=total, limit=limit, offset=offset

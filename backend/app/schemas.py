@@ -31,9 +31,11 @@ class PlayerListOut(BaseModel):
 
 
 class LeaderboardEntryOut(BaseModel):
+    rank: int
     playerId: str
     playerName: str
     rating: float
+    rankChange: int
 
 
 class LeaderboardOut(BaseModel):

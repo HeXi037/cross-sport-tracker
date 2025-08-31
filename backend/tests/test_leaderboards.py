@@ -53,4 +53,8 @@ def test_leaderboard_pagination():
         assert data["total"] == 5
         assert len(data["leaders"]) == 2
         assert data["leaders"][0]["rating"] == 1003
+        assert data["leaders"][0]["rank"] == 2
+        assert data["leaders"][0]["rankChange"] == 0
         assert data["leaders"][1]["rating"] == 1002
+        assert data["leaders"][1]["rank"] == 3
+        assert data["leaders"][1]["rankChange"] == 0

@@ -50,7 +50,7 @@ export default function MatchDetailPage({
 }) {
   const { mid } = params;
   const [data, setData] = React.useState<(MatchDetail & { names: PlayerMap }) | null>(null);
-  const [loading, setLoading] = React.useState<boolean>(true);
+  the [loading, setLoading] = React.useState<boolean>(true);
   const [error, setError] = React.useState<string | null>(null);
 
   const load = React.useCallback(async () => {
@@ -134,10 +134,10 @@ export default function MatchDetailPage({
 
       <section className="section">
         <h2 className="heading">Participants</h2>
-        <ul style={{ listStyle: "disc", paddingLeft: "1.5rem" }}>
+        <ul style={{ listStyle: 'disc', paddingLeft: '1.5rem' }}>
           {data.participants.map((p) => (
             <li key={p.id}>
-              Side {p.side} — players: {p.playerIds.map((id) => data.names[id] ?? id).join(", ")}
+              Side {p.side} — players: {p.playerIds.map((id) => data.names[id] ?? id).join(', ')}
             </li>
           ))}
         </ul>
@@ -152,16 +152,16 @@ export default function MatchDetailPage({
             {data.events.map((ev) => {
               const created = new Date(ev.createdAt).toLocaleString();
               const payloadPreview =
-                ev.type === "ROLL"
+                ev.type === 'ROLL'
                   ? `sum=${rollsTotal(ev.payload)}`
                   : JSON.stringify(ev.payload);
               return (
                 <li key={ev.id} className="card">
                   <div style={{ fontWeight: 500 }}>
-                    {ev.type}{" "}
+                    {ev.type}{' '}
                     <span className="match-meta">({created})</span>
                   </div>
-                  <div style={{ wordBreak: "break-word", fontSize: "0.9rem" }}>
+                  <div style={{ wordBreak: 'break-word', fontSize: '0.9rem' }}>
                     {payloadPreview}
                   </div>
                 </li>
@@ -173,8 +173,8 @@ export default function MatchDetailPage({
 
       <section className="section">
         <h2 className="heading">Summary</h2>
-        <pre className="card" style={{ overflow: "auto", fontSize: "0.9rem" }}>
-          {typeof data.summary === "string"
+        <pre className="card" style={{ overflow: 'auto', fontSize: '0.9rem' }}>
+          {typeof data.summary === 'string'
             ? data.summary
             : JSON.stringify(data.summary, null, 2)}
         </pre>

@@ -79,3 +79,11 @@ def test_padel_match_stops_after_set_limit():
     assert state["points"] == before["points"]
     assert state["games"] == before["games"]
     assert state["sets"] == before["sets"]
+
+
+def test_padel_no_set_limit_by_default():
+    state = padel.init_state({})
+    for _ in range(3):
+        for _ in range(6):
+            state = _score_game("A", state)
+    assert state["sets"]["A"] == 3

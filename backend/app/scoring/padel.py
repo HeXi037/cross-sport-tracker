@@ -9,13 +9,14 @@ def init_state(config: Dict) -> Dict:
 
     ``config`` may contain ``tiebreakTo`` – the number of tiebreak points
     required to win a set (default ``7``) – and ``sets`` – the best-of value
-    for the match (default ``3`` for best of three sets).
+    for the match.  If ``sets`` is not provided the match continues until
+    stopped externally.
     """
 
     return {
         "config": {
             "tiebreakTo": config.get("tiebreakTo", 7),
-            "sets": config.get("sets", 3),
+            "sets": config.get("sets"),
         },
         "points": {"A": 0, "B": 0},
         "games": {"A": 0, "B": 0},
@@ -36,11 +37,13 @@ def apply(event: Dict, state: Dict) -> Dict:
 
     cfg = state["config"]
     tiebreak_to = cfg.get("tiebreakTo", 7)
-    best_of = cfg.get("sets", 3)
-    sets_needed = best_of // 2 + 1
+    best_of = cfg.get("sets")
+    sets_needed = best_of // 2 + 1 if best_of else None
 
     # Stop processing if the match is already decided.
-    if state["sets"]["A"] >= sets_needed or state["sets"]["B"] >= sets_needed:
+    if sets_needed and (
+        state["sets"]["A"] >= sets_needed or state["sets"]["B"] >= sets_needed
+    ):
         return state
 
     state["points"][side] += 1

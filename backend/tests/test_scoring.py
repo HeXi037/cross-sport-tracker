@@ -21,6 +21,53 @@ def test_bowling_simple_score():
     assert summary["total"] == 20
 
 
+def test_bowling_tenth_frame_strike_bonus_allowed():
+    state = bowling.init_state({"tenthFrameBonus": True})
+    for _ in range(9 * 2):
+        state = bowling.apply({"type": "ROLL", "pins": 0}, state)
+    for pins in [10, 3, 4]:
+        state = bowling.apply({"type": "ROLL", "pins": pins}, state)
+    summary = bowling.summary(state)
+    assert summary["frames"][9] == [10, 3, 4]
+    assert summary["total"] == 17
+
+
+def test_bowling_tenth_frame_spare_bonus_allowed():
+    state = bowling.init_state({"tenthFrameBonus": True})
+    for _ in range(9 * 2):
+        state = bowling.apply({"type": "ROLL", "pins": 0}, state)
+    for pins in [7, 3, 5]:
+        state = bowling.apply({"type": "ROLL", "pins": pins}, state)
+    summary = bowling.summary(state)
+    assert summary["frames"][9] == [7, 3, 5]
+    assert summary["total"] == 15
+
+
+def test_bowling_tenth_frame_strike_no_bonus():
+    state = bowling.init_state({"tenthFrameBonus": False})
+    for _ in range(9 * 2):
+        state = bowling.apply({"type": "ROLL", "pins": 0}, state)
+    state = bowling.apply({"type": "ROLL", "pins": 10}, state)
+    with pytest.raises(ValueError, match="no rolls left"):
+        bowling.apply({"type": "ROLL", "pins": 0}, state)
+    summary = bowling.summary(state)
+    assert summary["frames"][9] == [10]
+    assert summary["total"] == 10
+
+
+def test_bowling_tenth_frame_spare_no_bonus():
+    state = bowling.init_state({"tenthFrameBonus": False})
+    for _ in range(9 * 2):
+        state = bowling.apply({"type": "ROLL", "pins": 0}, state)
+    for pins in [7, 3]:
+        state = bowling.apply({"type": "ROLL", "pins": pins}, state)
+    with pytest.raises(ValueError, match="no rolls left"):
+        bowling.apply({"type": "ROLL", "pins": 5}, state)
+    summary = bowling.summary(state)
+    assert summary["frames"][9] == [7, 3]
+    assert summary["total"] == 10
+
+
 def test_record_sets():
     events, state = padel.record_sets([(6, 4), (6, 2)])
     assert state["sets"]["A"] == 2

@@ -59,8 +59,17 @@ async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
       { cache: "no-store" }
     );
     if (r.ok) {
-      const players = (await r.json()) as { id: string; name: string }[];
-      players.forEach((p) => idToName.set(p.id, p.name));
+      const players = (await r.json()) as {
+        id?: string;
+        name?: string;
+        playerId?: string;
+        playerName?: string;
+      }[];
+      players.forEach((p) => {
+        const pid = p.id ?? p.playerId;
+        const pname = p.name ?? p.playerName;
+        if (pid && pname) idToName.set(pid, pname);
+      });
     }
   }
 

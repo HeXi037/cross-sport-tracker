@@ -90,16 +90,17 @@ export default async function MatchesPage() {
           {matches.map((m) => (
             <li key={m.id} className="card match-item">
               <div style={{ fontWeight: 500 }}>
-                <Link href={`/matches/${m.id}`}>
-                  {m.names.A.join(" & ")} vs {m.names.B.join(" & ")}
-                </Link>
+                {m.names.A.join(" & ")} vs {m.names.B.join(" & ")}
               </div>
               <div className="match-meta">
                 {formatSummary(m.summary)}
                 {m.summary ? " · " : ""}
                 {m.sport} · Best of {m.bestOf ?? "—"} · {" "}
-                {m.playedAt ? new Date(m.playedAt).toLocaleString() : "—"} · {" "}
+                {m.playedAt ? new Date(m.playedAt).toLocaleDateString() : "—"} · {" "}
                 {m.location ?? "—"}
+              </div>
+              <div>
+                <Link href={`/matches/${m.id}`}>More info</Link>
               </div>
             </li>
           ))}

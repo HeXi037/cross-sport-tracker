@@ -130,7 +130,7 @@ export default function MatchDetailPage({
           {' · '}Sport: <strong>{data.sport}</strong>
           {' · '}Best of: <strong>{data.bestOf ?? '—'}</strong>
           {' · '}Played:{' '}
-          <strong>{data.playedAt ? new Date(data.playedAt).toLocaleString() : '—'}</strong>
+          <strong>{data.playedAt ? new Date(data.playedAt).toLocaleDateString() : '—'}</strong>
           {' · '}Location: <strong>{data.location ?? '—'}</strong>
         </p>
       </header>

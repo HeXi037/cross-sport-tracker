@@ -82,7 +82,7 @@ export default async function HomePage() {
                 </div>
                 <div className="match-meta">
                   {m.sport} · Best of {m.bestOf ?? '—'} ·{' '}
-                  {m.playedAt ? new Date(m.playedAt).toLocaleString() : '—'}
+                  {m.playedAt ? new Date(m.playedAt).toLocaleDateString() : '—'}
                   {m.location ? ` · ${m.location}` : ''}
                 </div>
               </li>

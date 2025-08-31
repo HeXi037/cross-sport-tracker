@@ -22,6 +22,7 @@ export default function RecordSportPage() {
   const [sets, setSets] = useState<Array<{ A: string; B: string }>>(
     isPadel ? [{ A: "", B: "" }] : []
   );
+  const [bestOf, setBestOf] = useState(3);
   const [playedAt, setPlayedAt] = useState("");
   const [location, setLocation] = useState("");
 
@@ -100,7 +101,7 @@ export default function RecordSportPage() {
       location: location || undefined,
     };
     if (isPadel) {
-      body.bestOf = 3;
+      body.bestOf = bestOf;
     }
 
     const createRes = await fetch(`${base}/v0/matches`, {
@@ -246,6 +247,19 @@ export default function RecordSportPage() {
       <section className="section">
         <h2 className="heading">Details</h2>
         <div style={{ display: "flex", gap: 8 }}>
+          {isPadel && (
+            <select
+              className="input"
+              value={bestOf}
+              onChange={(e) => setBestOf(parseInt(e.target.value, 10))}
+            >
+              {[1, 3, 5].map((n) => (
+                <option key={n} value={n}>
+                  Best of {n}
+                </option>
+              ))}
+            </select>
+          )}
           <input
             className="input"
             type="date"

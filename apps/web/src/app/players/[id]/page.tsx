@@ -137,7 +137,7 @@ export default async function PlayerPage({
                   {formatSummary(m.summary)}
                   {m.summary ? " · " : ""}
                   {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
-                  {m.playedAt ? new Date(m.playedAt).toLocaleString() : "—"}
+                  {m.playedAt ? new Date(m.playedAt).toLocaleDateString() : "—"}
                   {" · "}
                   {m.location ?? "—"}
                 </div>

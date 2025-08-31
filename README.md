@@ -136,7 +136,7 @@ POST /api/v0/matches
     { "side": "A", "playerIds": ["p1","p2"] },
     { "side": "B", "playerIds": ["p3","p4"] }
   ],
-  "bestOf": 3,
+  "bestOf": 3, // may be 1, 3, or 5
   "playedAt": "2024-06-01T10:00:00Z",
   "location": "Local Club"
 }

@@ -34,6 +34,10 @@ class LeaderboardEntryOut(BaseModel):
     playerId: str
     playerName: str
     rating: float
+    sets: int
+    setsWon: int
+    setsLost: int
+    setDiff: int
 
 
 class LeaderboardOut(BaseModel):

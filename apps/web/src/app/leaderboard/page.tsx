@@ -8,6 +8,10 @@ interface Leader {
   playerId: string;
   playerName: string;
   rating: number;
+  sets: number;
+  setsWon: number;
+  setsLost: number;
+  setDiff: number;
 }
 
 export default function LeaderboardPage() {
@@ -95,6 +99,42 @@ export default function LeaderboardPage() {
               >
                 Rating
               </th>
+              <th
+                style={{
+                  border: "1px solid #ccc",
+                  padding: "0.5rem",
+                  textAlign: "left",
+                }}
+              >
+                Sets
+              </th>
+              <th
+                style={{
+                  border: "1px solid #ccc",
+                  padding: "0.5rem",
+                  textAlign: "left",
+                }}
+              >
+                W
+              </th>
+              <th
+                style={{
+                  border: "1px solid #ccc",
+                  padding: "0.5rem",
+                  textAlign: "left",
+                }}
+              >
+                L
+              </th>
+              <th
+                style={{
+                  border: "1px solid #ccc",
+                  padding: "0.5rem",
+                  textAlign: "left",
+                }}
+              >
+                +/-
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -103,6 +143,10 @@ export default function LeaderboardPage() {
                 <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{i + 1}</td>
                 <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{l.playerName}</td>
                 <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{l.rating}</td>
+                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{l.sets}</td>
+                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{l.setsWon}</td>
+                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{l.setsLost}</td>
+                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{l.setDiff}</td>
               </tr>
             ))}
           </tbody>

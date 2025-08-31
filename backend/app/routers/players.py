@@ -1,11 +1,18 @@
 import uuid
+from collections import defaultdict
 from fastapi import APIRouter, Depends
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Player
-from ..schemas import PlayerCreate, PlayerOut, PlayerListOut
+from ..models import Player, Match, MatchParticipant
+from ..schemas import (
+    PlayerCreate,
+    PlayerOut,
+    PlayerListOut,
+    PlayerStatsOut,
+    VersusRecord,
+)
 from ..exceptions import ProblemDetail, PlayerAlreadyExists, PlayerNotFound
 
 # Resource-only prefix; versioning added in main.py
@@ -53,3 +60,109 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
     if not p:
         raise PlayerNotFound(player_id)
     return PlayerOut(id=p.id, name=p.name, club_id=p.club_id)
+
+
+def _winner_from_summary(summary: dict | None) -> str | None:
+    if not summary:
+        return None
+    for key in ("sets", "points", "games", "total", "score"):
+        val = summary.get(key)
+        if isinstance(val, dict):
+            a = val.get("A")
+            b = val.get("B")
+            if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+                if a > b:
+                    return "A"
+                if b > a:
+                    return "B"
+    return None
+
+
+@router.get("/{player_id}/stats", response_model=PlayerStatsOut)
+async def player_stats(player_id: str, session: AsyncSession = Depends(get_session)):
+    p = await session.get(Player, player_id)
+    if not p:
+        raise PlayerNotFound(player_id)
+
+    stmt = select(Match, MatchParticipant).join(MatchParticipant)
+    rows = [
+        r
+        for r in (await session.execute(stmt)).all()
+        if player_id in r.MatchParticipant.player_ids
+    ]
+    if not rows:
+        return PlayerStatsOut(playerId=player_id)
+
+    match_ids = [r.Match.id for r in rows]
+    parts = (
+        await session.execute(
+            select(MatchParticipant).where(MatchParticipant.match_id.in_(match_ids))
+        )
+    ).scalars().all()
+    match_to_parts = defaultdict(list)
+    for part in parts:
+        match_to_parts[part.match_id].append(part)
+
+    opp_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"wins": 0, "total": 0})
+    team_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"wins": 0, "total": 0})
+
+    for row in rows:
+        match, mp = row.Match, row.MatchParticipant
+        winner = _winner_from_summary(match.details)
+        if winner is None:
+            continue
+        is_win = winner == mp.side
+
+        teammates = [pid for pid in mp.player_ids if pid != player_id]
+        for tid in teammates:
+            team_stats[tid]["total"] += 1
+            if is_win:
+                team_stats[tid]["wins"] += 1
+
+        others = [p for p in match_to_parts[match.id] if p.id != mp.id]
+        opp_ids = [pid for part in others for pid in part.player_ids]
+        for oid in opp_ids:
+            opp_stats[oid]["total"] += 1
+            if is_win:
+                opp_stats[oid]["wins"] += 1
+
+    needed_ids = set(list(opp_stats.keys()) + list(team_stats.keys()))
+    if needed_ids:
+        players = (
+            await session.execute(select(Player).where(Player.id.in_(needed_ids)))
+        ).scalars().all()
+        id_to_name = {pl.id: pl.name for pl in players}
+    else:
+        id_to_name = {}
+
+    def to_record(pid: str, stats: dict[str, int]) -> VersusRecord:
+        wins = stats["wins"]
+        total = stats["total"]
+        losses = total - wins
+        win_pct = wins / total if total else 0.0
+        return VersusRecord(
+            playerId=pid,
+            playerName=id_to_name.get(pid, ""),
+            wins=wins,
+            losses=losses,
+            winPct=win_pct,
+        )
+
+    best_against = worst_against = best_with = worst_with = None
+    if opp_stats:
+        records = [to_record(pid, s) for pid, s in opp_stats.items()]
+        best_against = max(records, key=lambda r: r.winPct)
+        worst_against = min(records, key=lambda r: r.winPct)
+
+    if team_stats:
+        records = [to_record(pid, s) for pid, s in team_stats.items()]
+        best_with = max(records, key=lambda r: r.winPct)
+        worst_with = min(records, key=lambda r: r.winPct)
+
+    return PlayerStatsOut(
+        playerId=player_id,
+        bestAgainst=best_against,
+        worstAgainst=worst_against,
+        bestWith=best_with,
+        worstWith=worst_with,
+    )

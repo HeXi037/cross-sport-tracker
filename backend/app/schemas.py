@@ -117,3 +117,19 @@ class MatchOut(MatchSummaryOut):
     events: List[ScoreEventOut]
     summary: Optional[dict] = None
 
+
+class VersusRecord(BaseModel):
+    playerId: str
+    playerName: str
+    wins: int
+    losses: int
+    winPct: float
+
+
+class PlayerStatsOut(BaseModel):
+    playerId: str
+    bestAgainst: Optional[VersusRecord] = None
+    worstAgainst: Optional[VersusRecord] = None
+    bestWith: Optional[VersusRecord] = None
+    worstWith: Optional[VersusRecord] = None
+

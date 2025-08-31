@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 export const metadata = {
   title: 'cross-sport-tracker',
-  description: 'Padel + Bowling MVP',
+  description: 'Ongoing self-hosted project',
 };
 
 export default function RootLayout({

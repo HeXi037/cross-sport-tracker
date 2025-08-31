@@ -23,6 +23,7 @@ from ..schemas import (
 from .streams import broadcast
 from ..scoring import padel as padel_engine
 from ..services.validation import validate_set_scores, ValidationError
+from ..services import update_ratings
 
 # Resource-only prefix; versioning is added in main.py
 router = APIRouter(prefix="/matches", tags=["matches"])
@@ -233,6 +234,25 @@ async def record_sets_endpoint(mid: str, body: SetsIn, session: AsyncSession = D
         session.add(e)
 
     m.details = padel_engine.summary(state)
+    # Update player ratings based on final result
+    try:
+        parts = (
+            await session.execute(
+                select(MatchParticipant).where(MatchParticipant.match_id == mid)
+            )
+        ).scalars().all()
+        players_a = [pid for p in parts if p.side == "A" for pid in p.player_ids]
+        players_b = [pid for p in parts if p.side == "B" for pid in p.player_ids]
+        sets = m.details.get("sets") if m.details else None
+        if sets and players_a and players_b and sets.get("A") != sets.get("B"):
+            winner_side = "A" if sets["A"] > sets["B"] else "B"
+            winners = players_a if winner_side == "A" else players_b
+            losers = players_b if winner_side == "A" else players_a
+            await update_ratings(session, m.sport_id, winners, losers)
+    except Exception:
+        # The rating tables may not exist (e.g., in tests); ignore errors
+        pass
+
     await session.commit()
     await broadcast(mid, {"summary": m.details})
     return {"ok": True, "added": len(new_events)}

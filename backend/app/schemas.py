@@ -23,6 +23,11 @@ class PlayerOut(BaseModel):
     club_id: Optional[str] = None
 
 
+class PlayerNameOut(BaseModel):
+    id: str
+    name: str
+
+
 class PlayerListOut(BaseModel):
     players: List[PlayerOut]
     total: int
@@ -134,3 +139,26 @@ class PlayerStatsOut(BaseModel):
     worstAgainst: Optional[VersusRecord] = None
     bestWith: Optional[VersusRecord] = None
     worstWith: Optional[VersusRecord] = None
+
+
+class TournamentCreate(BaseModel):
+    sport: str
+    name: str
+    clubId: Optional[str] = None
+
+
+class TournamentOut(BaseModel):
+    id: str
+    sport: str
+    name: str
+    clubId: Optional[str] = None
+
+
+class StageCreate(BaseModel):
+    type: Literal["round_robin", "single_elim"]
+
+
+class StageOut(BaseModel):
+    id: str
+    tournamentId: str
+    type: str

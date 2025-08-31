@@ -10,7 +10,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from app import db
 from app.routers import leaderboards
-from app.models import Player, Rating, Sport, Match, MatchParticipant
+from datetime import datetime, timedelta
+
+from app.models import Player, Rating, Sport, Match, MatchParticipant, ScoreEvent
 
 app = FastAPI()
 app.include_router(leaderboards.router)
@@ -31,7 +33,13 @@ def setup_db():
             # the leaderboard queries can run without exercising ARRAY features.
             await conn.run_sync(
                 db.Base.metadata.create_all,
-                tables=[Sport.__table__, Player.__table__, Rating.__table__, Match.__table__],
+                tables=[
+                    Sport.__table__,
+                    Player.__table__,
+                    Rating.__table__,
+                    Match.__table__,
+                    ScoreEvent.__table__,
+                ],
             )
             await conn.exec_driver_sql(
                 """
@@ -50,6 +58,20 @@ def setup_db():
                 player = Player(id=str(i), name=f"P{i}")
                 rating = Rating(id=str(i), player_id=player.id, sport_id="padel", value=1000 + i)
                 session.add_all([player, rating])
+            # Seed rating history for player "4" across 6 matches
+            base_time = datetime(2024, 1, 1)
+            for idx in range(6):
+                mid = f"m{idx}"
+                session.add(Match(id=mid, sport_id="padel"))
+                session.add(
+                    ScoreEvent(
+                        id=f"e{idx}",
+                        match_id=mid,
+                        created_at=base_time + timedelta(minutes=idx),
+                        type="RATING",
+                        payload={"playerId": "4", "rating": 1000 + idx},
+                    )
+                )
             await session.commit()
     asyncio.run(init_models())
     yield
@@ -68,10 +90,10 @@ def test_leaderboard_pagination():
         assert len(data["leaders"]) == 2
         assert data["leaders"][0]["rating"] == 1003
         assert data["leaders"][0]["rank"] == 2
-        assert data["leaders"][0]["rankChange"] == 0
+        assert data["leaders"][0]["rankChange"] == -1
         assert data["leaders"][1]["rating"] == 1002
         assert data["leaders"][1]["rank"] == 3
-        assert data["leaders"][1]["rankChange"] == 0
+        assert data["leaders"][1]["rankChange"] == -1
         # No matches yet, so set stats should be zero
         for entry in data["leaders"]:
             assert entry["sets"] == 0

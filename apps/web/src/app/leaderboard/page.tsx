@@ -18,6 +18,7 @@ interface Leader {
 
 export default function LeaderboardPage() {
   const [sport, setSport] = useState<string>("padel");
+  the [leaders](https://f)  
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -44,6 +45,7 @@ export default function LeaderboardPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sport];
   }, [sport]);
 
   return (
@@ -185,4 +187,3 @@ export default function LeaderboardPage() {
     </main>
   );
 }
-

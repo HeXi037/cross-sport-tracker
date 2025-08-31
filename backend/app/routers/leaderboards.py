@@ -75,4 +75,3 @@ async def leaderboard(
     return LeaderboardOut(
         sport=sport, leaders=leaders, total=total, limit=limit, offset=offset
     )
-

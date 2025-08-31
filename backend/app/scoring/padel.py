@@ -5,8 +5,17 @@ from typing import Dict
 
 
 def init_state(config: Dict) -> Dict:
+    """Create an initial padel scoreboard state.
+
+    Recognises ``goldenPoint`` in ``config`` which, when enabled, causes a
+    game to be decided on the next point once both sides reach three points
+    (40-40).
+    """
+
+    cfg = dict(config)
+    cfg.setdefault("goldenPoint", False)
     return {
-        "config": config,
+        "config": cfg,
         "points": {"A": 0, "B": 0},
         "games": {"A": 0, "B": 0},
         "sets": {"A": 0, "B": 0},
@@ -24,6 +33,17 @@ def apply(event: Dict, state: Dict) -> Dict:
     opp = _other(side)
     state["points"][side] += 1
     ps, po = state["points"][side], state["points"][opp]
+    golden = state["config"].get("goldenPoint")
+
+    if golden and ps == 4 and po == 3:
+        state["games"][side] += 1
+        state["points"]["A"] = state["points"]["B"] = 0
+        gs, go = state["games"][side], state["games"][opp]
+        if gs >= 6 and gs - go >= 2:
+            state["sets"][side] += 1
+            state["games"]["A"] = state["games"]["B"] = 0
+        return state
+
     if ps >= 4 and ps - po >= 2:
         state["games"][side] += 1
         state["points"]["A"] = state["points"]["B"] = 0
@@ -36,6 +56,7 @@ def apply(event: Dict, state: Dict) -> Dict:
 
 def summary(state: Dict) -> Dict:
     return {
+        "config": state["config"],
         "points": state["points"],
         "games": state["games"],
         "sets": state["sets"],

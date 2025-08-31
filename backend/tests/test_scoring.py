@@ -10,7 +10,21 @@ def test_padel_game_win():
     state = padel.init_state({})
     for _ in range(4):
         state = padel.apply({"type": "POINT", "by": "A"}, state)
-    assert state["games"]["A"] == 1
+    summary = padel.summary(state)
+    assert summary["games"]["A"] == 1
+    assert summary["config"]["goldenPoint"] is False
+
+
+def test_padel_golden_point_game_win():
+    state = padel.init_state({"goldenPoint": True})
+    for _ in range(3):
+        state = padel.apply({"type": "POINT", "by": "A"}, state)
+        state = padel.apply({"type": "POINT", "by": "B"}, state)
+    state = padel.apply({"type": "POINT", "by": "A"}, state)
+    summary = padel.summary(state)
+    assert summary["games"]["A"] == 1
+    assert summary["points"] == {"A": 0, "B": 0}
+    assert summary["config"]["goldenPoint"] is True
 
 
 def test_bowling_simple_score():

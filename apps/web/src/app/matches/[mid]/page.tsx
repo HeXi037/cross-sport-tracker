@@ -87,7 +87,7 @@ export default function MatchDetailPage({
 
   if (loading) {
     return (
-      <main className="mx-auto max-w-3xl p-6">
+      <main className="container">
         <p>Loading…</p>
       </main>
     );
@@ -95,12 +95,9 @@ export default function MatchDetailPage({
 
   if (error) {
     return (
-      <main className="mx-auto max-w-3xl p-6">
-        <p className="text-red-700">Error: {error}</p>
-        <button
-          onClick={() => void load()}
-          className="mt-3 rounded border px-3 py-2"
-        >
+      <main className="container">
+        <p className="error">Error: {error}</p>
+        <button className="button mt-8" onClick={() => void load()}>
           Retry
         </button>
       </main>
@@ -109,7 +106,7 @@ export default function MatchDetailPage({
 
   if (!data) {
     return (
-      <main className="mx-auto max-w-3xl p-6">
+      <main className="container">
         <p>No data.</p>
       </main>
     );
@@ -120,54 +117,50 @@ export default function MatchDetailPage({
   const sideB = data.participants.find((p) => p.side === 'B');
 
   return (
-    <main className="mx-auto max-w-3xl p-6 space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">
+    <main className="container">
+      <header className="section">
+        <h1 className="heading">
           {nameList(sideA?.playerIds ?? [])} vs {nameList(sideB?.playerIds ?? [])}
         </h1>
-        <p className="text-sm text-gray-600">
+        <p className="match-meta">
           Match ID: <strong>{data.id}</strong>
-          {' · '}Sport: <strong>{data.sport}</strong>
-          {' · '}Best of: <strong>{data.bestOf ?? '—'}</strong>
-          {' · '}Played:{' '}
-          <strong>{data.playedAt ? new Date(data.playedAt).toLocaleString() : '—'}</strong>
-          {' · '}Location: <strong>{data.location ?? '—'}</strong>
+          {" · "}Sport: <strong>{data.sport}</strong>
+          {" · "}Best of: <strong>{data.bestOf ?? "—"}</strong>
+          {" · "}Played: <strong>{data.playedAt ? new Date(data.playedAt).toLocaleString() : "—"}</strong>
+          {" · "}Location: <strong>{data.location ?? "—"}</strong>
         </p>
       </header>
 
-      <section>
-        <h2 className="mb-2 font-medium">Participants</h2>
-        <ul className="list-disc pl-6">
+      <section className="section">
+        <h2 className="heading">Participants</h2>
+        <ul style={{ listStyle: "disc", paddingLeft: "1.5rem" }}>
           {data.participants.map((p) => (
             <li key={p.id}>
-              Side {p.side} — players: {p.playerIds.map((id) => data.names[id] ?? id).join(', ')}
+              Side {p.side} — players: {p.playerIds.map((id) => data.names[id] ?? id).join(", ")}
             </li>
           ))}
         </ul>
       </section>
 
-      <section>
-        <h2 className="mb-2 font-medium">Events</h2>
+      <section className="section">
+        <h2 className="heading">Events</h2>
         {data.events.length === 0 ? (
-          <p className="text-gray-600">No events yet.</p>
+          <p className="match-meta">No events yet.</p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="match-list">
             {data.events.map((ev) => {
               const created = new Date(ev.createdAt).toLocaleString();
               const payloadPreview =
-                ev.type === 'ROLL'
+                ev.type === "ROLL"
                   ? `sum=${rollsTotal(ev.payload)}`
                   : JSON.stringify(ev.payload);
               return (
-                <li
-                  key={ev.id}
-                  className="rounded border p-3 text-sm"
-                >
-                  <div className="font-medium">
-                    {ev.type}{' '}
-                    <span className="text-gray-500">({created})</span>
+                <li key={ev.id} className="card">
+                  <div style={{ fontWeight: 500 }}>
+                    {ev.type}{" "}
+                    <span className="match-meta">({created})</span>
                   </div>
-                  <div className="text-gray-800 break-words">
+                  <div style={{ wordBreak: "break-word", fontSize: "0.9rem" }}>
                     {payloadPreview}
                   </div>
                 </li>
@@ -177,20 +170,17 @@ export default function MatchDetailPage({
         )}
       </section>
 
-      <section>
-        <h2 className="mb-2 font-medium">Summary</h2>
-        <pre className="overflow-auto rounded border bg-gray-50 p-3 text-sm">
-          {typeof data.summary === 'string'
+      <section className="section">
+        <h2 className="heading">Summary</h2>
+        <pre className="card" style={{ overflow: "auto", fontSize: "0.9rem" }}>
+          {typeof data.summary === "string"
             ? data.summary
             : JSON.stringify(data.summary, null, 2)}
         </pre>
       </section>
 
       <div>
-        <button
-          onClick={() => void load()}
-          className="rounded border px-3 py-2"
-        >
+        <button className="button" onClick={() => void load()}>
           Refresh
         </button>
       </div>

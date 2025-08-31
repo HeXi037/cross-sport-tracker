@@ -68,6 +68,13 @@ async def create_match(body: MatchCreate, session: AsyncSession = Depends(get_se
         details=None,
     )
     session.add(match)
+    # Validate that no player appears on more than one side
+    player_sides: dict[str, str] = {}
+    for part in body.participants:
+        for pid in part.playerIds:
+            if pid in player_sides and player_sides[pid] != part.side:
+                raise HTTPException(400, "duplicate players")
+            player_sides[pid] = part.side
 
     for part in body.participants:
         mp = MatchParticipant(

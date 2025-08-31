@@ -21,7 +21,7 @@ async def leaderboard(
     stmt = (
         select(Rating, Player)
         .join(Player, Player.id == Rating.player_id)
-        .where(Rating.sport_id == sport)
+        .where(Rating.sport_id == sport, Player.deleted_at.is_(None))
         .order_by(Rating.value.desc())
     )
     count_stmt = select(func.count()).select_from(Rating).where(Rating.sport_id == sport)
@@ -37,7 +37,7 @@ async def leaderboard(
             await session.execute(
                 select(MatchParticipant, Match)
                 .join(Match, Match.id == MatchParticipant.match_id)
-                .where(Match.sport_id == sport)
+                .where(Match.sport_id == sport, Match.deleted_at.is_(None))
             )
         ).all()
         for mp, m in mp_rows:

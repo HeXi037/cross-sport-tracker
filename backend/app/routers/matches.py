@@ -3,7 +3,7 @@ import uuid
 import importlib
 from collections import Counter
 from fastapi import APIRouter, Depends, HTTPException, Response
-from sqlalchemy import select, delete
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
@@ -24,6 +24,7 @@ from .streams import broadcast
 from ..scoring import padel as padel_engine
 from ..services.validation import validate_set_scores, ValidationError
 from ..services import update_ratings
+from .admin import require_admin
 
 # Resource-only prefix; versioning is added in main.py
 router = APIRouter(prefix="/matches", tags=["matches"])
@@ -33,7 +34,7 @@ router = APIRouter(prefix="/matches", tags=["matches"])
 async def list_matches(
     playerId: str | None = None, session: AsyncSession = Depends(get_session)
 ):
-    stmt = select(Match)
+    stmt = select(Match).where(Match.deleted_at.is_(None))
     if playerId:
         stmt = (
             stmt.join(MatchParticipant)
@@ -87,7 +88,11 @@ async def create_match_by_name(body: MatchCreateByName, session: AsyncSession = 
     names = [n for part in body.participants for n in part.playerNames]
     if names:
         rows = (
-            await session.execute(select(Player).where(Player.name.in_(names)))
+            await session.execute(
+                select(Player).where(
+                    Player.name.in_(names), Player.deleted_at.is_(None)
+                )
+            )
         ).scalars().all()
         name_to_id = {p.name: p.id for p in rows}
     missing = [n for n in names if n not in name_to_id]
@@ -115,7 +120,11 @@ async def create_match_by_name(body: MatchCreateByName, session: AsyncSession = 
 # GET /api/v0/matches/{mid}
 @router.get("/{mid}", response_model=MatchOut)
 async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
-    m = (await session.execute(select(Match).where(Match.id == mid))).scalar_one_or_none()
+    m = (
+        await session.execute(
+            select(Match).where(Match.id == mid, Match.deleted_at.is_(None))
+        )
+    ).scalar_one_or_none()
     if not m:
         raise HTTPException(404, "match not found")
 
@@ -152,16 +161,12 @@ async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
     )
 
 # DELETE /api/v0/matches/{mid}
-@router.delete("/{mid}", status_code=204)
+@router.delete("/{mid}", status_code=204, dependencies=[Depends(require_admin)])
 async def delete_match(mid: str, session: AsyncSession = Depends(get_session)):
     m = await session.get(Match, mid)
-    if not m:
+    if not m or m.deleted_at is not None:
         raise HTTPException(404, "match not found")
-    await session.execute(delete(ScoreEvent).where(ScoreEvent.match_id == mid))
-    await session.execute(
-        delete(MatchParticipant).where(MatchParticipant.match_id == mid)
-    )
-    await session.execute(delete(Match).where(Match.id == mid))
+    m.deleted_at = func.now()
     await session.commit()
     return Response(status_code=204)
 

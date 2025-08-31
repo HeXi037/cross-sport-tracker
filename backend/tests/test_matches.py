@@ -1,5 +1,4 @@
 import os
-import os
 import sys
 from pathlib import Path
 import asyncio
@@ -155,6 +154,7 @@ def test_list_matches_filters_by_player(tmp_path):
 async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
     os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
     os.environ["JWT_SECRET"] = "testsecret"
+    os.environ["ADMIN_SECRET"] = "admintest"
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from app import db
@@ -201,7 +201,9 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
     assert resp.status_code == 401
 
     token_resp = client.post(
-        "/auth/signup", json={"username": "admin", "password": "pw", "is_admin": True}
+        "/auth/signup",
+        json={"username": "admin", "password": "pw", "is_admin": True},
+        headers={"X-Admin-Secret": "admintest"},
     )
     if token_resp.status_code != 200:
         token_resp = client.post(
@@ -234,6 +236,7 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
 async def test_delete_match_missing_returns_404(tmp_path):
     os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
     os.environ["JWT_SECRET"] = "testsecret"
+    os.environ["ADMIN_SECRET"] = "admintest"
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from app import db
@@ -255,6 +258,7 @@ async def test_delete_match_missing_returns_404(tmp_path):
         token_resp = client.post(
             "/auth/signup",
             json={"username": "admin", "password": "pw", "is_admin": True},
+            headers={"X-Admin-Secret": "admintest"},
         )
         if token_resp.status_code != 200:
             token_resp = client.post(

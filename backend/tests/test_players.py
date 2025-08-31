@@ -6,6 +6,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 # Set up an in-memory SQLite database for tests
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_players.db"
 os.environ["JWT_SECRET"] = "testsecret"
+os.environ["ADMIN_SECRET"] = "admintest"
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -83,6 +84,7 @@ def test_delete_player_soft_delete() -> None:
         resp = client.post(
             "/auth/signup",
             json={"username": "admin", "password": "pw", "is_admin": True},
+            headers={"X-Admin-Secret": "admintest"},
         )
         if resp.status_code != 200:
             resp = client.post(

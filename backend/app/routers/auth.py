@@ -33,18 +33,30 @@ def create_token(user: User) -> str:
 
 
 @router.post("/signup", response_model=TokenOut)
-async def signup(body: UserCreate, session: AsyncSession = Depends(get_session)):
+async def signup(
+    body: UserCreate,
+    session: AsyncSession = Depends(get_session),
+    admin_secret: str | None = Header(default=None, alias="X-Admin-Secret"),
+):
     existing = (
         await session.execute(select(User).where(User.username == body.username))
     ).scalar_one_or_none()
     if existing:
         raise HTTPException(status_code=400, detail="username exists")
+
+    is_admin = False
+    if body.is_admin:
+        expected = os.getenv("ADMIN_SECRET")
+        if not expected or admin_secret != expected:
+            raise HTTPException(status_code=403, detail="invalid admin secret")
+        is_admin = True
+
     uid = uuid.uuid4().hex
     user = User(
         id=uid,
         username=body.username,
         password_hash=hash_password(body.password),
-        is_admin=body.is_admin,
+        is_admin=is_admin,
     )
     session.add(user)
     await session.commit()

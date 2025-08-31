@@ -7,6 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_auth.db"
 os.environ["JWT_SECRET"] = "testsecret"
+os.environ["ADMIN_SECRET"] = "admintest"
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -59,9 +60,16 @@ def test_signup_login_and_protected_access():
         )
         assert resp.status_code == 403
 
+        resp = client.post(
+            "/auth/signup",
+            json={"username": "admin", "password": "pw", "is_admin": True},
+        )
+        assert resp.status_code == 403
+
         admin_token = client.post(
             "/auth/signup",
             json={"username": "admin", "password": "pw", "is_admin": True},
+            headers={"X-Admin-Secret": "admintest"},
         ).json()["access_token"]
         resp = client.delete(
             f"/players/{pid}", headers={"Authorization": f"Bearer {admin_token}"}

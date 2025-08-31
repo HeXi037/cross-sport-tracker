@@ -5,6 +5,7 @@ from pathlib import Path
 import asyncio
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import select, text
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -108,3 +109,79 @@ def test_list_matches_filters_by_player(tmp_path):
         data = resp.json()
         assert len(data) == 1
         assert data[0]["id"] == m1
+
+
+@pytest.mark.anyio
+async def test_delete_match_removes_related_rows(tmp_path):
+    os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
+    from app import db
+    from app.models import Match, ScoreEvent
+    from app.routers.matches import delete_match
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Match.__table__.create)
+        await conn.run_sync(ScoreEvent.__table__.create)
+        await conn.exec_driver_sql(
+            "CREATE TABLE match_participant (id TEXT PRIMARY KEY, match_id TEXT, side TEXT, player_ids TEXT)"
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        mid = "m1"
+        session.add(Match(id=mid, sport_id="padel"))
+        await session.execute(
+            text(
+                "INSERT INTO match_participant (id, match_id, side, player_ids) VALUES (:id, :mid, 'A', '[]')"
+            ),
+            {"id": "mp1", "mid": mid},
+        )
+        session.add(
+            ScoreEvent(
+                id="e1",
+                match_id=mid,
+                type="POINT",
+                payload={"type": "POINT", "by": "A"},
+            )
+        )
+        await session.commit()
+
+        resp = await delete_match(mid, session)
+        assert resp.status_code == 204
+        assert await session.get(Match, mid) is None
+        mp_rows = await session.execute(
+            text("SELECT * FROM match_participant WHERE match_id=:mid"), {"mid": mid}
+        )
+        assert mp_rows.fetchall() == []
+        se_rows = (
+            await session.execute(
+                select(ScoreEvent).where(ScoreEvent.match_id == mid)
+            )
+        ).scalars().all()
+        assert se_rows == []
+
+
+@pytest.mark.anyio
+async def test_delete_match_missing_raises_404(tmp_path):
+    os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
+    from app import db
+    from app.models import Match, ScoreEvent
+    from app.routers.matches import delete_match
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Match.__table__.create)
+        await conn.run_sync(ScoreEvent.__table__.create)
+        await conn.exec_driver_sql(
+            "CREATE TABLE match_participant (id TEXT PRIMARY KEY, match_id TEXT, side TEXT, player_ids TEXT)"
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        with pytest.raises(HTTPException) as exc:
+            await delete_match("unknown", session)
+        assert exc.value.status_code == 404

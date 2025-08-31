@@ -2,8 +2,8 @@
 import uuid
 import importlib
 from collections import Counter
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Response
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
@@ -148,6 +148,20 @@ async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
         ],
         summary=m.details,
     )
+
+# DELETE /api/v0/matches/{mid}
+@router.delete("/{mid}", status_code=204)
+async def delete_match(mid: str, session: AsyncSession = Depends(get_session)):
+    m = await session.get(Match, mid)
+    if not m:
+        raise HTTPException(404, "match not found")
+    await session.execute(delete(ScoreEvent).where(ScoreEvent.match_id == mid))
+    await session.execute(
+        delete(MatchParticipant).where(MatchParticipant.match_id == mid)
+    )
+    await session.execute(delete(Match).where(Match.id == mid))
+    await session.commit()
+    return Response(status_code=204)
 
 # POST /api/v0/matches/{mid}/events
 @router.post("/{mid}/events")

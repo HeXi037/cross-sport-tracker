@@ -7,7 +7,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Match, MatchParticipant, Player, ScoreEvent
+from ..models import Match, MatchParticipant, Player, ScoreEvent, User
 from ..schemas import (
     MatchCreate,
     MatchCreateByName,
@@ -161,8 +161,12 @@ async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
     )
 
 # DELETE /api/v0/matches/{mid}
-@router.delete("/{mid}", status_code=204, dependencies=[Depends(require_admin)])
-async def delete_match(mid: str, session: AsyncSession = Depends(get_session)):
+@router.delete("/{mid}", status_code=204)
+async def delete_match(
+    mid: str,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_admin),
+):
     m = await session.get(Match, mid)
     if not m or m.deleted_at is not None:
         raise HTTPException(404, "match not found")

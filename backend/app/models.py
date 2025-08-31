@@ -1,5 +1,5 @@
 from sqlalchemy.orm import relationship
-from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Integer, Float
+from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Integer, Float, Boolean
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.sql import func
 from .db import Base
@@ -80,3 +80,11 @@ class Rating(Base):
     player_id = Column(String, ForeignKey("player.id"), nullable=False)
     sport_id = Column(String, ForeignKey("sport.id"), nullable=False)
     value = Column(Float, nullable=False, default=1000)
+
+
+class User(Base):
+    __tablename__ = "user"
+    id = Column(String, primary_key=True)
+    username = Column(String, unique=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    is_admin = Column(Boolean, nullable=False, default=False)

@@ -19,6 +19,7 @@ def anyio_backend():
 @pytest.mark.anyio
 async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
     os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
+    os.environ["JWT_SECRET"] = "testsecret"
     from app import db
     from app.models import Player
     from app.schemas import MatchCreateByName, ParticipantByName
@@ -49,6 +50,7 @@ async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
 @pytest.mark.anyio
 async def test_list_matches_returns_most_recent_first(tmp_path):
     os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
+    os.environ["JWT_SECRET"] = "testsecret"
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from app import db
@@ -152,12 +154,12 @@ def test_list_matches_filters_by_player(tmp_path):
 @pytest.mark.anyio
 async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
     os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
-    os.environ["ADMIN_SECRET"] = "secret"
+    os.environ["JWT_SECRET"] = "testsecret"
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from app import db
-    from app.models import Match, ScoreEvent
-    from app.routers import matches
+    from app.models import Match, ScoreEvent, User
+    from app.routers import matches, auth
 
     db.engine = None
     db.AsyncSessionLocal = None
@@ -166,6 +168,7 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
     async with engine.begin() as conn:
         await conn.run_sync(Match.__table__.create)
         await conn.run_sync(ScoreEvent.__table__.create)
+        await conn.run_sync(User.__table__.create)
         await conn.exec_driver_sql(
             "CREATE TABLE match_participant (id TEXT PRIMARY KEY, match_id TEXT, side TEXT, player_ids TEXT)"
         )
@@ -190,13 +193,25 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
         await session.commit()
 
     app = FastAPI()
+    app.include_router(auth.router)
     app.include_router(matches.router)
     client = TestClient(app)
 
     resp = client.delete(f"/matches/{mid}")
     assert resp.status_code == 401
 
-    resp = client.delete(f"/matches/{mid}", headers={"X-Admin-Secret": "secret"})
+    token_resp = client.post(
+        "/auth/signup", json={"username": "admin", "password": "pw", "is_admin": True}
+    )
+    if token_resp.status_code != 200:
+        token_resp = client.post(
+            "/auth/login", json={"username": "admin", "password": "pw"}
+        )
+    token = token_resp.json()["access_token"]
+
+    resp = client.delete(
+        f"/matches/{mid}", headers={"Authorization": f"Bearer {token}"}
+    )
     assert resp.status_code == 204
     assert client.get(f"/matches/{mid}").status_code == 404
 
@@ -218,12 +233,12 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
 @pytest.mark.anyio
 async def test_delete_match_missing_returns_404(tmp_path):
     os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
-    os.environ["ADMIN_SECRET"] = "secret"
+    os.environ["JWT_SECRET"] = "testsecret"
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from app import db
-    from app.models import Match
-    from app.routers import matches
+    from app.models import Match, User
+    from app.routers import matches, auth
 
     db.engine = None
     db.AsyncSessionLocal = None
@@ -231,9 +246,22 @@ async def test_delete_match_missing_returns_404(tmp_path):
 
     async with engine.begin() as conn:
         await conn.run_sync(Match.__table__.create)
+        await conn.run_sync(User.__table__.create)
 
     app = FastAPI()
+    app.include_router(auth.router)
     app.include_router(matches.router)
     with TestClient(app) as client:
-        resp = client.delete("/matches/unknown", headers={"X-Admin-Secret": "secret"})
+        token_resp = client.post(
+            "/auth/signup",
+            json={"username": "admin", "password": "pw", "is_admin": True},
+        )
+        if token_resp.status_code != 200:
+            token_resp = client.post(
+                "/auth/login", json={"username": "admin", "password": "pw"}
+            )
+        token = token_resp.json()["access_token"]
+        resp = client.delete(
+            "/matches/unknown", headers={"Authorization": f"Bearer {token}"}
+        )
         assert resp.status_code == 404

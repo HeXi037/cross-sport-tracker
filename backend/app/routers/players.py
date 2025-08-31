@@ -5,7 +5,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Player, Match, MatchParticipant
+from ..models import Player, Match, MatchParticipant, User
 from ..schemas import (
     PlayerCreate,
     PlayerOut,
@@ -77,8 +77,12 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
 
 
 # DELETE /api/v0/players/{player_id}
-@router.delete("/{player_id}", status_code=204, dependencies=[Depends(require_admin)])
-async def delete_player(player_id: str, session: AsyncSession = Depends(get_session)):
+@router.delete("/{player_id}", status_code=204)
+async def delete_player(
+    player_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_admin),
+):
     p = await session.get(Player, player_id)
     if not p or p.deleted_at is not None:
         raise PlayerNotFound(player_id)

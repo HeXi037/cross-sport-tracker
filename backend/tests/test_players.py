@@ -5,13 +5,15 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Set up an in-memory SQLite database for tests
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_players.db"
+os.environ["JWT_SECRET"] = "testsecret"
+os.environ["ADMIN_SECRET"] = "admintest"
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from fastapi.responses import JSONResponse
 from app import db
-from app.routers import players
-from app.models import Player, Club
+from app.routers import players, auth
+from app.models import Player, Club, User
 from app.exceptions import DomainException, ProblemDetail
 
 app = FastAPI()
@@ -32,6 +34,7 @@ async def domain_exception_handler(request, exc):
     )
 
 
+app.include_router(auth.router)
 app.include_router(players.router)
 
 @pytest.fixture(scope="module", autouse=True)
@@ -45,7 +48,7 @@ def setup_db():
         async with engine.begin() as conn:
             await conn.run_sync(
                 db.Base.metadata.create_all,
-                tables=[Club.__table__, Player.__table__],
+                tables=[Club.__table__, Player.__table__, User.__table__],
             )
     asyncio.run(init_models())
     yield
@@ -69,8 +72,7 @@ def test_list_players_pagination() -> None:
         assert len(data["players"]) == 2
 
 
-def test_delete_player_requires_secret() -> None:
-    os.environ["ADMIN_SECRET"] = "s3cr3t"
+def test_delete_player_requires_token() -> None:
     with TestClient(app) as client:
         pid = client.post("/players", json={"name": "Alice"}).json()["id"]
         resp = client.delete(f"/players/{pid}")
@@ -78,11 +80,20 @@ def test_delete_player_requires_secret() -> None:
 
 
 def test_delete_player_soft_delete() -> None:
-    os.environ["ADMIN_SECRET"] = "s3cr3t"
     with TestClient(app, raise_server_exceptions=False) as client:
+        resp = client.post(
+            "/auth/signup",
+            json={"username": "admin", "password": "pw", "is_admin": True},
+            headers={"X-Admin-Secret": "admintest"},
+        )
+        if resp.status_code != 200:
+            resp = client.post(
+                "/auth/login", json={"username": "admin", "password": "pw"}
+            )
+        token = resp.json()["access_token"]
         pid = client.post("/players", json={"name": "Bob"}).json()["id"]
         resp = client.delete(
-            f"/players/{pid}", headers={"X-Admin-Secret": "s3cr3t"}
+            f"/players/{pid}", headers={"Authorization": f"Bearer {token}"}
         )
         assert resp.status_code == 204
         assert client.get(f"/players/{pid}").status_code == 404

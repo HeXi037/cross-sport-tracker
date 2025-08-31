@@ -1,5 +1,6 @@
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Integer, Float
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.sql import func
 from .db import Base
 
@@ -31,7 +32,7 @@ class Player(Base):
 class Team(Base):
     __tablename__ = "team"
     id = Column(String, primary_key=True)
-    player_ids = Column(JSON, nullable=False)
+    player_ids = Column(ARRAY(String), nullable=False)
 
 class Tournament(Base):
     __tablename__ = "tournament"
@@ -63,7 +64,7 @@ class MatchParticipant(Base):
     id = Column(String, primary_key=True)
     match_id = Column(String, ForeignKey("match.id"), nullable=False)
     side = Column(String, nullable=False)  # "A" | "B"
-    player_ids = Column(JSON, nullable=False)
+    player_ids = Column(ARRAY(String), nullable=False)
 
 class ScoreEvent(Base):
     __tablename__ = "score_event"

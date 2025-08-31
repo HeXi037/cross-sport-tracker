@@ -3,6 +3,7 @@ import os
 import sys
 from pathlib import Path
 import asyncio
+from datetime import datetime
 import pytest
 from fastapi import HTTPException
 from sqlalchemy import select, text
@@ -43,6 +44,44 @@ async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
             await create_match_by_name(body, session)
         assert exc.value.status_code == 400
         assert exc.value.detail == "duplicate players: Alice"
+
+
+@pytest.mark.anyio
+async def test_list_matches_returns_most_recent_first(tmp_path):
+    os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from app import db
+    from app.models import Sport, Match
+    from app.routers import matches
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            db.Base.metadata.create_all,
+            tables=[Sport.__table__, Match.__table__],
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        session.add(Sport(id="padel", name="Padel"))
+        session.add(
+            Match(id="m1", sport_id="padel", played_at=datetime(2024, 1, 1))
+        )
+        session.add(
+            Match(id="m2", sport_id="padel", played_at=datetime(2024, 1, 2))
+        )
+        await session.commit()
+
+    app = FastAPI()
+    app.include_router(matches.router)
+
+    with TestClient(app) as client:
+        resp = client.get("/matches")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert [m["id"] for m in data] == ["m2", "m1"]
 
 
 @pytest.mark.skip(reason="SQLite lacks ARRAY support for MatchParticipant")

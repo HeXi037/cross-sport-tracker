@@ -39,6 +39,7 @@ async def list_matches(
             .where(MatchParticipant.player_ids.any(playerId))
             .distinct()
         )
+    stmt = stmt.order_by(Match.played_at.desc())
     matches = (await session.execute(stmt)).scalars().all()
     return [
         MatchSummaryOut(

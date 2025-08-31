@@ -115,9 +115,11 @@ GET  /api/v0/sports
 GET  /api/v0/rulesets?sport=padel
 POST /api/v0/players
 GET  /api/v0/players?q=name
+DELETE /api/v0/players/{id}  # admin, soft delete
 POST /api/v0/matches
 POST /api/v0/matches/by-name
 GET  /api/v0/matches/{id}
+DELETE /api/v0/matches/{id}  # admin, soft delete
 POST /api/v0/matches/{id}/events
 POST /api/v0/matches/{id}/sets
 GET  /api/v0/leaderboards?sport=padel

@@ -26,6 +26,7 @@ class Player(Base):
     user_id = Column(String, nullable=True)
     name = Column(String, nullable=False, unique=True)
     club_id = Column(String, ForeignKey("club.id"), nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
 
 class Team(Base):
     __tablename__ = "team"
@@ -55,6 +56,7 @@ class Match(Base):
     played_at = Column(DateTime, nullable=True)
     location = Column(String, nullable=True)
     details = Column(JSON, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
 
 class MatchParticipant(Base):
     __tablename__ = "match_participant"

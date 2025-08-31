@@ -1,6 +1,6 @@
 import uuid
 from collections import defaultdict
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +14,7 @@ from ..schemas import (
     VersusRecord,
 )
 from ..exceptions import ProblemDetail, PlayerAlreadyExists, PlayerNotFound
+from .admin import require_admin
 
 # Resource-only prefix; versioning added in main.py
 router = APIRouter(
@@ -42,8 +43,8 @@ async def list_players(
     offset: int = 0,
     session: AsyncSession = Depends(get_session),
 ):
-    stmt = select(Player)
-    count_stmt = select(func.count()).select_from(Player)
+    stmt = select(Player).where(Player.deleted_at.is_(None))
+    count_stmt = select(func.count()).select_from(Player).where(Player.deleted_at.is_(None))
     if q:
         stmt = stmt.where(Player.name.ilike(f"%{q}%"))
         count_stmt = count_stmt.where(Player.name.ilike(f"%{q}%"))
@@ -57,9 +58,20 @@ async def list_players(
 @router.get("/{player_id}", response_model=PlayerOut)
 async def get_player(player_id: str, session: AsyncSession = Depends(get_session)):
     p = await session.get(Player, player_id)
-    if not p:
+    if not p or p.deleted_at is not None:
         raise PlayerNotFound(player_id)
     return PlayerOut(id=p.id, name=p.name, club_id=p.club_id)
+
+
+# DELETE /api/v0/players/{player_id}
+@router.delete("/{player_id}", status_code=204, dependencies=[Depends(require_admin)])
+async def delete_player(player_id: str, session: AsyncSession = Depends(get_session)):
+    p = await session.get(Player, player_id)
+    if not p or p.deleted_at is not None:
+        raise PlayerNotFound(player_id)
+    p.deleted_at = func.now()
+    await session.commit()
+    return Response(status_code=204)
 
 
 def _winner_from_summary(summary: dict | None) -> str | None:
@@ -84,7 +96,7 @@ async def player_stats(player_id: str, session: AsyncSession = Depends(get_sessi
     if not p:
         raise PlayerNotFound(player_id)
 
-    stmt = select(Match, MatchParticipant).join(MatchParticipant)
+    stmt = select(Match, MatchParticipant).join(MatchParticipant).where(Match.deleted_at.is_(None))
     rows = [
         r
         for r in (await session.execute(stmt)).all()

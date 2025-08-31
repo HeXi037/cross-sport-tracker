@@ -31,9 +31,11 @@ class PlayerListOut(BaseModel):
 
 
 class LeaderboardEntryOut(BaseModel):
+    rank: int
     playerId: str
     playerName: str
     rating: float
+    rankChange: int
     sets: int
     setsWon: int
     setsLost: int
@@ -132,4 +134,3 @@ class PlayerStatsOut(BaseModel):
     worstAgainst: Optional[VersusRecord] = None
     bestWith: Optional[VersusRecord] = None
     worstWith: Optional[VersusRecord] = None
-

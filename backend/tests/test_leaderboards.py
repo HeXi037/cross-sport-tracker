@@ -59,7 +59,11 @@ def test_leaderboard_pagination():
         assert data["total"] == 5
         assert len(data["leaders"]) == 2
         assert data["leaders"][0]["rating"] == 1003
+        assert data["leaders"][0]["rank"] == 2
+        assert data["leaders"][0]["rankChange"] == 0
         assert data["leaders"][1]["rating"] == 1002
+        assert data["leaders"][1]["rank"] == 3
+        assert data["leaders"][1]["rankChange"] == 0
         # No matches yet, so set stats should be zero
         for entry in data["leaders"]:
             assert entry["sets"] == 0
@@ -97,8 +101,12 @@ def test_leaderboard_sets():
         assert p0["setsWon"] == 2
         assert p0["setsLost"] == 1
         assert p0["setDiff"] == 1
+        assert p0["rank"] == 5
+        assert p0["rankChange"] == 0
         p1 = leaders["1"]
         assert p1["sets"] == 3
         assert p1["setsWon"] == 1
         assert p1["setsLost"] == 2
         assert p1["setDiff"] == -1
+        assert p1["rank"] == 4
+        assert p1["rankChange"] == 0

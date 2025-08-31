@@ -53,16 +53,18 @@ async def leaderboard(
                     set_stats[pid]["lost"] += lost
 
     leaders = []
-    for r in rows:
+    for i, r in enumerate(rows):
         pid = r.Rating.player_id
         stats = set_stats.get(pid, {"won": 0, "lost": 0})
         won = stats["won"]
         lost = stats["lost"]
         leaders.append(
             LeaderboardEntryOut(
+                rank=offset + i + 1,
                 playerId=pid,
                 playerName=r.Player.name,
                 rating=r.Rating.value,
+                rankChange=0,  # TODO: compute change based on last 5 matches
                 sets=won + lost,
                 setsWon=won,
                 setsLost=lost,

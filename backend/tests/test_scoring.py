@@ -35,3 +35,47 @@ def test_validate_set_scores_negative():
 def test_validate_set_scores_tie():
     with pytest.raises(ValidationError, match="cannot be a tie"):
         validate_set_scores([{"A": 4, "B": 4}])
+
+
+def _score_game(side, state):
+    for _ in range(4):
+        state = padel.apply({"type": "POINT", "by": side}, state)
+    return state
+
+
+def test_padel_tiebreak():
+    state = padel.init_state({"tiebreakTo": 7})
+    for _ in range(6):
+        state = _score_game("A", state)
+        state = _score_game("B", state)
+
+    assert state["games"] == {"A": 6, "B": 6}
+    assert state.get("tiebreak") is True
+
+    for _ in range(6):
+        state = padel.apply({"type": "POINT", "by": "A"}, state)
+    for _ in range(5):
+        state = padel.apply({"type": "POINT", "by": "B"}, state)
+    state = padel.apply({"type": "POINT", "by": "A"}, state)
+
+    assert state["sets"] == {"A": 1, "B": 0}
+    assert state["games"] == {"A": 0, "B": 0}
+
+
+def test_padel_match_stops_after_set_limit():
+    state = padel.init_state({"sets": 3})
+    for _ in range(2):
+        for _ in range(6):
+            state = _score_game("A", state)
+
+    assert state["sets"]["A"] == 2
+
+    before = {
+        "points": dict(state["points"]),
+        "games": dict(state["games"]),
+        "sets": dict(state["sets"]),
+    }
+    state = padel.apply({"type": "POINT", "by": "A"}, state)
+    assert state["points"] == before["points"]
+    assert state["games"] == before["games"]
+    assert state["sets"] == before["sets"]

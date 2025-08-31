@@ -88,28 +88,28 @@ export default async function MatchDetailPage({
   }
 
   return (
-    <main className="mx-auto max-w-3xl p-6 space-y-6">
+    <main className="container">
       <div className="text-sm">
         <Link href="/matches" className="underline underline-offset-2">
           ← Back to matches
         </Link>
       </div>
 
-      <header>
-        <h1 className="text-2xl font-semibold">
-          {sideNames.A.length ? sideNames.A.join(" / ") : "A"} vs{" "}
+      <header className="section">
+        <h1 className="heading">
+          {sideNames.A.length ? sideNames.A.join(" / ") : "A"} vs {" "}
           {sideNames.B.length ? sideNames.B.join(" / ") : "B"}
         </h1>
-        <p className="text-sm text-gray-500">
-          {match.sport || "sport"} · {match.ruleset || "rules"} ·{" "}
+        <p className="match-meta">
+          {match.sport || "sport"} · {match.ruleset || "rules"} · {" "}
           {match.status || "status"}
           {match.playedAt ? ` · ${new Date(match.playedAt).toLocaleString()}` : ""}
           {match.location ? ` · ${match.location}` : ""}
         </p>
       </header>
 
-      <section>
-        <h2 className="text-lg font-medium mb-2">Sets</h2>
+      <section className="section">
+        <h2>Sets</h2>
         {match.sets && match.sets.length ? (
           <table className="w-full text-sm">
             <thead>
@@ -133,13 +133,11 @@ export default async function MatchDetailPage({
             </tbody>
           </table>
         ) : (
-          <p className="text-sm text-gray-500">No sets recorded yet.</p>
+          <p className="match-meta">No sets recorded yet.</p>
         )}
       </section>
 
-      <div className="text-sm text-gray-600">
-        Overall: {formatScoreline(match.sets)}
-      </div>
+      <div className="match-meta">Overall: {formatScoreline(match.sets)}</div>
     </main>
   );
 }

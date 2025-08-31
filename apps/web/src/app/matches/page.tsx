@@ -1,3 +1,4 @@
+import React from "react";
 import Link from "next/link";
 import { apiFetch } from "../../lib/api";
 
@@ -51,15 +52,17 @@ async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
     for (const p of detail.participants) p.playerIds.forEach((id) => ids.add(id));
   }
   const idToName = new Map<string, string>();
-  await Promise.all(
-    Array.from(ids).map(async (pid) => {
-      const r = await apiFetch(`/v0/players/${pid}`, { cache: "no-store" });
-      if (r.ok) {
-        const j = (await r.json()) as { id: string; name: string };
-        idToName.set(pid, j.name);
-      }
-    })
-  );
+  const idList = Array.from(ids);
+  if (idList.length) {
+    const r = await apiFetch(
+      `/v0/players/by-ids?ids=${idList.join(",")}`,
+      { cache: "no-store" }
+    );
+    if (r.ok) {
+      const players = (await r.json()) as { id: string; name: string }[];
+      players.forEach((p) => idToName.set(p.id, p.name));
+    }
+  }
 
   return details.map(({ row, detail }) => {
     const names: Record<"A" | "B", string[]> = { A: [], B: [] };

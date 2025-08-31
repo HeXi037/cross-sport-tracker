@@ -10,6 +10,10 @@ interface Leader {
   playerName: string;
   rating: number;
   rankChange: number;
+  sets: number;
+  setsWon: number;
+  setsLost: number;
+  setDiff: number;
 }
 
 export default function LeaderboardPage() {
@@ -20,7 +24,9 @@ export default function LeaderboardPage() {
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch(`${base}/v0/leaderboards?sport=${sport}`, { cache: "no-store" });
+      const res = await fetch(`${base}/v0/leaderboards?sport=${sport}`, {
+        cache: "no-store",
+      });
       if (res.ok) {
         const data = await res.json();
         setLeaders((data.leaders || []) as Leader[]);
@@ -106,16 +112,70 @@ export default function LeaderboardPage() {
               >
                 Change
               </th>
+              <th
+                style={{
+                  border: "1px solid #ccc",
+                  padding: "0.5rem",
+                  textAlign: "left",
+                }}
+              >
+                Sets
+              </th>
+              <th
+                style={{
+                  border: "1px solid #ccc",
+                  padding: "0.5rem",
+                  textAlign: "left",
+                }}
+              >
+                W
+              </th>
+              <th
+                style={{
+                  border: "1px solid #ccc",
+                  padding: "0.5rem",
+                  textAlign: "left",
+                }}
+              >
+                L
+              </th>
+              <th
+                style={{
+                  border: "1px solid #ccc",
+                  padding: "0.5rem",
+                  textAlign: "left",
+                }}
+              >
+                +/-
+              </th>
             </tr>
           </thead>
           <tbody>
             {leaders.map((l) => (
               <tr key={l.playerId}>
-                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{l.rank}</td>
-                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{l.playerName}</td>
-                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{l.rating}</td>
+                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>
+                  {l.rank}
+                </td>
+                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>
+                  {l.playerName}
+                </td>
+                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>
+                  {l.rating}
+                </td>
                 <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>
                   {l.rankChange > 0 ? `+${l.rankChange}` : l.rankChange}
+                </td>
+                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>
+                  {l.sets}
+                </td>
+                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>
+                  {l.setsWon}
+                </td>
+                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>
+                  {l.setsLost}
+                </td>
+                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>
+                  {l.setDiff}
                 </td>
               </tr>
             ))}
@@ -125,3 +185,4 @@ export default function LeaderboardPage() {
     </main>
   );
 }
+

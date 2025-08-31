@@ -3,7 +3,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Rating, Player
+from ..models import Rating, Player, Match, MatchParticipant
 from ..schemas import LeaderboardEntryOut, LeaderboardOut
 
 # Resource-only prefix; no /api or /api/v0 here
@@ -27,16 +27,52 @@ async def leaderboard(
     count_stmt = select(func.count()).select_from(Rating).where(Rating.sport_id == sport)
     total = (await session.execute(count_stmt)).scalar()
     rows = (await session.execute(stmt.limit(limit).offset(offset))).all()
-    leaders = [
-        LeaderboardEntryOut(
-            rank=offset + i + 1,
-            playerId=r.Rating.player_id,
-            playerName=r.Player.name,
-            rating=r.Rating.value,
-            rankChange=0,  # TODO: compute change based on last 5 matches
+
+    # Precompute set stats for players returned by the ranking query.
+    player_ids = [r.Rating.player_id for r in rows]
+    set_stats = {pid: {"won": 0, "lost": 0} for pid in player_ids}
+
+    if player_ids:
+        mp_rows = (
+            await session.execute(
+                select(MatchParticipant, Match)
+                .join(Match, Match.id == MatchParticipant.match_id)
+                .where(Match.sport_id == sport)
+            )
+        ).all()
+        for mp, m in mp_rows:
+            if not m.details or "sets" not in m.details:
+                continue
+            sets = m.details.get("sets", {})
+            won = sets.get(mp.side, 0)
+            opp = "B" if mp.side == "A" else "A"
+            lost = sets.get(opp, 0)
+            for pid in mp.player_ids:
+                if pid in set_stats:
+                    set_stats[pid]["won"] += won
+                    set_stats[pid]["lost"] += lost
+
+    leaders = []
+    for i, r in enumerate(rows):
+        pid = r.Rating.player_id
+        stats = set_stats.get(pid, {"won": 0, "lost": 0})
+        won = stats["won"]
+        lost = stats["lost"]
+        leaders.append(
+            LeaderboardEntryOut(
+                rank=offset + i + 1,
+                playerId=pid,
+                playerName=r.Player.name,
+                rating=r.Rating.value,
+                rankChange=0,  # TODO: compute change based on last 5 matches
+                sets=won + lost,
+                setsWon=won,
+                setsLost=lost,
+                setDiff=won - lost,
+            )
         )
-        for i, r in enumerate(rows)
-    ]
+
     return LeaderboardOut(
         sport=sport, leaders=leaders, total=total, limit=limit, offset=offset
     )
+

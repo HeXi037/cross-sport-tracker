@@ -81,6 +81,11 @@ function formatSummary(s?: MatchDetail["summary"]): string {
 export default async function MatchesPage() {
   try {
     const rows = await getMatches();
+    rows.sort((a, b) => {
+      if (!a.playedAt) return 1;
+      if (!b.playedAt) return -1;
+      return new Date(b.playedAt).getTime() - new Date(a.playedAt).getTime();
+    });
     const matches = await enrichMatches(rows);
 
     return (

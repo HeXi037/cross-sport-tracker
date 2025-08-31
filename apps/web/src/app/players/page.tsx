@@ -11,6 +11,7 @@ interface Player {
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
+  const [recentMatches, setRecentMatches] = useState<Record<string, string | null>>({});
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +34,30 @@ export default function PlayersPage() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (!players.length) return;
+    async function loadMatches() {
+      const entries = await Promise.all(
+        players.map(async (p) => {
+          try {
+            const r = await apiFetch(`/v0/matches?playerId=${encodeURIComponent(p.id)}`, {
+              cache: "no-store",
+            });
+            if (r.ok) {
+              const data = (await r.json()) as { id: string }[];
+              return [p.id, data[0]?.id ?? null] as const;
+            }
+          } catch {
+            /* ignore */
+          }
+          return [p.id, null] as const;
+        })
+      );
+      setRecentMatches(Object.fromEntries(entries));
+    }
+    loadMatches();
+  }, [players]);
 
   async function create() {
     const trimmed = name.trim();
@@ -73,7 +98,9 @@ export default function PlayersPage() {
       <ul>
         {players.map((p) => (
           <li key={p.id}>
-            <Link href={`/players/${p.id}`}>{p.name}</Link>
+            <Link href={recentMatches[p.id] ? `/matches/${recentMatches[p.id]}` : `/players/${p.id}`}>
+              {p.name}
+            </Link>
           </li>
         ))}
       </ul>

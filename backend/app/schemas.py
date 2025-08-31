@@ -23,6 +23,11 @@ class PlayerOut(BaseModel):
     club_id: Optional[str] = None
 
 
+class PlayerNameOut(BaseModel):
+    id: str
+    name: str
+
+
 class PlayerListOut(BaseModel):
     players: List[PlayerOut]
     total: int

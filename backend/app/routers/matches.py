@@ -264,11 +264,20 @@ async def record_sets_endpoint(mid: str, body: SetsIn, session: AsyncSession = D
         players_a = [pid for p in parts if p.side == "A" for pid in p.player_ids]
         players_b = [pid for p in parts if p.side == "B" for pid in p.player_ids]
         sets = m.details.get("sets") if m.details else None
-        if sets and players_a and players_b and sets.get("A") != sets.get("B"):
-            winner_side = "A" if sets["A"] > sets["B"] else "B"
-            winners = players_a if winner_side == "A" else players_b
-            losers = players_b if winner_side == "A" else players_a
-            await update_ratings(session, m.sport_id, winners, losers)
+        if sets and players_a and players_b:
+            if sets.get("A") == sets.get("B"):
+                await update_ratings(
+                    session,
+                    m.sport_id,
+                    players_a,
+                    players_b,
+                    draws=players_a + players_b,
+                )
+            else:
+                winner_side = "A" if sets["A"] > sets["B"] else "B"
+                winners = players_a if winner_side == "A" else players_b
+                losers = players_b if winner_side == "A" else players_a
+                await update_ratings(session, m.sport_id, winners, losers)
     except Exception:
         # The rating tables may not exist (e.g., in tests); ignore errors
         pass

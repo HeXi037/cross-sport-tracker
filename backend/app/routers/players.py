@@ -10,6 +10,7 @@ from ..schemas import (
     PlayerCreate,
     PlayerOut,
     PlayerListOut,
+    PlayerNameOut,
     PlayerStatsOut,
     VersusRecord,
 )
@@ -53,6 +54,18 @@ async def list_players(
     rows = (await session.execute(stmt)).scalars().all()
     players = [PlayerOut(id=p.id, name=p.name, club_id=p.club_id) for p in rows]
     return PlayerListOut(players=players, total=total, limit=limit, offset=offset)
+
+
+# GET /api/v0/players/by-ids?ids=...
+@router.get("/by-ids", response_model=list[PlayerNameOut])
+async def players_by_ids(ids: str = "", session: AsyncSession = Depends(get_session)):
+    id_list = [i for i in ids.split(",") if i]
+    if not id_list:
+        return []
+    rows = (
+        await session.execute(select(Player).where(Player.id.in_(id_list)))
+    ).scalars().all()
+    return [PlayerNameOut(id=p.id, name=p.name) for p in rows]
 
 # GET /api/v0/players/{player_id}
 @router.get("/{player_id}", response_model=PlayerOut)

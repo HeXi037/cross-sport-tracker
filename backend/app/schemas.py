@@ -22,13 +22,11 @@ class PlayerOut(BaseModel):
     name: str
     club_id: Optional[str] = None
 
-
 class PlayerListOut(BaseModel):
     players: List[PlayerOut]
     total: int
     limit: int
     offset: int
-
 
 class LeaderboardEntryOut(BaseModel):
     rank: int
@@ -40,7 +38,6 @@ class LeaderboardEntryOut(BaseModel):
     setsWon: int
     setsLost: int
     setDiff: int
-
 
 class LeaderboardOut(BaseModel):
     sport: str
@@ -61,11 +58,9 @@ class MatchCreate(BaseModel):
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
 
-
 class ParticipantByName(BaseModel):
     side: Literal["A", "B"]
     playerNames: List[str]
-
 
 class MatchCreateByName(BaseModel):
     sport: str
@@ -75,7 +70,6 @@ class MatchCreateByName(BaseModel):
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
 
-
 class SetsIn(BaseModel):
     sets: List[Tuple[int, int]]
 
@@ -84,15 +78,11 @@ class EventIn(BaseModel):
     by: Optional[Literal["A", "B"]] = None
     pins: Optional[int] = None
 
-
 # Response models
-
-
 class ParticipantOut(BaseModel):
     id: str
     side: Literal["A", "B"]
     playerIds: List[str]
-
 
 class ScoreEventOut(BaseModel):
     id: str
@@ -100,10 +90,8 @@ class ScoreEventOut(BaseModel):
     payload: dict
     createdAt: datetime
 
-
 class MatchIdOut(BaseModel):
     id: str
-
 
 class MatchSummaryOut(BaseModel):
     id: str
@@ -112,13 +100,11 @@ class MatchSummaryOut(BaseModel):
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
 
-
 class MatchOut(MatchSummaryOut):
     rulesetId: Optional[str] = None
     participants: List[ParticipantOut]
     events: List[ScoreEventOut]
     summary: Optional[dict] = None
-
 
 class VersusRecord(BaseModel):
     playerId: str
@@ -127,7 +113,6 @@ class VersusRecord(BaseModel):
     losses: int
     winPct: float
 
-
 class PlayerStatsOut(BaseModel):
     playerId: str
     bestAgainst: Optional[VersusRecord] = None
@@ -135,28 +120,23 @@ class PlayerStatsOut(BaseModel):
     bestWith: Optional[VersusRecord] = None
     worstWith: Optional[VersusRecord] = None
 
-
 class UserCreate(BaseModel):
     username: str
     password: str
     is_admin: bool = False
 
-
 class UserLogin(BaseModel):
     username: str
     password: str
-
 
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
-
 class TournamentCreate(BaseModel):
     sport: str
     name: str
     clubId: Optional[str] = None
-
 
 class TournamentOut(BaseModel):
     id: str
@@ -164,10 +144,8 @@ class TournamentOut(BaseModel):
     name: str
     clubId: Optional[str] = None
 
-
 class StageCreate(BaseModel):
     type: Literal["round_robin", "single_elim"]
-
 
 class StageOut(BaseModel):
     id: str

@@ -5,11 +5,23 @@ from typing import Dict
 
 
 def init_state(config: Dict) -> Dict:
+    """Initialise the scoreboard state.
+
+    ``config`` may contain ``tiebreakTo`` – the number of tiebreak points
+    required to win a set (default ``7``) – and ``sets`` – the best-of value
+    for the match.  If ``sets`` is not provided the match continues until
+    stopped externally.
+    """
+
     return {
-        "config": config,
+        "config": {
+            "tiebreakTo": config.get("tiebreakTo", 7),
+            "sets": config.get("sets"),
+        },
         "points": {"A": 0, "B": 0},
         "games": {"A": 0, "B": 0},
         "sets": {"A": 0, "B": 0},
+        "tiebreak": False,
     }
 
 
@@ -22,13 +34,40 @@ def apply(event: Dict, state: Dict) -> Dict:
         raise ValueError("invalid padel event")
     side = event["by"]
     opp = _other(side)
+
+    cfg = state["config"]
+    tiebreak_to = cfg.get("tiebreakTo", 7)
+    best_of = cfg.get("sets")
+    sets_needed = best_of // 2 + 1 if best_of else None
+
+    # Stop processing if the match is already decided.
+    if sets_needed and (
+        state["sets"]["A"] >= sets_needed or state["sets"]["B"] >= sets_needed
+    ):
+        return state
+
     state["points"][side] += 1
     ps, po = state["points"][side], state["points"][opp]
+
+    if state.get("tiebreak"):
+        if ps >= tiebreak_to and ps - po >= 2:
+            state["sets"][side] += 1
+            state["points"]["A"] = state["points"]["B"] = 0
+            state["games"]["A"] = state["games"]["B"] = 0
+            state["tiebreak"] = False
+        return state
+
     if ps >= 4 and ps - po >= 2:
         state["games"][side] += 1
         state["points"]["A"] = state["points"]["B"] = 0
         gs, go = state["games"][side], state["games"][opp]
-        if gs >= 6 and gs - go >= 2:
+        if (
+            tiebreak_to
+            and state["games"]["A"] == 6
+            and state["games"]["B"] == 6
+        ):
+            state["tiebreak"] = True
+        elif gs >= 6 and gs - go >= 2:
             state["sets"][side] += 1
             state["games"]["A"] = state["games"]["B"] = 0
     return state

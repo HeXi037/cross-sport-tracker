@@ -47,6 +47,31 @@ async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_create_match_rejects_duplicate_players(tmp_path):
+    os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
+    from app import db
+    from app.schemas import MatchCreate, Participant
+    from app.routers.matches import create_match
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    db.get_engine()
+
+    async with db.AsyncSessionLocal() as session:
+        body = MatchCreate(
+            sport="padel",
+            participants=[
+                Participant(side="A", playerIds=["p1"]),
+                Participant(side="B", playerIds=["p1"]),
+            ],
+        )
+        with pytest.raises(HTTPException) as exc:
+            await create_match(body, session)
+        assert exc.value.status_code == 400
+        assert exc.value.detail == "duplicate players"
+
+
+@pytest.mark.anyio
 async def test_list_matches_returns_most_recent_first(tmp_path):
     os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
     os.environ["JWT_SECRET"] = "testsecret"

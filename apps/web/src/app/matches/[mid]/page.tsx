@@ -1,189 +1,144 @@
-'use client';
+import React from "react";
+import Link from "next/link";
+import { apiFetch } from "../../../lib/api";
 
-import React from 'react';
+type ID = string;
 
-type Participant = {
-  id: string;
-  side: 'A' | 'B';
-  playerIds: string[];
-};
-
-type EventOut = {
-  id: string;
-  type: string; // "POINT" | "ROLL" | "UNDO" | etc.
-  payload: unknown;
-  createdAt: string;
-};
+type Participant = { side: "A" | "B"; playerIds: string[] };
 
 type MatchDetail = {
-  id: string;
-  sport: string;
-  rulesetId: string | null;
-  bestOf: number | null;
-  playedAt: string | null;
-  location: string | null;
-  participants: Participant[];
-  events: EventOut[];
-  summary: unknown;
+  id: ID;
+  sport?: string | null;
+  ruleset?: string | null;
+  status?: string | null;
+  playedAt?: string | null;
+  location?: string | null;
+  participants?: Participant[] | null;
+  // sets can be [[A,B], ...] or [{A,B}, ...] depending on backend normalization
+  sets?: Array<[number, number] | { A: number; B: number }> | null;
 };
 
-const BASE: string =
-  (process.env.NEXT_PUBLIC_API_BASE_URL as string | undefined) ?? '/api';
-
-type PlayerMap = Record<string, string>;
-
-// type guard for numbers
-const isNumber = (x: unknown): x is number => typeof x === 'number';
-
-// safely sum rolls from an unknown payload shape
-function rollsTotal(payload: unknown): number {
-  const withRolls = payload as { rolls?: unknown };
-  const rolls = withRolls?.rolls;
-  if (!Array.isArray(rolls)) return 0;
-  return (rolls as unknown[]).filter(isNumber).reduce<number>((acc, n) => acc + n, 0);
+async function fetchMatch(mid: string): Promise<MatchDetail> {
+  const res = await apiFetch(`/v0/matches/${encodeURIComponent(mid)}`, {
+    cache: "no-store",
+  } as RequestInit);
+  // @ts-ignore – apiFetch currently returns a Response
+  if (!res.ok) throw new Error(`match ${mid}`);
+  // @ts-ignore
+  return (await res.json()) as MatchDetail;
 }
 
-export default function MatchDetailPage({
+async function fetchPlayerName(pid: string): Promise<string> {
+  const res = await apiFetch(`/v0/players/${encodeURIComponent(pid)}`, {
+    cache: "no-store",
+  } as RequestInit);
+  // @ts-ignore
+  if (!res.ok) return pid;
+  // @ts-ignore
+  const data = (await res.json()) as { id: string; name: string };
+  return data?.name ?? pid;
+}
+
+function normalizeSet(s: [number, number] | { A: number; B: number }): [number, number] {
+  // Accept either tuple or object
+  if (Array.isArray(s) && s.length === 2) return [Number(s[0]) || 0, Number(s[1]) || 0];
+  // @ts-ignore
+  return [Number((s as any).A) || 0, Number((s as any).B) || 0];
+}
+
+function formatScoreline(sets?: MatchDetail["sets"]): string {
+  if (!sets || !sets.length) return "—";
+  const ns = sets.map(normalizeSet);
+  const tallies = ns.reduce(
+    (acc, [a, b]) => {
+      if (a > b) acc.A += 1;
+      else if (b > a) acc.B += 1;
+      return acc;
+    },
+    { A: 0, B: 0 }
+  );
+  const setStr = ns.map(([a, b]) => `${a}-${b}`).join(", ");
+  return `${tallies.A}-${tallies.B} (${setStr})`;
+}
+
+export default async function MatchDetailPage({
   params,
 }: {
   params: { mid: string };
 }) {
-  const { mid } = params;
-  const [data, setData] = React.useState<(MatchDetail & { names: PlayerMap }) | null>(null);
-  the [loading, setLoading] = React.useState<boolean>(true);
-  const [error, setError] = React.useState<string | null>(null);
+  const match = await fetchMatch(params.mid);
 
-  const load = React.useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const r = await fetch(`${BASE}/v0/matches/${mid}`, { cache: 'no-store' });
-      if (!r.ok) {
-        throw new Error(`HTTP ${r.status}`);
-      }
-      const j = (await r.json()) as MatchDetail;
-      const ids = Array.from(new Set(j.participants.flatMap((p) => p.playerIds)));
-      const names: PlayerMap = {};
-      await Promise.all(
-        ids.map(async (pid) => {
-          const pr = await fetch(`${BASE}/v0/players/${pid}`, { cache: 'no-store' });
-          if (pr.ok) {
-            const pj = (await pr.json()) as { id: string; name: string };
-            names[pj.id] = pj.name;
-          }
-        })
-      );
-      setData({ ...j, names });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
-    } finally {
-      setLoading(false);
-    }
-  }, [mid]);
+  // Resolve participant names (parallel)
+  const parts = match.participants ?? [];
+  const uniqueIds = Array.from(
+    new Set(parts.flatMap((p) => p.playerIds ?? []))
+  );
+  const idToName = new Map<string, string>();
+  await Promise.all(
+    uniqueIds.map(async (pid) => {
+      const name = await fetchPlayerName(pid);
+      idToName.set(pid, name);
+    })
+  );
 
-  React.useEffect(() => {
-    void load();
-  }, [load]);
-
-  if (loading) {
-    return (
-      <main className="container">
-        <p>Loading…</p>
-      </main>
-    );
+  const sideNames: Record<"A" | "B", string[]> = { A: [], B: [] };
+  for (const p of parts) {
+    const names = (p.playerIds ?? []).map((id) => idToName.get(id) ?? id);
+    sideNames[p.side] = names;
   }
-
-  if (error) {
-    return (
-      <main className="container">
-        <p className="error">Error: {error}</p>
-        <button className="button mt-8" onClick={() => void load()}>
-          Retry
-        </button>
-      </main>
-    );
-  }
-
-  if (!data) {
-    return (
-      <main className="container">
-        <p>No data.</p>
-      </main>
-    );
-  }
-
-  const nameList = (ids: string[]) => ids.map((id) => data.names[id] ?? id).join(' & ');
-  const sideA = data.participants.find((p) => p.side === 'A');
-  const sideB = data.participants.find((p) => p.side === 'B');
 
   return (
-    <main className="container">
-      <header className="section">
-        <h1 className="heading">
-          {nameList(sideA?.playerIds ?? [])} vs {nameList(sideB?.playerIds ?? [])}
+    <main className="mx-auto max-w-3xl p-6 space-y-6">
+      <div className="text-sm">
+        <Link href="/matches" className="underline underline-offset-2">
+          ← Back to matches
+        </Link>
+      </div>
+
+      <header>
+        <h1 className="text-2xl font-semibold">
+          {sideNames.A.length ? sideNames.A.join(" / ") : "A"} vs{" "}
+          {sideNames.B.length ? sideNames.B.join(" / ") : "B"}
         </h1>
-        <p className="match-meta">
-          Match ID: <strong>{data.id}</strong>
-          {' · '}Sport: <strong>{data.sport}</strong>
-          {' · '}Best of: <strong>{data.bestOf ?? '—'}</strong>
-          {' · '}Played:{' '}
-          <strong>{data.playedAt ? new Date(data.playedAt).toLocaleDateString() : '—'}</strong>
-          {' · '}Location: <strong>{data.location ?? '—'}</strong>
+        <p className="text-sm text-gray-500">
+          {match.sport || "sport"} · {match.ruleset || "rules"} ·{" "}
+          {match.status || "status"}
+          {match.playedAt ? ` · ${new Date(match.playedAt).toLocaleString()}` : ""}
+          {match.location ? ` · ${match.location}` : ""}
         </p>
       </header>
 
-      <section className="section">
-        <h2 className="heading">Participants</h2>
-        <ul style={{ listStyle: 'disc', paddingLeft: '1.5rem' }}>
-          {data.participants.map((p) => (
-            <li key={p.id}>
-              Side {p.side} — players: {p.playerIds.map((id) => data.names[id] ?? id).join(', ')}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="section">
-        <h2 className="heading">Events</h2>
-        {data.events.length === 0 ? (
-          <p className="match-meta">No events yet.</p>
+      <section>
+        <h2 className="text-lg font-medium mb-2">Sets</h2>
+        {match.sets && match.sets.length ? (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left">
+                <th className="py-1 pr-4">#</th>
+                <th className="py-1 pr-4">A</th>
+                <th className="py-1">B</th>
+              </tr>
+            </thead>
+            <tbody>
+              {match.sets.map((s, i) => {
+                const [a, b] = normalizeSet(s);
+                return (
+                  <tr key={i} className="border-t">
+                    <td className="py-1 pr-4">{i + 1}</td>
+                    <td className="py-1 pr-4">{a}</td>
+                    <td className="py-1">{b}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         ) : (
-          <ul className="match-list">
-            {data.events.map((ev) => {
-              const created = new Date(ev.createdAt).toLocaleString();
-              const payloadPreview =
-                ev.type === 'ROLL'
-                  ? `sum=${rollsTotal(ev.payload)}`
-                  : JSON.stringify(ev.payload);
-              return (
-                <li key={ev.id} className="card">
-                  <div style={{ fontWeight: 500 }}>
-                    {ev.type}{' '}
-                    <span className="match-meta">({created})</span>
-                  </div>
-                  <div style={{ wordBreak: 'break-word', fontSize: '0.9rem' }}>
-                    {payloadPreview}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          <p className="text-sm text-gray-500">No sets recorded yet.</p>
         )}
       </section>
 
-      <section className="section">
-        <h2 className="heading">Summary</h2>
-        <pre className="card" style={{ overflow: 'auto', fontSize: '0.9rem' }}>
-          {typeof data.summary === 'string'
-            ? data.summary
-            : JSON.stringify(data.summary, null, 2)}
-        </pre>
-      </section>
-
-      <div>
-        <button className="button" onClick={() => void load()}>
-          Refresh
-        </button>
+      <div className="text-sm text-gray-600">
+        Overall: {formatScoreline(match.sets)}
       </div>
     </main>
   );

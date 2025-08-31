@@ -1,9 +1,11 @@
+from collections import defaultdict
+
 from fastapi import APIRouter, Query, Depends
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Rating, Player, Match, MatchParticipant
+from ..models import Rating, Player, Match, MatchParticipant, ScoreEvent
 from ..schemas import LeaderboardEntryOut, LeaderboardOut
 
 # Resource-only prefix; no /api or /api/v0 here
@@ -24,9 +26,17 @@ async def leaderboard(
         .where(Rating.sport_id == sport, Player.deleted_at.is_(None))
         .order_by(Rating.value.desc())
     )
-    count_stmt = select(func.count()).select_from(Rating).where(Rating.sport_id == sport)
-    total = (await session.execute(count_stmt)).scalar()
-    rows = (await session.execute(stmt.limit(limit).offset(offset))).all()
+    # Fetch all rows so we can compute ranks and previous ranks.
+    all_rows = (await session.execute(stmt)).all()
+    total = len(all_rows)
+    # Map player_id -> current rank and rating
+    current_rank_map = {
+        row.Rating.player_id: i + 1 for i, row in enumerate(all_rows)
+    }
+    current_rating_map = {
+        row.Rating.player_id: row.Rating.value for row in all_rows
+    }
+    rows = all_rows[offset : offset + limit]
 
     # Precompute set stats for players returned by the ranking query.
     player_ids = [r.Rating.player_id for r in rows]
@@ -52,19 +62,48 @@ async def leaderboard(
                     set_stats[pid]["won"] += won
                     set_stats[pid]["lost"] += lost
 
+    # Build rating history for the sport using RATING score events
+    rating_events = (
+        await session.execute(
+            select(ScoreEvent)
+            .join(Match, Match.id == ScoreEvent.match_id)
+            .where(Match.sport_id == sport, ScoreEvent.type == "RATING")
+            .order_by(ScoreEvent.created_at)
+        )
+    ).scalars().all()
+    histories = defaultdict(list)
+    for ev in rating_events:
+        payload = ev.payload or {}
+        pid = payload.get("playerId")
+        rating = payload.get("rating")
+        if pid is not None and rating is not None:
+            histories[pid].append(rating)
+
+    prev_ratings = {}
+    for pid, curr in current_rating_map.items():
+        hist = histories.get(pid, [])
+        if len(hist) > 5:
+            prev_ratings[pid] = hist[-6]
+        else:
+            prev_ratings[pid] = curr
+    prev_sorted = sorted(prev_ratings.items(), key=lambda kv: kv[1], reverse=True)
+    prev_rank_map = {pid: i + 1 for i, (pid, _) in enumerate(prev_sorted)}
+
     leaders = []
-    for i, r in enumerate(rows):
+    for r in rows:
         pid = r.Rating.player_id
         stats = set_stats.get(pid, {"won": 0, "lost": 0})
         won = stats["won"]
         lost = stats["lost"]
+        curr_rank = current_rank_map[pid]
+        prev_rank = prev_rank_map.get(pid, curr_rank)
         leaders.append(
             LeaderboardEntryOut(
-                rank=offset + i + 1,
+                rank=curr_rank,
                 playerId=pid,
                 playerName=r.Player.name,
                 rating=r.Rating.value,
-                rankChange=0,  # TODO: compute change based on last 5 matches
+                rankChange=prev_rank - curr_rank,
                 sets=won + lost,
                 setsWon=won,
                 setsLost=lost,

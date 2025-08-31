@@ -2,7 +2,16 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from .routers import sports, rulesets, players, matches, leaderboards, streams, auth
+from .routers import (
+    sports,
+    rulesets,
+    players,
+    matches,
+    leaderboards,
+    streams,
+    tournaments,
+    auth,
+)
 from .exceptions import DomainException, ProblemDetail
 import os
 
@@ -89,4 +98,5 @@ app.include_router(players.router,     prefix="/api/v0")
 app.include_router(matches.router,     prefix="/api/v0")
 app.include_router(leaderboards.router, prefix="/api/v0")
 app.include_router(streams.router,      prefix="/api/v0")
+app.include_router(tournaments.router,  prefix="/api/v0")
 app.include_router(auth.router,         prefix="/api/v0")

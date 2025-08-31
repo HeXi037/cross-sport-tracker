@@ -150,3 +150,26 @@ class UserLogin(BaseModel):
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class TournamentCreate(BaseModel):
+    sport: str
+    name: str
+    clubId: Optional[str] = None
+
+
+class TournamentOut(BaseModel):
+    id: str
+    sport: str
+    name: str
+    clubId: Optional[str] = None
+
+
+class StageCreate(BaseModel):
+    type: Literal["round_robin", "single_elim"]
+
+
+class StageOut(BaseModel):
+    id: str
+    tournamentId: str
+    type: str

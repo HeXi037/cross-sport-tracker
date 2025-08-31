@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { apiFetch } from "../../../lib/api";
+import LiveSummary from "./live-summary";
 
 type ID = string;
 
@@ -19,46 +20,27 @@ type MatchDetail = {
 };
 
 async function fetchMatch(mid: string): Promise<MatchDetail> {
-  const res = await apiFetch(`/v0/matches/${encodeURIComponent(mid)}`, {
+  const res = (await apiFetch(`/v0/matches/${encodeURIComponent(mid)}`, {
     cache: "no-store",
-  } as RequestInit);
-  // @ts-ignore – apiFetch currently returns a Response
+  } as RequestInit)) as Response;
   if (!res.ok) throw new Error(`match ${mid}`);
-  // @ts-ignore
   return (await res.json()) as MatchDetail;
 }
 
 async function fetchPlayerName(pid: string): Promise<string> {
-  const res = await apiFetch(`/v0/players/${encodeURIComponent(pid)}`, {
+  const res = (await apiFetch(`/v0/players/${encodeURIComponent(pid)}`, {
     cache: "no-store",
-  } as RequestInit);
-  // @ts-ignore
+  } as RequestInit)) as Response;
   if (!res.ok) return pid;
-  // @ts-ignore
   const data = (await res.json()) as { id: string; name: string };
   return data?.name ?? pid;
 }
 
-function normalizeSet(s: [number, number] | { A: number; B: number }): [number, number] {
+function normalizeSet(s: [number, number] | { A?: number; B?: number }): [number, number] {
   // Accept either tuple or object
   if (Array.isArray(s) && s.length === 2) return [Number(s[0]) || 0, Number(s[1]) || 0];
-  // @ts-ignore
-  return [Number((s as any).A) || 0, Number((s as any).B) || 0];
-}
-
-function formatScoreline(sets?: MatchDetail["sets"]): string {
-  if (!sets || !sets.length) return "—";
-  const ns = sets.map(normalizeSet);
-  const tallies = ns.reduce(
-    (acc, [a, b]) => {
-      if (a > b) acc.A += 1;
-      else if (b > a) acc.B += 1;
-      return acc;
-    },
-    { A: 0, B: 0 }
-  );
-  const setStr = ns.map(([a, b]) => `${a}-${b}`).join(", ");
-  return `${tallies.A}-${tallies.B} (${setStr})`;
+  const obj = s as { A?: number; B?: number };
+  return [Number(obj.A) || 0, Number(obj.B) || 0];
 }
 
 export default async function MatchDetailPage({
@@ -136,8 +118,7 @@ export default async function MatchDetailPage({
           <p className="match-meta">No sets recorded yet.</p>
         )}
       </section>
-
-      <div className="match-meta">Overall: {formatScoreline(match.sets)}</div>
+      <LiveSummary mid={params.mid} initialSets={match.sets} />
     </main>
   );
 }

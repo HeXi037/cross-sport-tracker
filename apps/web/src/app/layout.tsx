@@ -1,6 +1,9 @@
+'use client';
+
 // apps/web/src/app/layout.tsx
 import './globals.css';
 import Link from 'next/link';
+import { useState } from 'react';
 
 export const metadata = {
   title: 'cross-sport-tracker',
@@ -12,11 +15,19 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const [open, setOpen] = useState(false);
   return (
     <html lang="en">
       <body>
         <header className="nav">
-          <nav>
+          <button
+            className="hamburger"
+            aria-label="Toggle navigation"
+            onClick={() => setOpen((prev) => !prev)}
+          >
+            ☰
+          </button>
+          <nav className={`nav-links ${open ? 'open' : ''}`}>
             <ul>
               <li>
                 <Link href="/">Home</Link>

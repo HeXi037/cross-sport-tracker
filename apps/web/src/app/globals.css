@@ -81,13 +81,44 @@ a {
 .nav a:hover {
   text-decoration: underline;
 }
-.nav ul {
+.nav-links ul {
   display: flex;
   justify-content: center;
   gap: 1rem;
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+.hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--color-nav-text);
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .nav {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .nav-links {
+    display: none;
+    width: 100%;
+  }
+  .nav-links.open {
+    display: block;
+  }
+  .nav-links ul {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .hamburger {
+    display: block;
+  }
 }
 
 /* Sport list */
@@ -124,6 +155,27 @@ a {
   font-size: 0.9rem;
 }
 
+.connection-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.connection-indicator .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.connection-indicator .dot-live {
+  background: #2ecc71;
+}
+
+.connection-indicator .dot-polling {
+  background: #bbb;
+}
+
 .mt-8 {
   margin-top: 8px;
 }
@@ -134,4 +186,29 @@ a {
 
 .error {
   color: var(--color-accent-red);
+}
+
+/* Skeleton loading placeholders */
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: #e0e0e0;
+  border-radius: 4px;
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: skeleton-shimmer 1.5s infinite;
 }

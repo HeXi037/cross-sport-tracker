@@ -1,3 +1,4 @@
+// apps/web/src/app/record/[sport]/page.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -25,7 +26,7 @@ export default function RecordSportPage() {
   const [bestOf, setBestOf] = useState(3);
   const [playedAt, setPlayedAt] = useState("");
   const [location, setLocation] = useState("");
-  const [formError, setFormError] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -94,16 +95,14 @@ export default function RecordSportPage() {
         return;
       }
 
+      const participants = [
+        { side: "A", playerIds: [ids.a1, ids.a2].filter(Boolean) },
+        { side: "B", playerIds: [ids.b1, ids.b2].filter(Boolean) },
+      ];
+
       const body: Record<string, unknown> = {
         sport,
-        participants: [
-          { side: "A", playerIds: [ids.a1, ids.a2].filter(Boolean) },
-          { side: "B", playerIds: [ids.b1, ids.b2].filter(Boolean) },
-        ],
-        // Avoid sending timezone-aware timestamps; the API expects a naive
-        // datetime string. Using Date#toISOString() would include a “Z” suffix
-        // (UTC) which caused the backend to reject the request. Instead, send
-        // an ISO date without timezone information if a value was provided.
+        participants,
         playedAt: playedAt ? `${playedAt}T00:00:00` : undefined,
         location: location || undefined,
       };
@@ -147,7 +146,7 @@ export default function RecordSportPage() {
   return (
     <main className="container">
       <h1 className="heading">Record {sport} Match</h1>
-
+      
       {formError && <p className="error">{formError}</p>}
 
       <section className="section">

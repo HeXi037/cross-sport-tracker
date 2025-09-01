@@ -87,22 +87,30 @@ def record_sets(set_scores, state=None):
         loser = _other(winner)
         win_games = ga if winner == "A" else gb
         lose_games = gb if winner == "A" else ga
+        min_games = min(win_games, lose_games)
 
-        for _ in range(win_games - 1):
+        # Alternate games between winner and loser to avoid premature set wins
+        for _ in range(min_games):
             for _ in range(4):
                 ev = {"type": "POINT", "by": winner}
                 events.append(ev)
                 state = apply(ev, state)
-
-        for _ in range(lose_games):
             for _ in range(4):
                 ev = {"type": "POINT", "by": loser}
                 events.append(ev)
                 state = apply(ev, state)
 
-        for _ in range(4):
-            ev = {"type": "POINT", "by": winner}
-            events.append(ev)
-            state = apply(ev, state)
+        if win_games == 7 and lose_games == 6:
+            tiebreak_to = state["config"].get("tiebreakTo", 7)
+            for _ in range(tiebreak_to):
+                ev = {"type": "POINT", "by": winner}
+                events.append(ev)
+                state = apply(ev, state)
+        else:
+            for _ in range(win_games - min_games):
+                for _ in range(4):
+                    ev = {"type": "POINT", "by": winner}
+                    events.append(ev)
+                    state = apply(ev, state)
 
     return events, state

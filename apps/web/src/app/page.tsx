@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic'; // fetch per request on the server
+export const revalidate = 60; // cache the page for one minute
 
 import { apiFetch } from '../lib/api';
 import HomePageClient from './home-page-client';
@@ -19,7 +19,7 @@ export default async function HomePage() {
   let matchError = false;
 
   try {
-    const r = await apiFetch('/v0/sports', { cache: 'no-store' });
+    const r = await apiFetch('/v0/sports', { next: { revalidate: 60 } });
     if (r.ok) {
       sports = (await r.json()) as Sport[];
     } else {
@@ -30,7 +30,7 @@ export default async function HomePage() {
   }
 
   try {
-    const r = await apiFetch('/v0/matches', { cache: 'no-store' });
+    const r = await apiFetch('/v0/matches', { next: { revalidate: 60 } });
     if (r.ok) {
       matches = (await r.json()) as MatchRow[];
     } else {

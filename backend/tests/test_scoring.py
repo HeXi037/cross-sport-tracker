@@ -2,7 +2,7 @@ import os, sys
 import pytest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from app.scoring import padel, bowling
+from app.scoring import padel, bowling, tennis
 from app.services import validate_set_scores, ValidationError
 
 
@@ -86,6 +86,12 @@ def test_record_sets():
     events, state = padel.record_sets([(6, 4), (6, 2)])
     assert state["sets"]["A"] == 2
     assert len(events) == (6 + 4 + 6 + 2) * 4
+
+
+def test_tennis_record_sets_tiebreak():
+    events, state = tennis.record_sets([(7, 6)])
+    assert state["sets"] == {"A": 1, "B": 0}
+    assert len(events) == (12 * 4) + state["config"].get("tiebreakTo", 7)
 
 
 def test_validate_set_scores_negative():

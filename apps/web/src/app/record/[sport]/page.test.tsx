@@ -1,5 +1,6 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
 import RecordSportPage from "./page";
 
 vi.mock("next/navigation", () => ({
@@ -25,8 +26,6 @@ describe("RecordSportPage", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) });
     global.fetch = fetchMock;
 
-    const alertMock = vi.spyOn(window, "alert").mockImplementation(() => {});
-
     render(<RecordSportPage />);
 
     await screen.findAllByText("Alice");
@@ -46,8 +45,9 @@ describe("RecordSportPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
-    expect(alertMock).toHaveBeenCalledWith("Please select unique players.");
+    expect(
+      await screen.findByText("Please select unique players.")
+    ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
-

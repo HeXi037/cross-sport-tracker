@@ -1,3 +1,4 @@
+// apps/web/src/app/record/[sport]/page.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -25,7 +26,7 @@ export default function RecordSportPage() {
   const [bestOf, setBestOf] = useState(3);
   const [playedAt, setPlayedAt] = useState("");
   const [location, setLocation] = useState("");
-  const [, setFormError] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -65,12 +66,14 @@ export default function RecordSportPage() {
     try {
       const parsedSets = isPadel
         ? sets
-            .map((s) => [parseInt(s.A, 10), parseInt(s.B, 10)] as [number, number])
+            .map(
+              (s) => [parseInt(s.A, 10), parseInt(s.B, 10)] as [number, number]
+            )
             .filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b))
         : [];
 
       if (isPadel && parsedSets.length === 0) {
-        alert("Please enter at least one completed set score.");
+        setFormError("Please enter at least one completed set score.");
         return;
       }
 
@@ -78,7 +81,7 @@ export default function RecordSportPage() {
         ? [ids.a1, ids.a2, ids.b1, ids.b2]
         : [ids.a1, ids.b1];
       if (!requiredIds.every(Boolean)) {
-        alert(
+        setFormError(
           isPadel
             ? "Please select all four players."
             : "Please select at least one player per side."
@@ -88,20 +91,18 @@ export default function RecordSportPage() {
 
       const idValues = [ids.a1, ids.a2, ids.b1, ids.b2].filter(Boolean);
       if (new Set(idValues).size !== idValues.length) {
-        alert("Please select unique players.");
+        setFormError("Please select unique players.");
         return;
       }
 
+      const participants = [
+        { side: "A", playerIds: [ids.a1, ids.a2].filter(Boolean) },
+        { side: "B", playerIds: [ids.b1, ids.b2].filter(Boolean) },
+      ];
+
       const body: Record<string, unknown> = {
         sport,
-        participants: [
-          { side: "A", playerIds: [ids.a1, ids.a2].filter(Boolean) },
-          { side: "B", playerIds: [ids.b1, ids.b2].filter(Boolean) },
-        ],
-        // Avoid sending timezone-aware timestamps; the API expects a naive
-        // datetime string.  Using Date#toISOString() would include a "Z" suffix
-        // (UTC) which caused the backend to reject the request.  Instead, send
-        // an ISO date without timezone information if a value was provided.
+        participants,
         playedAt: playedAt ? `${playedAt}T00:00:00` : undefined,
         location: location || undefined,
       };
@@ -115,7 +116,7 @@ export default function RecordSportPage() {
         body: JSON.stringify(body),
       });
       if (!createRes.ok) {
-        alert("Failed to create match.");
+        setFormError("Failed to create match.");
         return;
       }
       const { id } = (await createRes.json()) as { id: string };
@@ -127,7 +128,7 @@ export default function RecordSportPage() {
           body: JSON.stringify({ sets: parsedSets }),
         });
         if (!setsRes.ok) {
-          alert("Failed to submit set scores.");
+          setFormError("Failed to submit set scores.");
           return;
         }
       }
@@ -145,12 +146,16 @@ export default function RecordSportPage() {
   return (
     <main className="container">
       <h1 className="heading">Record {sport} Match</h1>
+      {formError && <p className="error">{formError}</p>}
 
       <section className="section">
         <h2 className="heading">Players</h2>
         <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
           <div>
-            <label htmlFor="player-a1" style={{ display: "flex", flexDirection: "column" }}>
+            <label
+              htmlFor="player-a1"
+              style={{ display: "flex", flexDirection: "column" }}
+            >
               Player A1
               <select
                 id="player-a1"
@@ -172,7 +177,10 @@ export default function RecordSportPage() {
             </label>
           </div>
           <div>
-            <label htmlFor="player-a2" style={{ display: "flex", flexDirection: "column" }}>
+            <label
+              htmlFor="player-a2"
+              style={{ display: "flex", flexDirection: "column" }}
+            >
               Player A2
               <select
                 id="player-a2"
@@ -194,7 +202,10 @@ export default function RecordSportPage() {
             </label>
           </div>
           <div>
-            <label htmlFor="player-b1" style={{ display: "flex", flexDirection: "column" }}>
+            <label
+              htmlFor="player-b1"
+              style={{ display: "flex", flexDirection: "column" }}
+            >
               Player B1
               <select
                 id="player-b1"
@@ -216,7 +227,10 @@ export default function RecordSportPage() {
             </label>
           </div>
           <div>
-            <label htmlFor="player-b2" style={{ display: "flex", flexDirection: "column" }}>
+            <label
+              htmlFor="player-b2"
+              style={{ display: "flex", flexDirection: "column" }}
+            >
               Player B2
               <select
                 id="player-b2"
@@ -245,7 +259,10 @@ export default function RecordSportPage() {
           <h2 className="heading">Sets</h2>
           <div style={{ display: "grid", gap: 8 }}>
             {sets.map((s, idx) => (
-              <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div
+                key={idx}
+                style={{ display: "flex", gap: 8, alignItems: "center" }}
+              >
                 <label
                   htmlFor={`set-${idx}-a`}
                   style={{ display: "flex", flexDirection: "column" }}
@@ -286,7 +303,10 @@ export default function RecordSportPage() {
         <h2 className="heading">Details</h2>
         <div style={{ display: "flex", gap: 8 }}>
           {isPadel && (
-            <label htmlFor="best-of" style={{ display: "flex", flexDirection: "column" }}>
+            <label
+              htmlFor="best-of"
+              style={{ display: "flex", flexDirection: "column" }}
+            >
               Best of
               <select
                 id="best-of"
@@ -302,7 +322,10 @@ export default function RecordSportPage() {
               </select>
             </label>
           )}
-          <label htmlFor="played-at" style={{ display: "flex", flexDirection: "column" }}>
+          <label
+            htmlFor="played-at"
+            style={{ display: "flex", flexDirection: "column" }}
+          >
             Date
             <input
               id="played-at"
@@ -312,7 +335,10 @@ export default function RecordSportPage() {
               onChange={(e) => setPlayedAt(e.target.value)}
             />
           </label>
-          <label htmlFor="location" style={{ display: "flex", flexDirection: "column" }}>
+          <label
+            htmlFor="location"
+            style={{ display: "flex", flexDirection: "column" }}
+          >
             Location
             <input
               id="location"
@@ -325,7 +351,12 @@ export default function RecordSportPage() {
         </div>
       </section>
 
-      <button className="button" onClick={submit} type="button" disabled={submitting}>
+      <button
+        className="button"
+        onClick={submit}
+        type="button"
+        disabled={submitting}
+      >
         {submitting ? "Saving..." : "Save"}
       </button>
     </main>

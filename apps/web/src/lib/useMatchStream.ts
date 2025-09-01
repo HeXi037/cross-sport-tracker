@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import { apiFetch, apiUrl } from "./api";
 
@@ -12,16 +14,41 @@ function buildWsUrl(path: string): string {
     return httpUrl.replace(/^http/, "ws");
   }
   const proto =
-    typeof window !== "undefined" && window.location.protocol === "https:" ? "wss" : "ws";
-  return `${proto}://${typeof window !== "undefined" ? window.location.host : ""}${httpUrl}`;
+    typeof window !== "undefined" && window.location.protocol === "https:"
+      ? "wss"
+      : "ws";
+  return `${proto}://${
+    typeof window !== "undefined" ? window.location.host : ""
+  }${httpUrl}`;
 }
 
 export function useMatchStream(id: string) {
   const [event, setEvent] = useState<MatchEvent | null>(null);
 
   useEffect(() => {
+    if (!id) return;
+
     let ws: WebSocket | null = null;
-    let timer: NodeJS.Timer | null = null;
+    // IMPORTANT: use a DOM number, not NodeJS.Timeout/Timer
+    let pollTimer: number | null = null;
+
+    const startPolling = () => {
+      if (pollTimer !== null) return;
+      pollTimer = window.setInterval(async () => {
+        try {
+          const res = (await apiFetch(
+            `/v0/matches/${encodeURIComponent(id)}`
+          )) as unknown as Response;
+        // ^ apiFetch currently returns a Response in this app
+          if (res.ok) {
+            setEvent((await res.json()) as MatchEvent);
+          }
+        } catch {
+          // ignore intermittent failures; keep polling
+        }
+      }, 5000);
+    };
+
     const url = buildWsUrl(`/v0/matches/${encodeURIComponent(id)}/stream`);
 
     if (typeof window !== "undefined" && "WebSocket" in window) {
@@ -30,35 +57,33 @@ export function useMatchStream(id: string) {
         ws.onmessage = (e) => {
           try {
             setEvent(JSON.parse(e.data));
-          } catch (err) {
-            console.error("ws message parse failed", err);
+          } catch {
+            /* ignore malformed frames */
           }
         };
-      } catch (err) {
-        console.error("ws connection failed", err);
+        // If socket fails or closes, fallback to polling
+        ws.onerror = () => startPolling();
+        ws.onclose = () => startPolling();
+      } catch {
+        startPolling();
       }
     } else {
-      // Fallback: poll via HTTP every 5 seconds
-      timer = setInterval(async () => {
-        try {
-          const res = (await apiFetch(
-            `/v0/matches/${encodeURIComponent(id)}`
-          )) as Response;
-          if (res.ok) {
-            setEvent((await res.json()) as MatchEvent);
-          }
-        } catch (err) {
-          console.error("polling failed", err);
-        }
-      }, 5000);
+      startPolling();
     }
 
     return () => {
-      ws?.close();
-      if (timer) clearInterval(timer);
+      try {
+        ws?.close();
+      } catch {
+        /* ignore */
+      }
+      if (pollTimer !== null) {
+        window.clearInterval(pollTimer);
+        pollTimer = null;
+      }
     };
+    // Reconnect when id changes
   }, [id]);
 
   return event;
 }
-

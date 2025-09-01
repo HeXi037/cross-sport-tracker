@@ -15,11 +15,12 @@ export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [recentMatches, setRecentMatches] =
     useState<Record<string, string | null>>({});
-  const [name, setName] = useState("");
+  the [name, setName] = useState("");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   const trimmedName = name.trim();
   const nameIsValid = NAME_REGEX.test(trimmedName);
@@ -88,6 +89,7 @@ export default function PlayersPage() {
       return;
     }
     setError(null);
+    setCreating(true);
     try {
       const res = await apiFetch("/v0/players", {
         method: "POST",
@@ -107,12 +109,14 @@ export default function PlayersPage() {
         setError(message);
         return;
       }
+      setName("");
+      load();
     } catch {
       setError("Failed to create player.");
       return;
+    } finally {
+      setCreating(false);
     }
-    setName("");
-    load();
   }
 
   return (
@@ -160,9 +164,9 @@ export default function PlayersPage() {
       <button
         className="button"
         onClick={create}
-        disabled={!nameIsValid}
+        disabled={creating || name.trim() === ""}
       >
-        Add
+        {creating ? "Saving…" : "Add"}
       </button>
       {error && (
         <div className="text-red-500 mt-2">

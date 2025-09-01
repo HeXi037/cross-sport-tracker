@@ -146,6 +146,7 @@ export default function RecordSportPage() {
   return (
     <main className="container">
       <h1 className="heading">Record {sport} Match</h1>
+      
       {formError && <p className="error">{formError}</p>}
 
       <section className="section">

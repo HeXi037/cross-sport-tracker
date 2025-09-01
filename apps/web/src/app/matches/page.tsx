@@ -93,11 +93,12 @@ function formatSummary(s?: MatchDetail["summary"]): string {
   return "";
 }
 
-export default async function MatchesPage({
-  searchParams = {},
-}: {
-  searchParams?: Record<string, string | string[] | undefined>;
-}) {
+export default async function MatchesPage(
+  props: {
+    searchParams?: Record<string, string | string[] | undefined>;
+  }
+) {
+  const searchParams = props.searchParams ?? {};
   const limit = Number(searchParams.limit) || 25;
   const offset = Number(searchParams.offset) || 0;
 

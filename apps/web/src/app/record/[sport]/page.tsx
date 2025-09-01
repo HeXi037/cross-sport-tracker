@@ -17,15 +17,14 @@ export default function RecordSportPage() {
   const params = useParams();
   const sport = typeof params.sport === "string" ? params.sport : "";
   const isPadel = sport === "padel";
-  const isDiscGolf = sport === "disc_golf";
+  const isTennis = sport === "tennis";
+  const usesSets = isPadel || isTennis;
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [ids, setIds] = useState({ a1: "", a2: "", b1: "", b2: "" });
+  const [doubles, setDoubles] = useState(isPadel);
   const [sets, setSets] = useState<Array<{ A: string; B: string }>>(
-    isPadel ? [{ A: "", B: "" }] : []
-  );
-  const [holeScores, setHoleScores] = useState(
-    isDiscGolf ? Array.from({ length: 18 }, () => ({ A: "", B: "" })) : []
+    usesSets ? [{ A: "", B: "" }] : []
   );
   const [bestOf, setBestOf] = useState(3);
   const [playedAt, setPlayedAt] = useState("");
@@ -64,52 +63,29 @@ export default function RecordSportPage() {
     setSets((prev) => [...prev, { A: "", B: "" }]);
   }
 
-  function onHoleChange(idx: number, side: "A" | "B", value: string) {
-    setHoleScores((prev) => {
-      const copy = prev.slice();
-      copy[idx] = { ...copy[idx], [side]: value };
-      return copy;
-    });
-  }
-
   async function submit() {
     setFormError(null);
     setSubmitting(true);
     try {
-      const parsedSets = isPadel
+      const parsedSets = usesSets
         ? sets
             .map(
               (s) => [parseInt(s.A, 10), parseInt(s.B, 10)] as [number, number]
             )
             .filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b))
         : [];
-      const holeEvents = isDiscGolf
-        ? holeScores
-            .map((hs, idx) => {
-              const hole = idx + 1;
-              const events: any[] = [];
-              const a = parseInt(hs.A, 10);
-              const b = parseInt(hs.B, 10);
-              if (Number.isFinite(a))
-                events.push({ type: "HOLE", side: "A", hole, strokes: a });
-              if (Number.isFinite(b))
-                events.push({ type: "HOLE", side: "B", hole, strokes: b });
-              return events;
-            })
-            .flat()
-        : [];
 
-      if (isPadel && parsedSets.length === 0) {
+      if (usesSets && parsedSets.length === 0) {
         setFormError("Please enter at least one completed set score.");
         return;
       }
 
-      const requiredIds = isPadel
+      const requiredIds = doubles
         ? [ids.a1, ids.a2, ids.b1, ids.b2]
         : [ids.a1, ids.b1];
       if (!requiredIds.every(Boolean)) {
         setFormError(
-          isPadel
+          doubles
             ? "Please select all four players."
             : "Please select at least one player per side."
         );
@@ -133,7 +109,7 @@ export default function RecordSportPage() {
         playedAt: playedAt ? `${playedAt}T00:00:00` : undefined,
         location: location || undefined,
       };
-      if (isPadel) {
+      if (usesSets) {
         body.bestOf = bestOf;
       }
 
@@ -148,7 +124,7 @@ export default function RecordSportPage() {
       }
       const { id } = (await createRes.json()) as { id: string };
 
-      if (isPadel && parsedSets.length > 0) {
+      if (usesSets && parsedSets.length > 0) {
         const setsRes = await fetch(`${base}/v0/matches/${id}/sets`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -157,20 +133,6 @@ export default function RecordSportPage() {
         if (!setsRes.ok) {
           setFormError("Failed to submit set scores.");
           return;
-        }
-      }
-
-      if (isDiscGolf && holeEvents.length > 0) {
-        for (const ev of holeEvents) {
-          const res = await fetch(`${base}/v0/matches/${id}/events`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(ev),
-          });
-          if (!res.ok) {
-            setFormError("Failed to submit hole scores.");
-            return;
-          }
         }
       }
 
@@ -187,25 +149,42 @@ export default function RecordSportPage() {
   return (
     <main className="container">
       <h1 className="heading">Record {sport} Match</h1>
-      
+
       {formError && <p className="error">{formError}</p>}
 
       <section className="section">
         <h2 className="heading">Players</h2>
+        {isTennis && (
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              marginBottom: 8,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={doubles}
+              onChange={(e) => setDoubles(e.target.checked)}
+            />
+            Doubles
+          </label>
+        )}
         <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
           <div>
             <label
               htmlFor="player-a1"
               style={{ display: "flex", flexDirection: "column" }}
             >
-              Player A1
+              {doubles ? "Player A1" : "Player A"}
               <select
                 id="player-a1"
                 className="input"
                 value={ids.a1}
                 onChange={(e) => onIdChange("a1", e.target.value)}
               >
-                <option value="">Player A1</option>
+                <option value="">{doubles ? "Player A1" : "Player A"}</option>
                 {players.map((p) => (
                   <option
                     key={p.id}
@@ -220,42 +199,17 @@ export default function RecordSportPage() {
           </div>
           <div>
             <label
-              htmlFor="player-a2"
-              style={{ display: "flex", flexDirection: "column" }}
-            >
-              Player A2
-              <select
-                id="player-a2"
-                className="input"
-                value={ids.a2}
-                onChange={(e) => onIdChange("a2", e.target.value)}
-              >
-                <option value="">Player A2</option>
-                {players.map((p) => (
-                  <option
-                    key={p.id}
-                    value={p.id}
-                    disabled={isUsedElsewhere(p.id, "a2")}
-                  >
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div>
-            <label
               htmlFor="player-b1"
               style={{ display: "flex", flexDirection: "column" }}
             >
-              Player B1
+              {doubles ? "Player B1" : "Player B"}
               <select
                 id="player-b1"
                 className="input"
                 value={ids.b1}
                 onChange={(e) => onIdChange("b1", e.target.value)}
               >
-                <option value="">Player B1</option>
+                <option value="">{doubles ? "Player B1" : "Player B"}</option>
                 {players.map((p) => (
                   <option
                     key={p.id}
@@ -268,75 +222,64 @@ export default function RecordSportPage() {
               </select>
             </label>
           </div>
-          <div>
-            <label
-              htmlFor="player-b2"
-              style={{ display: "flex", flexDirection: "column" }}
-            >
-              Player B2
-              <select
-                id="player-b2"
-                className="input"
-                value={ids.b2}
-                onChange={(e) => onIdChange("b2", e.target.value)}
-              >
-                <option value="">Player B2</option>
-                {players.map((p) => (
-                  <option
-                    key={p.id}
-                    value={p.id}
-                    disabled={isUsedElsewhere(p.id, "b2")}
+          {doubles && (
+            <>
+              <div>
+                <label
+                  htmlFor="player-a2"
+                  style={{ display: "flex", flexDirection: "column" }}
+                >
+                  Player A2
+                  <select
+                    id="player-a2"
+                    className="input"
+                    value={ids.a2}
+                    onChange={(e) => onIdChange("a2", e.target.value)}
                   >
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+                    <option value="">Player A2</option>
+                    {players.map((p) => (
+                      <option
+                        key={p.id}
+                        value={p.id}
+                        disabled={isUsedElsewhere(p.id, "a2")}
+                      >
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div>
+                <label
+                  htmlFor="player-b2"
+                  style={{ display: "flex", flexDirection: "column" }}
+                >
+                  Player B2
+                  <select
+                    id="player-b2"
+                    className="input"
+                    value={ids.b2}
+                    onChange={(e) => onIdChange("b2", e.target.value)}
+                  >
+                    <option value="">Player B2</option>
+                    {players.map((p) => (
+                      <option
+                        key={p.id}
+                        value={p.id}
+                        disabled={isUsedElsewhere(p.id, "b2")}
+                      >
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </>
+          )}
         </div>
       </section>
 
-      {isDiscGolf && (
-        <section className="section">
-          <h2 className="heading">Hole Scores</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th>Hole</th>
-                <th>A</th>
-                <th>B</th>
-              </tr>
-            </thead>
-            <tbody>
-              {holeScores.map((hs, idx) => (
-                <tr key={idx}>
-                  <td>{idx + 1}</td>
-                  <td>
-                    <input
-                      className="input"
-                      value={hs.A}
-                      type="number"
-                      min="1"
-                      onChange={(e) => onHoleChange(idx, "A", e.target.value)}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="input"
-                      value={hs.B}
-                      type="number"
-                      min="1"
-                      onChange={(e) => onHoleChange(idx, "B", e.target.value)}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
-
-      {isPadel && (
+      {usesSets && (
         <section className="section">
           <h2 className="heading">Sets</h2>
           <div style={{ display: "grid", gap: 8 }}>
@@ -384,7 +327,7 @@ export default function RecordSportPage() {
       <section className="section">
         <h2 className="heading">Details</h2>
         <div style={{ display: "flex", gap: 8 }}>
-          {isPadel && (
+          {usesSets && (
             <label
               htmlFor="best-of"
               style={{ display: "flex", flexDirection: "column" }}

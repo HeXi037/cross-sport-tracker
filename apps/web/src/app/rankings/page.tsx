@@ -102,7 +102,7 @@ export default function RankingsPage() {
               <tr key={l.playerId}>
                 <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{i + 1}</td>
                 <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{l.playerName}</td>
-                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{l.rating}</td>
+                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{Math.round(l.rating)}</td>
               </tr>
             ))}
           </tbody>

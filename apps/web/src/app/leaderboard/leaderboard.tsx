@@ -184,7 +184,7 @@ export default function Leaderboard({ sport }: Props) {
                   <td style={{ padding: "4px 16px 4px 0" }}>{row.sport}</td>
                 )}
                 <td style={{ padding: "4px 16px 4px 0" }}>
-                  {row.rating ?? "—"}
+                  {row.rating != null ? Math.round(row.rating) : "—"}
                 </td>
                 <td style={{ padding: "4px 16px 4px 0" }}>{row.setsWon ?? "—"}</td>
                 <td style={{ padding: "4px 0" }}>{row.setsLost ?? "—"}</td>

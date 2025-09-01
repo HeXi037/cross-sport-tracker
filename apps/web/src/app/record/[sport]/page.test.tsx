@@ -44,8 +44,9 @@ describe("RecordSportPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
-    await screen.findByText("Please select unique players.");
+    expect(
+      await screen.findByText("Please select unique players.")
+    ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
-

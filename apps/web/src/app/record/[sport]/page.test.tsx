@@ -25,8 +25,6 @@ describe("RecordSportPage", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) });
     global.fetch = fetchMock;
 
-    const alertMock = vi.spyOn(window, "alert").mockImplementation(() => {});
-
     render(<RecordSportPage />);
 
     await screen.findAllByText("Alice");
@@ -46,7 +44,7 @@ describe("RecordSportPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
-    expect(alertMock).toHaveBeenCalledWith("Please select unique players.");
+    await screen.findByText("Please select unique players.");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

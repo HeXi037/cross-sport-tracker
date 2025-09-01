@@ -25,6 +25,7 @@ export default function RecordSportPage() {
   const [bestOf, setBestOf] = useState(3);
   const [playedAt, setPlayedAt] = useState("");
   const [location, setLocation] = useState("");
+  const [formError, setFormError] = useState("");
 
   useEffect(() => {
     async function loadPlayers() {
@@ -58,6 +59,7 @@ export default function RecordSportPage() {
   }
 
   async function submit() {
+    setFormError("");
     const parsedSets = isPadel
       ? sets
           .map((s) => [parseInt(s.A, 10), parseInt(s.B, 10)] as [number, number])
@@ -65,7 +67,7 @@ export default function RecordSportPage() {
       : [];
 
     if (isPadel && parsedSets.length === 0) {
-      alert("Please enter at least one completed set score.");
+      setFormError("Please enter at least one completed set score.");
       return;
     }
 
@@ -73,7 +75,7 @@ export default function RecordSportPage() {
       ? [ids.a1, ids.a2, ids.b1, ids.b2]
       : [ids.a1, ids.b1];
     if (!requiredIds.every(Boolean)) {
-      alert(
+      setFormError(
         isPadel
           ? "Please select all four players."
           : "Please select at least one player per side."
@@ -83,7 +85,7 @@ export default function RecordSportPage() {
 
     const idValues = [ids.a1, ids.a2, ids.b1, ids.b2].filter(Boolean);
     if (new Set(idValues).size !== idValues.length) {
-      alert("Please select unique players.");
+      setFormError("Please select unique players.");
       return;
     }
 
@@ -110,7 +112,7 @@ export default function RecordSportPage() {
       body: JSON.stringify(body),
     });
     if (!createRes.ok) {
-      alert("Failed to create match.");
+      setFormError("Failed to create match.");
       return;
     }
     const { id } = (await createRes.json()) as { id: string };
@@ -122,7 +124,7 @@ export default function RecordSportPage() {
         body: JSON.stringify({ sets: parsedSets }),
       });
       if (!setsRes.ok) {
-        alert("Failed to submit set scores.");
+        setFormError("Failed to submit set scores.");
         return;
       }
     }
@@ -137,6 +139,8 @@ export default function RecordSportPage() {
   return (
     <main className="container">
       <h1 className="heading">Record {sport} Match</h1>
+
+      {formError && <div className="error">{formError}</div>}
 
       <section className="section">
         <h2 className="heading">Players</h2>

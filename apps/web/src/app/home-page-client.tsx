@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type MouseEvent } from 'react';
+import React, { useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '../lib/api';
 
@@ -31,6 +31,7 @@ export default function HomePageClient({
   sportError: initialSportError,
   matchError: initialMatchError,
 }: Props) {
+  React;
   const [sports, setSports] = useState(initialSports);
   const [matches, setMatches] = useState(initialMatches);
   const [sportError, setSportError] = useState(initialSportError);
@@ -78,7 +79,7 @@ export default function HomePageClient({
         {sports.length === 0 ? (
           sportError ? (
             <p>
-              Could not load sports.{' '}
+              Unable to load sports. Check connection.{" "}
               <a href="#" onClick={retrySports}>
                 Retry
               </a>
@@ -112,7 +113,7 @@ export default function HomePageClient({
         {matches.length === 0 ? (
           matchError ? (
             <p>
-              Could not load matches.{' '}
+              Unable to load matches. Check connection.{" "}
               <a href="#" onClick={retryMatches}>
                 Retry
               </a>

@@ -34,15 +34,31 @@ router = APIRouter(prefix="/matches", tags=["matches"])
 async def list_matches(
     playerId: str | None = None, session: AsyncSession = Depends(get_session)
 ):
-    stmt = select(Match).where(Match.deleted_at.is_(None))
     if playerId:
+        rows = (
+            await session.execute(
+                select(Match, MatchParticipant)
+                .join(MatchParticipant)
+                .where(Match.deleted_at.is_(None))
+                .order_by(Match.played_at.desc())
+            )
+        ).all()
+        matches: list[Match] = []
+        seen: set[str] = set()
+        for row in rows:
+            match = row.Match
+            mp = row.MatchParticipant
+            if playerId in (mp.player_ids or []) and match.id not in seen:
+                matches.append(match)
+                seen.add(match.id)
+    else:
         stmt = (
-            stmt.join(MatchParticipant)
-            .where(MatchParticipant.player_ids.any(playerId))
-            .distinct()
+            select(Match)
+            .where(Match.deleted_at.is_(None))
+            .order_by(Match.played_at.desc())
         )
-    stmt = stmt.order_by(Match.played_at.desc())
-    matches = (await session.execute(stmt)).scalars().all()
+        matches = (await session.execute(stmt)).scalars().all()
+
     return [
         MatchSummaryOut(
             id=m.id,

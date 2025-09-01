@@ -18,27 +18,21 @@ function buildWsUrl(path: string): string {
 
 export function useMatchStream(id: string) {
   const [event, setEvent] = useState<MatchEvent | null>(null);
+  const [connected, setConnected] = useState(false);
+  const [fallback, setFallback] = useState(false);
 
   useEffect(() => {
+    setConnected(false);
+    setFallback(false);
+
     let ws: WebSocket | null = null;
     let timer: NodeJS.Timer | null = null;
+    let stopped = false;
     const url = buildWsUrl(`/v0/matches/${encodeURIComponent(id)}/stream`);
 
-    if (typeof window !== "undefined" && "WebSocket" in window) {
-      try {
-        ws = new WebSocket(url);
-        ws.onmessage = (e) => {
-          try {
-            setEvent(JSON.parse(e.data));
-          } catch (err) {
-            console.error("ws message parse failed", err);
-          }
-        };
-      } catch (err) {
-        console.error("ws connection failed", err);
-      }
-    } else {
-      // Fallback: poll via HTTP every 5 seconds
+    const startPolling = () => {
+      if (timer || stopped) return;
+      setFallback(true);
       timer = setInterval(async () => {
         try {
           const res = (await apiFetch(
@@ -51,14 +45,38 @@ export function useMatchStream(id: string) {
           console.error("polling failed", err);
         }
       }, 5000);
+    };
+
+    if (typeof window !== "undefined" && "WebSocket" in window) {
+      try {
+        ws = new WebSocket(url);
+        ws.onopen = () => setConnected(true);
+        ws.onclose = () => {
+          setConnected(false);
+          startPolling();
+        };
+        ws.onmessage = (e) => {
+          try {
+            setEvent(JSON.parse(e.data));
+          } catch (err) {
+            console.error("ws message parse failed", err);
+          }
+        };
+      } catch (err) {
+        console.error("ws connection failed", err);
+        startPolling();
+      }
+    } else {
+      startPolling();
     }
 
     return () => {
+      stopped = true;
       ws?.close();
       if (timer) clearInterval(timer);
     };
   }, [id]);
 
-  return event;
+  return { event, connected, fallback };
 }
 

@@ -6,13 +6,14 @@ import Link from "next/link";
 // Identifier type for players
 export type ID = string | number;
 
-// Basic leaderboard entry
+// Basic leaderboard entry returned by the API
 export type Leader = {
   rank: number;
-  player: { id: ID; name: string };
+  playerId: ID;
+  playerName: string;
   rating?: number | null;
-  wins?: number;
-  losses?: number;
+  setsWon?: number;
+  setsLost?: number;
   sport?: string;
 };
 
@@ -82,9 +83,9 @@ export default function Leaderboard({ sport }: Props) {
         {sport === "all" && (
           <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>Sport</th>
         )}
-        <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>Rating</th>
-        <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>W</th>
-        <th style={{ textAlign: "left", padding: "4px 0" }}>L</th>
+          <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>Rating</th>
+          <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>W</th>
+          <th style={{ textAlign: "left", padding: "4px 0" }}>L</th>
       </tr>
     </thead>
   );
@@ -174,25 +175,19 @@ export default function Leaderboard({ sport }: Props) {
           <tbody>
             {leaders.map((row) => (
               <tr
-                key={`${row.rank}-${row.player.id}-${row.sport ?? ""}`}
+                key={`${row.rank}-${row.playerId}-${row.sport ?? ""}`}
                 style={{ borderTop: "1px solid #ccc" }}
               >
                 <td style={{ padding: "4px 16px 4px 0" }}>{row.rank}</td>
-                <td style={{ padding: "4px 16px 4px 0" }}>
-                  {row.player.name}
-                </td>
+                <td style={{ padding: "4px 16px 4px 0" }}>{row.playerName}</td>
                 {sport === "all" && (
                   <td style={{ padding: "4px 16px 4px 0" }}>{row.sport}</td>
                 )}
                 <td style={{ padding: "4px 16px 4px 0" }}>
                   {row.rating ?? "—"}
                 </td>
-                <td style={{ padding: "4px 16px 4px 0" }}>
-                  {row.wins ?? "—"}
-                </td>
-                <td style={{ padding: "4px 0" }}>
-                  {row.losses ?? "—"}
-                </td>
+                <td style={{ padding: "4px 16px 4px 0" }}>{row.setsWon ?? "—"}</td>
+                <td style={{ padding: "4px 0" }}>{row.setsLost ?? "—"}</td>
               </tr>
             ))}
           </tbody>

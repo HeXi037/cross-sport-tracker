@@ -81,13 +81,44 @@ a {
 .nav a:hover {
   text-decoration: underline;
 }
-.nav ul {
+.nav-links ul {
   display: flex;
   justify-content: center;
   gap: 1rem;
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+.hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--color-nav-text);
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .nav {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .nav-links {
+    display: none;
+    width: 100%;
+  }
+  .nav-links.open {
+    display: block;
+  }
+  .nav-links ul {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .hamburger {
+    display: block;
+  }
 }
 
 /* Sport list */

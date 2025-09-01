@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic'; // fetch per request on the server
+export const revalidate = 60; // cache the page for one minute
 
 import { apiFetch } from '../lib/api';
 import HomePageClient from './home-page-client';
@@ -19,8 +19,8 @@ export default async function HomePage() {
   let matchError = false;
 
   const [sportsResult, matchesResult] = await Promise.allSettled([
-    apiFetch('/v0/sports', { cache: 'no-store' }),
-    apiFetch('/v0/matches', { cache: 'no-store' }),
+    apiFetch('/v0/sports', { next: { revalidate: 60 } }),
+    apiFetch('/v0/matches', { next: { revalidate: 60 } }),
   ]);
 
   if (sportsResult.status === 'fulfilled' && sportsResult.value.ok) {

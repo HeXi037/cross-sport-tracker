@@ -9,9 +9,9 @@ Status & Scope
 
 Monorepo: apps/web (Next.js) + backend (FastAPI) + packages/* (shared)
 
-Implement now: Padel, Bowling (DB → API → UI)
+Implement now: Padel, Bowling, Tennis (DB → API → UI)
 
-Later: Tennis, Disc Golf, cross-sport normalization, PWA, OAuth, notifications
+Later: Disc Golf, cross-sport normalization, PWA, OAuth, notifications
 
 Project Decisions (locked for MVP)
 
@@ -34,6 +34,8 @@ Scoring contract: init_state(config) → dict, apply(event, state) → dict, sum
 Padel default config: { goldenPoint: false, tiebreakTo: 7, sets: 3 }
 
 Bowling default config: { frames: 10, tenthFrameBonus: true }
+
+Tennis default config: { tiebreakTo: 7, sets: 3 }
 
 Tournaments (MVP): Round-robin + Single-elimination; seeding=random; RR tiebreakers = H2H → differential → wins
 
@@ -77,7 +79,7 @@ Bowling (included)
 
 Data Model (abridged)
 
-Sport(id, name) → "padel" | "bowling"
+Sport(id, name) → "padel" | "bowling" | "tennis"
 
 RuleSet(id, sport_id, name, config JSON)
 
@@ -193,8 +195,8 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api npm run dev  # http://localho
 ```
 
 Seed inserts:
-- Sports: Padel, Bowling
-- RuleSets: padel-default, padel-golden, bowling-standard
+  - Sports: Padel, Bowling, Tennis
+  - RuleSets: padel-default, padel-golden, bowling-standard, tennis-standard
 - Club: Demo Club (id: demo-club)
 - Player: Demo Player (id: demo-player, club: Demo Club)
 

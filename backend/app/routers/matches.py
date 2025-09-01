@@ -21,7 +21,7 @@ from ..schemas import (
     ScoreEventOut,
 )
 from .streams import broadcast
-from ..scoring import padel as padel_engine
+from ..scoring import padel as padel_engine, tennis as tennis_engine
 from ..services.validation import validate_set_scores, ValidationError
 from ..services import update_ratings
 from .admin import require_admin
@@ -226,8 +226,8 @@ async def record_sets_endpoint(mid: str, body: SetsIn, session: AsyncSession = D
     m = (await session.execute(select(Match).where(Match.id == mid))).scalar_one_or_none()
     if not m:
         raise HTTPException(404, "match not found")
-    if m.sport_id != "padel":
-        raise HTTPException(400, "set recording only supported for padel")
+    if m.sport_id not in ("padel", "tennis"):
+        raise HTTPException(400, "set recording only supported for padel or tennis")
 
     # Validate set scores before applying them.
     # Normalize Pydantic models, dicts, or 2-item tuples into list[dict] for the validator.
@@ -249,11 +249,12 @@ async def record_sets_endpoint(mid: str, body: SetsIn, session: AsyncSession = D
             select(ScoreEvent).where(ScoreEvent.match_id == mid).order_by(ScoreEvent.created_at)
         )
     ).scalars().all()
-    state = padel_engine.init_state({})
+    engine = padel_engine if m.sport_id == "padel" else tennis_engine
+    state = engine.init_state({})
     for old in existing:
-        state = padel_engine.apply(old.payload, state)
+        state = engine.apply(old.payload, state)
 
-    new_events, state = padel_engine.record_sets(body.sets, state)
+    new_events, state = engine.record_sets(body.sets, state)
 
     for ev in new_events:
         e = ScoreEvent(
@@ -264,7 +265,7 @@ async def record_sets_endpoint(mid: str, body: SetsIn, session: AsyncSession = D
         )
         session.add(e)
 
-    m.details = padel_engine.summary(state)
+    m.details = engine.summary(state)
     # Update player ratings based on final result
     try:
         parts = (

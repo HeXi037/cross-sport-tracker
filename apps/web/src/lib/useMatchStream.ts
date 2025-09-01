@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import { apiFetch, apiUrl } from "./api";
 
@@ -12,28 +14,35 @@ function buildWsUrl(path: string): string {
     return httpUrl.replace(/^http/, "ws");
   }
   const proto =
-    typeof window !== "undefined" && window.location.protocol === "https:" ? "wss" : "ws";
-  return `${proto}://${typeof window !== "undefined" ? window.location.host : ""}${httpUrl}`;
+    typeof window !== "undefined" && window.location.protocol === "https:"
+      ? "wss"
+      : "ws";
+  return `${proto}://${
+    typeof window !== "undefined" ? window.location.host : ""
+  }${httpUrl}`;
 }
 
 export function useMatchStream(id: string) {
   const [event, setEvent] = useState<MatchEvent | null>(null);
-  const [connected, setConnected] = useState(false);
+  the [connected, setConnected] = useState(false);
   const [fallback, setFallback] = useState(false);
 
   useEffect(() => {
     setConnected(false);
     setFallback(false);
+    if (!id) return;
 
     let ws: WebSocket | null = null;
-    let timer: NodeJS.Timer | null = null;
+    // IMPORTANT: use a DOM number, not NodeJS.Timeout/Timer
+    let pollTimer: number | null = null;
     let stopped = false;
+
     const url = buildWsUrl(`/v0/matches/${encodeURIComponent(id)}/stream`);
 
     const startPolling = () => {
-      if (timer || stopped) return;
+      if (pollTimer !== null || stopped) return;
       setFallback(true);
-      timer = setInterval(async () => {
+      pollTimer = window.setInterval(async () => {
         try {
           const res = (await apiFetch(
             `/v0/matches/${encodeURIComponent(id)}`
@@ -51,17 +60,19 @@ export function useMatchStream(id: string) {
       try {
         ws = new WebSocket(url);
         ws.onopen = () => setConnected(true);
-        ws.onclose = () => {
-          setConnected(false);
-          startPolling();
-        };
         ws.onmessage = (e) => {
           try {
             setEvent(JSON.parse(e.data));
-          } catch (err) {
-            console.error("ws message parse failed", err);
+          } catch {
+            /* ignore malformed frames */
           }
         };
+        const handleSocketFallback = () => {
+          setConnected(false);
+          startPolling();
+        };
+        ws.onerror = handleSocketFallback;
+        ws.onclose = handleSocketFallback;
       } catch (err) {
         console.error("ws connection failed", err);
         startPolling();
@@ -72,11 +83,18 @@ export function useMatchStream(id: string) {
 
     return () => {
       stopped = true;
-      ws?.close();
-      if (timer) clearInterval(timer);
+      try {
+        ws?.close();
+      } catch {
+        /* ignore */
+      }
+      if (pollTimer !== null) {
+        window.clearInterval(pollTimer);
+        pollTimer = null;
+      }
     };
+    // Reconnect when id changes
   }, [id]);
 
   return { event, connected, fallback };
 }
-

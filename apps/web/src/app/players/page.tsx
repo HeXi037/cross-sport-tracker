@@ -11,7 +11,8 @@ interface Player {
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
-  const [recentMatches, setRecentMatches] = useState<Record<string, string | null>>({});
+  const [recentMatches, setRecentMatches] =
+    useState<Record<string, string | null>>({});
   const [name, setName] = useState("");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -31,7 +32,7 @@ export default function PlayersPage() {
       } else {
         setError("Failed to load players.");
       }
-    } catch (err) {
+    } catch {
       setError("Unable to reach the server.");
     } finally {
       setLoading(false);
@@ -58,9 +59,10 @@ export default function PlayersPage() {
       const entries = await Promise.all(
         players.map(async (p) => {
           try {
-            const r = await apiFetch(`/v0/matches?playerId=${encodeURIComponent(p.id)}`, {
-              cache: "no-store",
-            });
+            const r = await apiFetch(
+              `/v0/matches?playerId=${encodeURIComponent(p.id)}`,
+              { cache: "no-store" }
+            );
             if (r.ok) {
               const data = (await r.json()) as { id: string }[];
               return [p.id, data[0]?.id ?? null] as const;
@@ -96,7 +98,8 @@ export default function PlayersPage() {
         let message = "Failed to create player.";
         if (data) {
           if (typeof data["detail"] === "string") message = data["detail"];
-          else if (typeof data["message"] === "string") message = data["message"];
+          else if (typeof data["message"] === "string")
+            message = data["message"];
         }
         setError(message);
         return;
@@ -126,7 +129,11 @@ export default function PlayersPage() {
             {filteredPlayers.map((p) => (
               <li key={p.id}>
                 <Link
-                  href={recentMatches[p.id] ? `/matches/${recentMatches[p.id]}` : `/players/${p.id}`}
+                  href={
+                    recentMatches[p.id]
+                      ? `/matches/${recentMatches[p.id]}`
+                      : `/players/${p.id}`
+                  }
                 >
                   {p.name}
                 </Link>
@@ -142,9 +149,9 @@ export default function PlayersPage() {
         placeholder="name"
       />
       <button
-        className="button"
-        onClick={create}
-        disabled={name.trim() === ""}
+      className="button"
+      onClick={create}
+      disabled={name.trim() === ""}
       >
         Add
       </button>

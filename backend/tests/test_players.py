@@ -104,3 +104,9 @@ def test_delete_player_soft_delete() -> None:
             assert p is not None and p.deleted_at is not None
 
     asyncio.run(check_deleted())
+
+
+def test_create_player_invalid_name() -> None:
+    with TestClient(app) as client:
+        resp = client.post("/players", json={"name": "Bad!"})
+        assert resp.status_code == 422

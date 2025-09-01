@@ -13,6 +13,18 @@ describe("PlayersPage", () => {
     vi.restoreAllMocks();
   });
 
+  it("shows a loading message while fetching players", () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
+    // @ts-expect-error override global fetch for test
+    global.fetch = fetchMock;
+
+    render(<PlayersPage />);
+
+    expect(screen.getByText(/loading players/i)).toBeTruthy();
+  });
+
   it("disables add button for blank names", async () => {
     const fetchMock = vi
       .fn()

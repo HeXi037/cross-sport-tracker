@@ -11,14 +11,17 @@ interface Player {
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
-  const [recentMatches, setRecentMatches] = useState<Record<string, string | null>>({});
+  const [recentMatches, setRecentMatches] =
+    useState<Record<string, string | null>>({});
   const [name, setName] = useState("");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   async function load() {
     setError(null);
+    setLoading(true);
     try {
       const res = await apiFetch("/v0/players?limit=100&offset=0", {
         cache: "no-store",
@@ -29,8 +32,10 @@ export default function PlayersPage() {
       } else {
         setError("Failed to load players.");
       }
-    } catch (err) {
+    } catch {
       setError("Unable to reach the server.");
+    } finally {
+      setLoading(false);
     }
   }
   useEffect(() => {
@@ -54,9 +59,10 @@ export default function PlayersPage() {
       const entries = await Promise.all(
         players.map(async (p) => {
           try {
-            const r = await apiFetch(`/v0/matches?playerId=${encodeURIComponent(p.id)}`, {
-              cache: "no-store",
-            });
+            const r = await apiFetch(
+              `/v0/matches?playerId=${encodeURIComponent(p.id)}`,
+              { cache: "no-store" }
+            );
             if (r.ok) {
               const data = (await r.json()) as { id: string }[];
               return [p.id, data[0]?.id ?? null] as const;
@@ -92,7 +98,8 @@ export default function PlayersPage() {
         let message = "Failed to create player.";
         if (data) {
           if (typeof data["detail"] === "string") message = data["detail"];
-          else if (typeof data["message"] === "string") message = data["message"];
+          else if (typeof data["message"] === "string")
+            message = data["message"];
         }
         setError(message);
         return;
@@ -108,21 +115,33 @@ export default function PlayersPage() {
   return (
     <main className="container">
       <h1 className="heading">Players</h1>
-      <input
-        className="input mb-2"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="search"
-      />
-      <ul>
-        {filteredPlayers.map((p) => (
-          <li key={p.id}>
-            <Link href={recentMatches[p.id] ? `/matches/${recentMatches[p.id]}` : `/players/${p.id}`}>
-              {p.name}
-            </Link>
-          </li>
-        ))}
-      </ul>
+      {loading && players.length === 0 ? (
+        <div>Loading players…</div>
+      ) : (
+        <>
+          <input
+            className="input mb-2"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="search"
+          />
+          <ul>
+            {filteredPlayers.map((p) => (
+              <li key={p.id}>
+                <Link
+                  href={
+                    recentMatches[p.id]
+                      ? `/matches/${recentMatches[p.id]}`
+                      : `/players/${p.id}`
+                  }
+                >
+                  {p.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       <input
         className="input"
         value={name}
@@ -130,9 +149,9 @@ export default function PlayersPage() {
         placeholder="name"
       />
       <button
-        className="button"
-        onClick={create}
-        disabled={name.trim() === ""}
+      className="button"
+      onClick={create}
+      disabled={name.trim() === ""}
       >
         Add
       </button>

@@ -18,7 +18,12 @@ async def main():
     async with Session() as s:
         existing = (await s.execute(select(Sport))).scalars().all()
         have = {x.id for x in existing}
-        for sid, name in [("padel", "Padel"), ("bowling", "Bowling"), ("pickleball", "Pickleball")]:
+        for sid, name in [
+            ("padel", "Padel"),
+            ("bowling", "Bowling"),
+            ("tennis", "Tennis"),
+            ("pickleball", "Pickleball"),
+        ]:
             if sid not in have:
                 s.add(Sport(id=sid, name=name))
         await s.commit()
@@ -45,6 +50,12 @@ async def main():
                 sport_id="bowling",
                 name="Bowling standard",
                 config={"frames": 10, "tenthFrameBonus": True},
+            ),
+            RuleSet(
+                id="tennis-standard",
+                sport_id="tennis",
+                name="Tennis standard",
+                config={"tiebreakTo": 7, "sets": 3},
             ),
             RuleSet(
                 id="pickleball-standard",

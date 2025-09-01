@@ -294,3 +294,115 @@ async def test_delete_match_missing_returns_404(tmp_path):
             "/matches/unknown", headers={"Authorization": f"Bearer {token}"}
         )
         assert resp.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_delete_match_updates_ratings_and_leaderboard(tmp_path):
+    prev_db = os.environ.get("DATABASE_URL")
+    os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
+    from sqlalchemy.dialects.sqlite import JSON
+    from app import db
+    from app.models import (
+        Player,
+        Rating,
+        Sport,
+        Match,
+        MatchParticipant,
+        ScoreEvent,
+        User,
+    )
+    from app.schemas import MatchCreate, Participant
+    from app.routers.matches import create_match, delete_match
+    from app.routers.leaderboards import leaderboard
+    from app.services import update_ratings
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+
+    # Patch player_ids to use JSON for SQLite
+    MatchParticipant.__table__.columns["player_ids"].type = JSON()
+
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            db.Base.metadata.create_all,
+            tables=[
+                Sport.__table__,
+                Player.__table__,
+                Rating.__table__,
+                Match.__table__,
+                ScoreEvent.__table__,
+            ],
+        )
+        await conn.exec_driver_sql(
+            """
+            CREATE TABLE match_participant (
+                id TEXT PRIMARY KEY,
+                match_id TEXT,
+                side TEXT,
+                player_ids JSON
+            )
+            """
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        session.add_all(
+            [
+                Sport(id="padel", name="Padel"),
+                Player(id="p1", name="Alice"),
+                Player(id="p2", name="Bob"),
+                Player(id="p3", name="Carol"),
+            ]
+        )
+        await session.commit()
+
+        body1 = MatchCreate(
+            sport="padel",
+            participants=[
+                Participant(side="A", playerIds=["p1"]),
+                Participant(side="B", playerIds=["p2"]),
+            ],
+            playedAt=datetime(2024, 1, 1),
+        )
+        mid1 = (await create_match(body1, session)).id
+        m1 = await session.get(Match, mid1)
+        m1.details = {"sets": {"A": 2, "B": 0}}
+        await update_ratings(session, "padel", ["p1"], ["p2"])
+        await session.commit()
+
+        body2 = MatchCreate(
+            sport="padel",
+            participants=[
+                Participant(side="A", playerIds=["p2"]),
+                Participant(side="B", playerIds=["p3"]),
+            ],
+            playedAt=datetime(2024, 1, 2),
+        )
+        mid2 = (await create_match(body2, session)).id
+        m2 = await session.get(Match, mid2)
+        m2.details = {"sets": {"A": 2, "B": 0}}
+        await update_ratings(session, "padel", ["p2"], ["p3"])
+        await session.commit()
+
+        lb_before = await leaderboard("padel", session=session)
+        assert [e.playerId for e in lb_before.leaders] == ["p1", "p2", "p3"]
+
+        admin = User(id="u1", username="admin", password_hash="", is_admin=True)
+        await delete_match(mid1, session, user=admin)
+
+        lb_after = await leaderboard("padel", session=session)
+        assert [e.playerId for e in lb_after.leaders] == ["p2", "p1", "p3"]
+
+        rows = (
+            await session.execute(
+                select(Rating).where(Rating.sport_id == "padel").order_by(Rating.player_id)
+            )
+        ).scalars().all()
+        ratings = {r.player_id: r.value for r in rows}
+        assert ratings["p1"] == pytest.approx(1000.0)
+        assert ratings["p2"] > ratings["p1"] > ratings["p3"]
+
+    if prev_db is None:
+        del os.environ["DATABASE_URL"]
+    else:
+        os.environ["DATABASE_URL"] = prev_db

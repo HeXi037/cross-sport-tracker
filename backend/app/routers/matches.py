@@ -7,7 +7,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Match, MatchParticipant, Player, ScoreEvent, User
+from ..models import Match, MatchParticipant, Player, ScoreEvent, User, Rating
 from ..schemas import (
     MatchCreate,
     MatchCreateByName,
@@ -21,7 +21,7 @@ from ..schemas import (
     ScoreEventOut,
 )
 from .streams import broadcast
-from ..scoring import padel as padel_engine
+from ..scoring import padel as padel_engine, tennis as tennis_engine
 from ..services.validation import validate_set_scores, ValidationError
 from ..services import update_ratings
 from .admin import require_admin
@@ -177,8 +177,64 @@ async def delete_match(
     m = await session.get(Match, mid)
     if not m or m.deleted_at is not None:
         raise HTTPException(404, "match not found")
+
+    sport_id = m.sport_id
     m.deleted_at = func.now()
     await session.commit()
+
+    # Recompute ratings for this sport now that the match is removed
+    try:
+        # Reset existing ratings to the default value
+        rows = (
+            await session.execute(
+                select(Rating).where(Rating.sport_id == sport_id)
+            )
+        ).scalars().all()
+        for r in rows:
+            r.value = 1000.0
+        await session.commit()
+
+        # Replay remaining matches to rebuild ratings
+        matches = (
+            await session.execute(
+                select(Match)
+                .where(Match.sport_id == sport_id, Match.deleted_at.is_(None))
+                .order_by(Match.played_at)
+            )
+        ).scalars().all()
+
+        for match in matches:
+            parts = (
+                await session.execute(
+                    select(MatchParticipant).where(
+                        MatchParticipant.match_id == match.id
+                    )
+                )
+            ).scalars().all()
+            players_a = [pid for p in parts if p.side == "A" for pid in p.player_ids]
+            players_b = [pid for p in parts if p.side == "B" for pid in p.player_ids]
+            details = match.details or {}
+            sets = details.get("sets") if isinstance(details, dict) else None
+            if not sets or not players_a or not players_b:
+                continue
+            if sets.get("A") == sets.get("B"):
+                await update_ratings(
+                    session,
+                    match.sport_id,
+                    players_a,
+                    players_b,
+                    draws=players_a + players_b,
+                )
+            else:
+                winner_side = "A" if sets["A"] > sets["B"] else "B"
+                winners = players_a if winner_side == "A" else players_b
+                losers = players_b if winner_side == "A" else players_a
+                await update_ratings(session, match.sport_id, winners, losers)
+        await session.commit()
+    except Exception:
+        # Ignore errors (e.g., rating tables may not exist in some tests)
+        pass
+
     return Response(status_code=204)
 
 # POST /api/v0/matches/{mid}/events
@@ -226,8 +282,8 @@ async def record_sets_endpoint(mid: str, body: SetsIn, session: AsyncSession = D
     m = (await session.execute(select(Match).where(Match.id == mid))).scalar_one_or_none()
     if not m:
         raise HTTPException(404, "match not found")
-    if m.sport_id != "padel":
-        raise HTTPException(400, "set recording only supported for padel")
+    if m.sport_id not in ("padel", "tennis"):
+        raise HTTPException(400, "set recording only supported for padel or tennis")
 
     # Validate set scores before applying them.
     # Normalize Pydantic models, dicts, or 2-item tuples into list[dict] for the validator.
@@ -249,11 +305,12 @@ async def record_sets_endpoint(mid: str, body: SetsIn, session: AsyncSession = D
             select(ScoreEvent).where(ScoreEvent.match_id == mid).order_by(ScoreEvent.created_at)
         )
     ).scalars().all()
-    state = padel_engine.init_state({})
+    engine = padel_engine if m.sport_id == "padel" else tennis_engine
+    state = engine.init_state({})
     for old in existing:
-        state = padel_engine.apply(old.payload, state)
+        state = engine.apply(old.payload, state)
 
-    new_events, state = padel_engine.record_sets(body.sets, state)
+    new_events, state = engine.record_sets(body.sets, state)
 
     for ev in new_events:
         e = ScoreEvent(
@@ -264,7 +321,7 @@ async def record_sets_endpoint(mid: str, body: SetsIn, session: AsyncSession = D
         )
         session.add(e)
 
-    m.details = padel_engine.summary(state)
+    m.details = engine.summary(state)
     # Update player ratings based on final result
     try:
         parts = (

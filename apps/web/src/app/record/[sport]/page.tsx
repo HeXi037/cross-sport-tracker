@@ -61,7 +61,7 @@ export default function RecordSportPage() {
   }
 
   async function submit() {
-    setFormError("");
+    setFormError(null);
     setSubmitting(true);
     try {
       const parsedSets = isPadel

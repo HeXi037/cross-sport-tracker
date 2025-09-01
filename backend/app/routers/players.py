@@ -13,8 +13,15 @@ from ..schemas import (
     PlayerNameOut,
     PlayerStatsOut,
     VersusRecord,
+    SportFormatStats,
+    StreakSummary,
 )
 from ..exceptions import ProblemDetail, PlayerAlreadyExists, PlayerNotFound
+from ..services import (
+    compute_sport_format_stats,
+    compute_streaks,
+    rolling_win_percentage,
+)
 from .admin import require_admin
 
 # Resource-only prefix; versioning added in main.py
@@ -108,7 +115,11 @@ def _winner_from_summary(summary: dict | None) -> str | None:
 
 
 @router.get("/{player_id}/stats", response_model=PlayerStatsOut)
-async def player_stats(player_id: str, session: AsyncSession = Depends(get_session)):
+async def player_stats(
+    player_id: str,
+    span: int = 10,
+    session: AsyncSession = Depends(get_session),
+):
     p = await session.get(Player, player_id)
     if not p:
         raise PlayerNotFound(player_id)
@@ -119,6 +130,7 @@ async def player_stats(player_id: str, session: AsyncSession = Depends(get_sessi
         for r in (await session.execute(stmt)).all()
         if player_id in r.MatchParticipant.player_ids
     ]
+    rows.sort(key=lambda r: (r.Match.played_at, r.Match.id))
     if not rows:
         return PlayerStatsOut(playerId=player_id)
 
@@ -134,6 +146,8 @@ async def player_stats(player_id: str, session: AsyncSession = Depends(get_sessi
 
     opp_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"wins": 0, "total": 0})
     team_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"wins": 0, "total": 0})
+    results: list[bool] = []
+    match_summary: list[tuple[str, int, bool]] = []
 
     for row in rows:
         match, mp = row.Match, row.MatchParticipant
@@ -141,6 +155,8 @@ async def player_stats(player_id: str, session: AsyncSession = Depends(get_sessi
         if winner is None:
             continue
         is_win = winner == mp.side
+        results.append(is_win)
+        match_summary.append((match.sport_id, len(mp.player_ids), is_win))
 
         teammates = [pid for pid in mp.player_ids if pid != player_id]
         for tid in teammates:
@@ -188,10 +204,29 @@ async def player_stats(player_id: str, session: AsyncSession = Depends(get_sessi
         best_with = max(records, key=lambda r: r.winPct)
         worst_with = min(records, key=lambda r: r.winPct)
 
+    sf_stats = [
+        SportFormatStats(
+            sport=s,
+            format={1: "singles", 2: "doubles"}.get(t, f"{t}-player"),
+            wins=val["wins"],
+            losses=val["losses"],
+            winPct=val["winPct"],
+        )
+        for (s, t), val in compute_sport_format_stats(match_summary).items()
+    ]
+
+    streak_info = compute_streaks(results)
+    streaks = StreakSummary(**streak_info)
+
+    rolling = rolling_win_percentage(results, span) if results else []
+
     return PlayerStatsOut(
         playerId=player_id,
         bestAgainst=best_against,
         worstAgainst=worst_against,
         bestWith=best_with,
         worstWith=worst_with,
+        rollingWinPct=rolling,
+        sportFormatStats=sf_stats,
+        streaks=streaks,
     )

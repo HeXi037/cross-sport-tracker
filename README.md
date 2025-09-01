@@ -1,7 +1,7 @@
 cross-sport-tracker
 
 Track scores, run tournaments, and (later) crown a Master of All across sports.
-MVP scope: Padel + Bowling.
+MVP scope: Padel + Bowling + Pickleball.
 Stack: Next.js (UI) + FastAPI (Python 3.12 API) + PostgreSQL.
 Hosting: Cheap, self-hosted on a single VPS via Docker Compose + nginx.
 
@@ -9,7 +9,7 @@ Status & Scope
 
 Monorepo: apps/web (Next.js) + backend (FastAPI) + packages/* (shared)
 
-Implement now: Padel, Bowling, Tennis (DB → API → UI)
+Implement now: Padel, Bowling, Tennis, Pickleball (DB → API → UI)
 
 Later: Disc Golf, cross-sport normalization, PWA, OAuth, notifications
 
@@ -36,6 +36,8 @@ Padel default config: { goldenPoint: false, tiebreakTo: 7, sets: 3 }
 Bowling default config: { frames: 10, tenthFrameBonus: true }
 
 Tennis default config: { tiebreakTo: 7, sets: 3 }
+
+Pickleball default config: { pointsTo: 11, winBy: 2, bestOf: 3 }
 
 Tournaments (MVP): Round-robin + Single-elimination; seeding=random; RR tiebreakers = H2H → differential → wins
 
@@ -77,9 +79,17 @@ Bowling (included)
 
 10 frames; strikes/spares bonuses; full 10th-frame rules; game & series totals
 
+Tennis (included)
+
+Standard sets/games with tiebreaks; singles or doubles
+
+Pickleball (included)
+
+Rally-point scoring to 11 (win by 2); best-of-3 games
+
 Data Model (abridged)
 
-Sport(id, name) → "padel" | "bowling" | "tennis"
+Sport(id, name) → "padel" | "bowling" | "tennis" | "pickleball"
 
 RuleSet(id, sport_id, name, config JSON)
 
@@ -109,8 +119,8 @@ class Event(BaseModel):
     pins: Optional[int] = None
 
 def init_state(config: dict) -> dict: ...
-def apply(event: Event, state: dict) -> dict: ...
-def summary(state: dict) -> dict: ...
+def apply(event, state) -> dict: ...
+def summary(state) -> dict: ...
 
 API (v0)
 GET  /api/v0/sports

@@ -83,9 +83,11 @@ export default function Leaderboard({ sport }: Props) {
         {sport === "all" && (
           <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>Sport</th>
         )}
-          <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>Rating</th>
-          <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>W</th>
-          <th style={{ textAlign: "left", padding: "4px 0" }}>L</th>
+        <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>Rating</th>
+        <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>W</th>
+        <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>L</th>
+        <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>Matches</th>
+        <th style={{ textAlign: "left", padding: "4px 0" }}>Win%</th>
       </tr>
     </thead>
   );
@@ -153,8 +155,14 @@ export default function Leaderboard({ sport }: Props) {
                 <td style={{ padding: "4px 16px 4px 0" }}>
                   <div className="skeleton" style={{ width: "20px", height: "1em" }} />
                 </td>
-                <td style={{ padding: "4px 0" }}>
+                <td style={{ padding: "4px 16px 4px 0" }}>
                   <div className="skeleton" style={{ width: "20px", height: "1em" }} />
+                </td>
+                <td style={{ padding: "4px 16px 4px 0" }}>
+                  <div className="skeleton" style={{ width: "30px", height: "1em" }} />
+                </td>
+                <td style={{ padding: "4px 0" }}>
+                  <div className="skeleton" style={{ width: "40px", height: "1em" }} />
                 </td>
               </tr>
             ))}
@@ -173,23 +181,33 @@ export default function Leaderboard({ sport }: Props) {
         >
           <TableHeader />
           <tbody>
-            {leaders.map((row) => (
-              <tr
-                key={`${row.rank}-${row.playerId}-${row.sport ?? ""}`}
-                style={{ borderTop: "1px solid #ccc" }}
-              >
-                <td style={{ padding: "4px 16px 4px 0" }}>{row.rank}</td>
-                <td style={{ padding: "4px 16px 4px 0" }}>{row.playerName}</td>
-                {sport === "all" && (
-                  <td style={{ padding: "4px 16px 4px 0" }}>{row.sport}</td>
-                )}
-                <td style={{ padding: "4px 16px 4px 0" }}>
-                  {row.rating != null ? Math.round(row.rating) : "—"}
-                </td>
-                <td style={{ padding: "4px 16px 4px 0" }}>{row.setsWon ?? "—"}</td>
-                <td style={{ padding: "4px 0" }}>{row.setsLost ?? "—"}</td>
-              </tr>
-            ))}
+            {leaders.map((row) => {
+              const won = row.setsWon ?? 0;
+              const lost = row.setsLost ?? 0;
+              const total = won + lost;
+              const winPct = total > 0 ? Math.round((won / total) * 100) : null;
+              return (
+                <tr
+                  key={`${row.rank}-${row.playerId}-${row.sport ?? ""}`}
+                  style={{ borderTop: "1px solid #ccc" }}
+                >
+                  <td style={{ padding: "4px 16px 4px 0" }}>{row.rank}</td>
+                  <td style={{ padding: "4px 16px 4px 0" }}>{row.playerName}</td>
+                  {sport === "all" && (
+                    <td style={{ padding: "4px 16px 4px 0" }}>{row.sport}</td>
+                  )}
+                  <td style={{ padding: "4px 16px 4px 0" }}>
+                    {row.rating != null ? Math.round(row.rating) : "—"}
+                  </td>
+                  <td style={{ padding: "4px 16px 4px 0" }}>{row.setsWon ?? "—"}</td>
+                  <td style={{ padding: "4px 16px 4px 0" }}>{row.setsLost ?? "—"}</td>
+                  <td style={{ padding: "4px 16px 4px 0" }}>{total || "—"}</td>
+                  <td style={{ padding: "4px 0" }}>
+                    {winPct != null ? `${winPct}%` : "—"}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

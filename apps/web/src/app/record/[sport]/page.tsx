@@ -1,3 +1,4 @@
+// apps/web/src/app/record/[sport]/page.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -18,7 +19,7 @@ export default function RecordSportPage() {
   const isPadel = sport === "padel";
 
   const [players, setPlayers] = useState<Player[]>([]);
-  theconst [ids, setIds] = useState({ a1: "", a2: "", b1: "", b2: "" });
+  const [ids, setIds] = useState({ a1: "", a2: "", b1: "", b2: "" });
   const [sets, setSets] = useState<Array<{ A: string; B: string }>>(
     isPadel ? [{ A: "", B: "" }] : []
   );
@@ -60,7 +61,7 @@ export default function RecordSportPage() {
   }
 
   async function submit() {
-    setFormError(null);
+    setFormError("");
     setSubmitting(true);
     try {
       const parsedSets = isPadel

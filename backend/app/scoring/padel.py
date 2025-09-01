@@ -17,6 +17,7 @@ def init_state(config: Dict) -> Dict:
         "config": {
             "tiebreakTo": config.get("tiebreakTo", 7),
             "sets": config.get("sets"),
+            "goldenPoint": config.get("goldenPoint", False),
         },
         "points": {"A": 0, "B": 0},
         "games": {"A": 0, "B": 0},
@@ -38,6 +39,7 @@ def apply(event: Dict, state: Dict) -> Dict:
     cfg = state["config"]
     tiebreak_to = cfg.get("tiebreakTo", 7)
     best_of = cfg.get("sets")
+    golden_point = cfg.get("goldenPoint", False)
     sets_needed = best_of // 2 + 1 if best_of else None
 
     # Stop processing if the match is already decided.
@@ -57,7 +59,7 @@ def apply(event: Dict, state: Dict) -> Dict:
             state["tiebreak"] = False
         return state
 
-    if ps >= 4 and ps - po >= 2:
+    if ps >= 4 and (ps - po >= 2 or (golden_point and po >= 3)):
         state["games"][side] += 1
         state["points"]["A"] = state["points"]["B"] = 0
         gs, go = state["games"][side], state["games"][opp]
@@ -78,6 +80,7 @@ def summary(state: Dict) -> Dict:
         "points": state["points"],
         "games": state["games"],
         "sets": state["sets"],
+        "config": state["config"],
     }
 
 

@@ -1,7 +1,6 @@
 import os, sys, asyncio
 from typing import Tuple
 
-# Ensure the app package is importable and the DB URL is set for module import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
@@ -17,12 +16,11 @@ from sqlalchemy import select
 from backend.app.db import Base, get_session
 from backend.app.models import Match, Sport, ScoreEvent
 from backend.app.routers import matches
-from backend.app.scoring import padel
+from backend.app.scoring import disc_golf
 
 
 @pytest.fixture()
 def client_and_session():
-    """Create a FastAPI TestClient with an in-memory SQLite database."""
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -44,11 +42,11 @@ def client_and_session():
         async with async_session_maker() as session:
             yield session
 
-    async def dummy_broadcast(mid: str, message: dict) -> None:  # noqa: D401
+    async def dummy_broadcast(mid: str, message: dict) -> None:
         return None
 
     matches.broadcast = dummy_broadcast
-    matches.importlib.import_module = lambda *args, **kwargs: padel
+    matches.importlib.import_module = lambda *args, **kwargs: disc_golf
 
     app = FastAPI()
     app.include_router(matches.router)
@@ -61,48 +59,22 @@ def client_and_session():
 def seed_match(session_maker, mid: str) -> None:
     async def _seed():
         async with session_maker() as session:
-            session.add(Sport(id="padel", name="Padel"))
-            session.add(Match(id=mid, sport_id="padel"))
+            session.add(Sport(id="disc_golf", name="Disc Golf"))
+            session.add(Match(id=mid, sport_id="disc_golf"))
             await session.commit()
 
     asyncio.run(_seed())
 
 
-def test_record_sets_success(client_and_session):
+def test_append_event_hole(client_and_session):
     client, session_maker = client_and_session
-    mid = "m1"
+    mid = "dg1"
     seed_match(session_maker, mid)
 
-    resp = client.post(f"/matches/{mid}/sets", json={"sets": [[6, 4], [6, 2]]})
-    assert resp.status_code == 200
-    data = resp.json()
-    expected = len(padel.record_sets([(6, 4), (6, 2)])[0])
-    assert data == {"ok": True, "added": expected}
-
-    async def fetch_summary():
-        async with session_maker() as session:
-            match = await session.get(Match, mid)
-            return match.details
-
-    summary = asyncio.run(fetch_summary())
-    assert summary["sets"] == {"A": 2, "B": 0}
-
-
-def test_record_sets_invalid(client_and_session):
-    client, session_maker = client_and_session
-    mid = "m2"
-    seed_match(session_maker, mid)
-
-    resp = client.post(f"/matches/{mid}/sets", json={"sets": [[6, 6]]})
-    assert resp.status_code == 422
-
-
-def test_append_event_point(client_and_session):
-    client, session_maker = client_and_session
-    mid = "m3"
-    seed_match(session_maker, mid)
-
-    resp = client.post(f"/matches/{mid}/events", json={"type": "POINT", "by": "A"})
+    resp = client.post(
+        f"/matches/{mid}/events",
+        json={"type": "HOLE", "side": "A", "hole": 1, "strokes": 3},
+    )
     assert resp.status_code == 200
 
     async def fetch():
@@ -118,12 +90,11 @@ def test_append_event_point(client_and_session):
     events, summary = asyncio.run(fetch())
     assert len(events) == 1
     assert events[0].payload == {
-        "type": "POINT",
-        "by": "A",
+        "type": "HOLE",
+        "by": None,
         "pins": None,
-        "side": None,
-        "hole": None,
-        "strokes": None,
+        "side": "A",
+        "hole": 1,
+        "strokes": 3,
     }
-    assert summary["points"] == {"A": 1, "B": 0}
-
+    assert summary["scores"]["A"][0] == 3

@@ -3,6 +3,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { apiFetch } from "../../lib/api";
 
+const NAME_REGEX = /^[A-Za-z0-9 '-]{1,50}$/;
+
 interface Player {
   id: string;
   name: string;
@@ -18,6 +20,9 @@ export default function PlayersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const trimmedName = name.trim();
+  const nameIsValid = NAME_REGEX.test(trimmedName);
 
   async function load() {
     setError(null);
@@ -79,9 +84,7 @@ export default function PlayersPage() {
   }, [players]);
 
   async function create() {
-    const trimmed = name.trim();
-    if (!trimmed) {
-      setError("Name cannot be empty");
+    if (!nameIsValid) {
       return;
     }
     setError(null);
@@ -89,7 +92,7 @@ export default function PlayersPage() {
       const res = await apiFetch("/v0/players", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed }),
+        body: JSON.stringify({ name: trimmedName }),
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => null)) as
@@ -148,10 +151,16 @@ export default function PlayersPage() {
         onChange={(e) => setName(e.target.value)}
         placeholder="name"
       />
+      {!nameIsValid && trimmedName !== "" && (
+        <div className="text-red-500 mt-2">
+          Name must be 1-50 characters and contain only letters,
+          numbers, spaces, hyphens, or apostrophes.
+        </div>
+      )}
       <button
-      className="button"
-      onClick={create}
-      disabled={name.trim() === ""}
+        className="button"
+        onClick={create}
+        disabled={!nameIsValid}
       >
         Add
       </button>

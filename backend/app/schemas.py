@@ -1,6 +1,6 @@
 from typing import List, Literal, Optional, Tuple
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Basic DTOs
 class SportOut(BaseModel):
@@ -14,7 +14,9 @@ class RuleSetOut(BaseModel):
     config: dict
 
 class PlayerCreate(BaseModel):
-    name: str
+    name: str = Field(
+        ..., min_length=1, max_length=50, pattern=r"^[A-Za-z0-9 '-]+$"
+    )
     club_id: Optional[str] = None
 
 class PlayerOut(BaseModel):
@@ -27,6 +29,10 @@ class PlayerListOut(BaseModel):
     total: int
     limit: int
     offset: int
+
+class PlayerNameOut(BaseModel):
+    id: str
+    name: str
 
 class LeaderboardEntryOut(BaseModel):
     rank: int

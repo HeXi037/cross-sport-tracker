@@ -25,6 +25,7 @@ export default function RecordSportPage() {
   const [bestOf, setBestOf] = useState(3);
   const [playedAt, setPlayedAt] = useState("");
   const [location, setLocation] = useState("");
+  const [, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -59,6 +60,7 @@ export default function RecordSportPage() {
   }
 
   async function submit() {
+    setFormError("");
     setSubmitting(true);
     try {
       const parsedSets = isPadel

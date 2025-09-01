@@ -18,25 +18,20 @@ export default async function HomePage() {
   let sportError = false;
   let matchError = false;
 
-  try {
-    const r = await apiFetch('/v0/sports', { next: { revalidate: 60 } });
-    if (r.ok) {
-      sports = (await r.json()) as Sport[];
-    } else {
-      sportError = true;
-    }
-  } catch {
+  const [sportsResult, matchesResult] = await Promise.allSettled([
+    apiFetch('/v0/sports', { next: { revalidate: 60 } }),
+    apiFetch('/v0/matches', { next: { revalidate: 60 } }),
+  ]);
+
+  if (sportsResult.status === 'fulfilled' && sportsResult.value.ok) {
+    sports = (await sportsResult.value.json()) as Sport[];
+  } else {
     sportError = true;
   }
 
-  try {
-    const r = await apiFetch('/v0/matches', { next: { revalidate: 60 } });
-    if (r.ok) {
-      matches = (await r.json()) as MatchRow[];
-    } else {
-      matchError = true;
-    }
-  } catch {
+  if (matchesResult.status === 'fulfilled' && matchesResult.value.ok) {
+    matches = (await matchesResult.value.json()) as MatchRow[];
+  } else {
     matchError = true;
   }
 

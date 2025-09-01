@@ -23,6 +23,9 @@ class PlayerOut(BaseModel):
     id: str
     name: str
     club_id: Optional[str] = None
+    photo_url: Optional[str] = None
+    location: Optional[str] = None
+    ranking: Optional[int] = None
 
 class PlayerNameOut(BaseModel):
     id: str
@@ -142,6 +145,8 @@ class VersusRecord(BaseModel):
 
 class PlayerStatsOut(BaseModel):
     playerId: str
+    wins: int = 0
+    losses: int = 0
     bestAgainst: Optional[VersusRecord] = None
     worstAgainst: Optional[VersusRecord] = None
     bestWith: Optional[VersusRecord] = None

@@ -34,7 +34,14 @@ async def create_player(body: PlayerCreate, session: AsyncSession = Depends(get_
     p = Player(id=pid, name=body.name, club_id=body.club_id)
     session.add(p)
     await session.commit()
-    return PlayerOut(id=pid, name=p.name, club_id=p.club_id)
+    return PlayerOut(
+        id=pid,
+        name=p.name,
+        club_id=p.club_id,
+        photo_url=p.photo_url,
+        location=p.location,
+        ranking=p.ranking,
+    )
 
 # GET /api/v0/players
 @router.get("", response_model=PlayerListOut)
@@ -52,7 +59,17 @@ async def list_players(
     total = (await session.execute(count_stmt)).scalar()
     stmt = stmt.limit(limit).offset(offset)
     rows = (await session.execute(stmt)).scalars().all()
-    players = [PlayerOut(id=p.id, name=p.name, club_id=p.club_id) for p in rows]
+    players = [
+        PlayerOut(
+            id=p.id,
+            name=p.name,
+            club_id=p.club_id,
+            photo_url=p.photo_url,
+            location=p.location,
+            ranking=p.ranking,
+        )
+        for p in rows
+    ]
     return PlayerListOut(players=players, total=total, limit=limit, offset=offset)
 
 
@@ -73,7 +90,14 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
     p = await session.get(Player, player_id)
     if not p or p.deleted_at is not None:
         raise PlayerNotFound(player_id)
-    return PlayerOut(id=p.id, name=p.name, club_id=p.club_id)
+    return PlayerOut(
+        id=p.id,
+        name=p.name,
+        club_id=p.club_id,
+        photo_url=p.photo_url,
+        location=p.location,
+        ranking=p.ranking,
+    )
 
 
 # DELETE /api/v0/players/{player_id}
@@ -134,6 +158,7 @@ async def player_stats(player_id: str, session: AsyncSession = Depends(get_sessi
 
     opp_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"wins": 0, "total": 0})
     team_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"wins": 0, "total": 0})
+    wins = losses = 0
 
     for row in rows:
         match, mp = row.Match, row.MatchParticipant
@@ -141,6 +166,10 @@ async def player_stats(player_id: str, session: AsyncSession = Depends(get_sessi
         if winner is None:
             continue
         is_win = winner == mp.side
+        if is_win:
+            wins += 1
+        else:
+            losses += 1
 
         teammates = [pid for pid in mp.player_ids if pid != player_id]
         for tid in teammates:
@@ -190,6 +219,8 @@ async def player_stats(player_id: str, session: AsyncSession = Depends(get_sessi
 
     return PlayerStatsOut(
         playerId=player_id,
+        wins=wins,
+        losses=losses,
         bestAgainst=best_against,
         worstAgainst=worst_against,
         bestWith=best_with,

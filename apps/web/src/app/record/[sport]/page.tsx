@@ -25,6 +25,7 @@ export default function RecordSportPage() {
   const [bestOf, setBestOf] = useState(3);
   const [playedAt, setPlayedAt] = useState("");
   const [location, setLocation] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     async function loadPlayers() {
@@ -58,76 +59,81 @@ export default function RecordSportPage() {
   }
 
   async function submit() {
-    const parsedSets = isPadel
-      ? sets
-          .map((s) => [parseInt(s.A, 10), parseInt(s.B, 10)] as [number, number])
-          .filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b))
-      : [];
+    setSubmitting(true);
+    try {
+      const parsedSets = isPadel
+        ? sets
+            .map((s) => [parseInt(s.A, 10), parseInt(s.B, 10)] as [number, number])
+            .filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b))
+        : [];
 
-    if (isPadel && parsedSets.length === 0) {
-      alert("Please enter at least one completed set score.");
-      return;
-    }
-
-    const requiredIds = isPadel
-      ? [ids.a1, ids.a2, ids.b1, ids.b2]
-      : [ids.a1, ids.b1];
-    if (!requiredIds.every(Boolean)) {
-      alert(
-        isPadel
-          ? "Please select all four players."
-          : "Please select at least one player per side."
-      );
-      return;
-    }
-
-    const idValues = [ids.a1, ids.a2, ids.b1, ids.b2].filter(Boolean);
-    if (new Set(idValues).size !== idValues.length) {
-      alert("Please select unique players.");
-      return;
-    }
-
-    const body: Record<string, unknown> = {
-      sport,
-      participants: [
-        { side: "A", playerIds: [ids.a1, ids.a2].filter(Boolean) },
-        { side: "B", playerIds: [ids.b1, ids.b2].filter(Boolean) },
-      ],
-      // Avoid sending timezone-aware timestamps; the API expects a naive
-      // datetime string.  Using Date#toISOString() would include a "Z" suffix
-      // (UTC) which caused the backend to reject the request.  Instead, send
-      // an ISO date without timezone information if a value was provided.
-      playedAt: playedAt ? `${playedAt}T00:00:00` : undefined,
-      location: location || undefined,
-    };
-    if (isPadel) {
-      body.bestOf = bestOf;
-    }
-
-    const createRes = await fetch(`${base}/v0/matches`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!createRes.ok) {
-      alert("Failed to create match.");
-      return;
-    }
-    const { id } = (await createRes.json()) as { id: string };
-
-    if (isPadel && parsedSets.length > 0) {
-      const setsRes = await fetch(`${base}/v0/matches/${id}/sets`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sets: parsedSets }),
-      });
-      if (!setsRes.ok) {
-        alert("Failed to submit set scores.");
+      if (isPadel && parsedSets.length === 0) {
+        alert("Please enter at least one completed set score.");
         return;
       }
-    }
 
-    router.push(`/matches/${id}`);
+      const requiredIds = isPadel
+        ? [ids.a1, ids.a2, ids.b1, ids.b2]
+        : [ids.a1, ids.b1];
+      if (!requiredIds.every(Boolean)) {
+        alert(
+          isPadel
+            ? "Please select all four players."
+            : "Please select at least one player per side."
+        );
+        return;
+      }
+
+      const idValues = [ids.a1, ids.a2, ids.b1, ids.b2].filter(Boolean);
+      if (new Set(idValues).size !== idValues.length) {
+        alert("Please select unique players.");
+        return;
+      }
+
+      const body: Record<string, unknown> = {
+        sport,
+        participants: [
+          { side: "A", playerIds: [ids.a1, ids.a2].filter(Boolean) },
+          { side: "B", playerIds: [ids.b1, ids.b2].filter(Boolean) },
+        ],
+        // Avoid sending timezone-aware timestamps; the API expects a naive
+        // datetime string.  Using Date#toISOString() would include a "Z" suffix
+        // (UTC) which caused the backend to reject the request.  Instead, send
+        // an ISO date without timezone information if a value was provided.
+        playedAt: playedAt ? `${playedAt}T00:00:00` : undefined,
+        location: location || undefined,
+      };
+      if (isPadel) {
+        body.bestOf = bestOf;
+      }
+
+      const createRes = await fetch(`${base}/v0/matches`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!createRes.ok) {
+        alert("Failed to create match.");
+        return;
+      }
+      const { id } = (await createRes.json()) as { id: string };
+
+      if (isPadel && parsedSets.length > 0) {
+        const setsRes = await fetch(`${base}/v0/matches/${id}/sets`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sets: parsedSets }),
+        });
+        if (!setsRes.ok) {
+          alert("Failed to submit set scores.");
+          return;
+        }
+      }
+
+      router.push(`/matches/${id}`);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function isUsedElsewhere(id: string, key: keyof typeof ids) {
@@ -275,8 +281,8 @@ export default function RecordSportPage() {
         </div>
       </section>
 
-      <button className="button" onClick={submit} type="button">
-        Save
+      <button className="button" onClick={submit} type="button" disabled={submitting}>
+        {submitting ? "Saving..." : "Save"}
       </button>
     </main>
   );

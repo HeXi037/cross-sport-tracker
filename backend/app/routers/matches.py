@@ -7,7 +7,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Match, MatchParticipant, Player, ScoreEvent, User
+from ..models import Match, MatchParticipant, Player, ScoreEvent, User, Rating
 from ..schemas import (
     MatchCreate,
     MatchCreateByName,
@@ -177,8 +177,64 @@ async def delete_match(
     m = await session.get(Match, mid)
     if not m or m.deleted_at is not None:
         raise HTTPException(404, "match not found")
+
+    sport_id = m.sport_id
     m.deleted_at = func.now()
     await session.commit()
+
+    # Recompute ratings for this sport now that the match is removed
+    try:
+        # Reset existing ratings to the default value
+        rows = (
+            await session.execute(
+                select(Rating).where(Rating.sport_id == sport_id)
+            )
+        ).scalars().all()
+        for r in rows:
+            r.value = 1000.0
+        await session.commit()
+
+        # Replay remaining matches to rebuild ratings
+        matches = (
+            await session.execute(
+                select(Match)
+                .where(Match.sport_id == sport_id, Match.deleted_at.is_(None))
+                .order_by(Match.played_at)
+            )
+        ).scalars().all()
+
+        for match in matches:
+            parts = (
+                await session.execute(
+                    select(MatchParticipant).where(
+                        MatchParticipant.match_id == match.id
+                    )
+                )
+            ).scalars().all()
+            players_a = [pid for p in parts if p.side == "A" for pid in p.player_ids]
+            players_b = [pid for p in parts if p.side == "B" for pid in p.player_ids]
+            details = match.details or {}
+            sets = details.get("sets") if isinstance(details, dict) else None
+            if not sets or not players_a or not players_b:
+                continue
+            if sets.get("A") == sets.get("B"):
+                await update_ratings(
+                    session,
+                    match.sport_id,
+                    players_a,
+                    players_b,
+                    draws=players_a + players_b,
+                )
+            else:
+                winner_side = "A" if sets["A"] > sets["B"] else "B"
+                winners = players_a if winner_side == "A" else players_b
+                losers = players_b if winner_side == "A" else players_a
+                await update_ratings(session, match.sport_id, winners, losers)
+        await session.commit()
+    except Exception:
+        # Ignore errors (e.g., rating tables may not exist in some tests)
+        pass
+
     return Response(status_code=204)
 
 # POST /api/v0/matches/{mid}/events

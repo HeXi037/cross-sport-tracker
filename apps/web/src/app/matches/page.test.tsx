@@ -31,8 +31,8 @@ describe("MatchesPage", () => {
       summary: { points: { A: 11, B: 7 } },
     };
     const players = [
-      { id: "1", name: "Alice" },
-      { id: "2", name: "Bob" },
+      { playerId: "1", playerName: "Alice" },
+      { playerId: "2", playerName: "Bob" },
     ];
 
     const fetchMock = vi

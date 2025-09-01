@@ -46,8 +46,7 @@ describe("RecordSportPage", () => {
 
     expect(
       await screen.findByText("Please select unique players.")
-    ).toBeTruthy();
+    ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
-

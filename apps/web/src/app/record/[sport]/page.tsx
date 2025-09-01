@@ -17,9 +17,11 @@ export default function RecordSportPage() {
   const params = useParams();
   const sport = typeof params.sport === "string" ? params.sport : "";
   const isPadel = sport === "padel";
+  const isPickleball = sport === "pickleball";
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [ids, setIds] = useState({ a1: "", a2: "", b1: "", b2: "" });
+  const [doubles, setDoubles] = useState(false);
   const [sets, setSets] = useState<Array<{ A: string; B: string }>>(
     isPadel ? [{ A: "", B: "" }] : []
   );
@@ -77,9 +79,10 @@ export default function RecordSportPage() {
         return;
       }
 
-      const requiredIds = isPadel
-        ? [ids.a1, ids.a2, ids.b1, ids.b2]
-        : [ids.a1, ids.b1];
+      const requiredIds =
+        isPadel || (isPickleball && doubles)
+          ? [ids.a1, ids.a2, ids.b1, ids.b2]
+          : [ids.a1, ids.b1];
       if (!requiredIds.every(Boolean)) {
         setFormError(
           isPadel
@@ -146,114 +149,134 @@ export default function RecordSportPage() {
   return (
     <main className="container">
       <h1 className="heading">Record {sport} Match</h1>
+      {isPickleball && (
+        <p className="mt-2">Rally scoring to 11, win by 2 (best of 3 games)</p>
+      )}
       
       {formError && <p className="error">{formError}</p>}
 
+      
       <section className="section">
-        <h2 className="heading">Players</h2>
-        <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
-          <div>
-            <label
-              htmlFor="player-a1"
-              style={{ display: "flex", flexDirection: "column" }}
-            >
-              Player A1
-              <select
-                id="player-a1"
-                className="input"
-                value={ids.a1}
-                onChange={(e) => onIdChange("a1", e.target.value)}
-              >
-                <option value="">Player A1</option>
-                {players.map((p) => (
-                  <option
-                    key={p.id}
-                    value={p.id}
-                    disabled={isUsedElsewhere(p.id, "a1")}
-                  >
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div>
-            <label
-              htmlFor="player-a2"
-              style={{ display: "flex", flexDirection: "column" }}
-            >
-              Player A2
-              <select
-                id="player-a2"
-                className="input"
-                value={ids.a2}
-                onChange={(e) => onIdChange("a2", e.target.value)}
-              >
-                <option value="">Player A2</option>
-                {players.map((p) => (
-                  <option
-                    key={p.id}
-                    value={p.id}
-                    disabled={isUsedElsewhere(p.id, "a2")}
-                  >
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div>
-            <label
-              htmlFor="player-b1"
-              style={{ display: "flex", flexDirection: "column" }}
-            >
-              Player B1
-              <select
-                id="player-b1"
-                className="input"
-                value={ids.b1}
-                onChange={(e) => onIdChange("b1", e.target.value)}
-              >
-                <option value="">Player B1</option>
-                {players.map((p) => (
-                  <option
-                    key={p.id}
-                    value={p.id}
-                    disabled={isUsedElsewhere(p.id, "b1")}
-                  >
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div>
-            <label
-              htmlFor="player-b2"
-              style={{ display: "flex", flexDirection: "column" }}
-            >
-              Player B2
-              <select
-                id="player-b2"
-                className="input"
-                value={ids.b2}
-                onChange={(e) => onIdChange("b2", e.target.value)}
-              >
-                <option value="">Player B2</option>
-                {players.map((p) => (
-                  <option
-                    key={p.id}
-                    value={p.id}
-                    disabled={isUsedElsewhere(p.id, "b2")}
-                  >
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </div>
-      </section>
+      <h2 className="heading">Players</h2>
+      {isPickleball && (
+      <label
+      style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8 }}
+      >
+      <input
+      type="checkbox"
+      checked={doubles}
+      onChange={(e) => setDoubles(e.target.checked)}
+      />
+      Doubles
+      </label>
+      )}
+      <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr" }}>
+      <div>
+      <label
+      htmlFor="player-a1"
+      style={{ display: "flex", flexDirection: "column" }}
+      >
+      Player A1
+      <select
+      id="player-a1"
+      className="input"
+      value={ids.a1}
+      onChange={(e) => onIdChange("a1", e.target.value)}
+      >
+      <option value="">Player A1</option>
+      {players.map((p) => (
+      <option
+      key={p.id}
+      value={p.id}
+      disabled={isUsedElsewhere(p.id, "a1")}
+      >
+      {p.name}
+      </option>
+      ))}
+      </select>
+      </label>
+      </div>
+      {(isPadel || (isPickleball && doubles)) && (
+      <div>
+      <label
+      htmlFor="player-a2"
+      style={{ display: "flex", flexDirection: "column" }}
+      >
+      Player A2
+      <select
+      id="player-a2"
+      className="input"
+      value={ids.a2}
+      onChange={(e) => onIdChange("a2", e.target.value)}
+      >
+      <option value="">Player A2</option>
+      {players.map((p) => (
+      <option
+      key={p.id}
+      value={p.id}
+      disabled={isUsedElsewhere(p.id, "a2")}
+      >
+      {p.name}
+      </option>
+      ))}
+      </select>
+      </label>
+      </div>
+      )}
+      <div>
+      <label
+      htmlFor="player-b1"
+      style={{ display: "flex", flexDirection: "column" }}
+      >
+      Player B1
+      <select
+      id="player-b1"
+      className="input"
+      value={ids.b1}
+      onChange={(e) => onIdChange("b1", e.target.value)}
+      >
+      <option value="">Player B1</option>
+      {players.map((p) => (
+      <option
+      key={p.id}
+      value={p.id}
+      disabled={isUsedElsewhere(p.id, "b1")}
+      >
+      {p.name}
+      </option>
+      ))}
+      </select>
+      </label>
+      </div>
+      {(isPadel || (isPickleball && doubles)) && (
+      <div>
+      <label
+      htmlFor="player-b2"
+      style={{ display: "flex", flexDirection: "column" }}
+      >
+      Player B2
+      <select
+      id="player-b2"
+      className="input"
+      value={ids.b2}
+      onChange={(e) => onIdChange("b2", e.target.value)}
+      >
+      <option value="">Player B2</option>
+      {players.map((p) => (
+      <option
+      key={p.id}
+      value={p.id}
+      disabled={isUsedElsewhere(p.id, "b2")}
+      >
+      {p.name}
+      </option>
+      ))}
+      </select>
+      </label>
+      </div>
+      )}
+      </div>
+</section>
 
       {isPadel && (
         <section className="section">

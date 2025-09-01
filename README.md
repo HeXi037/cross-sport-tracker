@@ -1,7 +1,7 @@
 cross-sport-tracker
 
 Track scores, run tournaments, and (later) crown a Master of All across sports.
-MVP scope: Padel + Bowling.
+MVP scope: Padel + Bowling + Pickleball.
 Stack: Next.js (UI) + FastAPI (Python 3.12 API) + PostgreSQL.
 Hosting: Cheap, self-hosted on a single VPS via Docker Compose + nginx.
 
@@ -9,7 +9,7 @@ Status & Scope
 
 Monorepo: apps/web (Next.js) + backend (FastAPI) + packages/* (shared)
 
-Implement now: Padel, Bowling (DB → API → UI)
+Implement now: Padel, Bowling, Pickleball (DB → API → UI)
 
 Later: Tennis, Disc Golf, cross-sport normalization, PWA, OAuth, notifications
 
@@ -34,6 +34,8 @@ Scoring contract: init_state(config) → dict, apply(event, state) → dict, sum
 Padel default config: { goldenPoint: false, tiebreakTo: 7, sets: 3 }
 
 Bowling default config: { frames: 10, tenthFrameBonus: true }
+
+Pickleball default config: { pointsTo: 11, winBy: 2, bestOf: 3 }
 
 Tournaments (MVP): Round-robin + Single-elimination; seeding=random; RR tiebreakers = H2H → differential → wins
 
@@ -75,9 +77,13 @@ Bowling (included)
 
 10 frames; strikes/spares bonuses; full 10th-frame rules; game & series totals
 
+Pickleball (included)
+
+Rally-point scoring to 11 (win by 2); best-of-3 games
+
 Data Model (abridged)
 
-Sport(id, name) → "padel" | "bowling"
+Sport(id, name) → "padel" | "bowling" | "pickleball"
 
 RuleSet(id, sport_id, name, config JSON)
 
@@ -193,8 +199,8 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api npm run dev  # http://localho
 ```
 
 Seed inserts:
-- Sports: Padel, Bowling
-- RuleSets: padel-default, padel-golden, bowling-standard
+- Sports: Padel, Bowling, Pickleball
+- RuleSets: padel-default, padel-golden, bowling-standard, pickleball-standard
 - Club: Demo Club (id: demo-club)
 - Player: Demo Player (id: demo-player, club: Demo Club)
 

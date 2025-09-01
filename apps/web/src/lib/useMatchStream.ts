@@ -24,36 +24,42 @@ function buildWsUrl(path: string): string {
 
 export function useMatchStream(id: string) {
   const [event, setEvent] = useState<MatchEvent | null>(null);
+  the [connected, setConnected] = useState(false);
+  const [fallback, setFallback] = useState(false);
 
   useEffect(() => {
+    setConnected(false);
+    setFallback(false);
     if (!id) return;
 
     let ws: WebSocket | null = null;
     // IMPORTANT: use a DOM number, not NodeJS.Timeout/Timer
     let pollTimer: number | null = null;
+    let stopped = false;
+
+    const url = buildWsUrl(`/v0/matches/${encodeURIComponent(id)}/stream`);
 
     const startPolling = () => {
-      if (pollTimer !== null) return;
+      if (pollTimer !== null || stopped) return;
+      setFallback(true);
       pollTimer = window.setInterval(async () => {
         try {
           const res = (await apiFetch(
             `/v0/matches/${encodeURIComponent(id)}`
-          )) as unknown as Response;
-        // ^ apiFetch currently returns a Response in this app
+          )) as Response;
           if (res.ok) {
             setEvent((await res.json()) as MatchEvent);
           }
-        } catch {
-          // ignore intermittent failures; keep polling
+        } catch (err) {
+          console.error("polling failed", err);
         }
       }, 5000);
     };
 
-    const url = buildWsUrl(`/v0/matches/${encodeURIComponent(id)}/stream`);
-
     if (typeof window !== "undefined" && "WebSocket" in window) {
       try {
         ws = new WebSocket(url);
+        ws.onopen = () => setConnected(true);
         ws.onmessage = (e) => {
           try {
             setEvent(JSON.parse(e.data));
@@ -61,10 +67,14 @@ export function useMatchStream(id: string) {
             /* ignore malformed frames */
           }
         };
-        // If socket fails or closes, fallback to polling
-        ws.onerror = () => startPolling();
-        ws.onclose = () => startPolling();
-      } catch {
+        const handleSocketFallback = () => {
+          setConnected(false);
+          startPolling();
+        };
+        ws.onerror = handleSocketFallback;
+        ws.onclose = handleSocketFallback;
+      } catch (err) {
+        console.error("ws connection failed", err);
         startPolling();
       }
     } else {
@@ -72,6 +82,7 @@ export function useMatchStream(id: string) {
     }
 
     return () => {
+      stopped = true;
       try {
         ws?.close();
       } catch {
@@ -85,5 +96,5 @@ export function useMatchStream(id: string) {
     // Reconnect when id changes
   }, [id]);
 
-  return event;
+  return { event, connected, fallback };
 }

@@ -34,7 +34,8 @@ export default function LiveSummary({
   initialSets?: SetData;
 }) {
   const [sets, setSets] = React.useState(initialSets);
-  const event = useMatchStream(mid);
+  const { event, connected, fallback } = useMatchStream(mid);
+  const isLive = connected && !fallback;
 
   React.useEffect(() => {
     if (event?.sets) {
@@ -42,5 +43,13 @@ export default function LiveSummary({
     }
   }, [event]);
 
-  return <div className="match-meta">Overall: {formatScoreline(sets)}</div>;
+  return (
+    <div className="match-meta">
+      <span>Overall: {formatScoreline(sets)}</span>
+      <span className="connection-indicator">
+        <span className={`dot ${isLive ? "dot-live" : "dot-polling"}`} />
+        {isLive ? "Live" : "Polling…"}
+      </span>
+    </div>
+  );
 }

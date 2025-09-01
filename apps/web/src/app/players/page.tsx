@@ -18,6 +18,7 @@ export default function PlayersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   async function load() {
     setError(null);
@@ -85,6 +86,7 @@ export default function PlayersPage() {
       return;
     }
     setError(null);
+    setCreating(true);
     try {
       const res = await apiFetch("/v0/players", {
         method: "POST",
@@ -104,12 +106,14 @@ export default function PlayersPage() {
         setError(message);
         return;
       }
+      setName("");
+      load();
     } catch {
       setError("Failed to create player.");
       return;
+    } finally {
+      setCreating(false);
     }
-    setName("");
-    load();
   }
 
   return (
@@ -149,11 +153,11 @@ export default function PlayersPage() {
         placeholder="name"
       />
       <button
-      className="button"
-      onClick={create}
-      disabled={name.trim() === ""}
+        className="button"
+        onClick={create}
+        disabled={creating || name.trim() === ""}
       >
-        Add
+        {creating ? "Saving…" : "Add"}
       </button>
       {error && (
         <div className="text-red-500 mt-2">

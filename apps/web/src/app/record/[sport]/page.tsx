@@ -25,6 +25,7 @@ export default function RecordSportPage() {
   const [bestOf, setBestOf] = useState(3);
   const [playedAt, setPlayedAt] = useState("");
   const [location, setLocation] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -60,6 +61,7 @@ export default function RecordSportPage() {
 
   async function submit() {
     setSubmitting(true);
+    setFormError(null);
     try {
       const parsedSets = isPadel
         ? sets
@@ -68,7 +70,7 @@ export default function RecordSportPage() {
         : [];
 
       if (isPadel && parsedSets.length === 0) {
-        alert("Please enter at least one completed set score.");
+        setFormError("Please enter at least one completed set score.");
         return;
       }
 
@@ -76,7 +78,7 @@ export default function RecordSportPage() {
         ? [ids.a1, ids.a2, ids.b1, ids.b2]
         : [ids.a1, ids.b1];
       if (!requiredIds.every(Boolean)) {
-        alert(
+        setFormError(
           isPadel
             ? "Please select all four players."
             : "Please select at least one player per side."
@@ -86,16 +88,18 @@ export default function RecordSportPage() {
 
       const idValues = [ids.a1, ids.a2, ids.b1, ids.b2].filter(Boolean);
       if (new Set(idValues).size !== idValues.length) {
-        alert("Please select unique players.");
+        setFormError("Please select unique players.");
         return;
       }
 
+      const participants = [
+        { side: "A", playerIds: [ids.a1, ids.a2].filter(Boolean) },
+        { side: "B", playerIds: [ids.b1, ids.b2].filter(Boolean) },
+      ];
+
       const body: Record<string, unknown> = {
         sport,
-        participants: [
-          { side: "A", playerIds: [ids.a1, ids.a2].filter(Boolean) },
-          { side: "B", playerIds: [ids.b1, ids.b2].filter(Boolean) },
-        ],
+        participants,
         // Avoid sending timezone-aware timestamps; the API expects a naive
         // datetime string.  Using Date#toISOString() would include a "Z" suffix
         // (UTC) which caused the backend to reject the request.  Instead, send
@@ -113,7 +117,7 @@ export default function RecordSportPage() {
         body: JSON.stringify(body),
       });
       if (!createRes.ok) {
-        alert("Failed to create match.");
+        setFormError("Failed to create match.");
         return;
       }
       const { id } = (await createRes.json()) as { id: string };
@@ -125,7 +129,7 @@ export default function RecordSportPage() {
           body: JSON.stringify({ sets: parsedSets }),
         });
         if (!setsRes.ok) {
-          alert("Failed to submit set scores.");
+          setFormError("Failed to submit set scores.");
           return;
         }
       }
@@ -143,6 +147,7 @@ export default function RecordSportPage() {
   return (
     <main className="container">
       <h1 className="heading">Record {sport} Match</h1>
+      {formError && <p className="error">{formError}</p>}
 
       <section className="section">
         <h2 className="heading">Players</h2>

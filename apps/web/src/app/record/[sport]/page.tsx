@@ -17,11 +17,15 @@ export default function RecordSportPage() {
   const params = useParams();
   const sport = typeof params.sport === "string" ? params.sport : "";
   const isPadel = sport === "padel";
+  const isDiscGolf = sport === "disc_golf";
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [ids, setIds] = useState({ a1: "", a2: "", b1: "", b2: "" });
   const [sets, setSets] = useState<Array<{ A: string; B: string }>>(
     isPadel ? [{ A: "", B: "" }] : []
+  );
+  const [holeScores, setHoleScores] = useState(
+    isDiscGolf ? Array.from({ length: 18 }, () => ({ A: "", B: "" })) : []
   );
   const [bestOf, setBestOf] = useState(3);
   const [playedAt, setPlayedAt] = useState("");
@@ -60,6 +64,14 @@ export default function RecordSportPage() {
     setSets((prev) => [...prev, { A: "", B: "" }]);
   }
 
+  function onHoleChange(idx: number, side: "A" | "B", value: string) {
+    setHoleScores((prev) => {
+      const copy = prev.slice();
+      copy[idx] = { ...copy[idx], [side]: value };
+      return copy;
+    });
+  }
+
   async function submit() {
     setFormError(null);
     setSubmitting(true);
@@ -70,6 +82,21 @@ export default function RecordSportPage() {
               (s) => [parseInt(s.A, 10), parseInt(s.B, 10)] as [number, number]
             )
             .filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b))
+        : [];
+      const holeEvents = isDiscGolf
+        ? holeScores
+            .map((hs, idx) => {
+              const hole = idx + 1;
+              const events: any[] = [];
+              const a = parseInt(hs.A, 10);
+              const b = parseInt(hs.B, 10);
+              if (Number.isFinite(a))
+                events.push({ type: "HOLE", side: "A", hole, strokes: a });
+              if (Number.isFinite(b))
+                events.push({ type: "HOLE", side: "B", hole, strokes: b });
+              return events;
+            })
+            .flat()
         : [];
 
       if (isPadel && parsedSets.length === 0) {
@@ -130,6 +157,20 @@ export default function RecordSportPage() {
         if (!setsRes.ok) {
           setFormError("Failed to submit set scores.");
           return;
+        }
+      }
+
+      if (isDiscGolf && holeEvents.length > 0) {
+        for (const ev of holeEvents) {
+          const res = await fetch(`${base}/v0/matches/${id}/events`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(ev),
+          });
+          if (!res.ok) {
+            setFormError("Failed to submit hole scores.");
+            return;
+          }
         }
       }
 
@@ -254,6 +295,46 @@ export default function RecordSportPage() {
           </div>
         </div>
       </section>
+
+      {isDiscGolf && (
+        <section className="section">
+          <h2 className="heading">Hole Scores</h2>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th>Hole</th>
+                <th>A</th>
+                <th>B</th>
+              </tr>
+            </thead>
+            <tbody>
+              {holeScores.map((hs, idx) => (
+                <tr key={idx}>
+                  <td>{idx + 1}</td>
+                  <td>
+                    <input
+                      className="input"
+                      value={hs.A}
+                      type="number"
+                      min="1"
+                      onChange={(e) => onHoleChange(idx, "A", e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="input"
+                      value={hs.B}
+                      type="number"
+                      min="1"
+                      onChange={(e) => onHoleChange(idx, "B", e.target.value)}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       {isPadel && (
         <section className="section">

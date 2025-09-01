@@ -74,6 +74,21 @@ export default function Leaderboard({ sport }: Props) {
     };
   }, [sport]);
 
+  const TableHeader = () => (
+    <thead>
+      <tr>
+        <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>#</th>
+        <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>Player</th>
+        {sport === "all" && (
+          <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>Sport</th>
+        )}
+        <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>Rating</th>
+        <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>W</th>
+        <th style={{ textAlign: "left", padding: "4px 0" }}>L</th>
+      </tr>
+    </thead>
+  );
+
   return (
     <main className="container">
       <div style={{ marginBottom: "1rem", fontSize: "0.9rem" }}>
@@ -108,7 +123,42 @@ export default function Leaderboard({ sport }: Props) {
       </header>
 
       {loading ? (
-        <p>Loading...</p>
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            marginTop: "1rem",
+            fontSize: "0.9rem",
+          }}
+        >
+          <TableHeader />
+          <tbody>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <tr key={`skeleton-${i}`} style={{ borderTop: "1px solid #ccc" }}>
+                <td style={{ padding: "4px 16px 4px 0" }}>
+                  <div className="skeleton" style={{ width: "12px", height: "1em" }} />
+                </td>
+                <td style={{ padding: "4px 16px 4px 0" }}>
+                  <div className="skeleton" style={{ width: "120px", height: "1em" }} />
+                </td>
+                {sport === "all" && (
+                  <td style={{ padding: "4px 16px 4px 0" }}>
+                    <div className="skeleton" style={{ width: "80px", height: "1em" }} />
+                  </td>
+                )}
+                <td style={{ padding: "4px 16px 4px 0" }}>
+                  <div className="skeleton" style={{ width: "40px", height: "1em" }} />
+                </td>
+                <td style={{ padding: "4px 16px 4px 0" }}>
+                  <div className="skeleton" style={{ width: "20px", height: "1em" }} />
+                </td>
+                <td style={{ padding: "4px 0" }}>
+                  <div className="skeleton" style={{ width: "20px", height: "1em" }} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       ) : leaders.length === 0 ? (
         <p>{error ?? "No data."}</p>
       ) : (
@@ -120,24 +170,7 @@ export default function Leaderboard({ sport }: Props) {
             fontSize: "0.9rem",
           }}
         >
-          <thead>
-            <tr>
-              <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>#</th>
-              <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>
-                Player
-              </th>
-              {sport === "all" && (
-                <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>
-                  Sport
-                </th>
-              )}
-              <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>
-                Rating
-              </th>
-              <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>W</th>
-              <th style={{ textAlign: "left", padding: "4px 0" }}>L</th>
-            </tr>
-          </thead>
+          <TableHeader />
           <tbody>
             {leaders.map((row) => (
               <tr

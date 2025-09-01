@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { apiFetch } from "../../lib/api";
 
@@ -13,6 +13,8 @@ export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [recentMatches, setRecentMatches] = useState<Record<string, string | null>>({});
   const [name, setName] = useState("");
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -38,6 +40,17 @@ export default function PlayersPage() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(handle);
+  }, [search]);
+
+  const filteredPlayers = useMemo(() => {
+    const term = debouncedSearch.trim().toLowerCase();
+    if (!term) return players;
+    return players.filter((p) => p.name.toLowerCase().includes(term));
+  }, [players, debouncedSearch]);
 
   useEffect(() => {
     if (!players.length) return;
@@ -102,15 +115,25 @@ export default function PlayersPage() {
       {loading && players.length === 0 ? (
         <div>Loading players…</div>
       ) : (
-        <ul>
-          {players.map((p) => (
-            <li key={p.id}>
-              <Link href={recentMatches[p.id] ? `/matches/${recentMatches[p.id]}` : `/players/${p.id}`}>
-                {p.name}
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <>
+          <input
+            className="input mb-2"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="search"
+          />
+          <ul>
+            {filteredPlayers.map((p) => (
+              <li key={p.id}>
+                <Link
+                  href={recentMatches[p.id] ? `/matches/${recentMatches[p.id]}` : `/players/${p.id}`}
+                >
+                  {p.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
       <input
         className="input"

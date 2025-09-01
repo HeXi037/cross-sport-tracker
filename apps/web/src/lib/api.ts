@@ -2,7 +2,7 @@
 export function apiBase(): string {
   const server = typeof window === 'undefined';
   const base = server
-    ? process.env.INTERNAL_API_BASE_URL || 'http://backend:8000/api'
+    ? process.env.INTERNAL_API_BASE_URL || 'http://localhost:8000/api'
     : process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
   return base.endsWith('/') ? base.slice(0, -1) : base;
 }

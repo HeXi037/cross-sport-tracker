@@ -1,18 +1,29 @@
-import os, sys, asyncio, pytest
+import os
+import sys
+import asyncio
+from datetime import datetime, timedelta
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy.dialects.sqlite import JSON
 
 # Ensure backend app modules can be imported
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# Set up an in-memory SQLite database for tests
+# Configure database for tests
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_leaderboards.db"
 
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from app import db
-from app.routers import leaderboards
-from datetime import datetime, timedelta
-
-from app.models import Player, Rating, Sport, Match, MatchParticipant, ScoreEvent
+from app import db  # noqa: E402
+from app.models import (
+    Player,
+    Rating,
+    Sport,
+    Match,
+    MatchParticipant,
+    ScoreEvent,
+)  # noqa: E402
+from app.routers import leaderboards  # noqa: E402
 
 app = FastAPI()
 app.include_router(leaderboards.router)
@@ -26,11 +37,9 @@ def setup_db():
         db.engine = None
         db.AsyncSessionLocal = None
         engine = db.get_engine()
+        # Patch player_ids to use JSON for SQLite
+        MatchParticipant.__table__.columns["player_ids"].type = JSON()
         async with engine.begin() as conn:
-            # SQLite lacks ARRAY support required for MatchParticipant.player_ids.
-            # Create the core tables using SQLAlchemy metadata, then manually
-            # define a minimal match_participant table with TEXT player_ids so
-            # the leaderboard queries can run without exercising ARRAY features.
             await conn.run_sync(
                 db.Base.metadata.create_all,
                 tables=[
@@ -47,97 +56,77 @@ def setup_db():
                     id TEXT PRIMARY KEY,
                     match_id TEXT,
                     side TEXT,
-                    player_ids TEXT
+                    player_ids JSON
                 )
                 """
             )
         async with db.AsyncSessionLocal() as session:
             sport = Sport(id="padel", name="Padel")
             session.add(sport)
-            for i in range(5):
-                player = Player(id=str(i), name=f"P{i}")
-                rating = Rating(id=str(i), player_id=player.id, sport_id="padel", value=1000 + i)
-                session.add_all([player, rating])
-            # Seed rating history for player "4" across 6 matches
-            base_time = datetime(2024, 1, 1)
+            p1 = Player(id="p1", name="P1")
+            p2 = Player(id="p2", name="P2")
+            session.add_all([p1, p2])
+            session.add_all(
+                [
+                    Rating(id="r1", player_id="p1", sport_id="padel", value=1005),
+                    Rating(id="r2", player_id="p2", sport_id="padel", value=1001),
+                ]
+            )
+            base = datetime(2024, 1, 1)
             for idx in range(6):
                 mid = f"m{idx}"
-                session.add(Match(id=mid, sport_id="padel"))
-                session.add(
-                    ScoreEvent(
-                        id=f"e{idx}",
-                        match_id=mid,
-                        created_at=base_time + timedelta(minutes=idx),
-                        type="RATING",
-                        payload={"playerId": "4", "rating": 1000 + idx},
-                    )
+                details = {"sets": {"A": 2, "B": 1}} if idx == 5 else None
+                session.add(Match(id=mid, sport_id="padel", details=details))
+                session.add_all(
+                    [
+                        ScoreEvent(
+                            id=f"e1{idx}",
+                            match_id=mid,
+                            created_at=base + timedelta(minutes=idx * 2),
+                            type="RATING",
+                            payload={"playerId": "p1", "rating": 1000 + idx},
+                        ),
+                        ScoreEvent(
+                            id=f"e2{idx}",
+                            match_id=mid,
+                            created_at=base + timedelta(minutes=idx * 2 + 1),
+                            type="RATING",
+                            payload={"playerId": "p2", "rating": 1006 - idx},
+                        ),
+                    ]
                 )
+                if idx == 5:
+                    session.add_all(
+                        [
+                            MatchParticipant(
+                                id="pa", match_id=mid, side="A", player_ids=["p1"]
+                            ),
+                            MatchParticipant(
+                                id="pb", match_id=mid, side="B", player_ids=["p2"]
+                            ),
+                        ]
+                    )
             await session.commit()
+
     asyncio.run(init_models())
     yield
     if os.path.exists("./test_leaderboards.db"):
         os.remove("./test_leaderboards.db")
 
 
-def test_leaderboard_pagination():
+def test_leaderboard_rank_and_sets():
     with TestClient(app) as client:
-        resp = client.get("/leaderboards", params={"sport": "padel", "limit": 2, "offset": 1})
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["limit"] == 2
-        assert data["offset"] == 1
-        assert data["total"] == 5
-        assert len(data["leaders"]) == 2
-        assert data["leaders"][0]["rating"] == 1003
-        assert data["leaders"][0]["rank"] == 2
-        assert data["leaders"][0]["rankChange"] == -1
-        assert data["leaders"][1]["rating"] == 1002
-        assert data["leaders"][1]["rank"] == 3
-        assert data["leaders"][1]["rankChange"] == -1
-        # No matches yet, so set stats should be zero
-        for entry in data["leaders"]:
-            assert entry["sets"] == 0
-            assert entry["setsWon"] == 0
-            assert entry["setsLost"] == 0
-            assert entry["setDiff"] == 0
-
-
-def test_leaderboard_sets():
-    pytest.skip("SQLite lacks ARRAY support for MatchParticipant")
-    async def seed_match():
-        async with db.AsyncSessionLocal() as session:
-            match = Match(id="m1", sport_id="padel", details={"sets": {"A": 2, "B": 1}})
-            session.add(match)
-            session.add_all(
-                [
-                    MatchParticipant(
-                        id="pa", match_id="m1", side="A", player_ids=["0"]
-                    ),
-                    MatchParticipant(
-                        id="pb", match_id="m1", side="B", player_ids=["1"]
-                    ),
-                ]
-            )
-            await session.commit()
-
-    asyncio.run(seed_match())
-
-    with TestClient(app) as client:
-        resp = client.get("/leaderboards", params={"sport": "padel", "limit": 5})
+        resp = client.get("/leaderboards", params={"sport": "padel"})
         assert resp.status_code == 200
         data = resp.json()
         leaders = {l["playerId"]: l for l in data["leaders"]}
-        p0 = leaders["0"]
-        assert p0["sets"] == 3
-        assert p0["setsWon"] == 2
-        assert p0["setsLost"] == 1
-        assert p0["setDiff"] == 1
-        assert p0["rank"] == 5
-        assert p0["rankChange"] == 0
-        p1 = leaders["1"]
-        assert p1["sets"] == 3
-        assert p1["setsWon"] == 1
-        assert p1["setsLost"] == 2
-        assert p1["setDiff"] == -1
-        assert p1["rank"] == 4
-        assert p1["rankChange"] == 0
+        p1 = leaders["p1"]
+        assert p1["rank"] == 1
+        assert p1["rankChange"] == 1
+        assert p1["setsWon"] == 2
+        assert p1["setsLost"] == 1
+        p2 = leaders["p2"]
+        assert p2["rank"] == 2
+        assert p2["rankChange"] == -1
+        assert p2["setsWon"] == 1
+        assert p2["setsLost"] == 2

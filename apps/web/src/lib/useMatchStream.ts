@@ -24,7 +24,7 @@ function buildWsUrl(path: string): string {
 
 export function useMatchStream(id: string) {
   const [event, setEvent] = useState<MatchEvent | null>(null);
-  the [connected, setConnected] = useState(false);
+  const [connected, setConnected] = useState(false);
   const [fallback, setFallback] = useState(false);
 
   useEffect(() => {

@@ -47,7 +47,7 @@ describe("MatchesPage", () => {
     // @ts-expect-error override for test
     global.fetch = fetchMock;
 
-    const page = await MatchesPage();
+    const page = await MatchesPage({ searchParams: {} });
     render(page);
 
     await screen.findByText("Alice vs Bob");
@@ -85,7 +85,7 @@ describe("MatchesPage", () => {
     // @ts-expect-error override for test
     global.fetch = fetchMock;
 
-    const page = await MatchesPage();
+    const page = await MatchesPage({ searchParams: {} });
     render(page);
 
     const prev = screen.getByText("Previous");

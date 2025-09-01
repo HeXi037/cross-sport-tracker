@@ -97,7 +97,7 @@ export default async function MatchesPage({
   searchParams = {},
 }: {
   searchParams?: Record<string, string | string[] | undefined>;
-} = {}) {
+}) {
   const limit = Number(searchParams.limit) || 25;
   const offset = Number(searchParams.offset) || 0;
 

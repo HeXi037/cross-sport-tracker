@@ -1,11 +1,12 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import RecordSportPage from "./page";
 
+let sportParam = "padel";
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
-  useParams: () => ({ sport: "padel" }),
+  useParams: () => ({ sport: sportParam }),
 }));
 
 describe("RecordSportPage", () => {
@@ -14,6 +15,7 @@ describe("RecordSportPage", () => {
   });
 
   it("rejects duplicate player selections", async () => {
+    sportParam = "padel";
     const players = [
       { id: "1", name: "Alice" },
       { id: "2", name: "Bob" },
@@ -49,5 +51,54 @@ describe("RecordSportPage", () => {
       await screen.findByText("Please select unique players.")
     ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears partner ids when toggling back to singles", async () => {
+    sportParam = "pickleball";
+
+    const players = [
+      { id: "1", name: "Alice" },
+      { id: "2", name: "Bob" },
+      { id: "3", name: "Cara" },
+      { id: "4", name: "Dan" },
+    ];
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+    global.fetch = fetchMock;
+
+    render(<RecordSportPage />);
+
+    await screen.findAllByText("Alice");
+
+    // enable doubles and select players
+    const toggle = screen.getByLabelText(/doubles/i);
+    fireEvent.click(toggle);
+    const selects = screen.getAllByRole("combobox");
+    fireEvent.change(selects[0], { target: { value: "1" } });
+    fireEvent.change(selects[1], { target: { value: "2" } });
+    fireEvent.change(selects[2], { target: { value: "3" } });
+    fireEvent.change(selects[3], { target: { value: "1" } });
+
+    fireEvent.change(screen.getByPlaceholderText("A"), {
+      target: { value: "11" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("B"), {
+      target: { value: "9" },
+    });
+
+    // switch back to singles
+    fireEvent.click(toggle);
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const payload = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(payload.participants).toEqual([
+      { side: "A", playerIds: ["1"] },
+      { side: "B", playerIds: ["3"] },
+    ]);
   });
 });

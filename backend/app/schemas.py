@@ -1,6 +1,6 @@
 from typing import List, Literal, Optional, Tuple
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # Basic DTOs
 class SportOut(BaseModel):
@@ -84,9 +84,26 @@ class SetsIn(BaseModel):
     sets: List[Tuple[int, int]]
 
 class EventIn(BaseModel):
-    type: Literal["POINT", "ROLL", "UNDO"]
+    type: Literal["POINT", "ROLL", "UNDO", "HOLE"]
     by: Optional[Literal["A", "B"]] = None
     pins: Optional[int] = None
+    side: Optional[Literal["A", "B"]] = None
+    hole: Optional[int] = None
+    strokes: Optional[int] = None
+
+    @model_validator(mode="after")
+    def _validate_hole(cls, values):
+        if values.type == "HOLE":
+            missing = [
+                field
+                for field in ("side", "hole", "strokes")
+                if getattr(values, field) is None
+            ]
+            if missing:
+                raise ValueError(
+                    "side, hole, and strokes are required for HOLE events"
+                )
+        return values
 
 # Response models
 class ParticipantOut(BaseModel):

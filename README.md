@@ -1,7 +1,7 @@
 cross-sport-tracker
 
 Track scores, run tournaments, and (later) crown a Master of All across sports.
-MVP scope: Padel + Bowling.
+MVP scope: Padel + Bowling + Disc Golf.
 Stack: Next.js (UI) + FastAPI (Python 3.12 API) + PostgreSQL.
 Hosting: Cheap, self-hosted on a single VPS via Docker Compose + nginx.
 
@@ -9,9 +9,9 @@ Status & Scope
 
 Monorepo: apps/web (Next.js) + backend (FastAPI) + packages/* (shared)
 
-Implement now: Padel, Bowling (DB → API → UI)
+Implement now: Padel, Bowling, Disc Golf (DB → API → UI)
 
-Later: Tennis, Disc Golf, cross-sport normalization, PWA, OAuth, notifications
+Later: Tennis, cross-sport normalization, PWA, OAuth, notifications
 
 Project Decisions (locked for MVP)
 
@@ -34,6 +34,8 @@ Scoring contract: init_state(config) → dict, apply(event, state) → dict, sum
 Padel default config: { goldenPoint: false, tiebreakTo: 7, sets: 3 }
 
 Bowling default config: { frames: 10, tenthFrameBonus: true }
+
+Disc Golf default config: { holes: 18, pars: [3]*18 }
 
 Tournaments (MVP): Round-robin + Single-elimination; seeding=random; RR tiebreakers = H2H → differential → wins
 
@@ -75,9 +77,13 @@ Bowling (included)
 
 10 frames; strikes/spares bonuses; full 10th-frame rules; game & series totals
 
+Disc Golf (included)
+
+18 holes; track strokes per hole; configurable par values
+
 Data Model (abridged)
 
-Sport(id, name) → "padel" | "bowling"
+Sport(id, name) → "padel" | "bowling" | "disc_golf"
 
 RuleSet(id, sport_id, name, config JSON)
 
@@ -193,8 +199,8 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api npm run dev  # http://localho
 ```
 
 Seed inserts:
-- Sports: Padel, Bowling
-- RuleSets: padel-default, padel-golden, bowling-standard
+- Sports: Padel, Bowling, Disc Golf
+- RuleSets: padel-default, padel-golden, bowling-standard, disc_golf-standard
 - Club: Demo Club (id: demo-club)
 - Player: Demo Player (id: demo-player, club: Demo Club)
 
@@ -341,7 +347,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 Testing
 
-Backend (pytest): scoring engines (padel/bowling) edge cases; API happy paths
+Backend (pytest): scoring engines (padel/bowling/disc_golf) edge cases; API happy paths
 
 Frontend: unit + Playwright E2E (create players → match → standings)
 

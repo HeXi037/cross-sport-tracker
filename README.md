@@ -162,24 +162,41 @@ Prereqs: Node 20, Python 3.12, Docker
 # Postgres (local)
 docker compose up -d postgres
 
-# Backend
+### Backend
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 alembic upgrade head
 python seed.py  # adds default sports, rulesets, demo club/player
-uvicorn app.main:app --reload  # http://localhost:8000, docs at /docs
+
+### Web
+cd ../apps/web
+npm install
+
+### Run backend & frontend together
+Start the API and UI in separate terminals:
+
+**Terminal 1 - Backend**
+
+```
+cd backend
+source .venv/bin/activate
+uvicorn app.main:app --reload  # http://localhost:8000/api, docs at /api/docs
+```
+
+**Terminal 2 - Frontend**
+
+```
+cd apps/web
+# INTERNAL_API_BASE_URL defaults to http://localhost:8000/api
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api npm run dev  # http://localhost:3000
+```
 
 Seed inserts:
 - Sports: Padel, Bowling
 - RuleSets: padel-default, padel-golden, bowling-standard
 - Club: Demo Club (id: demo-club)
 - Player: Demo Player (id: demo-player, club: Demo Club)
-
-# Web
-cd ../../apps/web
-npm install
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api npm run dev  # http://localhost:3000
 
 Self-hosting (single VPS, low cost)
 

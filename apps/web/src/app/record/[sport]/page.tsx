@@ -33,6 +33,8 @@ export default function RecordSportPage() {
   const [scoreA, setScoreA] = useState("0");
   const [scoreB, setScoreB] = useState("0");
   const [error, setError] = useState<string | null>(null);
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
 
   // Padal is always doubles. Other sports default to singles unless specified.
   const [doubles, setDoubles] = useState(isPadel);
@@ -89,10 +91,16 @@ export default function RecordSportPage() {
         ];
 
     try {
+      const payload: any = { sport, participants, score: [scoreA, scoreB] };
+      if (date) {
+        payload.playedAt = new Date(
+          `${date}T${time || "00:00"}`
+        ).toISOString();
+      }
       const res = await fetch(`${base}/v0/matches`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sport, participants, score: [scoreA, scoreB] }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         router.push(`/matches`);
@@ -115,6 +123,21 @@ export default function RecordSportPage() {
             Doubles
           </label>
         )}
+
+        <div className="datetime">
+          <input
+            type="date"
+            aria-label="Date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+          <input
+            type="time"
+            aria-label="Time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+          />
+        </div>
 
         <div className="players">
           <select

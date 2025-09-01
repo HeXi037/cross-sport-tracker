@@ -69,6 +69,13 @@ export default async function MatchDetailPage({
     sideNames[p.side] = names;
   }
 
+  const playedAtDate = match.playedAt ? new Date(match.playedAt) : null;
+  const playedAtStr = playedAtDate
+    ? playedAtDate.getHours() || playedAtDate.getMinutes() || playedAtDate.getSeconds() || playedAtDate.getMilliseconds()
+      ? playedAtDate.toLocaleString()
+      : playedAtDate.toLocaleDateString()
+    : "";
+
   return (
     <main className="container">
       <div className="text-sm">
@@ -85,7 +92,7 @@ export default async function MatchDetailPage({
         <p className="match-meta">
           {match.sport || "sport"} · {match.ruleset || "rules"} · {" "}
           {match.status || "status"}
-          {match.playedAt ? ` · ${new Date(match.playedAt).toLocaleString()}` : ""}
+          {playedAtStr ? ` · ${playedAtStr}` : ""}
           {match.location ? ` · ${match.location}` : ""}
         </p>
       </header>

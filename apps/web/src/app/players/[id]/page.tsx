@@ -38,9 +38,9 @@ async function getPlayer(id: string): Promise<Player> {
     cache: "no-store",
   } as RequestInit);
   // apiFetch returns a Response in this app
-  // @ts-ignore-next-line
+  // @ts-expect-error next line can throw when non-OK
   if (!res.ok) throw new Error("player");
-  // @ts-ignore-next-line
+  // @ts-expect-error Response.json type mismatch handled
   return (await res.json()) as Player;
 }
 
@@ -48,9 +48,9 @@ async function getMatches(playerId: string): Promise<EnrichedMatch[]> {
   const r = await apiFetch(`/v0/matches?playerId=${encodeURIComponent(playerId)}`, {
     cache: "no-store",
   } as RequestInit);
-  // @ts-ignore-next-line
+  // @ts-expect-error allow non-OK responses to return empty list
   if (!r.ok) return [];
-  // @ts-ignore-next-line
+  // @ts-expect-error Response.json typing
   const rows = (await r.json()) as MatchRow[];
 
   // Load details for participants and summaries
@@ -59,9 +59,9 @@ async function getMatches(playerId: string): Promise<EnrichedMatch[]> {
       const resp = await apiFetch(`/v0/matches/${encodeURIComponent(m.id)}`, {
         cache: "no-store",
       } as RequestInit);
-      // @ts-ignore-next-line
+      // @ts-expect-error non-OK responses throw
       if (!resp.ok) throw new Error(`match ${m.id}`);
-      // @ts-ignore-next-line
+      // @ts-expect-error Response.json typing
       return { row: m, detail: (await resp.json()) as MatchDetail };
     })
   );
@@ -81,9 +81,9 @@ async function getMatches(playerId: string): Promise<EnrichedMatch[]> {
       const resp = await apiFetch(`/v0/players/${encodeURIComponent(pid)}`, {
         cache: "no-store",
       } as RequestInit);
-      // @ts-ignore-next-line
+      // @ts-expect-error Response.ok type narrowing
       if (resp.ok) {
-        // @ts-ignore-next-line
+        // @ts-expect-error Response.json typing
         const j = (await resp.json()) as { id: string; name: string };
         idToName.set(pid, j.name);
       }

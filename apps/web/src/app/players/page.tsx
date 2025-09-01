@@ -15,7 +15,7 @@ export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [recentMatches, setRecentMatches] =
     useState<Record<string, string | null>>({});
-  the [name, setName] = useState("");
+  const [name, setName] = useState("");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [error, setError] = useState<string | null>(null);

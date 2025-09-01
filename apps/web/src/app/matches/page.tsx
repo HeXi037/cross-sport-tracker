@@ -29,8 +29,11 @@ type EnrichedMatch = MatchRow & {
   summary?: MatchDetail["summary"];
 };
 
-async function getMatches(): Promise<MatchRow[]> {
-  const r = await apiFetch("/v0/matches", { cache: "no-store" });
+async function getMatches(limit: number, offset: number): Promise<MatchRow[]> {
+  const r = await apiFetch(
+    `/v0/matches?limit=${limit}&offset=${offset}`,
+    { cache: "no-store" }
+  );
   if (!r.ok) throw new Error(`Failed to load matches: ${r.status}`);
   return (await r.json()) as MatchRow[];
 }
@@ -90,15 +93,26 @@ function formatSummary(s?: MatchDetail["summary"]): string {
   return "";
 }
 
-export default async function MatchesPage() {
+export default async function MatchesPage({
+  searchParams = {},
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+} = {}) {
+  const limit = Number(searchParams.limit) || 25;
+  const offset = Number(searchParams.offset) || 0;
+
   try {
-    const rows = await getMatches();
+    const rows = await getMatches(limit, offset);
     rows.sort((a, b) => {
       if (!a.playedAt) return 1;
       if (!b.playedAt) return -1;
       return new Date(b.playedAt).getTime() - new Date(a.playedAt).getTime();
     });
     const matches = await enrichMatches(rows);
+    const prevOffset = Math.max(offset - limit, 0);
+    const nextOffset = offset + limit;
+    const disablePrev = offset <= 0;
+    const disableNext = rows.length < limit;
 
     return (
       <main className="container">
@@ -122,6 +136,22 @@ export default async function MatchesPage() {
             </li>
           ))}
         </ul>
+        <div className="pager">
+          {disablePrev ? (
+            <span aria-disabled="true">Previous</span>
+          ) : (
+            <Link href={`/matches?limit=${limit}&offset=${prevOffset}`}>
+              Previous
+            </Link>
+          )}
+          {disableNext ? (
+            <span aria-disabled="true">Next</span>
+          ) : (
+            <Link href={`/matches?limit=${limit}&offset=${nextOffset}`}>
+              Next
+            </Link>
+          )}
+        </div>
       </main>
     );
   } catch {

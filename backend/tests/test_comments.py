@@ -60,7 +60,15 @@ def test_comment_crud():
         resp = client.post("/auth/signup", json={"username": "bob", "password": "pw"})
         assert resp.status_code == 200
         token = resp.json()["access_token"]
-        pid = client.post("/players", json={"name": "Player1"}).json()["id"]
+        admin_token = client.post(
+            "/auth/signup",
+            json={"username": "admin", "password": "pw", "is_admin": True},
+            headers={"X-Admin-Secret": "admintest"},
+        ).json()["access_token"]
+        pid = client.post(
+            "/players", json={"name": "Player1"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        ).json()["id"]
         resp = client.post(
             f"/players/{pid}/comments",
             json={"content": "Great!"},

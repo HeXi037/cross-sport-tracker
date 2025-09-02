@@ -14,10 +14,15 @@ export function apiUrl(path: string): string {
 }
 
 export async function apiFetch(path: string, init?: RequestInit) {
+  const headers = new Headers(init?.headers);
+  if (typeof window !== "undefined") {
+    const token = window.localStorage?.getItem("token");
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+  }
   try {
-    return await fetch(apiUrl(path), init);
+    return await fetch(apiUrl(path), { ...init, headers });
   } catch (err) {
-    console.error('API request failed', err);
+    console.error("API request failed", err);
     throw err;
   }
 }

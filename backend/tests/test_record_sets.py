@@ -18,6 +18,7 @@ from backend.app.db import Base, get_session
 from backend.app.models import Match, Sport, ScoreEvent
 from backend.app.routers import matches
 from backend.app.scoring import padel
+from backend.app.routers.admin import require_admin
 
 
 @pytest.fixture()
@@ -53,6 +54,7 @@ def client_and_session():
     app = FastAPI()
     app.include_router(matches.router)
     app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[require_admin] = lambda: None
 
     with TestClient(app) as client:
         yield client, async_session_maker

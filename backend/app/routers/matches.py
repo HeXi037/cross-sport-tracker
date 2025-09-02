@@ -77,7 +77,11 @@ async def list_matches(
 
 # POST /api/v0/matches
 @router.post("", response_model=MatchIdOut)
-async def create_match(body: MatchCreate, session: AsyncSession = Depends(get_session)):
+async def create_match(
+    body: MatchCreate,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_admin),
+):
     mid = uuid.uuid4().hex
     match = Match(
         id=mid,
@@ -111,7 +115,11 @@ async def create_match(body: MatchCreate, session: AsyncSession = Depends(get_se
 
 
 @router.post("/by-name", response_model=MatchIdOut)
-async def create_match_by_name(body: MatchCreateByName, session: AsyncSession = Depends(get_session)):
+async def create_match_by_name(
+    body: MatchCreateByName,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_admin),
+):
     name_to_id = {}
     names = [n for part in body.participants for n in part.playerNames]
     if names:
@@ -143,7 +151,7 @@ async def create_match_by_name(body: MatchCreateByName, session: AsyncSession = 
         playedAt=body.playedAt,
         location=body.location,
     )
-    return await create_match(mc, session)
+    return await create_match(mc, session, user)
 
 # GET /api/v0/matches/{mid}
 @router.get("/{mid}", response_model=MatchOut)
@@ -260,7 +268,12 @@ async def delete_match(
 
 # POST /api/v0/matches/{mid}/events
 @router.post("/{mid}/events")
-async def append_event(mid: str, ev: EventIn, session: AsyncSession = Depends(get_session)):
+async def append_event(
+    mid: str,
+    ev: EventIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_admin),
+):
     m = (await session.execute(select(Match).where(Match.id == mid))).scalar_one_or_none()
     if not m:
         raise HTTPException(404, "match not found")
@@ -299,7 +312,12 @@ async def append_event(mid: str, ev: EventIn, session: AsyncSession = Depends(ge
 
 
 @router.post("/{mid}/sets")
-async def record_sets_endpoint(mid: str, body: SetsIn, session: AsyncSession = Depends(get_session)):
+async def record_sets_endpoint(
+    mid: str,
+    body: SetsIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_admin),
+):
     m = (await session.execute(select(Match).where(Match.id == mid))).scalar_one_or_none()
     if not m:
         raise HTTPException(404, "match not found")

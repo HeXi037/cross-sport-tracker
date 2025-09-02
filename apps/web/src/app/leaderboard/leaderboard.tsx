@@ -51,6 +51,12 @@ export default function Leaderboard({ sport }: Props) {
             .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
             .map((l, i) => ({ ...l, rank: i + 1 }));
           if (!cancelled) setLeaders(combined);
+        } else if (sport === "master") {
+          const res = await fetch(`/api/v0/leaderboards/master`);
+          if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+          const data = await res.json();
+          const arr = Array.isArray(data) ? data : data.leaders ?? [];
+          if (!cancelled) setLeaders(arr as Leader[]);
         } else {
           const res = await fetch(
             `/api/v0/leaderboards?sport=${encodeURIComponent(sport)}`
@@ -110,7 +116,16 @@ export default function Leaderboard({ sport }: Props) {
       >
         <h1 className="heading">Leaderboards</h1>
         <nav style={{ display: "flex", gap: "0.5rem", fontSize: "0.9rem" }}>
-          <Link href="/leaderboard" style={{ textDecoration: sport === "all" ? "underline" : "none" }}>
+          <Link
+            href="/leaderboard/master"
+            style={{ textDecoration: sport === "master" ? "underline" : "none" }}
+          >
+            All sports
+          </Link>
+          <Link
+            href="/leaderboard"
+            style={{ textDecoration: sport === "all" ? "underline" : "none" }}
+          >
             Best of all sports
           </Link>
           {SPORTS.map((s) => (

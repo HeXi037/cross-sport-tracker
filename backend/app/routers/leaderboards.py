@@ -5,7 +5,15 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Rating, Player, Match, MatchParticipant, ScoreEvent
+from ..models import (
+    Rating,
+    Player,
+    Match,
+    MatchParticipant,
+    ScoreEvent,
+    MasterRating,
+)
+from ..services.master_rating import update_master_ratings
 from ..schemas import LeaderboardEntryOut, LeaderboardOut
 
 # Resource-only prefix; no /api or /api/v0 here
@@ -113,4 +121,45 @@ async def leaderboard(
 
     return LeaderboardOut(
         sport=sport, leaders=leaders, total=total, limit=limit, offset=offset
+    )
+
+
+# GET /api/v0/leaderboards/master
+@router.get("/master", response_model=LeaderboardOut)
+async def master_leaderboard(
+    limit: int = 50,
+    offset: int = 0,
+    session: AsyncSession = Depends(get_session),
+):
+    """Return the aggregated leaderboard across all sports."""
+    await update_master_ratings(session)
+    await session.commit()
+
+    stmt = (
+        select(MasterRating, Player)
+        .join(Player, Player.id == MasterRating.player_id)
+        .order_by(MasterRating.value.desc())
+    )
+    all_rows = (await session.execute(stmt)).all()
+    total = len(all_rows)
+    rows = all_rows[offset : offset + limit]
+
+    leaders = []
+    for i, r in enumerate(rows):
+        leaders.append(
+            LeaderboardEntryOut(
+                rank=offset + i + 1,
+                playerId=r.MasterRating.player_id,
+                playerName=r.Player.name,
+                rating=r.MasterRating.value,
+                rankChange=0,
+                sets=0,
+                setsWon=0,
+                setsLost=0,
+                setDiff=0,
+            )
+        )
+
+    return LeaderboardOut(
+        sport="master", leaders=leaders, total=total, limit=limit, offset=offset
     )

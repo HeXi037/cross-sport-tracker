@@ -9,6 +9,7 @@ from .stats import (
     compute_streaks,
     compute_sport_format_stats,
 )
+from .master_rating import update_master_ratings
 
 __all__ = [
     "validate_set_scores",
@@ -19,4 +20,5 @@ __all__ = [
     "plot_rolling_win_percentage",
     "compute_streaks",
     "compute_sport_format_stats",
+    "update_master_ratings",
 ]

@@ -57,7 +57,60 @@ export default function RankingsPage() {
         </select>
       </label>
       {loading ? (
-        <p>Loading...</p>
+        <table
+          style={{
+            marginTop: "1rem",
+            borderCollapse: "collapse",
+            width: "100%",
+          }}
+        >
+          <thead>
+            <tr>
+              <th
+                style={{
+                  border: "1px solid #ccc",
+                  padding: "0.5rem",
+                  textAlign: "left",
+                }}
+              >
+                #
+              </th>
+              <th
+                style={{
+                  border: "1px solid #ccc",
+                  padding: "0.5rem",
+                  textAlign: "left",
+                }}
+              >
+                Player
+              </th>
+              <th
+                style={{
+                  border: "1px solid #ccc",
+                  padding: "0.5rem",
+                  textAlign: "left",
+                }}
+              >
+                Rating
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <tr key={`skeleton-${i}`}>
+                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>
+                  <div className="skeleton" style={{ width: "12px", height: "1em" }} />
+                </td>
+                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>
+                  <div className="skeleton" style={{ width: "120px", height: "1em" }} />
+                </td>
+                <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>
+                  <div className="skeleton" style={{ width: "40px", height: "1em" }} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       ) : (
         <table
           style={{

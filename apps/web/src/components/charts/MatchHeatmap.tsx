@@ -8,6 +8,7 @@ import {
   Legend,
   type ScriptableContext,
   type TooltipItem,
+  type ChartOptions,
 } from 'chart.js';
 import { MatrixController, MatrixElement } from 'chartjs-chart-matrix';
 import { Chart } from 'react-chartjs-2';
@@ -48,12 +49,17 @@ export function MatchHeatmap({ data, xLabels, yLabels }: MatchHeatmapProps) {
       },
     ],
   };
-  const options = {
+  const options: ChartOptions<'matrix'> = {
     responsive: true,
-    maintainAspectRatio: false as const,
+    maintainAspectRatio: false,
     scales: {
-      x: { type: 'category', labels: xLabels, offset: true },
-      y: { type: 'category', labels: yLabels, offset: true, reverse: true },
+      x: { type: 'category' as const, labels: xLabels, offset: true },
+      y: {
+        type: 'category' as const,
+        labels: yLabels,
+        offset: true,
+        reverse: true,
+      },
     },
     plugins: {
       tooltip: {

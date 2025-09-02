@@ -68,6 +68,11 @@ export default function RecordSportPage() {
     e.preventDefault();
     setError(null);
 
+    interface MatchParticipant {
+      side: "A" | "B";
+      playerIds: string[];
+    }
+
     const idValues = doubles
       ? [ids.a1, ids.a2, ids.b1, ids.b2]
       : [ids.a1, ids.b1];
@@ -78,7 +83,7 @@ export default function RecordSportPage() {
       return;
     }
 
-    const participants = doubles
+    const participants: MatchParticipant[] = doubles
       ? [
           { side: "A", playerIds: [ids.a1].concat(ids.a2 ? [ids.a2] : []) },
           { side: "B", playerIds: [ids.b1].concat(ids.b2 ? [ids.b2] : []) },
@@ -89,10 +94,6 @@ export default function RecordSportPage() {
         ];
 
     try {
-      interface MatchParticipant {
-        side: "A" | "B";
-        playerIds: string[];
-      }
       interface MatchPayload {
         sport: string;
         participants: MatchParticipant[];

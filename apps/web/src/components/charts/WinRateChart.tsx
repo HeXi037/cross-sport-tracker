@@ -8,6 +8,7 @@ import {
   LineElement,
   Tooltip,
   Legend,
+  type ChartOptions,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 
@@ -38,14 +39,17 @@ export function WinRateChart({ data }: { data: WinRatePoint[] }) {
       },
     ],
   };
-  const options = {
+  const options: ChartOptions<'line'> = {
     responsive: true,
-    maintainAspectRatio: false as const,
+    maintainAspectRatio: false,
     scales: {
       y: {
+        type: 'linear' as const,
         beginAtZero: true,
         max: 100,
-        ticks: { callback: (val: number) => val + '%' },
+        ticks: {
+          callback: (val: number | string) => `${val}%`,
+        },
       },
     },
   };

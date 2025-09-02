@@ -198,7 +198,7 @@ export default async function PlayerPage({
     const recentOpponents = matches
       .map((m) => {
         const part = m.participants.find((p) =>
-          p.playerIds.includes(player.id)
+          (p.playerIds ?? []).includes(player.id)
         );
         if (!part) return null;
         const mySide = part.side;

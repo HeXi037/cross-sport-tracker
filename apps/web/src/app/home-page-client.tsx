@@ -34,9 +34,12 @@ export default function HomePageClient({
   const [matches, setMatches] = useState(initialMatches);
   const [sportError, setSportError] = useState(initialSportError);
   const [matchError, setMatchError] = useState(initialMatchError);
+  const [sportsLoading, setSportsLoading] = useState(false);
+  const [matchesLoading, setMatchesLoading] = useState(false);
 
   const retrySports = async (e: MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
+    setSportsLoading(true);
     try {
       const r = await apiFetch('/v0/sports', { cache: 'no-store' });
       if (r.ok) {
@@ -47,11 +50,14 @@ export default function HomePageClient({
       }
     } catch {
       setSportError(true);
+    } finally {
+      setSportsLoading(false);
     }
   };
 
   const retryMatches = async (e: MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
+    setMatchesLoading(true);
     try {
       const r = await apiFetch('/v0/matches', { cache: 'no-store' });
       if (r.ok) {
@@ -64,6 +70,8 @@ export default function HomePageClient({
       }
     } catch {
       setMatchError(true);
+    } finally {
+      setMatchesLoading(false);
     }
   };
 
@@ -76,7 +84,15 @@ export default function HomePageClient({
 
       <section className="section">
         <h2 className="heading">Sports</h2>
-        {sports.length === 0 ? (
+        {sportsLoading && sports.length === 0 ? (
+          <ul className="sport-list">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <li key={`sport-skeleton-${i}`} className="sport-item">
+                <div className="skeleton" style={{ width: '100%', height: '1em' }} />
+              </li>
+            ))}
+          </ul>
+        ) : sports.length === 0 ? (
           sportError ? (
             <p>
               Unable to load sports. Check connection.{" "}
@@ -110,7 +126,16 @@ export default function HomePageClient({
 
       <section className="section">
         <h2 className="heading">Recent Matches</h2>
-        {matches.length === 0 ? (
+        {matchesLoading && matches.length === 0 ? (
+          <ul className="match-list">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <li key={`match-skeleton-${i}`} className="card match-item">
+                <div className="skeleton" style={{ width: '60%', height: '1em', marginBottom: '4px' }} />
+                <div className="skeleton" style={{ width: '40%', height: '0.8em' }} />
+              </li>
+            ))}
+          </ul>
+        ) : matches.length === 0 ? (
           matchError ? (
             <p>
               Unable to load matches. Check connection.{" "}

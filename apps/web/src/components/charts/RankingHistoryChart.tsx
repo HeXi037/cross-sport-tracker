@@ -8,6 +8,7 @@ import {
   LineElement,
   Tooltip,
   Legend,
+  type ChartOptions,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 
@@ -38,11 +39,12 @@ export function RankingHistoryChart({ data }: { data: RankingPoint[] }) {
       },
     ],
   };
-  const options = {
+  const options: ChartOptions<'line'> = {
     responsive: true,
-    maintainAspectRatio: false as const,
+    maintainAspectRatio: false,
     scales: {
       y: {
+        type: 'linear' as const,
         reverse: true,
         beginAtZero: true,
       },

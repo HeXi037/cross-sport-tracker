@@ -56,6 +56,11 @@ a {
   background: var(--color-accent-red-hover);
 }
 
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .section {
   margin-bottom: 16px;
 }

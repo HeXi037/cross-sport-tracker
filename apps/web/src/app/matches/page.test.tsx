@@ -1,11 +1,15 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import MatchesPage from "./page";
+import "@testing-library/jest-dom";
 
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
+}));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 describe("MatchesPage", () => {
@@ -88,9 +92,9 @@ describe("MatchesPage", () => {
     const page = await MatchesPage({ searchParams: {} });
     render(page);
 
-    const prev = screen.getByText("Previous");
-    const next = screen.getByText("Next");
-    expect(prev.getAttribute("aria-disabled")).toBe("true");
-    expect(next.getAttribute("aria-disabled")).toBe("true");
+    const prev = screen.getByText("Previous") as HTMLButtonElement;
+    const next = screen.getByText("Next") as HTMLButtonElement;
+    expect(prev).toBeDisabled();
+    expect(next).toBeDisabled();
   });
 });

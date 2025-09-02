@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { apiFetch } from "../../lib/api";
+import Pager from "./pager";
 
 type MatchRow = {
   id: string;
@@ -137,22 +138,13 @@ export default async function MatchesPage(
             </li>
           ))}
         </ul>
-        <div className="pager">
-          {disablePrev ? (
-            <span aria-disabled="true">Previous</span>
-          ) : (
-            <Link href={`/matches?limit=${limit}&offset=${prevOffset}`}>
-              Previous
-            </Link>
-          )}
-          {disableNext ? (
-            <span aria-disabled="true">Next</span>
-          ) : (
-            <Link href={`/matches?limit=${limit}&offset=${nextOffset}`}>
-              Next
-            </Link>
-          )}
-        </div>
+        <Pager
+          limit={limit}
+          prevOffset={prevOffset}
+          nextOffset={nextOffset}
+          disablePrev={disablePrev}
+          disableNext={disableNext}
+        />
       </main>
     );
   } catch {

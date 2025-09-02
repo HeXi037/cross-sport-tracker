@@ -2,6 +2,7 @@
 import uuid
 import importlib
 from collections import Counter
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,7 +33,9 @@ router = APIRouter(prefix="/matches", tags=["matches"])
 # GET /api/v0/matches
 @router.get("", response_model=list[MatchSummaryOut])
 async def list_matches(
-    playerId: str | None = None, session: AsyncSession = Depends(get_session)
+    playerId: str | None = None,
+    upcoming: bool = False,
+    session: AsyncSession = Depends(get_session),
 ):
     if playerId:
         rows = (
@@ -49,14 +52,16 @@ async def list_matches(
             match = row.Match
             mp = row.MatchParticipant
             if playerId in (mp.player_ids or []) and match.id not in seen:
-                matches.append(match)
-                seen.add(match.id)
+                if not upcoming or match.played_at is None or match.played_at > datetime.utcnow():
+                    matches.append(match)
+                    seen.add(match.id)
     else:
-        stmt = (
-            select(Match)
-            .where(Match.deleted_at.is_(None))
-            .order_by(Match.played_at.desc())
-        )
+        stmt = select(Match).where(Match.deleted_at.is_(None))
+        if upcoming:
+            stmt = stmt.where(
+                (Match.played_at.is_(None)) | (Match.played_at > func.now())
+            )
+        stmt = stmt.order_by(Match.played_at.desc())
         matches = (await session.execute(stmt)).scalars().all()
 
     return [

@@ -8,6 +8,13 @@ interface Player {
   id: string;
   name: string;
   club_id?: string | null;
+  badges: Badge[];
+}
+
+interface Badge {
+  id: string;
+  name: string;
+  icon?: string | null;
 }
 
 type MatchRow = {
@@ -63,15 +70,17 @@ async function getPlayer(id: string): Promise<Player> {
   return (await res.json()) as Player;
 }
 
-async function getMatches(playerId: string): Promise<EnrichedMatch[]> {
+async function getMatches(
+  playerId: string,
+  upcoming = false
+): Promise<EnrichedMatch[]> {
   const r = await apiFetch(
-    `/v0/matches?playerId=${encodeURIComponent(playerId)}`,
-    {
-      cache: "no-store",
-    } as RequestInit
+    `/v0/matches?playerId=${encodeURIComponent(playerId)}${
+      upcoming ? "&upcoming=true" : ""
+    }`,
+    { cache: "no-store" } as RequestInit
   );
   if (!r.ok) return [];
-  // Only keep the most recent five matches
   const rows = ((await r.json()) as MatchRow[]).slice(0, 5);
 
   const details = await Promise.all(
@@ -141,10 +150,15 @@ async function getMatches(playerId: string): Promise<EnrichedMatch[]> {
   });
 }
 
+async function getUpcomingMatches(playerId: string): Promise<EnrichedMatch[]> {
+  return getMatches(playerId, true);
+}
+
 async function getStats(playerId: string): Promise<PlayerStats | null> {
-  const r = await apiFetch(`/v0/players/${encodeURIComponent(playerId)}/stats`, {
-    cache: "no-store",
-  } as RequestInit);
+  const r = await apiFetch(
+    `/v0/players/${encodeURIComponent(playerId)}/stats`,
+    { cache: "no-store" } as RequestInit
+  );
   if (!r.ok) return null;
   return (await r.json()) as PlayerStats;
 }
@@ -171,21 +185,21 @@ function winnerFromSummary(
     // @ts-expect-error dynamic
     "score",
   ];
-    for (const key of checks) {
-      const raw = (s as Record<string, unknown>)[key];
-      if (
-        raw &&
-        typeof raw === "object" &&
-        "A" in raw &&
-        "B" in raw &&
-        typeof (raw as { A: unknown }).A === "number" &&
-        typeof (raw as { B: unknown }).B === "number"
-      ) {
-        const val = raw as { A: number; B: number };
-        if (val.A > val.B) return "A";
-        if (val.B > val.A) return "B";
-      }
+  for (const key of checks) {
+    const raw = (s as Record<string, unknown>)[key];
+    if (
+      raw &&
+      typeof raw === "object" &&
+      "A" in raw &&
+      "B" in raw &&
+      typeof (raw as { A: unknown }).A === "number" &&
+      typeof (raw as { B: unknown }).B === "number"
+    ) {
+      const val = raw as { A: number; B: number };
+      if (val.A > val.B) return "A";
+      if (val.B > val.A) return "B";
     }
+  }
   return null;
 }
 
@@ -216,11 +230,15 @@ export default async function PlayerPage({
   searchParams: { view?: string };
 }) {
   try {
-    const [player, matches, stats] = await Promise.all([
+    const [player, allMatches, stats, upcoming] = await Promise.all([
       getPlayer(params.id),
       getMatches(params.id),
       getStats(params.id),
+      getUpcomingMatches(params.id),
     ]);
+    const matches = allMatches.filter(
+      (m) => m.playedAt && new Date(m.playedAt) <= new Date()
+    );
 
     const view = searchParams?.view === "summary" ? "summary" : "timeline";
     const seasons = summariseSeasons(matches);
@@ -254,11 +272,12 @@ export default async function PlayerPage({
     }[];
 
     return (
-      <main className="container">
-        <h1 className="heading">{player.name}</h1>
-        {player.club_id && <p>Club: {player.club_id}</p>}
+      <main className="container md:flex">
+        <section className="flex-1 md:mr-4">
+          <h1 className="heading">{player.name}</h1>
+          {player.club_id && <p>Club: {player.club_id}</p>}
 
-        <nav className="mt-4 mb-4 space-x-4">
+          <nav className="mt-4 mb-4 space-x-4">
             <Link
               href={`/players/${params.id}?view=timeline`}
               className={view === "timeline" ? "font-bold" : ""}
@@ -271,103 +290,137 @@ export default async function PlayerPage({
             >
               Season Summary
             </Link>
-        </nav>
+          </nav>
 
-        {view === "timeline" ? (
-          <section>
-            <h2 className="heading">Matches</h2>
-            {sortedMatches.length ? (
-              <ul>
-                {sortedMatches.map((m) => {
-                  const winner = winnerFromSummary(m.summary);
-                  const result =
-                    winner && m.playerSide
-                      ? winner === m.playerSide
-                        ? "Win"
-                        : "Loss"
-                      : "";
-                  return (
-                    <li key={m.id} className="mb-2">
-                      <div>
-                        <Link href={`/matches/${m.id}`}>
-                          {m.names.A.join(" & ")} vs {m.names.B.join(" & ")}
-                        </Link>
-                      </div>
+          {view === "timeline" ? (
+            <section>
+              <h2 className="heading">Matches</h2>
+              {sortedMatches.length ? (
+                <ul>
+                  {sortedMatches.map((m) => {
+                    const winner = winnerFromSummary(m.summary);
+                    const result =
+                      winner && m.playerSide
+                        ? winner === m.playerSide
+                          ? "Win"
+                          : "Loss"
+                        : "";
+                    return (
+                      <li key={m.id} className="mb-2">
+                        <div>
+                          <Link href={`/matches/${m.id}`}>
+                            {m.names.A.join(" & ")} vs {m.names.B.join(" & ")}
+                          </Link>
+                        </div>
+                        <div className="text-sm text-gray-700">
+                          {formatSummary(m.summary)}
+                          {result ? ` · ${result}` : ""}
+                          {m.summary || result ? " · " : ""}
+                          {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
+                          {m.playedAt
+                            ? new Date(m.playedAt).toLocaleDateString()
+                            : "—"}
+                          {" · "}
+                          {m.location ?? "—"}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p>No matches found.</p>
+              )}
+            </section>
+          ) : (
+            <section>
+              <h2 className="heading">Season Summary</h2>
+              {seasons.length ? (
+                <ul>
+                  {seasons.map((s) => (
+                    <li key={s.season} className="mb-2">
+                      <div className="font-semibold">{s.season}</div>
                       <div className="text-sm text-gray-700">
-                        {formatSummary(m.summary)}
-                        {result ? ` · ${result}` : ""}
-                        {m.summary || result ? " · " : ""}
-                        {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
-                        {m.playedAt
-                          ? new Date(m.playedAt).toLocaleDateString()
-                          : "—"}
-                        {" · "}
-                        {m.location ?? "—"}
+                        Wins: {s.wins} · Losses: {s.losses}
                       </div>
                     </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <p>No matches found.</p>
-            )}
-          </section>
-        ) : (
-          <section>
-            <h2 className="heading">Season Summary</h2>
-            {seasons.length ? (
-              <ul>
-                {seasons.map((s) => (
-                  <li key={s.season} className="mb-2">
-                    <div className="font-semibold">{s.season}</div>
-                    <div className="text-sm text-gray-700">
-                      Wins: {s.wins} · Losses: {s.losses}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>No matches found.</p>
-            )}
-          </section>
-        )}
+                  ))}
+                </ul>
+              ) : (
+                <p>No matches found.</p>
+              )}
+            </section>
+          )}
 
-        <h2 className="heading mt-4">Recent Opponents</h2>
-        {recentOpponents.length ? (
-          <ul>
-            {recentOpponents.map((o) => (
-              <li key={o.id} className="mb-2">
-                <div>{o.opponentName}</div>
-                <div className="text-sm text-gray-700">
-                  {o.date} · {o.result}
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>No recent opponents found.</p>
-        )}
-
-        {stats?.withRecords?.length ? (
-          <>
-            <h2 className="heading mt-4">Teammate Records</h2>
+          <h2 className="heading mt-4">Recent Opponents</h2>
+          {recentOpponents.length ? (
             <ul>
-              {stats.withRecords.map((r) => (
-                <li key={r.playerId}>
-                  {r.wins}-{r.losses} with {r.playerName || r.playerId}
+              {recentOpponents.map((o) => (
+                <li key={o.id} className="mb-2">
+                  <div>{o.opponentName}</div>
+                  <div className="text-sm text-gray-700">
+                    {o.date} · {o.result}
+                  </div>
                 </li>
               ))}
             </ul>
-          </>
-        ) : null}
+          ) : (
+            <p>No recent opponents found.</p>
+          )}
 
-        <PlayerCharts matches={matches} />
+          {stats?.withRecords?.length ? (
+            <>
+              <h2 className="heading mt-4">Teammate Records</h2>
+              <ul>
+                {stats.withRecords.map((r) => (
+                  <li key={r.playerId}>
+                    {r.wins}-{r.losses} with {r.playerName || r.playerId}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
 
-        <PlayerComments playerId={player.id} />
+          <PlayerCharts matches={matches} />
 
-        <Link href="/players" className="block mt-4">
-          Back to players
-        </Link>
+          <PlayerComments playerId={player.id} />
+
+          <Link href="/players" className="block mt-4">
+            Back to players
+          </Link>
+        </section>
+        <aside className="md:w-1/3 md:pl-4 mt-8 md:mt-0">
+          <h2 className="heading">Upcoming Matches</h2>
+          {upcoming.length ? (
+            <ul>
+              {upcoming.map((m) => (
+                <li key={m.id} className="mb-2">
+                  <Link href={`/matches/${m.id}`}>
+                    {m.names.A.join(" & ")} vs {m.names.B.join(" & ")}
+                  </Link>
+                  <div className="text-sm text-gray-700">
+                    {m.playedAt
+                      ? new Date(m.playedAt).toLocaleDateString()
+                      : "—"}
+                    {" · "}
+                    {m.location ?? "—"}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No upcoming matches.</p>
+          )}
+          <h2 className="heading mt-4">Badges</h2>
+          {player.badges.length ? (
+            <ul>
+              {player.badges.map((b) => (
+                <li key={b.id}>{b.name}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>No badges.</p>
+          )}
+        </aside>
       </main>
     );
   } catch {

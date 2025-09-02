@@ -9,6 +9,7 @@ interface Player {
   id: string;
   name: string;
   club_id?: string | null;
+  badges?: { id: string; name: string; icon?: string | null }[];
 }
 
 export default function PlayersPage() {

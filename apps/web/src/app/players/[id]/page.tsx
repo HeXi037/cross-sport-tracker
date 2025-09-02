@@ -30,6 +30,7 @@ type MatchDetail = {
 
 type EnrichedMatch = MatchRow & {
   names: Record<"A" | "B", string[]>;
+  participants: Participant[];
   summary?: MatchDetail["summary"];
 };
 
@@ -47,7 +48,8 @@ async function getMatches(playerId: string): Promise<EnrichedMatch[]> {
     cache: "no-store",
   } as RequestInit);
   if (!r.ok) return [];
-  const rows = (await r.json()) as MatchRow[];
+  // Only keep the most recent five matches
+  const rows = ((await r.json()) as MatchRow[]).slice(0, 5);
 
   // Load details for participants and summaries
   const details = await Promise.all(
@@ -87,7 +89,12 @@ async function getMatches(playerId: string): Promise<EnrichedMatch[]> {
     for (const p of detail.participants ?? []) {
       names[p.side] = (p.playerIds ?? []).map((id) => idToName.get(id) ?? id);
     }
-    return { ...row, names, summary: detail.summary };
+    return {
+      ...row,
+      names,
+      participants: detail.participants ?? [],
+      summary: detail.summary,
+    };
   });
 }
 
@@ -97,6 +104,30 @@ function formatSummary(s?: MatchDetail["summary"]): string {
   if (s.games) return `Games ${s.games.A}-${s.games.B}`;
   if (s.points) return `Points ${s.points.A}-${s.points.B}`;
   return "";
+}
+
+function winnerFromSummary(
+  s?: MatchDetail["summary"]
+): "A" | "B" | null {
+  if (!s) return null;
+  const checks: (keyof NonNullable<typeof s>)[] = [
+    "sets",
+    "points",
+    "games",
+    // fallbacks for other summary shapes
+    // @ts-expect-error dynamic
+    "total",
+    // @ts-expect-error dynamic
+    "score",
+  ];
+  for (const key of checks) {
+    const val: any = (s as any)[key];
+    if (val && typeof val.A === "number" && typeof val.B === "number") {
+      if (val.A > val.B) return "A";
+      if (val.B > val.A) return "B";
+    }
+  }
+  return null;
 }
 
 export default async function PlayerPage({
@@ -109,6 +140,29 @@ export default async function PlayerPage({
       getPlayer(params.id),
       getMatches(params.id),
     ]);
+
+    const recentOpponents = matches
+      .map((m) => {
+        const part = m.participants.find((p) =>
+          p.playerIds.includes(player.id)
+        );
+        if (!part) return null;
+        const mySide = part.side;
+        const oppSide = mySide === "A" ? "B" : "A";
+        const opponentName = m.names[oppSide].join(" & ");
+        const winner = winnerFromSummary(m.summary);
+        const result = winner ? (winner === mySide ? "Win" : "Loss") : "—";
+        const date = m.playedAt
+          ? new Date(m.playedAt).toLocaleDateString()
+          : "—";
+        return { id: m.id, opponentName, date, result };
+      })
+      .filter(Boolean) as {
+      id: string;
+      opponentName: string;
+      date: string;
+      result: string;
+    }[];
 
     return (
       <main className="container">
@@ -138,6 +192,22 @@ export default async function PlayerPage({
           </ul>
         ) : (
           <p>No matches found.</p>
+        )}
+
+        <h2 className="heading mt-4">Recent Opponents</h2>
+        {recentOpponents.length ? (
+          <ul>
+            {recentOpponents.map((o) => (
+              <li key={o.id} className="mb-2">
+                <div>{o.opponentName}</div>
+                <div className="text-sm text-gray-700">
+                  {o.date} · {o.result}
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No recent opponents found.</p>
         )}
 
         <Link href="/players" className="block mt-4">

@@ -5,7 +5,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Player, Match, MatchParticipant, User
+from ..models import Player, Match, MatchParticipant, User, PlayerMetric
 from ..schemas import (
     PlayerCreate,
     PlayerOut,
@@ -73,7 +73,20 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
     p = await session.get(Player, player_id)
     if not p or p.deleted_at is not None:
         raise PlayerNotFound(player_id)
-    return PlayerOut(id=p.id, name=p.name, club_id=p.club_id)
+    rows = (
+        await session.execute(
+            select(PlayerMetric).where(PlayerMetric.player_id == player_id)
+        )
+    ).scalars().all()
+    metrics = {r.sport_id: r.metrics for r in rows}
+    milestones = {r.sport_id: r.milestones for r in rows}
+    return PlayerOut(
+        id=p.id,
+        name=p.name,
+        club_id=p.club_id,
+        metrics=metrics or None,
+        milestones=milestones or None,
+    )
 
 
 # DELETE /api/v0/players/{player_id}

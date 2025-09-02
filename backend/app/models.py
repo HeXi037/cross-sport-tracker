@@ -82,6 +82,14 @@ class Rating(Base):
     value = Column(Float, nullable=False, default=1000)
 
 
+class PlayerMetric(Base):
+    __tablename__ = "player_metric"
+    player_id = Column(String, ForeignKey("player.id"), primary_key=True)
+    sport_id = Column(String, ForeignKey("sport.id"), primary_key=True)
+    metrics = Column(JSON, nullable=False, default=dict)
+    milestones = Column(JSON, nullable=False, default=list)
+
+
 class User(Base):
     __tablename__ = "user"
     id = Column(String, primary_key=True)

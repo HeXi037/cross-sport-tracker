@@ -21,6 +21,9 @@ class PlayerCreate(BaseModel):
         ..., min_length=1, max_length=50, pattern=r"^[A-Za-z0-9 '-]+$"
     )
     club_id: Optional[str] = None
+    photo_url: Optional[str] = None
+    location: Optional[str] = None
+    ranking: Optional[int] = None
 
 
 class PlayerOut(BaseModel):
@@ -42,6 +45,11 @@ class PlayerListOut(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class PlayerNameOut(BaseModel):
+    id: str
+    name: str
 
 
 class LeaderboardEntryOut(BaseModel):
@@ -184,13 +192,49 @@ class StreakSummary(BaseModel):
 
 class PlayerStatsOut(BaseModel):
     playerId: str
-    wins: int = 0
-    losses: int = 0
     bestAgainst: Optional[VersusRecord] = None
     worstAgainst: Optional[VersusRecord] = None
     bestWith: Optional[VersusRecord] = None
     worstWith: Optional[VersusRecord] = None
-    withRecords: list[VersusRecord] = []
     rollingWinPct: Optional[list[float]] = None
     sportFormatStats: list[SportFormatStats] = []
     streaks: Optional[StreakSummary] = None
+
+
+class UserCreate(BaseModel):
+    username: str
+    password: str
+    is_admin: bool = False
+
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
+class TokenOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class TournamentCreate(BaseModel):
+    sport: str
+    name: str
+    clubId: Optional[str] = None
+
+
+class TournamentOut(BaseModel):
+    id: str
+    sport: str
+    name: str
+    clubId: Optional[str] = None
+
+
+class StageCreate(BaseModel):
+    type: Literal["round_robin", "single_elim"]
+
+
+class StageOut(BaseModel):
+    id: str
+    tournamentId: str
+    type: str

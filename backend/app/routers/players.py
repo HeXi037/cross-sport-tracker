@@ -1,23 +1,22 @@
 import uuid
 from collections import defaultdict
-
 from fastapi import APIRouter, Depends, Response
-from sqlalchemy import func, select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..exceptions import ProblemDetail, PlayerAlreadyExists, PlayerNotFound
-from ..models import Match, MatchParticipant, Player, User
+from ..models import Player, Match, MatchParticipant, User
 from ..schemas import (
     PlayerCreate,
+    PlayerOut,
     PlayerListOut,
     PlayerNameOut,
-    PlayerOut,
     PlayerStatsOut,
+    VersusRecord,
     SportFormatStats,
     StreakSummary,
-    VersusRecord,
 )
+from ..exceptions import ProblemDetail, PlayerAlreadyExists, PlayerNotFound
 from ..services import (
     compute_sport_format_stats,
     compute_streaks,
@@ -32,7 +31,6 @@ router = APIRouter(
     responses={400: {"model": ProblemDetail}, 404: {"model": ProblemDetail}},
 )
 
-
 # POST /api/v0/players
 @router.post("", response_model=PlayerOut)
 async def create_player(body: PlayerCreate, session: AsyncSession = Depends(get_session)):
@@ -40,7 +38,14 @@ async def create_player(body: PlayerCreate, session: AsyncSession = Depends(get_
     if exists:
         raise PlayerAlreadyExists(body.name)
     pid = uuid.uuid4().hex
-    p = Player(id=pid, name=body.name, club_id=body.club_id)
+    p = Player(
+        id=pid,
+        name=body.name,
+        club_id=body.club_id,
+        photo_url=body.photo_url,
+        location=body.location,
+        ranking=body.ranking,
+    )
     session.add(p)
     await session.commit()
     return PlayerOut(
@@ -51,7 +56,6 @@ async def create_player(body: PlayerCreate, session: AsyncSession = Depends(get_
         location=p.location,
         ranking=p.ranking,
     )
-
 
 # GET /api/v0/players
 @router.get("", response_model=PlayerListOut)
@@ -82,7 +86,6 @@ async def list_players(
     ]
     return PlayerListOut(players=players, total=total, limit=limit, offset=offset)
 
-
 # GET /api/v0/players/by-ids?ids=...
 @router.get("/by-ids", response_model=list[PlayerNameOut])
 async def players_by_ids(ids: str = "", session: AsyncSession = Depends(get_session)):
@@ -93,7 +96,6 @@ async def players_by_ids(ids: str = "", session: AsyncSession = Depends(get_sess
         await session.execute(select(Player).where(Player.id.in_(id_list)))
     ).scalars().all()
     return [PlayerNameOut(id=p.id, name=p.name) for p in rows]
-
 
 # GET /api/v0/players/{player_id}
 @router.get("/{player_id}", response_model=PlayerOut)
@@ -110,7 +112,6 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
         ranking=p.ranking,
     )
 
-
 # DELETE /api/v0/players/{player_id}
 @router.delete("/{player_id}", status_code=204)
 async def delete_player(
@@ -124,7 +125,6 @@ async def delete_player(
     p.deleted_at = func.now()
     await session.commit()
     return Response(status_code=204)
-
 
 def _winner_from_summary(summary: dict | None) -> str | None:
     if not summary:
@@ -140,7 +140,6 @@ def _winner_from_summary(summary: dict | None) -> str | None:
                 if b > a:
                     return "B"
     return None
-
 
 @router.get("/{player_id}/stats", response_model=PlayerStatsOut)
 async def player_stats(
@@ -174,7 +173,6 @@ async def player_stats(
 
     opp_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"wins": 0, "total": 0})
     team_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"wins": 0, "total": 0})
-    wins = losses = 0
     results: list[bool] = []
     match_summary: list[tuple[str, int, bool]] = []
 
@@ -184,10 +182,6 @@ async def player_stats(
         if winner is None:
             continue
         is_win = winner == mp.side
-        if is_win:
-            wins += 1
-        else:
-            losses += 1
         results.append(is_win)
         match_summary.append((match.sport_id, len(mp.player_ids), is_win))
 
@@ -214,15 +208,15 @@ async def player_stats(
         id_to_name = {}
 
     def to_record(pid: str, stats: dict[str, int]) -> VersusRecord:
-        wins_ = stats["wins"]
+        wins = stats["wins"]
         total = stats["total"]
-        losses_ = total - wins_
-        win_pct = wins_ / total if total else 0.0
+        losses = total - wins
+        win_pct = wins / total if total else 0.0
         return VersusRecord(
             playerId=pid,
             playerName=id_to_name.get(pid, ""),
-            wins=wins_,
-            losses=losses_,
+            wins=wins,
+            losses=losses,
             winPct=win_pct,
         )
 
@@ -232,11 +226,10 @@ async def player_stats(
         best_against = max(records, key=lambda r: r.winPct)
         worst_against = min(records, key=lambda r: r.winPct)
 
-    with_records: list[VersusRecord] = []
     if team_stats:
-        with_records = [to_record(pid, s) for pid, s in team_stats.items()]
-        best_with = max(with_records, key=lambda r: r.winPct)
-        worst_with = min(with_records, key=lambda r: r.winPct)
+        records = [to_record(pid, s) for pid, s in team_stats.items()]
+        best_with = max(records, key=lambda r: r.winPct)
+        worst_with = min(records, key=lambda r: r.winPct)
 
     sf_stats = [
         SportFormatStats(
@@ -256,13 +249,10 @@ async def player_stats(
 
     return PlayerStatsOut(
         playerId=player_id,
-        wins=wins,
-        losses=losses,
         bestAgainst=best_against,
         worstAgainst=worst_against,
         bestWith=best_with,
         worstWith=worst_with,
-        withRecords=with_records,
         rollingWinPct=rolling,
         sportFormatStats=sf_stats,
         streaks=streaks,

@@ -1,6 +1,8 @@
 import React from "react";
 import Link from "next/link";
 import { apiFetch } from "../../../lib/api";
+import HeadToHead from "./head-to-head";
+import type { EnrichedMatch, MatchSummary } from "./types";
 
 interface Player {
   id: string;
@@ -19,18 +21,7 @@ type MatchRow = {
 type Participant = { side: "A" | "B"; playerIds: string[] };
 type MatchDetail = {
   participants: Participant[];
-  summary?:
-    | {
-        sets?: { A: number; B: number };
-        games?: { A: number; B: number };
-        points?: { A: number; B: number };
-      }
-    | null;
-};
-
-type EnrichedMatch = MatchRow & {
-  names: Record<"A" | "B", string[]>;
-  summary?: MatchDetail["summary"];
+  summary?: MatchSummary;
 };
 
 async function getPlayer(id: string): Promise<Player> {
@@ -84,10 +75,13 @@ async function getMatches(playerId: string): Promise<EnrichedMatch[]> {
 
   return details.map(({ row, detail }) => {
     const names: Record<"A" | "B", string[]> = { A: [], B: [] };
+    const playerIds: Record<"A" | "B", string[]> = { A: [], B: [] };
     for (const p of detail.participants ?? []) {
-      names[p.side] = (p.playerIds ?? []).map((id) => idToName.get(id) ?? id);
+      const ids = p.playerIds ?? [];
+      playerIds[p.side] = ids;
+      names[p.side] = ids.map((id) => idToName.get(id) ?? id);
     }
-    return { ...row, names, summary: detail.summary };
+    return { ...row, names, playerIds, summary: detail.summary };
   });
 }
 
@@ -114,6 +108,8 @@ export default async function PlayerPage({
       <main className="container">
         <h1 className="heading">{player.name}</h1>
         {player.club_id && <p>Club: {player.club_id}</p>}
+
+        <HeadToHead playerId={player.id} matches={matches} />
 
         <h2 className="heading mt-4">Recent Matches</h2>
         {matches.length ? (

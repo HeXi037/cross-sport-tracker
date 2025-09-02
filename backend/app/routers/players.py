@@ -1,11 +1,11 @@
 import uuid
 from collections import defaultdict
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Response, HTTPException
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Player, Match, MatchParticipant, User
+from ..models import Player, Match, MatchParticipant, User, Comment
 from ..schemas import (
     PlayerCreate,
     PlayerOut,
@@ -13,6 +13,8 @@ from ..schemas import (
     PlayerNameOut,
     PlayerStatsOut,
     VersusRecord,
+    CommentCreate,
+    CommentOut,
     SportFormatStats,
     StreakSummary,
 )
@@ -23,6 +25,7 @@ from ..services import (
     rolling_win_percentage,
 )
 from .admin import require_admin
+from .auth import get_current_user
 
 # Resource-only prefix; versioning added in main.py
 router = APIRouter(
@@ -112,6 +115,83 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
         ranking=p.ranking,
     )
 
+# GET /api/v0/players/{player_id}/comments
+@router.get("/{player_id}/comments", response_model=list[CommentOut])
+async def list_comments(
+    player_id: str, session: AsyncSession = Depends(get_session)
+):
+    p = await session.get(Player, player_id)
+    if not p or p.deleted_at is not None:
+        raise PlayerNotFound(player_id)
+    stmt = (
+        select(Comment, User.username)
+        .join(User, Comment.user_id == User.id)
+        .where(Comment.player_id == player_id, Comment.deleted_at.is_(None))
+        .order_by(Comment.created_at)
+    )
+    rows = await session.execute(stmt)
+    return [
+        CommentOut(
+            id=c.id,
+            playerId=c.player_id,
+            userId=c.user_id,
+            username=u,
+            content=c.content,
+            createdAt=c.created_at,
+        )
+        for c, u in rows.all()
+    ]
+
+
+# POST /api/v0/players/{player_id}/comments
+@router.post("/{player_id}/comments", response_model=CommentOut)
+async def add_comment(
+    player_id: str,
+    body: CommentCreate,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    p = await session.get(Player, player_id)
+    if not p or p.deleted_at is not None:
+        raise PlayerNotFound(player_id)
+    cid = uuid.uuid4().hex
+    comment = Comment(
+        id=cid,
+        player_id=player_id,
+        user_id=user.id,
+        content=body.content,
+    )
+    session.add(comment)
+    await session.commit()
+    await session.refresh(comment)
+    return CommentOut(
+        id=comment.id,
+        playerId=comment.player_id,
+        userId=comment.user_id,
+        username=user.username,
+        content=comment.content,
+        createdAt=comment.created_at,
+    )
+
+
+# DELETE /api/v0/players/{player_id}/comments/{comment_id}
+@router.delete("/{player_id}/comments/{comment_id}", status_code=204)
+async def delete_comment(
+    player_id: str,
+    comment_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    comment = await session.get(Comment, comment_id)
+    if not comment or comment.player_id != player_id or comment.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="comment not found")
+    if comment.user_id != user.id and not user.is_admin:
+        raise HTTPException(status_code=403, detail="forbidden")
+    comment.deleted_at = func.now()
+    await session.commit()
+    return Response(status_code=204)
+
+
 # DELETE /api/v0/players/{player_id}
 @router.delete("/{player_id}", status_code=204)
 async def delete_player(
@@ -182,7 +262,7 @@ async def player_stats(
         if winner is None:
             continue
         is_win = winner == mp.side
-        results.append(is_win)
+        results.append(is_win        )
         match_summary.append((match.sport_id, len(mp.player_ids), is_win))
 
         teammates = [pid for pid in mp.player_ids if pid != player_id]

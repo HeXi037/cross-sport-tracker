@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { apiFetch } from "../../../lib/api";
 import PlayerCharts from "./PlayerCharts";
+import PlayerComments from "./comments-client";
 
 interface Player {
   id: string;
@@ -361,6 +362,8 @@ export default async function PlayerPage({
         ) : null}
 
         <PlayerCharts matches={matches} />
+
+        <PlayerComments playerId={player.id} />
 
         <Link href="/players" className="block mt-4">
           Back to players

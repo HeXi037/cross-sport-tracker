@@ -20,6 +20,14 @@ except Exception:
 target_metadata = Base.metadata
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable is required")
+
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace(
+        "postgresql://", "postgresql+asyncpg://", 1
+    )
+
 def run_migrations_offline():
     context.configure(
         url=DATABASE_URL,

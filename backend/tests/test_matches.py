@@ -113,7 +113,7 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
     with TestClient(app) as client:
         resp = client.get("/matches")
         assert resp.status_code == 200
-        data = resp.json()
+        data = resp.json
         assert [m["id"] for m in data] == ["m2", "m1"]
 
 
@@ -173,7 +173,12 @@ def test_list_matches_filters_by_player(tmp_path):
         async with engine.begin() as conn:
             await conn.run_sync(
                 db.Base.metadata.create_all,
-                tables=[Sport.__table__, Player.__table__, Match.__table__, MatchParticipant.__table__],
+                tables=[
+                    Sport.__table__,
+                    Player.__table__,
+                    Match.__table__,
+                    MatchParticipant.__table__,
+                ],
             )
 
     asyncio.run(init_models())
@@ -220,6 +225,7 @@ def test_list_matches_filters_by_player(tmp_path):
         data = resp.json()
         assert len(data) == 1
         assert data[0]["id"] == m1
+
 
 @pytest.mark.anyio
 async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
@@ -464,9 +470,9 @@ async def test_create_match_preserves_naive_date(tmp_path):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from app import db
-    from app.models import Sport, Match, User
+    from app.models import Sport, Match
     from app.routers import matches
-    from app.routers.auth import get_current_user
+    from app.routers.admin import require_admin
 
     db.engine = None
     db.AsyncSessionLocal = None
@@ -482,9 +488,7 @@ async def test_create_match_preserves_naive_date(tmp_path):
 
     app = FastAPI()
     app.include_router(matches.router)
-    app.dependency_overrides[get_current_user] = lambda: User(
-        id="u1", username="admin", password_hash="", is_admin=True
-    )
+    app.dependency_overrides[require_admin] = lambda: None
 
     with TestClient(app) as client:
         payload = {

@@ -23,6 +23,7 @@ async def main():
             ("bowling", "Bowling"),
             ("tennis", "Tennis"),
             ("pickleball", "Pickleball"),
+            ("disc_golf", "Disc Golf"),
         ]:
             if sid not in have:
                 s.add(Sport(id=sid, name=name))
@@ -62,6 +63,12 @@ async def main():
                 sport_id="pickleball",
                 name="Pickleball standard",
                 config={"pointsTo": 11, "winBy": 2, "bestOf": 3},
+            ),
+            RuleSet(
+                id="disc-golf-standard",
+                sport_id="disc_golf",
+                name="Disc Golf standard",
+                config={"holes": 18},
             ),
         ]
         for rs in rulesets:

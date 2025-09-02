@@ -61,7 +61,6 @@ def compute_streaks(results: Sequence[bool]) -> Dict[str, int]:
             curr_loss += 1
             curr_win = 0
             longest_loss = max(longest_loss, curr_loss)
-    # current streak type/length
     current = 0
     if results:
         last = results[-1]

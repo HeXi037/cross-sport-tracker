@@ -24,9 +24,7 @@ export default function RecordSportPage() {
   const params = useParams();
   const sport = typeof params.sport === "string" ? params.sport : "";
   const isPadel = sport === "padel";
-  const isTennis = sport === "tennis";
   const isPickleball = sport === "pickleball";
-  const usesSets = isPadel || isTennis;
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [ids, setIds] = useState<IdMap>({ a1: "", a2: "", b1: "", b2: "" });
@@ -91,7 +89,21 @@ export default function RecordSportPage() {
         ];
 
     try {
-      const payload: any = { sport, participants, score: [scoreA, scoreB] };
+      interface MatchParticipant {
+        side: "A" | "B";
+        playerIds: string[];
+      }
+      interface MatchPayload {
+        sport: string;
+        participants: MatchParticipant[];
+        score: [string, string];
+        playedAt?: string;
+      }
+      const payload: MatchPayload = {
+        sport,
+        participants,
+        score: [scoreA, scoreB],
+      };
       if (date) {
         payload.playedAt = new Date(
           `${date}T${time || "00:00"}`

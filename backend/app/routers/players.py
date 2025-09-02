@@ -86,7 +86,6 @@ async def list_players(
     ]
     return PlayerListOut(players=players, total=total, limit=limit, offset=offset)
 
-
 # GET /api/v0/players/by-ids?ids=...
 @router.get("/by-ids", response_model=list[PlayerNameOut])
 async def players_by_ids(ids: str = "", session: AsyncSession = Depends(get_session)):
@@ -113,7 +112,6 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
         ranking=p.ranking,
     )
 
-
 # DELETE /api/v0/players/{player_id}
 @router.delete("/{player_id}", status_code=204)
 async def delete_player(
@@ -127,7 +125,6 @@ async def delete_player(
     p.deleted_at = func.now()
     await session.commit()
     return Response(status_code=204)
-
 
 def _winner_from_summary(summary: dict | None) -> str | None:
     if not summary:
@@ -143,7 +140,6 @@ def _winner_from_summary(summary: dict | None) -> str | None:
                 if b > a:
                     return "B"
     return None
-
 
 @router.get("/{player_id}/stats", response_model=PlayerStatsOut)
 async def player_stats(

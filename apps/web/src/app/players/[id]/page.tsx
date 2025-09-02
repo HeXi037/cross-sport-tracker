@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { apiFetch } from "../../../lib/api";
+import PlayerCharts from "./PlayerCharts";
 
 interface Player {
   id: string;
@@ -31,6 +32,8 @@ type MatchDetail = {
 type EnrichedMatch = MatchRow & {
   names: Record<"A" | "B", string[]>;
   summary?: MatchDetail["summary"];
+  playerSide: "A" | "B" | null;
+  playerWon?: boolean;
 };
 
 async function getPlayer(id: string): Promise<Player> {
@@ -84,10 +87,30 @@ async function getMatches(playerId: string): Promise<EnrichedMatch[]> {
 
   return details.map(({ row, detail }) => {
     const names: Record<"A" | "B", string[]> = { A: [], B: [] };
+    let playerSide: "A" | "B" | null = null;
     for (const p of detail.participants ?? []) {
-      names[p.side] = (p.playerIds ?? []).map((id) => idToName.get(id) ?? id);
+      const ids = p.playerIds ?? [];
+      names[p.side] = ids.map((id) => idToName.get(id) ?? id);
+      if (ids.includes(playerId)) {
+        playerSide = p.side;
+      }
     }
-    return { ...row, names, summary: detail.summary };
+    let playerWon: boolean | undefined = undefined;
+    const summary = detail.summary;
+    if (playerSide && summary) {
+      const opp = playerSide === "A" ? "B" : "A";
+      const sets = summary.sets;
+      const games = summary.games;
+      const points = summary.points;
+      if (sets) {
+        playerWon = sets[playerSide] > sets[opp];
+      } else if (games) {
+        playerWon = games[playerSide] > games[opp];
+      } else if (points) {
+        playerWon = points[playerSide] > points[opp];
+      }
+    }
+    return { ...row, names, summary, playerSide, playerWon };
   });
 }
 
@@ -139,6 +162,8 @@ export default async function PlayerPage({
         ) : (
           <p>No matches found.</p>
         )}
+
+        <PlayerCharts matches={matches} />
 
         <Link href="/players" className="block mt-4">
           Back to players

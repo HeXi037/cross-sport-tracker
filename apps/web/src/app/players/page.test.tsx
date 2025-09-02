@@ -92,5 +92,33 @@ describe("PlayersPage", () => {
     expect(screen.getByText(/no players found/i)).toBeTruthy();
     vi.useRealTimers();
   });
-});
 
+  it("shows a success message after adding a player", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "1" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
+    // @ts-expect-error override global fetch for test
+    global.fetch = fetchMock;
+
+    vi.useFakeTimers();
+    render(<PlayersPage />);
+
+    const input = screen.getByPlaceholderText(/name/i);
+    fireEvent.change(input, { target: { value: "New Player" } });
+    const button = screen.getByRole("button", { name: /add/i });
+    await act(async () => {
+      fireEvent.click(button);
+      await Promise.resolve();
+    });
+
+    screen.getByText(/added successfully/i);
+    await act(async () => {
+      vi.advanceTimersByTime(3000);
+      await Promise.resolve();
+    });
+    expect(screen.queryByText(/added successfully/i)).toBeNull();
+    vi.useRealTimers();
+  });
+});

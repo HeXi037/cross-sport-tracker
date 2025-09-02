@@ -20,6 +20,7 @@ export default function PlayersPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
 
@@ -90,6 +91,7 @@ export default function PlayersPage() {
       return;
     }
     setError(null);
+    setSuccess(null);
     setCreating(true);
     try {
       const res = await apiFetch("/v0/players", {
@@ -112,6 +114,8 @@ export default function PlayersPage() {
       }
       setName("");
       load();
+      setSuccess("Player added successfully!");
+      setTimeout(() => setSuccess(null), 3000);
     } catch {
       setError("Failed to create player.");
       return;
@@ -173,6 +177,7 @@ export default function PlayersPage() {
       >
         {creating ? "Saving…" : "Add"}
       </button>
+      {success && <div className="text-green-600 mt-2">{success}</div>}
       {error && (
         <div className="text-red-500 mt-2">
           {error}

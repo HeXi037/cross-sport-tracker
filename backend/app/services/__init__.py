@@ -18,4 +18,3 @@ __all__ = [
     "compute_streaks",
     "compute_sport_format_stats",
 ]
-

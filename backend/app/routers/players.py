@@ -1,22 +1,23 @@
 import uuid
 from collections import defaultdict
+
 from fastapi import APIRouter, Depends, Response
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Player, Match, MatchParticipant, User
+from ..exceptions import ProblemDetail, PlayerAlreadyExists, PlayerNotFound
+from ..models import Match, MatchParticipant, Player, User
 from ..schemas import (
     PlayerCreate,
-    PlayerOut,
     PlayerListOut,
     PlayerNameOut,
+    PlayerOut,
     PlayerStatsOut,
-    VersusRecord,
     SportFormatStats,
     StreakSummary,
+    VersusRecord,
 )
-from ..exceptions import ProblemDetail, PlayerAlreadyExists, PlayerNotFound
 from ..services import (
     compute_sport_format_stats,
     compute_streaks,
@@ -30,6 +31,7 @@ router = APIRouter(
     tags=["players"],
     responses={400: {"model": ProblemDetail}, 404: {"model": ProblemDetail}},
 )
+
 
 # POST /api/v0/players
 @router.post("", response_model=PlayerOut)
@@ -49,6 +51,7 @@ async def create_player(body: PlayerCreate, session: AsyncSession = Depends(get_
         location=p.location,
         ranking=p.ranking,
     )
+
 
 # GET /api/v0/players
 @router.get("", response_model=PlayerListOut)
@@ -90,6 +93,7 @@ async def players_by_ids(ids: str = "", session: AsyncSession = Depends(get_sess
         await session.execute(select(Player).where(Player.id.in_(id_list)))
     ).scalars().all()
     return [PlayerNameOut(id=p.id, name=p.name) for p in rows]
+
 
 # GET /api/v0/players/{player_id}
 @router.get("/{player_id}", response_model=PlayerOut)
@@ -228,10 +232,11 @@ async def player_stats(
         best_against = max(records, key=lambda r: r.winPct)
         worst_against = min(records, key=lambda r: r.winPct)
 
+    with_records: list[VersusRecord] = []
     if team_stats:
-        records = [to_record(pid, s) for pid, s in team_stats.items()]
-        best_with = max(records, key=lambda r: r.winPct)
-        worst_with = min(records, key=lambda r: r.winPct)
+        with_records = [to_record(pid, s) for pid, s in team_stats.items()]
+        best_with = max(with_records, key=lambda r: r.winPct)
+        worst_with = min(with_records, key=lambda r: r.winPct)
 
     sf_stats = [
         SportFormatStats(
@@ -257,6 +262,7 @@ async def player_stats(
         worstAgainst=worst_against,
         bestWith=best_with,
         worstWith=worst_with,
+        withRecords=with_records,
         rollingWinPct=rolling,
         sportFormatStats=sf_stats,
         streaks=streaks,

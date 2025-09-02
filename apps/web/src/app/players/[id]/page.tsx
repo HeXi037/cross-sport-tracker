@@ -37,6 +37,23 @@ type EnrichedMatch = MatchRow & {
   playerWon?: boolean;
 };
 
+interface VersusRecord {
+  playerId: string;
+  playerName: string;
+  wins: number;
+  losses: number;
+  winPct: number;
+}
+
+interface PlayerStats {
+  playerId: string;
+  bestAgainst?: VersusRecord | null;
+  worstAgainst?: VersusRecord | null;
+  bestWith?: VersusRecord | null;
+  worstWith?: VersusRecord | null;
+  withRecords: VersusRecord[];
+}
+
 async function getPlayer(id: string): Promise<Player> {
   const res = await apiFetch(`/v0/players/${encodeURIComponent(id)}`, {
     cache: "no-store",
@@ -123,6 +140,14 @@ async function getMatches(playerId: string): Promise<EnrichedMatch[]> {
   });
 }
 
+async function getStats(playerId: string): Promise<PlayerStats | null> {
+  const r = await apiFetch(`/v0/players/${encodeURIComponent(playerId)}/stats`, {
+    cache: "no-store",
+  } as RequestInit);
+  if (!r.ok) return null;
+  return (await r.json()) as PlayerStats;
+}
+
 function formatSummary(s?: MatchDetail["summary"]): string {
   if (!s) return "";
   if (s.sets) return `Sets ${s.sets.A}-${s.sets.B}`;
@@ -168,7 +193,7 @@ function summariseSeasons(matches: EnrichedMatch[]): SeasonSummary[] {
       if (winner === m.playerSide) byYear[year].wins += 1;
       else byYear[year].losses += 1;
     }
-    }
+  }
   return Object.keys(byYear)
     .sort()
     .map((season) => ({ season, ...byYear[season] }));
@@ -182,9 +207,10 @@ export default async function PlayerPage({
   searchParams: { view?: string };
 }) {
   try {
-    const [player, matches] = await Promise.all([
+    const [player, matches, stats] = await Promise.all([
       getPlayer(params.id),
       getMatches(params.id),
+      getStats(params.id),
     ]);
 
     const view = searchParams?.view === "summary" ? "summary" : "timeline";
@@ -224,18 +250,18 @@ export default async function PlayerPage({
         {player.club_id && <p>Club: {player.club_id}</p>}
 
         <nav className="mt-4 mb-4 space-x-4">
-          <Link
-            href={`/players/${params.id}?view=timeline`}
-            className={view === "timeline" ? "font-bold" : ""}
-          >
-            Timeline
-          </Link>
-          <Link
-            href={`/players/${params.id}?view=summary`}
-            className={view === "summary" ? "font-bold" : ""}
-          >
-            Season Summary
-          </Link>
+            <Link
+              href={`/players/${params.id}?view=timeline`}
+              className={view === "timeline" ? "font-bold" : ""}
+            >
+              Timeline
+            </Link>
+            <Link
+              href={`/players/${params.id}?view=summary`}
+              className={view === "summary" ? "font-bold" : ""}
+            >
+              Season Summary
+            </Link>
         </nav>
 
         {view === "timeline" ? (
@@ -312,6 +338,19 @@ export default async function PlayerPage({
         ) : (
           <p>No recent opponents found.</p>
         )}
+
+        {stats?.withRecords?.length ? (
+          <>
+            <h2 className="heading mt-4">Teammate Records</h2>
+            <ul>
+              {stats.withRecords.map((r) => (
+                <li key={r.playerId}>
+                  {r.wins}-{r.losses} with {r.playerName || r.playerId}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
 
         <PlayerCharts matches={matches} />
 

@@ -67,5 +67,30 @@ describe("PlayersPage", () => {
     expect(screen.getByText("Bob")).toBeTruthy();
     vi.useRealTimers();
   });
+
+  it("shows a message when no players match the search", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        players: [
+          { id: "1", name: "Alice" },
+          { id: "2", name: "Bob" },
+        ],
+      }),
+    });
+    // @ts-expect-error override global fetch for test
+    global.fetch = fetchMock;
+
+    render(<PlayersPage />);
+    await screen.findByText("Alice");
+    vi.useFakeTimers();
+    const search = screen.getByPlaceholderText(/search/i);
+    fireEvent.change(search, { target: { value: "zo" } });
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(screen.getByText(/no players found/i)).toBeTruthy();
+    vi.useRealTimers();
+  });
 });
 

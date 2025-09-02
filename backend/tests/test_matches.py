@@ -441,3 +441,44 @@ async def test_delete_match_updates_ratings_and_leaderboard(tmp_path):
         del os.environ["DATABASE_URL"]
     else:
         os.environ["DATABASE_URL"] = prev_db
+
+
+@pytest.mark.anyio
+async def test_create_match_preserves_naive_date(tmp_path):
+    os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
+    os.environ["JWT_SECRET"] = "testsecret"
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from app import db
+    from app.models import Sport, Match
+    from app.routers import matches
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            db.Base.metadata.create_all, tables=[Sport.__table__, Match.__table__]
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        session.add(Sport(id="padel", name="Padel"))
+        await session.commit()
+
+    app = FastAPI()
+    app.include_router(matches.router)
+
+    with TestClient(app) as client:
+        payload = {
+            "sport": "padel",
+            "participants": [],
+            "playedAt": "2024-01-01T00:00:00",
+        }
+        resp = client.post("/matches", json=payload)
+        assert resp.status_code == 200
+        mid = resp.json()["id"]
+
+    async with db.AsyncSessionLocal() as session:
+        match = await session.get(Match, mid)
+        assert match is not None
+        assert match.played_at.isoformat() == "2024-01-01T00:00:00"

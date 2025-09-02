@@ -106,9 +106,11 @@ export default function RecordSportPage() {
         score: [Number(scoreA), Number(scoreB)],
       };
       if (date) {
-        payload.playedAt = new Date(
-          `${date}T${time || "00:00"}`
-        ).toISOString();
+        if (time) {
+          payload.playedAt = new Date(`${date}T${time}`).toISOString();
+        } else {
+          payload.playedAt = `${date}T00:00:00`;
+        }
       }
       const res = await fetch(`${base}/v0/matches`, {
         method: "POST",

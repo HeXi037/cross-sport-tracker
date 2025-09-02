@@ -179,12 +179,12 @@ export default async function PlayerPage({
     const recentOpponents = matches
       .map((m) => {
         const part = m.participants.find((p) =>
-          p.playerIds.includes(player.id)
+          (p.playerIds ?? []).includes(player.id)
         );
         if (!part) return null;
         const mySide = part.side;
         const oppSide = mySide === "A" ? "B" : "A";
-        the opponentName = m.names[oppSide].join(" & ");
+        const opponentName = m.names[oppSide].join(" & ");
         const winner = winnerFromSummary(m.summary);
         const result = winner ? (winner === mySide ? "Win" : "Loss") : "—";
         const date = m.playedAt

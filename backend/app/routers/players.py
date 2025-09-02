@@ -267,5 +267,3 @@ async def player_stats(
         sportFormatStats=sf_stats,
         streaks=streaks,
     )
-
-

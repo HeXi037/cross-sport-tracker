@@ -44,11 +44,6 @@ class PlayerListOut(BaseModel):
     offset: int
 
 
-class PlayerNameOut(BaseModel):
-    id: str
-    name: str
-
-
 class LeaderboardEntryOut(BaseModel):
     rank: int
     playerId: str
@@ -199,44 +194,3 @@ class PlayerStatsOut(BaseModel):
     rollingWinPct: Optional[list[float]] = None
     sportFormatStats: list[SportFormatStats] = []
     streaks: Optional[StreakSummary] = None
-
-
-class UserCreate(BaseModel):
-    username: str
-    password: str
-    is_admin: bool = False
-
-
-class UserLogin(BaseModel):
-    username: str
-    password: str
-
-
-class TokenOut(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-
-
-class TournamentCreate(BaseModel):
-    sport: str
-    name: str
-    clubId: Optional[str] = None
-
-
-class TournamentOut(BaseModel):
-    id: str
-    sport: str
-    name: str
-    clubId: Optional[str] = None
-
-
-class StageCreate(BaseModel):
-    type: Literal["round_robin", "single_elim"]
-
-
-class StageOut(BaseModel):
-    id: str
-    tournamentId: str
-    type: str
-
-

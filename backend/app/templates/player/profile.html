@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>{{ player.name }} - Profile</title>
+</head>
+<body>
+    <h1>{{ player.name }}</h1>
+    {% if player.photo_url %}
+    <img src="{{ player.photo_url }}" alt="{{ player.name }} photo" />
+    {% endif %}
+    <p>Location: {{ player.location or "Unknown" }}</p>
+    <p>Ranking: {{ player.ranking or "N/A" }}</p>
+    <h2>Record</h2>
+    <p>Wins: {{ stats.wins }} | Losses: {{ stats.losses }}</p>
+</body>
+</html>

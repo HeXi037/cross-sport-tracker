@@ -5,7 +5,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Player, Match, MatchParticipant, User, Comment
+from ..models import Player, Match, MatchParticipant, User, Comment, PlayerMetric
 from ..schemas import (
     PlayerCreate,
     PlayerOut,
@@ -36,8 +36,12 @@ router = APIRouter(
 
 # POST /api/v0/players
 @router.post("", response_model=PlayerOut)
-async def create_player(body: PlayerCreate, session: AsyncSession = Depends(get_session)):
-    exists = (await session.execute(select(Player).where(Player.name == body.name))).scalar_one_or_none()
+async def create_player(
+    body: PlayerCreate, session: AsyncSession = Depends(get_session)
+):
+    exists = (
+        await session.execute(select(Player).where(Player.name == body.name))
+    ).scalar_one_or_none()
     if exists:
         raise PlayerAlreadyExists(body.name)
     pid = uuid.uuid4().hex
@@ -69,7 +73,9 @@ async def list_players(
     session: AsyncSession = Depends(get_session),
 ):
     stmt = select(Player).where(Player.deleted_at.is_(None))
-    count_stmt = select(func.count()).select_from(Player).where(Player.deleted_at.is_(None))
+    count_stmt = select(func.count()).select_from(Player).where(
+        Player.deleted_at.is_(None)
+    )
     if q:
         stmt = stmt.where(Player.name.ilike(f"%{q}%"))
         count_stmt = count_stmt.where(Player.name.ilike(f"%{q}%"))
@@ -106,6 +112,13 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
     p = await session.get(Player, player_id)
     if not p or p.deleted_at is not None:
         raise PlayerNotFound(player_id)
+    rows = (
+        await session.execute(
+            select(PlayerMetric).where(PlayerMetric.player_id == player_id)
+        )
+    ).scalars().all()
+    metrics = {r.sport_id: r.metrics for r in rows}
+    milestones = {r.sport_id: r.milestones for r in rows}
     return PlayerOut(
         id=p.id,
         name=p.name,
@@ -113,6 +126,8 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
         photo_url=p.photo_url,
         location=p.location,
         ranking=p.ranking,
+        metrics=metrics or None,
+        milestones=milestones or None,
     )
 
 # GET /api/v0/players/{player_id}/comments
@@ -191,7 +206,6 @@ async def delete_comment(
     await session.commit()
     return Response(status_code=204)
 
-
 # DELETE /api/v0/players/{player_id}
 @router.delete("/{player_id}", status_code=204)
 async def delete_player(
@@ -205,6 +219,7 @@ async def delete_player(
     p.deleted_at = func.now()
     await session.commit()
     return Response(status_code=204)
+
 
 def _winner_from_summary(summary: dict | None) -> str | None:
     if not summary:
@@ -221,6 +236,7 @@ def _winner_from_summary(summary: dict | None) -> str | None:
                     return "B"
     return None
 
+
 @router.get("/{player_id}/stats", response_model=PlayerStatsOut)
 async def player_stats(
     player_id: str,
@@ -231,7 +247,9 @@ async def player_stats(
     if not p:
         raise PlayerNotFound(player_id)
 
-    stmt = select(Match, MatchParticipant).join(MatchParticipant).where(Match.deleted_at.is_(None))
+    stmt = select(Match, MatchParticipant).join(MatchParticipant).where(
+        Match.deleted_at.is_(None)
+    )
     rows = [
         r
         for r in (await session.execute(stmt)).all()
@@ -244,15 +262,21 @@ async def player_stats(
     match_ids = [r.Match.id for r in rows]
     parts = (
         await session.execute(
-            select(MatchParticipant).where(MatchParticipant.match_id.in_(match_ids))
+            select(MatchParticipant).where(
+                MatchParticipant.match_id.in_(match_ids)
+            )
         )
     ).scalars().all()
     match_to_parts = defaultdict(list)
     for part in parts:
         match_to_parts[part.match_id].append(part)
 
-    opp_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"wins": 0, "total": 0})
-    team_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"wins": 0, "total": 0})
+    opp_stats: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"wins": 0, "total": 0}
+    )
+    team_stats: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"wins": 0, "total": 0}
+    )
     results: list[bool] = []
     match_summary: list[tuple[str, int, bool]] = []
 
@@ -262,7 +286,7 @@ async def player_stats(
         if winner is None:
             continue
         is_win = winner == mp.side
-        results.append(is_win        )
+        results.append(is_win)
         match_summary.append((match.sport_id, len(mp.player_ids), is_win))
 
         teammates = [pid for pid in mp.player_ids if pid != player_id]

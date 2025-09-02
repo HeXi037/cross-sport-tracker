@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple
 from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
 
@@ -33,6 +33,8 @@ class PlayerOut(BaseModel):
     photo_url: Optional[str] = None
     location: Optional[str] = None
     ranking: Optional[int] = None
+    metrics: Optional[Dict[str, Dict[str, int]]] = None
+    milestones: Optional[Dict[str, List[str]]] = None
 
 
 class PlayerNameOut(BaseModel):

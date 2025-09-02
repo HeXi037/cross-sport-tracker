@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from fastapi.responses import JSONResponse
 from app import db
 from app.routers import players, auth
-from app.models import Player, Club, User
+from app.models import Player, Club, User, PlayerMetric
 from app.exceptions import DomainException, ProblemDetail
 
 app = FastAPI()
@@ -48,7 +48,12 @@ def setup_db():
         async with engine.begin() as conn:
             await conn.run_sync(
                 db.Base.metadata.create_all,
-                tables=[Club.__table__, Player.__table__, User.__table__],
+                tables=[
+                    Club.__table__,
+                    Player.__table__,
+                    User.__table__,
+                    PlayerMetric.__table__,
+                ],
             )
     asyncio.run(init_models())
     yield

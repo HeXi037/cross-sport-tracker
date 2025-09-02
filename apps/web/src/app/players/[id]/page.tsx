@@ -30,6 +30,7 @@ type MatchDetail = {
 
 type EnrichedMatch = MatchRow & {
   names: Record<"A" | "B", string[]>;
+  participants: Participant[];
   summary?: MatchDetail["summary"];
   playerSide?: "A" | "B" | null;
 };
@@ -43,11 +44,15 @@ async function getPlayer(id: string): Promise<Player> {
 }
 
 async function getMatches(playerId: string): Promise<EnrichedMatch[]> {
-  const r = await apiFetch(`/v0/matches?playerId=${encodeURIComponent(playerId)}`, {
-    cache: "no-store",
-  } as RequestInit);
+  const r = await apiFetch(
+    `/v0/matches?playerId=${encodeURIComponent(playerId)}`,
+    {
+      cache: "no-store",
+    } as RequestInit
+  );
   if (!r.ok) return [];
-  const rows = (await r.json()) as MatchRow[];
+  // Only keep the most recent five matches
+  const rows = ((await r.json()) as MatchRow[]).slice(0, 5);
 
   const details = await Promise.all(
     rows.map(async (m) => {
@@ -84,10 +89,18 @@ async function getMatches(playerId: string): Promise<EnrichedMatch[]> {
     const names: Record<"A" | "B", string[]> = { A: [], B: [] };
     let playerSide: "A" | "B" | null = null;
     for (const p of detail.participants ?? []) {
-      names[p.side] = (p.playerIds ?? []).map((id) => idToName.get(id) ?? id);
+      names[p.side] = (p.playerIds ?? []).map(
+        (id) => idToName.get(id) ?? id
+      );
       if (p.playerIds?.includes(playerId)) playerSide = p.side;
     }
-    return { ...row, names, summary: detail.summary, playerSide };
+    return {
+      ...row,
+      names,
+      participants: detail.participants ?? [],
+      summary: detail.summary,
+      playerSide,
+    };
   });
 }
 
@@ -99,10 +112,22 @@ function formatSummary(s?: MatchDetail["summary"]): string {
   return "";
 }
 
-function winnerFromSummary(s?: MatchDetail["summary"]): "A" | "B" | null {
+function winnerFromSummary(
+  s?: MatchDetail["summary"]
+): "A" | "B" | null {
   if (!s) return null;
-  for (const key of ["sets", "games", "points"] as const) {
-    const val = (s as any)[key] as { A?: number; B?: number } | undefined;
+  const checks: (keyof NonNullable<typeof s>)[] = [
+    "sets",
+    "points",
+    "games",
+    // fallbacks for other summary shapes
+    // @ts-expect-error dynamic
+    "total",
+    // @ts-expect-error dynamic
+    "score",
+  ];
+  for (const key of checks) {
+    const val: any = (s as any)[key];
     if (val && typeof val.A === "number" && typeof val.B === "number") {
       if (val.A > val.B) return "A";
       if (val.B > val.A) return "B";
@@ -151,9 +176,32 @@ export default async function PlayerPage({
       return da - db;
     });
 
+    const recentOpponents = matches
+      .map((m) => {
+        const part = m.participants.find((p) =>
+          p.playerIds.includes(player.id)
+        );
+        if (!part) return null;
+        const mySide = part.side;
+        const oppSide = mySide === "A" ? "B" : "A";
+        the opponentName = m.names[oppSide].join(" & ");
+        const winner = winnerFromSummary(m.summary);
+        const result = winner ? (winner === mySide ? "Win" : "Loss") : "—";
+        const date = m.playedAt
+          ? new Date(m.playedAt).toLocaleDateString()
+          : "—";
+        return { id: m.id, opponentName, date, result };
+      })
+      .filter(Boolean) as {
+      id: string;
+      opponentName: string;
+      date: string;
+      result: string;
+    }[];
+
     return (
       <main className="container">
-        <h1 className="heading">{player.name}</h1
+        <h1 className="heading">{player.name}</h1>
         {player.club_id && <p>Club: {player.club_id}</p>}
 
         <nav className="mt-4 mb-4 space-x-4">
@@ -228,6 +276,22 @@ export default async function PlayerPage({
               <p>No matches found.</p>
             )}
           </section>
+        )}
+
+        <h2 className="heading mt-4">Recent Opponents</h2>
+        {recentOpponents.length ? (
+          <ul>
+            {recentOpponents.map((o) => (
+              <li key={o.id} className="mb-2">
+                <div>{o.opponentName}</div>
+                <div className="text-sm text-gray-700">
+                  {o.date} · {o.result}
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No recent opponents found.</p>
         )}
 
         <Link href="/players" className="block mt-4">

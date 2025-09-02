@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { apiFetch } from "../../../lib/api";
+import PlayerCharts from "./PlayerCharts";
 
 interface Player {
   id: string;
@@ -32,7 +33,8 @@ type EnrichedMatch = MatchRow & {
   names: Record<"A" | "B", string[]>;
   participants: Participant[];
   summary?: MatchDetail["summary"];
-  playerSide?: "A" | "B" | null;
+  playerSide: "A" | "B" | null;
+  playerWon?: boolean;
 };
 
 async function getPlayer(id: string): Promise<Player> {
@@ -89,17 +91,34 @@ async function getMatches(playerId: string): Promise<EnrichedMatch[]> {
     const names: Record<"A" | "B", string[]> = { A: [], B: [] };
     let playerSide: "A" | "B" | null = null;
     for (const p of detail.participants ?? []) {
-      names[p.side] = (p.playerIds ?? []).map(
-        (id) => idToName.get(id) ?? id
-      );
-      if (p.playerIds?.includes(playerId)) playerSide = p.side;
+      const ids = p.playerIds ?? [];
+      names[p.side] = ids.map((id) => idToName.get(id) ?? id);
+      if (ids.includes(playerId)) {
+        playerSide = p.side;
+      }
+    }
+    let playerWon: boolean | undefined = undefined;
+    const summary = detail.summary;
+    if (playerSide && summary) {
+      const opp = playerSide === "A" ? "B" : "A";
+      const sets = summary.sets;
+      const games = summary.games;
+      const points = summary.points;
+      if (sets) {
+        playerWon = sets[playerSide] > sets[opp];
+      } else if (games) {
+        playerWon = games[playerSide] > games[opp];
+      } else if (points) {
+        playerWon = points[playerSide] > points[opp];
+      }
     }
     return {
       ...row,
       names,
       participants: detail.participants ?? [],
-      summary: detail.summary,
+      summary,
       playerSide,
+      playerWon,
     };
   });
 }
@@ -149,7 +168,7 @@ function summariseSeasons(matches: EnrichedMatch[]): SeasonSummary[] {
       if (winner === m.playerSide) byYear[year].wins += 1;
       else byYear[year].losses += 1;
     }
-  }
+    }
   return Object.keys(byYear)
     .sort()
     .map((season) => ({ season, ...byYear[season] }));
@@ -184,7 +203,7 @@ export default async function PlayerPage({
         if (!part) return null;
         const mySide = part.side;
         const oppSide = mySide === "A" ? "B" : "A";
-        the opponentName = m.names[oppSide].join(" & ");
+        const opponentName = m.names[oppSide].join(" & ");
         const winner = winnerFromSummary(m.summary);
         const result = winner ? (winner === mySide ? "Win" : "Loss") : "—";
         const date = m.playedAt
@@ -293,6 +312,8 @@ export default async function PlayerPage({
         ) : (
           <p>No recent opponents found.</p>
         )}
+
+        <PlayerCharts matches={matches} />
 
         <Link href="/players" className="block mt-4">
           Back to players

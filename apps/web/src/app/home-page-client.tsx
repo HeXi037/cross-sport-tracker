@@ -3,15 +3,9 @@
 import React, { useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '../lib/api';
+import { enrichMatches, type MatchRow, type EnrichedMatch } from '../lib/matches';
 
 interface Sport { id: string; name: string }
-interface MatchRow {
-  id: string;
-  sport: string;
-  bestOf: number | null;
-  playedAt: string | null;
-  location: string | null;
-}
 
 const sportIcons: Record<string, string> = {
   padel: '\uD83C\uDFBE', // tennis ball
@@ -20,7 +14,7 @@ const sportIcons: Record<string, string> = {
 
 interface Props {
   sports: Sport[];
-  matches: MatchRow[];
+  matches: EnrichedMatch[];
   sportError: boolean;
   matchError: boolean;
 }
@@ -57,7 +51,9 @@ export default function HomePageClient({
     try {
       const r = await apiFetch('/v0/matches', { cache: 'no-store' });
       if (r.ok) {
-        setMatches((await r.json()) as MatchRow[]);
+        const rows = (await r.json()) as MatchRow[];
+        const enriched = await enrichMatches(rows.slice(0, 5));
+        setMatches(enriched);
         setMatchError(false);
       } else {
         setMatchError(true);
@@ -123,15 +119,18 @@ export default function HomePageClient({
           )
         ) : (
           <ul className="match-list">
-            {matches.slice(0, 5).map((m) => (
+            {matches.map((m) => (
               <li key={m.id} className="card match-item">
-                <div>
-                  <Link href={`/matches/${m.id}`}>Match {m.id}</Link>
+                <div style={{ fontWeight: 500 }}>
+                  {m.names.A.join(' & ')} vs {m.names.B.join(' & ')}
                 </div>
                 <div className="match-meta">
                   {m.sport} · Best of {m.bestOf ?? '—'} ·{' '}
                   {m.playedAt ? new Date(m.playedAt).toLocaleDateString() : '—'}
                   {m.location ? ` · ${m.location}` : ''}
+                </div>
+                <div>
+                  <Link href={`/matches/${m.id}`}>Match details</Link>
                 </div>
               </li>
             ))}

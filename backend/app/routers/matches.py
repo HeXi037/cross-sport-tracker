@@ -26,6 +26,7 @@ from ..scoring import padel as padel_engine, tennis as tennis_engine
 from ..services.validation import validate_set_scores, ValidationError
 from ..services import update_ratings, update_player_metrics
 from .admin import require_admin
+from .auth import get_current_user
 
 # Resource-only prefix; versioning is added in main.py
 router = APIRouter(prefix="/matches", tags=["matches"])
@@ -80,7 +81,7 @@ async def list_matches(
 async def create_match(
     body: MatchCreate,
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(require_admin),
+    user: User = Depends(get_current_user),
 ):
     mid = uuid.uuid4().hex
     match = Match(
@@ -93,13 +94,22 @@ async def create_match(
         details=None,
     )
     session.add(match)
-    # Validate that no player appears on more than one side
+
     player_sides: dict[str, str] = {}
+    all_player_ids: list[str] = []
     for part in body.participants:
         for pid in part.playerIds:
             if pid in player_sides and player_sides[pid] != part.side:
                 raise HTTPException(400, "duplicate players")
             player_sides[pid] = part.side
+            all_player_ids.append(pid)
+
+    if not user.is_admin:
+        player = (
+            await session.execute(select(Player).where(Player.user_id == user.id))
+        ).scalar_one_or_none()
+        if not player or player.id not in all_player_ids:
+            raise HTTPException(status_code=403, detail="forbidden")
 
     for part in body.participants:
         mp = MatchParticipant(
@@ -118,7 +128,7 @@ async def create_match(
 async def create_match_by_name(
     body: MatchCreateByName,
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(require_admin),
+    user: User = Depends(get_current_user),
 ):
     name_to_id = {}
     names = [n for part in body.participants for n in part.playerNames]

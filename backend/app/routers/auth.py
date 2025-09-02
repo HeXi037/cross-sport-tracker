@@ -8,7 +8,7 @@ from sqlalchemy import select
 import jwt
 
 from ..db import get_session
-from ..models import User
+from ..models import User, Player
 from ..schemas import UserCreate, UserLogin, TokenOut
 
 JWT_SECRET = os.getenv("JWT_SECRET", "secret")
@@ -44,6 +44,12 @@ async def signup(
     if existing:
         raise HTTPException(status_code=400, detail="username exists")
 
+    existing_player = (
+        await session.execute(select(Player).where(Player.name == body.username))
+    ).scalar_one_or_none()
+    if existing_player:
+        raise HTTPException(status_code=400, detail="player exists")
+
     is_admin = False
     if body.is_admin:
         expected = os.getenv("ADMIN_SECRET")
@@ -52,13 +58,15 @@ async def signup(
         is_admin = True
 
     uid = uuid.uuid4().hex
+    pid = uuid.uuid4().hex
     user = User(
         id=uid,
         username=body.username,
         password_hash=hash_password(body.password),
         is_admin=is_admin,
     )
-    session.add(user)
+    player = Player(id=pid, user_id=uid, name=body.username)
+    session.add_all([user, player])
     await session.commit()
     token = create_token(user)
     return TokenOut(access_token=token)

@@ -48,6 +48,11 @@ export default function Header() {
               All Sports
             </Link>
           </li>
+          <li>
+            <Link href="/login" onClick={() => setOpen(false)}>
+              Login
+            </Link>
+          </li>
         </ul>
       </nav>
     </header>

@@ -122,3 +122,64 @@ class EventIn(BaseModel):
                 )
         return values
 # (remaining schema definitions unchanged)
+class UserCreate(BaseModel):
+    """Schema for user signup requests."""
+    username: str = Field(..., min_length=3, max_length=50)
+    password: str
+    is_admin: bool = False
+
+class UserLogin(BaseModel):
+    """Schema for user login requests."""
+    username: str
+    password: str
+
+class TokenOut(BaseModel):
+    """Returned on successful authentication."""
+    access_token: str
+
+class CommentCreate(BaseModel):
+    """Schema for creating a comment on a player."""
+    content: str = Field(..., min_length=1, max_length=500)
+
+class CommentOut(BaseModel):
+    """Schema representing a comment returned to clients."""
+    id: str
+    playerId: str
+    userId: str
+    username: str
+    content: str
+    createdAt: datetime
+
+class VersusRecord(BaseModel):
+    """Win/loss record versus or with another player."""
+    playerId: str
+    playerName: str
+    wins: int
+    losses: int
+    winPct: float
+
+class SportFormatStats(BaseModel):
+    """Aggregated stats for a particular sport and team size."""
+    sport: str
+    format: str
+    wins: int
+    losses: int
+    winPct: float
+
+class StreakSummary(BaseModel):
+    """Represents winning and losing streak information."""
+    current: int
+    longestWin: int
+    longestLoss: int
+
+class PlayerStatsOut(BaseModel):
+    """Statistics summary returned by the player stats endpoint."""
+    playerId: str
+    bestAgainst: Optional[VersusRecord] = None
+    worstAgainst: Optional[VersusRecord] = None
+    bestWith: Optional[VersusRecord] = None
+    worstWith: Optional[VersusRecord] = None
+    rollingWinPct: List[float] = []
+    sportFormatStats: List[SportFormatStats] = []
+    withRecords: List[VersusRecord] = []
+    streaks: Optional[StreakSummary] = None

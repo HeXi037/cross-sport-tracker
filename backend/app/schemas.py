@@ -1,4 +1,4 @@
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
 
@@ -183,3 +183,81 @@ class PlayerStatsOut(BaseModel):
     sportFormatStats: List[SportFormatStats] = []
     withRecords: List[VersusRecord] = []
     streaks: Optional[StreakSummary] = None
+
+
+class MatchIdOut(BaseModel):
+    """Schema returned after creating a match."""
+
+    id: str
+
+
+class MatchSummaryOut(BaseModel):
+    """Lightweight representation of a match used in listings."""
+
+    id: str
+    sport: str
+    bestOf: Optional[int] = None
+    playedAt: Optional[datetime] = None
+    location: Optional[str] = None
+
+
+class ParticipantOut(BaseModel):
+    """Participant information for a match."""
+
+    id: str
+    side: Literal["A", "B"]
+    playerIds: List[str]
+
+
+class ScoreEventOut(BaseModel):
+    """Represents an individual scoring event within a match."""
+
+    id: str
+    type: str
+    payload: Dict[str, Any]
+    createdAt: datetime
+
+
+class MatchOut(BaseModel):
+    """Detailed match information returned by the API."""
+
+    id: str
+    sport: str
+    rulesetId: Optional[str] = None
+    bestOf: Optional[int] = None
+    playedAt: Optional[datetime] = None
+    location: Optional[str] = None
+    participants: List[ParticipantOut] = []
+    events: List[ScoreEventOut] = []
+    summary: Optional[Dict[str, Any]] = None
+
+
+class TournamentCreate(BaseModel):
+    """Schema for creating a tournament."""
+
+    sport: str
+    name: str
+    clubId: Optional[str] = None
+
+
+class TournamentOut(BaseModel):
+    """Returned representation of a tournament."""
+
+    id: str
+    sport: str
+    name: str
+    clubId: Optional[str] = None
+
+
+class StageCreate(BaseModel):
+    """Schema for creating a tournament stage."""
+
+    type: str
+
+
+class StageOut(BaseModel):
+    """Returned representation of a tournament stage."""
+
+    id: str
+    tournamentId: str
+    type: str

@@ -3,6 +3,7 @@ from collections import defaultdict
 from fastapi import APIRouter, Depends, Response, HTTPException
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import SQLAlchemyError
 
 from ..db import get_session
 from ..models import (
@@ -126,11 +127,14 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
     ).scalars().all()
     metrics = {r.sport_id: r.metrics for r in rows}
     milestones = {r.sport_id: r.milestones for r in rows}
-    badges = (
-        await session.execute(
-            select(Badge).join(PlayerBadge).where(PlayerBadge.player_id == player_id)
-        )
-    ).scalars().all()
+    try:
+        badges = (
+            await session.execute(
+                select(Badge).join(PlayerBadge).where(PlayerBadge.player_id == player_id)
+            )
+        ).scalars().all()
+    except SQLAlchemyError:
+        badges = []
     return PlayerOut(
         id=p.id,
         name=p.name,
@@ -356,6 +360,9 @@ async def player_stats(
         records = [to_record(pid, s) for pid, s in team_stats.items()]
         best_with = max(records, key=lambda r: r.winPct)
         worst_with = min(records, key=lambda r: r.winPct)
+        with_records = records
+    else:
+        with_records = []
 
     sf_stats = [
         SportFormatStats(
@@ -381,5 +388,6 @@ async def player_stats(
         worstWith=worst_with,
         rollingWinPct=rolling,
         sportFormatStats=sf_stats,
+        withRecords=with_records,
         streaks=streaks,
     )

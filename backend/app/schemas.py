@@ -18,11 +18,17 @@ class PlayerCreate(BaseModel):
         ..., min_length=1, max_length=50, pattern=r"^[A-Za-z0-9 '-]+$"
     )
     club_id: Optional[str] = None
+    photo_url: Optional[str] = None
+    location: Optional[str] = None
+    ranking: Optional[int] = None
 
 class PlayerOut(BaseModel):
     id: str
     name: str
     club_id: Optional[str] = None
+    photo_url: Optional[str] = None
+    location: Optional[str] = None
+    ranking: Optional[int] = None
 
 class PlayerNameOut(BaseModel):
     id: str

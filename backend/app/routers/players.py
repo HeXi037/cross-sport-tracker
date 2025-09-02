@@ -38,10 +38,24 @@ async def create_player(body: PlayerCreate, session: AsyncSession = Depends(get_
     if exists:
         raise PlayerAlreadyExists(body.name)
     pid = uuid.uuid4().hex
-    p = Player(id=pid, name=body.name, club_id=body.club_id)
+    p = Player(
+        id=pid,
+        name=body.name,
+        club_id=body.club_id,
+        photo_url=body.photo_url,
+        location=body.location,
+        ranking=body.ranking,
+    )
     session.add(p)
     await session.commit()
-    return PlayerOut(id=pid, name=p.name, club_id=p.club_id)
+    return PlayerOut(
+        id=pid,
+        name=p.name,
+        club_id=p.club_id,
+        photo_url=p.photo_url,
+        location=p.location,
+        ranking=p.ranking,
+    )
 
 # GET /api/v0/players
 @router.get("", response_model=PlayerListOut)
@@ -59,7 +73,17 @@ async def list_players(
     total = (await session.execute(count_stmt)).scalar()
     stmt = stmt.limit(limit).offset(offset)
     rows = (await session.execute(stmt)).scalars().all()
-    players = [PlayerOut(id=p.id, name=p.name, club_id=p.club_id) for p in rows]
+    players = [
+        PlayerOut(
+            id=p.id,
+            name=p.name,
+            club_id=p.club_id,
+            photo_url=p.photo_url,
+            location=p.location,
+            ranking=p.ranking,
+        )
+        for p in rows
+    ]
     return PlayerListOut(players=players, total=total, limit=limit, offset=offset)
 
 
@@ -80,7 +104,14 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
     p = await session.get(Player, player_id)
     if not p or p.deleted_at is not None:
         raise PlayerNotFound(player_id)
-    return PlayerOut(id=p.id, name=p.name, club_id=p.club_id)
+    return PlayerOut(
+        id=p.id,
+        name=p.name,
+        club_id=p.club_id,
+        photo_url=p.photo_url,
+        location=p.location,
+        ranking=p.ranking,
+    )
 
 
 # DELETE /api/v0/players/{player_id}

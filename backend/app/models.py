@@ -27,6 +27,9 @@ class Player(Base):
     user_id = Column(String, nullable=True)
     name = Column(String, nullable=False, unique=True)
     club_id = Column(String, ForeignKey("club.id"), nullable=True)
+    photo_url = Column(String, nullable=True)
+    location = Column(String, nullable=True)
+    ranking = Column(Integer, nullable=True)
     deleted_at = Column(DateTime, nullable=True)
 
 class Team(Base):

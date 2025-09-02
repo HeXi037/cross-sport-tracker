@@ -38,7 +38,6 @@ async function getPlayer(id: string): Promise<Player> {
   const res = await apiFetch(`/v0/players/${encodeURIComponent(id)}`, {
     cache: "no-store",
   } as RequestInit);
-  // apiFetch returns a Response in this app
   if (!res.ok) throw new Error("player");
   return (await res.json()) as Player;
 }
@@ -50,7 +49,6 @@ async function getMatches(playerId: string): Promise<EnrichedMatch[]> {
   if (!r.ok) return [];
   const rows = (await r.json()) as MatchRow[];
 
-  // Load details for participants and summaries
   const details = await Promise.all(
     rows.map(async (m) => {
       const resp = await apiFetch(`/v0/matches/${encodeURIComponent(m.id)}`, {
@@ -61,7 +59,6 @@ async function getMatches(playerId: string): Promise<EnrichedMatch[]> {
     })
   );
 
-  // Fetch player names for all participants
   const ids = new Set<string>();
   for (const { detail } of details) {
     const parts = detail?.participants ?? [];
@@ -156,7 +153,7 @@ export default async function PlayerPage({
 
     return (
       <main className="container">
-        <h1 className="heading">{player.name}</h1>
+        <h1 className="heading">{player.name}</h1
         {player.club_id && <p>Club: {player.club_id}</p>}
 
         <nav className="mt-4 mb-4 space-x-4">

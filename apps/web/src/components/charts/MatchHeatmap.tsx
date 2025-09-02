@@ -6,6 +6,8 @@ import {
   LinearScale,
   Tooltip,
   Legend,
+  type ScriptableContext,
+  type TooltipItem,
 } from 'chart.js';
 import { MatrixController, MatrixElement } from 'chartjs-chart-matrix';
 import { Chart } from 'react-chartjs-2';
@@ -34,13 +36,15 @@ export function MatchHeatmap({ data, xLabels, yLabels }: MatchHeatmapProps) {
       {
         label: 'Matches',
         data,
-        backgroundColor: (ctx: any) => {
-          const value = ctx.raw.v || 0;
+        backgroundColor: (ctx: ScriptableContext<'matrix'>) => {
+          const value = (ctx.raw as HeatmapDatum | undefined)?.v ?? 0;
           const alpha = maxV ? value / maxV : 0;
           return `rgba(26, 115, 232, ${alpha})`;
         },
-        width: ({ chart }: any) => chart.chartArea.width / xLabels.length - 2,
-        height: ({ chart }: any) => chart.chartArea.height / yLabels.length - 2,
+        width: (ctx: ScriptableContext<'matrix'>) =>
+          ctx.chart.chartArea.width / xLabels.length - 2,
+        height: (ctx: ScriptableContext<'matrix'>) =>
+          ctx.chart.chartArea.height / yLabels.length - 2,
       },
     ],
   };
@@ -54,8 +58,10 @@ export function MatchHeatmap({ data, xLabels, yLabels }: MatchHeatmapProps) {
     plugins: {
       tooltip: {
         callbacks: {
-          title: (items: any) => xLabels[items[0].parsed.x],
-          label: (item: any) => `${yLabels[item.parsed.y]}: ${item.raw.v}`,
+          title: (items: TooltipItem<'matrix'>[]) =>
+            xLabels[items[0].parsed.x],
+          label: (item: TooltipItem<'matrix'>) =>
+            `${yLabels[item.parsed.y]}: ${(item.raw as HeatmapDatum).v}`,
         },
       },
       legend: { display: false },

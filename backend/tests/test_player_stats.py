@@ -113,3 +113,22 @@ def test_player_stats(client_and_session):
     assert data["bestWith"]["wins"] == 1
     assert data["worstAgainst"]["losses"] == 1
     assert data["worstWith"]["losses"] == 1
+
+    records = {r["playerId"]: r for r in data["withRecords"]}
+    assert records["p2"]["wins"] == 1
+    assert records["p2"]["losses"] == 0
+    assert records["p3"]["wins"] == 0
+    assert records["p3"]["losses"] == 1
+
+    # Rolling win percentage for the two matches
+    assert data["rollingWinPct"] == [1.0, 0.5]
+    # Sport/format stats: padel doubles with 1 win and 1 loss
+    sf = data["sportFormatStats"][0]
+    assert sf["sport"] == "padel"
+    assert sf["format"] == "doubles"
+    assert sf["wins"] == 1 and sf["losses"] == 1
+    assert sf["winPct"] == 0.5
+    # Streak summary
+    assert data["streaks"]["current"] == -1
+    assert data["streaks"]["longestWin"] == 1
+    assert data["streaks"]["longestLoss"] == 1

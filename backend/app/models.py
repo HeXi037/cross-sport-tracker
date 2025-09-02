@@ -1,5 +1,15 @@
 from sqlalchemy.orm import relationship
-from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Integer, Float, Boolean
+from sqlalchemy import (
+    Column,
+    String,
+    DateTime,
+    ForeignKey,
+    JSON,
+    Integer,
+    Float,
+    Boolean,
+    Text,
+)
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.sql import func
 from .db import Base
@@ -27,6 +37,9 @@ class Player(Base):
     user_id = Column(String, nullable=True)
     name = Column(String, nullable=False, unique=True)
     club_id = Column(String, ForeignKey("club.id"), nullable=True)
+    photo_url = Column(String, nullable=True)
+    location = Column(String, nullable=True)
+    ranking = Column(Integer, nullable=True)
     deleted_at = Column(DateTime, nullable=True)
 
 class Team(Base):
@@ -96,3 +109,15 @@ class User(Base):
     username = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
     is_admin = Column(Boolean, nullable=False, default=False)
+
+
+class Comment(Base):
+    __tablename__ = "comment"
+    id = Column(String, primary_key=True)
+    player_id = Column(String, ForeignKey("player.id"), nullable=False)
+    user_id = Column(String, ForeignKey("user.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    deleted_at = Column(DateTime, nullable=True)
+
+    user = relationship("User")

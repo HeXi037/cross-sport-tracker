@@ -2,10 +2,12 @@ from typing import Dict, List, Literal, Optional, Tuple
 from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
 
+
 # Basic DTOs
 class SportOut(BaseModel):
     id: str
     name: str
+
 
 class RuleSetOut(BaseModel):
     id: str
@@ -13,22 +15,32 @@ class RuleSetOut(BaseModel):
     name: str
     config: dict
 
+
 class PlayerCreate(BaseModel):
     name: str = Field(
         ..., min_length=1, max_length=50, pattern=r"^[A-Za-z0-9 '-]+$"
     )
     club_id: Optional[str] = None
+    photo_url: Optional[str] = None
+    location: Optional[str] = None
+    ranking: Optional[int] = None
+
 
 class PlayerOut(BaseModel):
     id: str
     name: str
     club_id: Optional[str] = None
+    photo_url: Optional[str] = None
+    location: Optional[str] = None
+    ranking: Optional[int] = None
     metrics: Optional[Dict[str, Dict[str, int]]] = None
     milestones: Optional[Dict[str, List[str]]] = None
+
 
 class PlayerNameOut(BaseModel):
     id: str
     name: str
+
 
 class PlayerListOut(BaseModel):
     players: List[PlayerOut]
@@ -36,9 +48,11 @@ class PlayerListOut(BaseModel):
     limit: int
     offset: int
 
+
 class PlayerNameOut(BaseModel):
     id: str
     name: str
+
 
 class LeaderboardEntryOut(BaseModel):
     rank: int
@@ -51,6 +65,7 @@ class LeaderboardEntryOut(BaseModel):
     setsLost: int
     setDiff: int
 
+
 class LeaderboardOut(BaseModel):
     sport: str
     leaders: List[LeaderboardEntryOut]
@@ -58,9 +73,11 @@ class LeaderboardOut(BaseModel):
     limit: int
     offset: int
 
+
 class Participant(BaseModel):
     side: Literal["A", "B"]
     playerIds: List[str]
+
 
 class MatchCreate(BaseModel):
     sport: str
@@ -70,9 +87,11 @@ class MatchCreate(BaseModel):
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
 
+
 class ParticipantByName(BaseModel):
     side: Literal["A", "B"]
     playerNames: List[str]
+
 
 class MatchCreateByName(BaseModel):
     sport: str
@@ -82,8 +101,10 @@ class MatchCreateByName(BaseModel):
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
 
+
 class SetsIn(BaseModel):
     sets: List[Tuple[int, int]]
+
 
 class EventIn(BaseModel):
     type: Literal["POINT", "ROLL", "UNDO", "HOLE"]
@@ -107,11 +128,13 @@ class EventIn(BaseModel):
                 )
         return values
 
+
 # Response models
 class ParticipantOut(BaseModel):
     id: str
     side: Literal["A", "B"]
     playerIds: List[str]
+
 
 class ScoreEventOut(BaseModel):
     id: str
@@ -119,8 +142,10 @@ class ScoreEventOut(BaseModel):
     payload: dict
     createdAt: datetime
 
+
 class MatchIdOut(BaseModel):
     id: str
+
 
 class MatchSummaryOut(BaseModel):
     id: str
@@ -129,11 +154,13 @@ class MatchSummaryOut(BaseModel):
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
 
+
 class MatchOut(MatchSummaryOut):
     rulesetId: Optional[str] = None
     participants: List[ParticipantOut]
     events: List[ScoreEventOut]
     summary: Optional[dict] = None
+
 
 class VersusRecord(BaseModel):
     playerId: str
@@ -142,30 +169,61 @@ class VersusRecord(BaseModel):
     losses: int
     winPct: float
 
+
+class SportFormatStats(BaseModel):
+    sport: str
+    format: str
+    wins: int
+    losses: int
+    winPct: float
+
+
+class StreakSummary(BaseModel):
+    current: int
+    longestWin: int
+    longestLoss: int
+
+    @property
+    def description(self) -> str:
+        if self.current > 0:
+            return f"Won {self.current} in a row"
+        if self.current < 0:
+            return f"Lost {abs(self.current)} in a row"
+        return "No games played"
+
+
 class PlayerStatsOut(BaseModel):
     playerId: str
     bestAgainst: Optional[VersusRecord] = None
     worstAgainst: Optional[VersusRecord] = None
     bestWith: Optional[VersusRecord] = None
     worstWith: Optional[VersusRecord] = None
+    rollingWinPct: Optional[list[float]] = None
+    sportFormatStats: list[SportFormatStats] = []
+    streaks: Optional[StreakSummary] = None
+
 
 class UserCreate(BaseModel):
     username: str
     password: str
     is_admin: bool = False
 
+
 class UserLogin(BaseModel):
     username: str
     password: str
+
 
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
+
 class TournamentCreate(BaseModel):
     sport: str
     name: str
     clubId: Optional[str] = None
+
 
 class TournamentOut(BaseModel):
     id: str
@@ -173,10 +231,25 @@ class TournamentOut(BaseModel):
     name: str
     clubId: Optional[str] = None
 
+
 class StageCreate(BaseModel):
     type: Literal["round_robin", "single_elim"]
+
 
 class StageOut(BaseModel):
     id: str
     tournamentId: str
     type: str
+
+
+class CommentCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=500)
+
+
+class CommentOut(BaseModel):
+    id: str
+    playerId: str
+    userId: str
+    username: str
+    content: str
+    createdAt: datetime

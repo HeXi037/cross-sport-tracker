@@ -23,7 +23,7 @@ export default async function RecordPage() {
         <ul className="sport-list">
           {sports.map((s) => (
             <li key={s.id} className="sport-item">
-              <Link href={`/record/${s.id}`}>{s.name}</Link>
+              <Link href={`/record/${s.id.replace('_', '-')}`}>{s.name}</Link>
             </li>
           ))}
         </ul>

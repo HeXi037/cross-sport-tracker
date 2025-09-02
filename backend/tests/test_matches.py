@@ -467,6 +467,8 @@ async def test_create_match_preserves_naive_date(tmp_path):
 
     app = FastAPI()
     app.include_router(matches.router)
+    from app.routers.admin import require_admin
+    app.dependency_overrides[require_admin] = lambda: None
 
     with TestClient(app) as client:
         payload = {

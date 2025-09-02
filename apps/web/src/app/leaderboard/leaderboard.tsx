@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 
 // Identifier type for players
@@ -17,7 +17,7 @@ export type Leader = {
   sport?: string;
 };
 
-const SPORTS = ["padel", "badminton", "table-tennis"] as const;
+const SPORTS = ["padel", "badminton", "table-tennis", "disc_golf"] as const;
 
 type Props = {
   sport: string;

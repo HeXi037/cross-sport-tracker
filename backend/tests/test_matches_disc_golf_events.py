@@ -12,9 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from sqlalchemy import select
+from sqlalchemy.dialects.sqlite import JSON
 
 from backend.app.db import Base, get_session
-from backend.app.models import Match, Sport, ScoreEvent
+from backend.app.models import Match, Sport, ScoreEvent, MatchParticipant
 from backend.app.routers import matches
 from backend.app.scoring import disc_golf
 from backend.app.routers.admin import require_admin
@@ -36,6 +37,9 @@ def client_and_session():
             await conn.run_sync(Sport.__table__.create)
             await conn.run_sync(Match.__table__.create)
             await conn.run_sync(ScoreEvent.__table__.create)
+            # MatchParticipant uses ARRAY which SQLite doesn't support; patch to JSON
+            MatchParticipant.__table__.columns["player_ids"].type = JSON()
+            await conn.run_sync(MatchParticipant.__table__.create)
 
     asyncio.run(init_models())
 
@@ -56,22 +60,29 @@ def client_and_session():
 
     with TestClient(app) as client:
         yield client, async_session_maker
+def test_create_and_append_event_hole(client_and_session):
+    client, session_maker = client_and_session
 
-
-def seed_match(session_maker, mid: str) -> None:
-    async def _seed():
+    async def seed_sport():
         async with session_maker() as session:
             session.add(Sport(id="disc_golf", name="Disc Golf"))
-            session.add(Match(id=mid, sport_id="disc_golf"))
             await session.commit()
 
-    asyncio.run(_seed())
+    asyncio.run(seed_sport())
 
-
-def test_append_event_hole(client_and_session):
-    client, session_maker = client_and_session
-    mid = "dg1"
-    seed_match(session_maker, mid)
+    # create match via API
+    resp = client.post(
+        "/matches",
+        json={
+            "sport": "disc_golf",
+            "participants": [
+                {"side": "A", "playerIds": []},
+                {"side": "B", "playerIds": []},
+            ],
+        },
+    )
+    assert resp.status_code == 200
+    mid = resp.json()["id"]
 
     resp = client.post(
         f"/matches/{mid}/events",

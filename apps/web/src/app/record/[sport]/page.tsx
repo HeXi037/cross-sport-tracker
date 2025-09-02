@@ -96,13 +96,13 @@ export default function RecordSportPage() {
       interface MatchPayload {
         sport: string;
         participants: MatchParticipant[];
-        score: [string, string];
+        score: [number, number];
         playedAt?: string;
       }
       const payload: MatchPayload = {
         sport,
         participants,
-        score: [scoreA, scoreB],
+        score: [Number(scoreA), Number(scoreB)],
       };
       if (date) {
         payload.playedAt = new Date(
@@ -211,11 +211,17 @@ export default function RecordSportPage() {
 
         <div className="score">
           <input
+            type="number"
+            min="0"
+            step="1"
             placeholder="A"
             value={scoreA}
             onChange={(e) => setScoreA(e.target.value)}
           />
           <input
+            type="number"
+            min="0"
+            step="1"
             placeholder="B"
             value={scoreB}
             onChange={(e) => setScoreB(e.target.value)}

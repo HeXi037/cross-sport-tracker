@@ -33,6 +33,23 @@ type EnrichedMatch = MatchRow & {
   summary?: MatchDetail["summary"];
 };
 
+interface VersusRecord {
+  playerId: string;
+  playerName: string;
+  wins: number;
+  losses: number;
+  winPct: number;
+}
+
+interface PlayerStats {
+  playerId: string;
+  bestAgainst?: VersusRecord | null;
+  worstAgainst?: VersusRecord | null;
+  bestWith?: VersusRecord | null;
+  worstWith?: VersusRecord | null;
+  withRecords: VersusRecord[];
+}
+
 async function getPlayer(id: string): Promise<Player> {
   const res = await apiFetch(`/v0/players/${encodeURIComponent(id)}`, {
     cache: "no-store",
@@ -91,6 +108,14 @@ async function getMatches(playerId: string): Promise<EnrichedMatch[]> {
   });
 }
 
+async function getStats(playerId: string): Promise<PlayerStats | null> {
+  const r = await apiFetch(`/v0/players/${encodeURIComponent(playerId)}/stats`, {
+    cache: "no-store",
+  } as RequestInit);
+  if (!r.ok) return null;
+  return (await r.json()) as PlayerStats;
+}
+
 function formatSummary(s?: MatchDetail["summary"]): string {
   if (!s) return "";
   if (s.sets) return `Sets ${s.sets.A}-${s.sets.B}`;
@@ -105,9 +130,10 @@ export default async function PlayerPage({
   params: { id: string };
 }) {
   try {
-    const [player, matches] = await Promise.all([
+    const [player, matches, stats] = await Promise.all([
       getPlayer(params.id),
       getMatches(params.id),
+      getStats(params.id),
     ]);
 
     return (
@@ -139,6 +165,19 @@ export default async function PlayerPage({
         ) : (
           <p>No matches found.</p>
         )}
+
+        {stats?.withRecords?.length ? (
+          <>
+            <h2 className="heading mt-4">Teammate Records</h2>
+            <ul>
+              {stats.withRecords.map((r) => (
+                <li key={r.playerId}>
+                  {r.wins}-{r.losses} with {r.playerName || r.playerId}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
 
         <Link href="/players" className="block mt-4">
           Back to players

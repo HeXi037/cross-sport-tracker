@@ -183,10 +183,11 @@ async def player_stats(player_id: str, session: AsyncSession = Depends(get_sessi
         best_against = max(records, key=lambda r: r.winPct)
         worst_against = min(records, key=lambda r: r.winPct)
 
+    with_records: list[VersusRecord] = []
     if team_stats:
-        records = [to_record(pid, s) for pid, s in team_stats.items()]
-        best_with = max(records, key=lambda r: r.winPct)
-        worst_with = min(records, key=lambda r: r.winPct)
+        with_records = [to_record(pid, s) for pid, s in team_stats.items()]
+        best_with = max(with_records, key=lambda r: r.winPct)
+        worst_with = min(with_records, key=lambda r: r.winPct)
 
     return PlayerStatsOut(
         playerId=player_id,
@@ -194,4 +195,5 @@ async def player_stats(player_id: str, session: AsyncSession = Depends(get_sessi
         worstAgainst=worst_against,
         bestWith=best_with,
         worstWith=worst_with,
+        withRecords=with_records,
     )

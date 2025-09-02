@@ -146,6 +146,7 @@ class PlayerStatsOut(BaseModel):
     worstAgainst: Optional[VersusRecord] = None
     bestWith: Optional[VersusRecord] = None
     worstWith: Optional[VersusRecord] = None
+    withRecords: List[VersusRecord] = []
 
 class UserCreate(BaseModel):
     username: str

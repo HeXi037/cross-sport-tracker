@@ -145,13 +145,21 @@ function winnerFromSummary(
     // @ts-expect-error dynamic
     "score",
   ];
-  for (const key of checks) {
-    const val: any = (s as any)[key];
-    if (val && typeof val.A === "number" && typeof val.B === "number") {
-      if (val.A > val.B) return "A";
-      if (val.B > val.A) return "B";
+    for (const key of checks) {
+      const raw = (s as Record<string, unknown>)[key];
+      if (
+        raw &&
+        typeof raw === "object" &&
+        "A" in raw &&
+        "B" in raw &&
+        typeof (raw as { A: unknown }).A === "number" &&
+        typeof (raw as { B: unknown }).B === "number"
+      ) {
+        const val = raw as { A: number; B: number };
+        if (val.A > val.B) return "A";
+        if (val.B > val.A) return "B";
+      }
     }
-  }
   return null;
 }
 

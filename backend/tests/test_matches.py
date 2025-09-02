@@ -110,6 +110,41 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
         assert [m["id"] for m in data] == ["m2", "m1"]
 
 
+@pytest.mark.anyio
+async def test_list_matches_upcoming_filter(tmp_path):
+    os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
+    os.environ["JWT_SECRET"] = "testsecret"
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from app import db
+    from app.models import Sport, Match
+    from app.routers import matches
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            db.Base.metadata.create_all,
+            tables=[Sport.__table__, Match.__table__],
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        session.add(Sport(id="padel", name="Padel"))
+        session.add(Match(id="past", sport_id="padel", played_at=datetime(2024, 1, 1)))
+        session.add(Match(id="future", sport_id="padel", played_at=datetime(2999, 1, 1)))
+        await session.commit()
+
+    app = FastAPI()
+    app.include_router(matches.router)
+
+    with TestClient(app) as client:
+        resp = client.get("/matches", params={"upcoming": True})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert [m["id"] for m in data] == ["future"]
+
+
 @pytest.mark.skip(reason="SQLite lacks ARRAY support for MatchParticipant")
 def test_list_matches_filters_by_player(tmp_path):
     os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"

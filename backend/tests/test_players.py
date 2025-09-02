@@ -12,8 +12,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from fastapi.responses import JSONResponse
 from app import db
-from app.routers import players, auth
-from app.models import Player, Club, User
+from app.routers import players, auth, badges
+from app.models import Player, Club, User, Badge, PlayerBadge
 from app.exceptions import DomainException, ProblemDetail
 
 app = FastAPI()
@@ -36,6 +36,7 @@ async def domain_exception_handler(request, exc):
 
 app.include_router(auth.router)
 app.include_router(players.router)
+app.include_router(badges.router)
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():
@@ -48,7 +49,13 @@ def setup_db():
         async with engine.begin() as conn:
             await conn.run_sync(
                 db.Base.metadata.create_all,
-                tables=[Club.__table__, Player.__table__, User.__table__],
+                tables=[
+                    Club.__table__,
+                    Player.__table__,
+                    User.__table__,
+                    Badge.__table__,
+                    PlayerBadge.__table__,
+                ],
             )
     asyncio.run(init_models())
     yield
@@ -110,3 +117,13 @@ def test_create_player_invalid_name() -> None:
     with TestClient(app) as client:
         resp = client.post("/players", json={"name": "Bad!"})
         assert resp.status_code == 422
+
+
+def test_player_badges() -> None:
+    with TestClient(app) as client:
+        pid = client.post("/players", json={"name": "Dana"}).json()["id"]
+        bid = client.post("/badges", json={"name": "MVP"}).json()["id"]
+        resp = client.post(f"/players/{pid}/badges/{bid}")
+        assert resp.status_code == 204
+        data = client.get(f"/players/{pid}").json()
+        assert data["badges"] == [{"id": bid, "name": "MVP", "icon": None}]

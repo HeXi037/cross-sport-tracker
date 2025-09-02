@@ -5,7 +5,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Player, Match, MatchParticipant, User
+from ..models import Player, Match, MatchParticipant, User, Badge, PlayerBadge
 from ..schemas import (
     PlayerCreate,
     PlayerOut,
@@ -13,6 +13,7 @@ from ..schemas import (
     PlayerNameOut,
     PlayerStatsOut,
     VersusRecord,
+    BadgeOut,
 )
 from ..exceptions import ProblemDetail, PlayerAlreadyExists, PlayerNotFound
 from .admin import require_admin
@@ -34,7 +35,7 @@ async def create_player(body: PlayerCreate, session: AsyncSession = Depends(get_
     p = Player(id=pid, name=body.name, club_id=body.club_id)
     session.add(p)
     await session.commit()
-    return PlayerOut(id=pid, name=p.name, club_id=p.club_id)
+    return PlayerOut(id=pid, name=p.name, club_id=p.club_id, badges=[])
 
 # GET /api/v0/players
 @router.get("", response_model=PlayerListOut)
@@ -52,7 +53,7 @@ async def list_players(
     total = (await session.execute(count_stmt)).scalar()
     stmt = stmt.limit(limit).offset(offset)
     rows = (await session.execute(stmt)).scalars().all()
-    players = [PlayerOut(id=p.id, name=p.name, club_id=p.club_id) for p in rows]
+    players = [PlayerOut(id=p.id, name=p.name, club_id=p.club_id, badges=[]) for p in rows]
     return PlayerListOut(players=players, total=total, limit=limit, offset=offset)
 
 
@@ -73,7 +74,35 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
     p = await session.get(Player, player_id)
     if not p or p.deleted_at is not None:
         raise PlayerNotFound(player_id)
-    return PlayerOut(id=p.id, name=p.name, club_id=p.club_id)
+    badges = (
+        await session.execute(
+            select(Badge).join(PlayerBadge).where(PlayerBadge.player_id == player_id)
+        )
+    ).scalars().all()
+    return PlayerOut(
+        id=p.id,
+        name=p.name,
+        club_id=p.club_id,
+        badges=[BadgeOut(id=b.id, name=b.name, icon=b.icon) for b in badges],
+    )
+
+
+@router.post("/{player_id}/badges/{badge_id}", status_code=204)
+async def add_badge_to_player(
+    player_id: str,
+    badge_id: str,
+    session: AsyncSession = Depends(get_session),
+):
+    p = await session.get(Player, player_id)
+    b = await session.get(Badge, badge_id)
+    if not p or p.deleted_at is not None:
+        raise PlayerNotFound(player_id)
+    if not b:
+        raise ProblemDetail(status_code=404, detail="badge not found")
+    pb = PlayerBadge(id=uuid.uuid4().hex, player_id=player_id, badge_id=badge_id)
+    session.add(pb)
+    await session.commit()
+    return Response(status_code=204)
 
 
 # DELETE /api/v0/players/{player_id}

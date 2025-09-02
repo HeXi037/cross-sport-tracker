@@ -6,6 +6,13 @@ interface Player {
   id: string;
   name: string;
   club_id?: string | null;
+  badges: Badge[];
+}
+
+interface Badge {
+  id: string;
+  name: string;
+  icon?: string | null;
 }
 
 type MatchRow = {
@@ -42,10 +49,14 @@ async function getPlayer(id: string): Promise<Player> {
   return (await res.json()) as Player;
 }
 
-async function getMatches(playerId: string): Promise<EnrichedMatch[]> {
-  const r = await apiFetch(`/v0/matches?playerId=${encodeURIComponent(playerId)}`, {
-    cache: "no-store",
-  } as RequestInit);
+async function getMatches(
+  playerId: string,
+  upcoming = false
+): Promise<EnrichedMatch[]> {
+  const r = await apiFetch(
+    `/v0/matches?playerId=${encodeURIComponent(playerId)}${upcoming ? "&upcoming=true" : ""}`,
+    { cache: "no-store" } as RequestInit
+  );
   if (!r.ok) return [];
   const rows = (await r.json()) as MatchRow[];
 
@@ -91,6 +102,10 @@ async function getMatches(playerId: string): Promise<EnrichedMatch[]> {
   });
 }
 
+async function getUpcomingMatches(playerId: string): Promise<EnrichedMatch[]> {
+  return getMatches(playerId, true);
+}
+
 function formatSummary(s?: MatchDetail["summary"]): string {
   if (!s) return "";
   if (s.sets) return `Sets ${s.sets.A}-${s.sets.B}`;
@@ -105,44 +120,83 @@ export default async function PlayerPage({
   params: { id: string };
 }) {
   try {
-    const [player, matches] = await Promise.all([
+    const [player, allMatches, upcoming] = await Promise.all([
       getPlayer(params.id),
       getMatches(params.id),
+      getUpcomingMatches(params.id),
     ]);
+    const matches = allMatches.filter(
+      (m) => m.playedAt && new Date(m.playedAt) <= new Date()
+    );
 
     return (
-      <main className="container">
-        <h1 className="heading">{player.name}</h1>
-        {player.club_id && <p>Club: {player.club_id}</p>}
+      <main className="container md:flex">
+        <section className="flex-1 md:mr-4">
+          <h1 className="heading">{player.name}</h1>
+          {player.club_id && <p>Club: {player.club_id}</p>}
 
-        <h2 className="heading mt-4">Recent Matches</h2>
-        {matches.length ? (
-          <ul>
-            {matches.map((m) => (
-              <li key={m.id} className="mb-2">
-                <div>
+          <h2 className="heading mt-4">Recent Matches</h2>
+          {matches.length ? (
+            <ul>
+              {matches.map((m) => (
+                <li key={m.id} className="mb-2">
+                  <div>
+                    <Link href={`/matches/${m.id}`}>
+                      {m.names.A.join(" & ")} vs {m.names.B.join(" & ")}
+                    </Link>
+                  </div>
+                  <div className="text-sm text-gray-700">
+                    {formatSummary(m.summary)}
+                    {m.summary ? " · " : ""}
+                    {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
+                    {m.playedAt
+                      ? new Date(m.playedAt).toLocaleDateString()
+                      : "—"}
+                    {" · "}
+                    {m.location ?? "—"}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No matches found.</p>
+          )}
+
+          <Link href="/players" className="block mt-4">
+            Back to players
+          </Link>
+        </section>
+        <aside className="md:w-1/3 md:pl-4 mt-8 md:mt-0">
+          <h2 className="heading">Upcoming Matches</h2>
+          {upcoming.length ? (
+            <ul>
+              {upcoming.map((m) => (
+                <li key={m.id} className="mb-2">
                   <Link href={`/matches/${m.id}`}>
                     {m.names.A.join(" & ")} vs {m.names.B.join(" & ")}
                   </Link>
-                </div>
-                <div className="text-sm text-gray-700">
-                  {formatSummary(m.summary)}
-                  {m.summary ? " · " : ""}
-                  {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
-                  {m.playedAt ? new Date(m.playedAt).toLocaleDateString() : "—"}
-                  {" · "}
-                  {m.location ?? "—"}
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>No matches found.</p>
-        )}
-
-        <Link href="/players" className="block mt-4">
-          Back to players
-        </Link>
+                  <div className="text-sm text-gray-700">
+                    {m.playedAt ? new Date(m.playedAt).toLocaleDateString() : "—"}
+                    {" · "}
+                    {m.location ?? "—"}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No upcoming matches.</p>
+          )}
+          <h2 className="heading mt-4">Badges</h2>
+          {player.badges.length ? (
+            <ul>
+              {player.badges.map((b) => (
+                <li key={b.id}>{b.name}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>No badges.</p>
+          )}
+        </aside>
       </main>
     );
   } catch {

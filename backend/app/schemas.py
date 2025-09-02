@@ -13,6 +13,17 @@ class RuleSetOut(BaseModel):
     name: str
     config: dict
 
+class BadgeCreate(BaseModel):
+    name: str
+    icon: Optional[str] = None
+
+
+class BadgeOut(BaseModel):
+    id: str
+    name: str
+    icon: Optional[str] = None
+
+
 class PlayerCreate(BaseModel):
     name: str = Field(
         ..., min_length=1, max_length=50, pattern=r"^[A-Za-z0-9 '-]+$"
@@ -23,6 +34,7 @@ class PlayerOut(BaseModel):
     id: str
     name: str
     club_id: Optional[str] = None
+    badges: List[BadgeOut] = []
 
 class PlayerNameOut(BaseModel):
     id: str

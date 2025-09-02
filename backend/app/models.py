@@ -29,6 +29,20 @@ class Player(Base):
     club_id = Column(String, ForeignKey("club.id"), nullable=True)
     deleted_at = Column(DateTime, nullable=True)
 
+
+class Badge(Base):
+    __tablename__ = "badge"
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False, unique=True)
+    icon = Column(String, nullable=True)
+
+
+class PlayerBadge(Base):
+    __tablename__ = "player_badge"
+    id = Column(String, primary_key=True)
+    player_id = Column(String, ForeignKey("player.id"), nullable=False)
+    badge_id = Column(String, ForeignKey("badge.id"), nullable=False)
+
 class Team(Base):
     __tablename__ = "team"
     id = Column(String, primary_key=True)

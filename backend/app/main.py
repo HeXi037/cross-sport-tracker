@@ -11,6 +11,7 @@ from .routers import (
     streams,
     tournaments,
     auth,
+    badges,
 )
 from .exceptions import DomainException, ProblemDetail
 import os
@@ -100,3 +101,4 @@ app.include_router(leaderboards.router, prefix="/api/v0")
 app.include_router(streams.router,      prefix="/api/v0")
 app.include_router(tournaments.router,  prefix="/api/v0")
 app.include_router(auth.router,         prefix="/api/v0")
+app.include_router(badges.router,       prefix="/api/v0")

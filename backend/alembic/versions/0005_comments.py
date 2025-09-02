@@ -4,7 +4,7 @@ import sqlalchemy as sa
 revision = '0005_comments'
 down_revision = '0004_soft_delete_columns'
 branch_labels = None
-depends_on = None
+depends_on = ('0005_users',)
 
 
 def upgrade():

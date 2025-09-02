@@ -13,6 +13,7 @@ from .routers import (
     auth,
     badges,
 )
+from .routes import player as player_pages
 from .exceptions import DomainException, ProblemDetail
 import os
 
@@ -102,3 +103,4 @@ app.include_router(streams.router,      prefix="/api/v0")
 app.include_router(tournaments.router,  prefix="/api/v0")
 app.include_router(auth.router,         prefix="/api/v0")
 app.include_router(badges.router,       prefix="/api/v0")
+app.include_router(player_pages.router)

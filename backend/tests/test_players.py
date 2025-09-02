@@ -1,9 +1,7 @@
 import os, sys, asyncio, pytest
 
-# Ensure the backend app modules can be imported
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# Set up an in-memory SQLite database for tests
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_players.db"
 os.environ["JWT_SECRET"] = "testsecret"
 os.environ["ADMIN_SECRET"] = "admintest"
@@ -13,11 +11,10 @@ from fastapi.testclient import TestClient
 from fastapi.responses import JSONResponse
 from app import db
 from app.routers import players, auth, badges
-from app.models import Player, Club, User, Badge, PlayerBadge
+from app.models import Player, Club, User, Badge, PlayerBadge, PlayerMetric
 from app.exceptions import DomainException, ProblemDetail
 
 app = FastAPI()
-
 
 @app.exception_handler(DomainException)
 async def domain_exception_handler(request, exc):
@@ -32,7 +29,6 @@ async def domain_exception_handler(request, exc):
         content=problem.model_dump(),
         media_type="application/problem+json",
     )
-
 
 app.include_router(auth.router)
 app.include_router(players.router)
@@ -55,6 +51,7 @@ def setup_db():
                     User.__table__,
                     Badge.__table__,
                     PlayerBadge.__table__,
+                    PlayerMetric.__table__,
                 ],
             )
     asyncio.run(init_models())
@@ -64,12 +61,10 @@ def setup_db():
 
 def test_list_players_pagination() -> None:
     with TestClient(app) as client:
-        # Track existing players and create some new ones
         base_total = client.get("/players").json().get("total", 0)
         for i in range(5):
             resp = client.post("/players", json={"name": f"P{i}"})
             assert resp.status_code == 200
-        # Request a limited subset
         resp = client.get("/players", params={"limit": 2, "offset": 1})
         assert resp.status_code == 200
         data = resp.json()
@@ -78,13 +73,11 @@ def test_list_players_pagination() -> None:
         assert data["total"] == base_total + 5
         assert len(data["players"]) == 2
 
-
 def test_delete_player_requires_token() -> None:
     with TestClient(app) as client:
         pid = client.post("/players", json={"name": "Alice"}).json()["id"]
         resp = client.delete(f"/players/{pid}")
         assert resp.status_code == 401
-
 
 def test_delete_player_soft_delete() -> None:
     with TestClient(app, raise_server_exceptions=False) as client:
@@ -112,12 +105,10 @@ def test_delete_player_soft_delete() -> None:
 
     asyncio.run(check_deleted())
 
-
 def test_create_player_invalid_name() -> None:
     with TestClient(app) as client:
         resp = client.post("/players", json={"name": "Bad!"})
         assert resp.status_code == 422
-
 
 def test_player_badges() -> None:
     with TestClient(app) as client:

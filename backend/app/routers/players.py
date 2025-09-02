@@ -1,11 +1,20 @@
 import uuid
 from collections import defaultdict
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Response, HTTPException
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Player, Match, MatchParticipant, User, Badge, PlayerBadge
+from ..models import (
+    Player,
+    Match,
+    MatchParticipant,
+    User,
+    Comment,
+    PlayerMetric,
+    Badge,
+    PlayerBadge,
+)
 from ..schemas import (
     PlayerCreate,
     PlayerOut,
@@ -14,30 +23,56 @@ from ..schemas import (
     PlayerStatsOut,
     VersusRecord,
     BadgeOut,
+    CommentCreate,
+    CommentOut,
+    SportFormatStats,
+    StreakSummary,
 )
 from ..exceptions import ProblemDetail, PlayerAlreadyExists, PlayerNotFound
+from ..services import (
+    compute_sport_format_stats,
+    compute_streaks,
+    rolling_win_percentage,
+)
 from .admin import require_admin
+from .auth import get_current_user
 
-# Resource-only prefix; versioning added in main.py
 router = APIRouter(
     prefix="/players",
     tags=["players"],
     responses={400: {"model": ProblemDetail}, 404: {"model": ProblemDetail}},
 )
 
-# POST /api/v0/players
 @router.post("", response_model=PlayerOut)
-async def create_player(body: PlayerCreate, session: AsyncSession = Depends(get_session)):
-    exists = (await session.execute(select(Player).where(Player.name == body.name))).scalar_one_or_none()
+async def create_player(
+    body: PlayerCreate, session: AsyncSession = Depends(get_session)
+):
+    exists = (
+        await session.execute(select(Player).where(Player.name == body.name))
+    ).scalar_one_or_none()
     if exists:
         raise PlayerAlreadyExists(body.name)
     pid = uuid.uuid4().hex
-    p = Player(id=pid, name=body.name, club_id=body.club_id)
+    p = Player(
+        id=pid,
+        name=body.name,
+        club_id=body.club_id,
+        photo_url=body.photo_url,
+        location=body.location,
+        ranking=body.ranking,
+    )
     session.add(p)
     await session.commit()
-    return PlayerOut(id=pid, name=p.name, club_id=p.club_id, badges=[])
+    return PlayerOut(
+        id=pid,
+        name=p.name,
+        club_id=p.club_id,
+        photo_url=p.photo_url,
+        location=p.location,
+        ranking=p.ranking,
+        badges=[],
+    )
 
-# GET /api/v0/players
 @router.get("", response_model=PlayerListOut)
 async def list_players(
     q: str = "",
@@ -46,18 +81,29 @@ async def list_players(
     session: AsyncSession = Depends(get_session),
 ):
     stmt = select(Player).where(Player.deleted_at.is_(None))
-    count_stmt = select(func.count()).select_from(Player).where(Player.deleted_at.is_(None))
+    count_stmt = select(func.count()).select_from(Player).where(
+        Player.deleted_at.is_(None)
+    )
     if q:
         stmt = stmt.where(Player.name.ilike(f"%{q}%"))
         count_stmt = count_stmt.where(Player.name.ilike(f"%{q}%"))
     total = (await session.execute(count_stmt)).scalar()
     stmt = stmt.limit(limit).offset(offset)
     rows = (await session.execute(stmt)).scalars().all()
-    players = [PlayerOut(id=p.id, name=p.name, club_id=p.club_id, badges=[]) for p in rows]
+    players = [
+        PlayerOut(
+            id=p.id,
+            name=p.name,
+            club_id=p.club_id,
+            photo_url=p.photo_url,
+            location=p.location,
+            ranking=p.ranking,
+            badges=[],
+        )
+        for p in rows
+    ]
     return PlayerListOut(players=players, total=total, limit=limit, offset=offset)
 
-
-# GET /api/v0/players/by-ids?ids=...
 @router.get("/by-ids", response_model=list[PlayerNameOut])
 async def players_by_ids(ids: str = "", session: AsyncSession = Depends(get_session)):
     id_list = [i for i in ids.split(",") if i]
@@ -68,12 +114,18 @@ async def players_by_ids(ids: str = "", session: AsyncSession = Depends(get_sess
     ).scalars().all()
     return [PlayerNameOut(id=p.id, name=p.name) for p in rows]
 
-# GET /api/v0/players/{player_id}
 @router.get("/{player_id}", response_model=PlayerOut)
 async def get_player(player_id: str, session: AsyncSession = Depends(get_session)):
     p = await session.get(Player, player_id)
     if not p or p.deleted_at is not None:
         raise PlayerNotFound(player_id)
+    rows = (
+        await session.execute(
+            select(PlayerMetric).where(PlayerMetric.player_id == player_id)
+        )
+    ).scalars().all()
+    metrics = {r.sport_id: r.metrics for r in rows}
+    milestones = {r.sport_id: r.milestones for r in rows}
     badges = (
         await session.execute(
             select(Badge).join(PlayerBadge).where(PlayerBadge.player_id == player_id)
@@ -83,9 +135,13 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
         id=p.id,
         name=p.name,
         club_id=p.club_id,
+        photo_url=p.photo_url,
+        location=p.location,
+        ranking=p.ranking,
+        metrics=metrics or None,
+        milestones=milestones or None,
         badges=[BadgeOut(id=b.id, name=b.name, icon=b.icon) for b in badges],
     )
-
 
 @router.post("/{player_id}/badges/{badge_id}", status_code=204)
 async def add_badge_to_player(
@@ -104,8 +160,77 @@ async def add_badge_to_player(
     await session.commit()
     return Response(status_code=204)
 
+@router.get("/{player_id}/comments", response_model=list[CommentOut])
+async def list_comments(
+    player_id: str, session: AsyncSession = Depends(get_session)
+):
+    p = await session.get(Player, player_id)
+    if not p or p.deleted_at is not None:
+        raise PlayerNotFound(player_id)
+    stmt = (
+        select(Comment, User.username)
+        .join(User, Comment.user_id == User.id)
+        .where(Comment.player_id == player_id, Comment.deleted_at.is_(None))
+        .order_by(Comment.created_at)
+    )
+    rows = await session.execute(stmt)
+    return [
+        CommentOut(
+            id=c.id,
+            playerId=c.player_id,
+            userId=c.user_id,
+            username=u,
+            content=c.content,
+            createdAt=c.created_at,
+        )
+        for c, u in rows.all()
+    ]
 
-# DELETE /api/v0/players/{player_id}
+@router.post("/{player_id}/comments", response_model=CommentOut)
+async def add_comment(
+    player_id: str,
+    body: CommentCreate,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    p = await session.get(Player, player_id)
+    if not p or p.deleted_at is not None:
+        raise PlayerNotFound(player_id)
+    cid = uuid.uuid4().hex
+    comment = Comment(
+        id=cid,
+        player_id=player_id,
+        user_id=user.id,
+        content=body.content,
+    )
+    session.add(comment)
+    await session.commit()
+    await session.refresh(comment)
+    return CommentOut(
+        id=comment.id,
+        playerId=comment.player_id,
+        userId=comment.user_id,
+        username=user.username,
+        content=comment.content,
+        createdAt=comment.created_at,
+    )
+
+@router.delete("/{player_id}/comments/{comment_id}", status_code=204)
+async def delete_comment(
+    player_id: str,
+    comment_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    comment = await session.get(Comment, comment_id)
+    if not comment or comment.player_id != player_id or comment.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="comment not found")
+    if comment.user_id != user.id and not user.is_admin:
+        raise HTTPException(status_code=403, detail="forbidden")
+    comment.deleted_at = func.now()
+    await session.commit()
+    return Response(status_code=204)
+
 @router.delete("/{player_id}", status_code=204)
 async def delete_player(
     player_id: str,
@@ -118,7 +243,6 @@ async def delete_player(
     p.deleted_at = func.now()
     await session.commit()
     return Response(status_code=204)
-
 
 def _winner_from_summary(summary: dict | None) -> str | None:
     if not summary:
@@ -135,34 +259,48 @@ def _winner_from_summary(summary: dict | None) -> str | None:
                     return "B"
     return None
 
-
 @router.get("/{player_id}/stats", response_model=PlayerStatsOut)
-async def player_stats(player_id: str, session: AsyncSession = Depends(get_session)):
+async def player_stats(
+    player_id: str,
+    span: int = 10,
+    session: AsyncSession = Depends(get_session),
+):
     p = await session.get(Player, player_id)
     if not p:
         raise PlayerNotFound(player_id)
 
-    stmt = select(Match, MatchParticipant).join(MatchParticipant).where(Match.deleted_at.is_(None))
+    stmt = select(Match, MatchParticipant).join(MatchParticipant).where(
+        Match.deleted_at.is_(None)
+    )
     rows = [
         r
         for r in (await session.execute(stmt)).all()
         if player_id in r.MatchParticipant.player_ids
     ]
+    rows.sort(key=lambda r: (r.Match.played_at, r.Match.id))
     if not rows:
         return PlayerStatsOut(playerId=player_id)
 
     match_ids = [r.Match.id for r in rows]
     parts = (
         await session.execute(
-            select(MatchParticipant).where(MatchParticipant.match_id.in_(match_ids))
+            select(MatchParticipant).where(
+                MatchParticipant.match_id.in_(match_ids)
+            )
         )
     ).scalars().all()
     match_to_parts = defaultdict(list)
     for part in parts:
         match_to_parts[part.match_id].append(part)
 
-    opp_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"wins": 0, "total": 0})
-    team_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"wins": 0, "total": 0})
+    opp_stats: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"wins": 0, "total": 0}
+    )
+    team_stats: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"wins": 0, "total": 0}
+    )
+    results: list[bool] = []
+    match_summary: list[tuple[str, int, bool]] = []
 
     for row in rows:
         match, mp = row.Match, row.MatchParticipant
@@ -170,6 +308,8 @@ async def player_stats(player_id: str, session: AsyncSession = Depends(get_sessi
         if winner is None:
             continue
         is_win = winner == mp.side
+        results.append(is_win)
+        match_summary.append((match.sport_id, len(mp.player_ids), is_win))
 
         teammates = [pid for pid in mp.player_ids if pid != player_id]
         for tid in teammates:
@@ -217,10 +357,29 @@ async def player_stats(player_id: str, session: AsyncSession = Depends(get_sessi
         best_with = max(records, key=lambda r: r.winPct)
         worst_with = min(records, key=lambda r: r.winPct)
 
+    sf_stats = [
+        SportFormatStats(
+            sport=s,
+            format={1: "singles", 2: "doubles"}.get(t, f"{t}-player"),
+            wins=val["wins"],
+            losses=val["losses"],
+            winPct=val["winPct"],
+        )
+        for (s, t), val in compute_sport_format_stats(match_summary).items()
+    ]
+
+    streak_info = compute_streaks(results)
+    streaks = StreakSummary(**streak_info)
+
+    rolling = rolling_win_percentage(results, span) if results else []
+
     return PlayerStatsOut(
         playerId=player_id,
         bestAgainst=best_against,
         worstAgainst=worst_against,
         bestWith=best_with,
         worstWith=worst_with,
+        rollingWinPct=rolling,
+        sportFormatStats=sf_stats,
+        streaks=streaks,
     )

@@ -140,3 +140,23 @@ def test_player_badges() -> None:
         assert resp.status_code == 204
         data = client.get(f"/players/{pid}").json()
         assert data["badges"] == [{"id": bid, "name": "MVP", "icon": None}]
+
+
+def test_players_by_ids_omits_deleted() -> None:
+    with TestClient(app) as client:
+        token = admin_token(client)
+        active_id = client.post(
+            "/players", json={"name": "Active"}, headers={"Authorization": f"Bearer {token}"}
+        ).json()["id"]
+        deleted_id = client.post(
+            "/players", json={"name": "Gone"}, headers={"Authorization": f"Bearer {token}"}
+        ).json()["id"]
+        client.delete(
+            f"/players/{deleted_id}", headers={"Authorization": f"Bearer {token}"}
+        )
+        resp = client.get(
+            "/players/by-ids", params={"ids": f"{active_id},{deleted_id}"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data == [{"id": active_id, "name": "Active"}]

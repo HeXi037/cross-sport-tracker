@@ -43,6 +43,11 @@ export default function Header() {
               Leaderboard
             </Link>
           </li>
+          <li>
+            <Link href="/login" onClick={() => setOpen(false)}>
+              Login
+            </Link>
+          </li>
         </ul>
       </nav>
     </header>

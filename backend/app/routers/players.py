@@ -113,7 +113,11 @@ async def players_by_ids(ids: str = "", session: AsyncSession = Depends(get_sess
     if not id_list:
         return []
     rows = (
-        await session.execute(select(Player).where(Player.id.in_(id_list)))
+        await session.execute(
+            select(Player).where(
+                Player.id.in_(id_list), Player.deleted_at.is_(None)
+            )
+        )
     ).scalars().all()
     return [PlayerNameOut(id=p.id, name=p.name) for p in rows]
 

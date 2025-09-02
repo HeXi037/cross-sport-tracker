@@ -3,6 +3,7 @@
 
 import React, { FormEvent, useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { apiFetch } from "../../../lib/api";
 
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 
@@ -112,7 +113,7 @@ export default function RecordSportPage() {
           payload.playedAt = `${date}T00:00:00`;
         }
       }
-      const res = await fetch(`${base}/v0/matches`, {
+      const res = await apiFetch(`/v0/matches`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

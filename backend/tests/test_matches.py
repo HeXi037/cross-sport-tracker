@@ -20,7 +20,7 @@ async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
     os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
     os.environ["JWT_SECRET"] = "testsecret"
     from app import db
-    from app.models import Player
+    from app.models import Player, User
     from app.schemas import MatchCreateByName, ParticipantByName
     from app.routers.matches import create_match_by_name
 
@@ -40,8 +40,9 @@ async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
                 ParticipantByName(side="B", playerNames=["Alice"]),
             ],
         )
+        admin = User(id="u1", username="admin", password_hash="", is_admin=True)
         with pytest.raises(HTTPException) as exc:
-            await create_match_by_name(body, session)
+            await create_match_by_name(body, session, user=admin)
         assert exc.value.status_code == 400
         assert exc.value.detail == "duplicate players: Alice"
 
@@ -50,6 +51,7 @@ async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
 async def test_create_match_rejects_duplicate_players(tmp_path):
     os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
     from app import db
+    from app.models import User
     from app.schemas import MatchCreate, Participant
     from app.routers.matches import create_match
 
@@ -65,8 +67,9 @@ async def test_create_match_rejects_duplicate_players(tmp_path):
                 Participant(side="B", playerIds=["p1"]),
             ],
         )
+        admin = User(id="u1", username="admin", password_hash="", is_admin=True)
         with pytest.raises(HTTPException) as exc:
-            await create_match(body, session)
+            await create_match(body, session, user=admin)
         assert exc.value.status_code == 400
         assert exc.value.detail == "duplicate players"
 
@@ -78,8 +81,9 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from app import db
-    from app.models import Sport, Match
+    from app.models import Sport, Match, User
     from app.routers import matches
+    from app.routers.auth import get_current_user
 
     db.engine = None
     db.AsyncSessionLocal = None
@@ -102,11 +106,14 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
 
     app = FastAPI()
     app.include_router(matches.router)
+    app.dependency_overrides[get_current_user] = lambda: User(
+        id="u1", username="admin", password_hash="", is_admin=True
+    )
 
     with TestClient(app) as client:
         resp = client.get("/matches")
         assert resp.status_code == 200
-        data = resp.json()
+        data = resp.json
         assert [m["id"] for m in data] == ["m2", "m1"]
 
 
@@ -117,8 +124,9 @@ async def test_list_matches_upcoming_filter(tmp_path):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from app import db
-    from app.models import Sport, Match
+    from app.models import Sport, Match, User
     from app.routers import matches
+    from app.routers.auth import get_current_user
 
     db.engine = None
     db.AsyncSessionLocal = None
@@ -137,6 +145,9 @@ async def test_list_matches_upcoming_filter(tmp_path):
 
     app = FastAPI()
     app.include_router(matches.router)
+    app.dependency_overrides[get_current_user] = lambda: User(
+        id="u1", username="admin", password_hash="", is_admin=True
+    )
 
     with TestClient(app) as client:
         resp = client.get("/matches", params={"upcoming": True})
@@ -162,7 +173,12 @@ def test_list_matches_filters_by_player(tmp_path):
         async with engine.begin() as conn:
             await conn.run_sync(
                 db.Base.metadata.create_all,
-                tables=[Sport.__table__, Player.__table__, Match.__table__, MatchParticipant.__table__],
+                tables=[
+                    Sport.__table__,
+                    Player.__table__,
+                    Match.__table__,
+                    MatchParticipant.__table__,
+                ],
             )
 
     asyncio.run(init_models())
@@ -210,6 +226,7 @@ def test_list_matches_filters_by_player(tmp_path):
         assert len(data) == 1
         assert data[0]["id"] == m1
 
+
 @pytest.mark.anyio
 async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
     os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
@@ -218,7 +235,7 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from app import db
-    from app.models import Match, ScoreEvent, User
+    from app.models import Match, ScoreEvent, User, Player
     from app.routers import matches, auth
 
     db.engine = None
@@ -229,6 +246,7 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
         await conn.run_sync(Match.__table__.create)
         await conn.run_sync(ScoreEvent.__table__.create)
         await conn.run_sync(User.__table__.create)
+        await conn.run_sync(Player.__table__.create)
         await conn.exec_driver_sql(
             "CREATE TABLE match_participant (id TEXT PRIMARY KEY, match_id TEXT, side TEXT, player_ids TEXT)"
         )
@@ -300,7 +318,7 @@ async def test_delete_match_missing_returns_404(tmp_path):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from app import db
-    from app.models import Match, User
+    from app.models import Match, User, Player
     from app.routers import matches, auth
 
     db.engine = None
@@ -310,6 +328,7 @@ async def test_delete_match_missing_returns_404(tmp_path):
     async with engine.begin() as conn:
         await conn.run_sync(Match.__table__.create)
         await conn.run_sync(User.__table__.create)
+        await conn.run_sync(Player.__table__.create)
 
     app = FastAPI()
     app.include_router(auth.router)
@@ -390,6 +409,7 @@ async def test_delete_match_updates_ratings_and_leaderboard(tmp_path):
             ]
         )
         await session.commit()
+        admin = User(id="u1", username="admin", password_hash="", is_admin=True)
 
         body1 = MatchCreate(
             sport="padel",
@@ -399,7 +419,7 @@ async def test_delete_match_updates_ratings_and_leaderboard(tmp_path):
             ],
             playedAt=datetime(2024, 1, 1),
         )
-        mid1 = (await create_match(body1, session)).id
+        mid1 = (await create_match(body1, session, user=admin)).id
         m1 = await session.get(Match, mid1)
         m1.details = {"sets": {"A": 2, "B": 0}}
         await update_ratings(session, "padel", ["p1"], ["p2"])
@@ -413,7 +433,7 @@ async def test_delete_match_updates_ratings_and_leaderboard(tmp_path):
             ],
             playedAt=datetime(2024, 1, 2),
         )
-        mid2 = (await create_match(body2, session)).id
+        mid2 = (await create_match(body2, session, user=admin)).id
         m2 = await session.get(Match, mid2)
         m2.details = {"sets": {"A": 2, "B": 0}}
         await update_ratings(session, "padel", ["p2"], ["p3"])
@@ -452,6 +472,7 @@ async def test_create_match_preserves_naive_date(tmp_path):
     from app import db
     from app.models import Sport, Match
     from app.routers import matches
+    from app.routers.admin import require_admin
 
     db.engine = None
     db.AsyncSessionLocal = None
@@ -467,7 +488,6 @@ async def test_create_match_preserves_naive_date(tmp_path):
 
     app = FastAPI()
     app.include_router(matches.router)
-    from app.routers.admin import require_admin
     app.dependency_overrides[require_admin] = lambda: None
 
     with TestClient(app) as client:

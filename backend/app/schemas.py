@@ -23,6 +23,9 @@ class PlayerOut(BaseModel):
     id: str
     name: str
     club_id: Optional[str] = None
+    photo_url: Optional[str] = None
+    location: Optional[str] = None
+    ranking: Optional[int] = None
 
 class PlayerNameOut(BaseModel):
     id: str
@@ -140,12 +143,39 @@ class VersusRecord(BaseModel):
     losses: int
     winPct: float
 
+
+class SportFormatStats(BaseModel):
+    sport: str
+    format: str
+    wins: int
+    losses: int
+    winPct: float
+
+
+class StreakSummary(BaseModel):
+    current: int
+    longestWin: int
+    longestLoss: int
+
+    @property
+    def description(self) -> str:
+        if self.current > 0:
+            return f"Won {self.current} in a row"
+        if self.current < 0:
+            return f"Lost {abs(self.current)} in a row"
+        return "No games played"
+
 class PlayerStatsOut(BaseModel):
     playerId: str
+    wins: int = 0
+    losses: int = 0
     bestAgainst: Optional[VersusRecord] = None
     worstAgainst: Optional[VersusRecord] = None
     bestWith: Optional[VersusRecord] = None
     worstWith: Optional[VersusRecord] = None
+    rollingWinPct: Optional[list[float]] = None
+    sportFormatStats: list[SportFormatStats] = []
+    streaks: Optional[StreakSummary] = None
 
 class UserCreate(BaseModel):
     username: str

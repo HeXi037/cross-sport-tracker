@@ -59,11 +59,29 @@ def setup_db():
     if os.path.exists("./test_players.db"):
         os.remove("./test_players.db")
 
+
+def admin_token(client: TestClient) -> str:
+    resp = client.post(
+        "/auth/signup",
+        json={"username": "admin", "password": "pw", "is_admin": True},
+        headers={"X-Admin-Secret": "admintest"},
+    )
+    if resp.status_code != 200:
+        resp = client.post(
+            "/auth/login", json={"username": "admin", "password": "pw"}
+        )
+    return resp.json()["access_token"]
+
 def test_list_players_pagination() -> None:
     with TestClient(app) as client:
+        token = admin_token(client)
         base_total = client.get("/players").json().get("total", 0)
         for i in range(5):
-            resp = client.post("/players", json={"name": f"P{i}"})
+            resp = client.post(
+                "/players",
+                json={"name": f"P{i}"},
+                headers={"Authorization": f"Bearer {token}"},
+            )
             assert resp.status_code == 200
         resp = client.get("/players", params={"limit": 2, "offset": 1})
         assert resp.status_code == 200
@@ -75,23 +93,19 @@ def test_list_players_pagination() -> None:
 
 def test_delete_player_requires_token() -> None:
     with TestClient(app) as client:
-        pid = client.post("/players", json={"name": "Alice"}).json()["id"]
+        token = admin_token(client)
+        pid = client.post(
+            "/players", json={"name": "Alice"}, headers={"Authorization": f"Bearer {token}"}
+        ).json()["id"]
         resp = client.delete(f"/players/{pid}")
         assert resp.status_code == 401
 
 def test_delete_player_soft_delete() -> None:
     with TestClient(app, raise_server_exceptions=False) as client:
-        resp = client.post(
-            "/auth/signup",
-            json={"username": "admin", "password": "pw", "is_admin": True},
-            headers={"X-Admin-Secret": "admintest"},
-        )
-        if resp.status_code != 200:
-            resp = client.post(
-                "/auth/login", json={"username": "admin", "password": "pw"}
-            )
-        token = resp.json()["access_token"]
-        pid = client.post("/players", json={"name": "Bob"}).json()["id"]
+        token = admin_token(client)
+        pid = client.post(
+            "/players", json={"name": "Bob"}, headers={"Authorization": f"Bearer {token}"}
+        ).json()["id"]
         resp = client.delete(
             f"/players/{pid}", headers={"Authorization": f"Bearer {token}"}
         )
@@ -107,12 +121,20 @@ def test_delete_player_soft_delete() -> None:
 
 def test_create_player_invalid_name() -> None:
     with TestClient(app) as client:
-        resp = client.post("/players", json={"name": "Bad!"})
+        token = admin_token(client)
+        resp = client.post(
+            "/players",
+            json={"name": "Bad!"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
         assert resp.status_code == 422
 
 def test_player_badges() -> None:
     with TestClient(app) as client:
-        pid = client.post("/players", json={"name": "Dana"}).json()["id"]
+        token = admin_token(client)
+        pid = client.post(
+            "/players", json={"name": "Dana"}, headers={"Authorization": f"Bearer {token}"}
+        ).json()["id"]
         bid = client.post("/badges", json={"name": "MVP"}).json()["id"]
         resp = client.post(f"/players/{pid}/badges/{bid}")
         assert resp.status_code == 204

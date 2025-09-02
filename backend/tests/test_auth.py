@@ -54,15 +54,8 @@ def test_signup_login_and_protected_access():
         assert resp.status_code == 200
         user_token = resp.json()["access_token"]
 
-        pid = client.post("/players", json={"name": "Bob"}).json()["id"]
-        resp = client.delete(
-            f"/players/{pid}", headers={"Authorization": f"Bearer {user_token}"}
-        )
-        assert resp.status_code == 403
-
         resp = client.post(
-            "/auth/signup",
-            json={"username": "admin", "password": "pw", "is_admin": True},
+            "/auth/signup", json={"username": "admin", "password": "pw", "is_admin": True}
         )
         assert resp.status_code == 403
 
@@ -71,6 +64,17 @@ def test_signup_login_and_protected_access():
             json={"username": "admin", "password": "pw", "is_admin": True},
             headers={"X-Admin-Secret": "admintest"},
         ).json()["access_token"]
+
+        pid = client.post(
+            "/players",
+            json={"name": "Bob"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        ).json()["id"]
+        resp = client.delete(
+            f"/players/{pid}", headers={"Authorization": f"Bearer {user_token}"}
+        )
+        assert resp.status_code == 403
+
         resp = client.delete(
             f"/players/{pid}", headers={"Authorization": f"Bearer {admin_token}"}
         )

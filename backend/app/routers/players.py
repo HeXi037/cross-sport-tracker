@@ -46,7 +46,9 @@ router = APIRouter(
 
 @router.post("", response_model=PlayerOut)
 async def create_player(
-    body: PlayerCreate, session: AsyncSession = Depends(get_session)
+    body: PlayerCreate,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_admin),
 ):
     exists = (
         await session.execute(select(Player).where(Player.name == body.name))

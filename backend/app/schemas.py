@@ -178,3 +178,16 @@ class StageOut(BaseModel):
     id: str
     tournamentId: str
     type: str
+
+
+class CommentCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=500)
+
+
+class CommentOut(BaseModel):
+    id: str
+    playerId: str
+    userId: str
+    username: str
+    content: str
+    createdAt: datetime

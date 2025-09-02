@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { apiFetch } from "../../../lib/api";
+import PlayerComments from "./comments-client";
 
 interface Player {
   id: string;
@@ -139,6 +140,8 @@ export default async function PlayerPage({
         ) : (
           <p>No matches found.</p>
         )}
+
+        <PlayerComments playerId={player.id} />
 
         <Link href="/players" className="block mt-4">
           Back to players

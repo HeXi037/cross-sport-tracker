@@ -9,6 +9,8 @@ import {
 } from 'chart.js';
 import { MatrixController, MatrixElement } from 'chartjs-chart-matrix';
 import { Chart } from 'react-chartjs-2';
+import { HeatmapDatum, calculateMaxValue } from './heatmapUtils';
+export type { HeatmapDatum } from './heatmapUtils';
 
 ChartJS.register(
   CategoryScale,
@@ -19,12 +21,6 @@ ChartJS.register(
   MatrixElement
 );
 
-export interface HeatmapDatum {
-  x: number;
-  y: number;
-  v: number;
-}
-
 export interface MatchHeatmapProps {
   data: HeatmapDatum[];
   xLabels: string[];
@@ -32,7 +28,7 @@ export interface MatchHeatmapProps {
 }
 
 export function MatchHeatmap({ data, xLabels, yLabels }: MatchHeatmapProps) {
-  const maxV = data.reduce((m, d) => Math.max(m, d.v), 0);
+  const maxV = calculateMaxValue(data);
   const chartData = {
     datasets: [
       {

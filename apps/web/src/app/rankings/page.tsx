@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 const sports = ["padel", "bowling"];
@@ -15,7 +15,7 @@ export default function RankingsPage() {
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [loading, setLoading] = useState(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`${base}/v0/leaderboards?sport=${sport}`, { cache: "no-store" });
@@ -31,12 +31,11 @@ export default function RankingsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [sport]);
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sport]);
+  }, [load]);
 
   return (
     <main className="container">

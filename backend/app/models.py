@@ -109,6 +109,15 @@ class Rating(Base):
     value = Column(Float, nullable=False, default=1000)
 
 
+class MasterRating(Base):
+    """Aggregated rating across all sports for a player."""
+
+    __tablename__ = "master_rating"
+    id = Column(String, primary_key=True)
+    player_id = Column(String, ForeignKey("player.id"), nullable=False)
+    value = Column(Float, nullable=False)
+
+
 class PlayerMetric(Base):
     __tablename__ = "player_metric"
     player_id = Column(String, ForeignKey("player.id"), primary_key=True)

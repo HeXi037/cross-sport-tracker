@@ -10,26 +10,38 @@ export default function Header() {
       <button
         className="hamburger"
         aria-label="Toggle navigation"
+        aria-expanded={open}
+        aria-controls="nav-menu"
         onClick={() => setOpen((prev) => !prev)}
       >
         ☰
       </button>
-      <nav className={`nav-links ${open ? 'open' : ''}`}>
+      <nav id="nav-menu" className={`nav-links ${open ? 'open' : ''}`}>
         <ul>
           <li>
-            <Link href="/">Home</Link>
+            <Link href="/" onClick={() => setOpen(false)}>
+              Home
+            </Link>
           </li>
           <li>
-            <Link href="/players">Players</Link>
+            <Link href="/players" onClick={() => setOpen(false)}>
+              Players
+            </Link>
           </li>
           <li>
-            <Link href="/matches">Matches</Link>
+            <Link href="/matches" onClick={() => setOpen(false)}>
+              Matches
+            </Link>
           </li>
           <li>
-            <Link href="/record">Record</Link>
+            <Link href="/record" onClick={() => setOpen(false)}>
+              Record
+            </Link>
           </li>
           <li>
-            <Link href="/leaderboard">Leaderboard</Link>
+            <Link href="/leaderboard" onClick={() => setOpen(false)}>
+              Leaderboard
+            </Link>
           </li>
         </ul>
       </nav>

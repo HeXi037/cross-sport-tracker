@@ -114,8 +114,8 @@ export default async function MatchDetailPage({
                 return (
                   <tr key={i} className="border-t">
                     <td className="py-1 pr-4">{i + 1}</td>
-                    <td className="py-1 pr-4">{a}</td>
-                    <td className="py-1">{b}</td>
+                    <td className={`py-1 pr-4${a > b ? " font-bold" : ""}`}>{a}</td>
+                    <td className={`py-1${b > a ? " font-bold" : ""}`}>{b}</td>
                   </tr>
                 );
               })}

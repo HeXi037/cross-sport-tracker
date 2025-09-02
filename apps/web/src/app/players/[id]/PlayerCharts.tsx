@@ -1,8 +1,8 @@
 'use client';
 
-import WinRateChart, { WinRatePoint } from '../../components/charts/WinRateChart';
-import RankingHistoryChart, { RankingPoint } from '../../components/charts/RankingHistoryChart';
-import MatchHeatmap, { HeatmapDatum } from '../../components/charts/MatchHeatmap';
+import WinRateChart, { WinRatePoint } from '../../../components/charts/WinRateChart';
+import RankingHistoryChart, { RankingPoint } from '../../../components/charts/RankingHistoryChart';
+import MatchHeatmap, { HeatmapDatum } from '../../../components/charts/MatchHeatmap';
 
 interface EnrichedMatch {
   playedAt: string | null;

@@ -101,4 +101,43 @@ describe("RecordSportPage", () => {
       { side: "B", playerIds: ["3"] },
     ]);
   });
+
+  it("submits numeric scores", async () => {
+    sportParam = "padel";
+    const players = [
+      { id: "1", name: "Alice" },
+      { id: "2", name: "Bob" },
+      { id: "3", name: "Cara" },
+      { id: "4", name: "Dan" },
+    ];
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+    global.fetch = fetchMock;
+
+    render(<RecordSportPage />);
+
+    await screen.findAllByText("Alice");
+
+    const selects = screen.getAllByRole("combobox");
+    fireEvent.change(selects[0], { target: { value: "1" } });
+    fireEvent.change(selects[1], { target: { value: "2" } });
+    fireEvent.change(selects[2], { target: { value: "3" } });
+    fireEvent.change(selects[3], { target: { value: "4" } });
+
+    fireEvent.change(screen.getByPlaceholderText("A"), {
+      target: { value: "5" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("B"), {
+      target: { value: "7" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const payload = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(payload.score).toEqual([5, 7]);
+  });
 });

@@ -137,21 +137,25 @@ export default function PlayersPage() {
             onChange={(e) => setSearch(e.target.value)}
             placeholder="search"
           />
-          <ul>
-            {filteredPlayers.map((p) => (
-              <li key={p.id}>
-                <Link
-                  href={
-                    recentMatches[p.id]
-                      ? `/matches/${recentMatches[p.id]}`
-                      : `/players/${p.id}`
-                  }
-                >
-                  {p.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
+          {filteredPlayers.length === 0 && debouncedSearch.trim() !== "" ? (
+            <p>No players found.</p>
+          ) : (
+            <ul>
+              {filteredPlayers.map((p) => (
+                <li key={p.id}>
+                  <Link
+                    href={
+                      recentMatches[p.id]
+                        ? `/matches/${recentMatches[p.id]}`
+                        : `/players/${p.id}`
+                    }
+                  >
+                    {p.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </>
       )}
       <input

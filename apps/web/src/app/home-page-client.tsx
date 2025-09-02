@@ -10,6 +10,10 @@ interface Sport { id: string; name: string }
 const sportIcons: Record<string, string> = {
   padel: '\uD83C\uDFBE', // tennis ball
   bowling: '🎳',
+  tennis: '🎾',
+  pickleball: '🥒',
+  badminton: '🏸',
+  table_tennis: '🏓',
 };
 
 interface Props {

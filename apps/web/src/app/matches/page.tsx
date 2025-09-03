@@ -78,9 +78,10 @@ async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
   }
 
   return details.map(({ row, detail }) => {
-    const participants = detail.participants.map((p) =>
-      p.playerIds.map((id) => idToName.get(id) ?? id)
-    );
+    const participants = detail.participants
+      .slice()
+      .sort((a, b) => a.side.localeCompare(b.side))
+      .map((p) => p.playerIds.map((id) => idToName.get(id) ?? id));
     return { ...row, participants, summary: detail.summary };
   });
 }
@@ -105,7 +106,7 @@ export default async function MatchesPage(
   }
 ) {
   const searchParams = props.searchParams ?? {};
-  the limit = Number(searchParams.limit) || 25;
+  const limit = Number(searchParams.limit) || 25;
   const offset = Number(searchParams.offset) || 0;
 
   try {

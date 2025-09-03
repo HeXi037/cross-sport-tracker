@@ -23,6 +23,13 @@ interface SetScore {
   B: string;
 }
 
+interface CreateMatchPayload {
+  sport: string;
+  participants: { side: string; playerIds: string[] }[];
+  bestOf: number;
+  playedAt?: string;
+}
+
 export default function RecordPadelPage() {
   const router = useRouter();
   const [players, setPlayers] = useState<Player[]>([]);
@@ -81,7 +88,7 @@ export default function RecordPadelPage() {
     ];
 
     try {
-      const payload: any = {
+      const payload: CreateMatchPayload = {
         sport: "padel",
         participants,
         bestOf: Number(bestOf),

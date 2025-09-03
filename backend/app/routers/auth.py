@@ -47,7 +47,7 @@ async def signup(
     existing_player = (
         await session.execute(select(Player).where(Player.name == body.username))
     ).scalar_one_or_none()
-    if existing_player:
+    if existing_player and existing_player.user_id is not None:
         raise HTTPException(status_code=400, detail="player exists")
 
     is_admin = False
@@ -58,15 +58,19 @@ async def signup(
         is_admin = True
 
     uid = uuid.uuid4().hex
-    pid = uuid.uuid4().hex
     user = User(
         id=uid,
         username=body.username,
         password_hash=hash_password(body.password),
         is_admin=is_admin,
     )
-    player = Player(id=pid, user_id=uid, name=body.username)
-    session.add_all([user, player])
+    session.add(user)
+    if existing_player:
+        existing_player.user_id = uid
+    else:
+        pid = uuid.uuid4().hex
+        player = Player(id=pid, user_id=uid, name=body.username)
+        session.add(player)
     await session.commit()
     token = create_token(user)
     return TokenOut(access_token=token)

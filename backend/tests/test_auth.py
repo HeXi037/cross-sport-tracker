@@ -1,7 +1,9 @@
 import os
 import sys
 import asyncio
+import uuid
 import pytest
+from sqlalchemy import select
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -18,6 +20,15 @@ from app.routers import auth, players
 app = FastAPI()
 app.include_router(auth.router)
 app.include_router(players.router)
+
+
+async def create_player(name: str, user_id: str | None = None) -> str:
+    async with db.AsyncSessionLocal() as session:
+        pid = uuid.uuid4().hex
+        player = Player(id=pid, name=name, user_id=user_id)
+        session.add(player)
+        await session.commit()
+        return pid
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -79,3 +90,47 @@ def test_signup_login_and_protected_access():
             f"/players/{pid}", headers={"Authorization": f"Bearer {admin_token}"}
         )
         assert resp.status_code == 204
+
+
+def test_signup_links_orphan_player():
+    pid = asyncio.run(create_player("charlie"))
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup", json={"username": "charlie", "password": "pw"}
+        )
+        assert resp.status_code == 200
+
+    async def fetch():
+        async with db.AsyncSessionLocal() as session:
+            player = await session.get(Player, pid)
+            user = (
+                await session.execute(select(User).where(User.username == "charlie"))
+            ).scalar_one()
+            same_name_players = (
+                await session.execute(select(Player).where(Player.name == "charlie"))
+            ).scalars().all()
+            return player, user, same_name_players
+
+    player, user, same_name_players = asyncio.run(fetch())
+    assert player.user_id == user.id
+    assert len(same_name_players) == 1
+
+
+def test_signup_rejects_attached_player():
+    asyncio.run(create_player("dave", user_id="attached"))
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup", json={"username": "dave", "password": "pw"}
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "player exists"
+
+    async def fetch_user():
+        async with db.AsyncSessionLocal() as session:
+            user = (
+                await session.execute(select(User).where(User.username == "dave"))
+            ).scalar_one_or_none()
+            return user
+
+    user = asyncio.run(fetch_user())
+    assert user is None

@@ -151,7 +151,9 @@ export default function HomePageClient({
             {matches.map((m) => (
               <li key={m.id} className="card match-item">
                 <div style={{ fontWeight: 500 }}>
-                  {m.names.A.join(' & ')} vs {m.names.B.join(' & ')}
+                  {Object.values(m.names)
+                    .map((n) => n.join(' & '))
+                    .join(' vs ')}
                 </div>
                 <div className="match-meta">
                   {m.sport} · Best of {m.bestOf ?? '—'} ·{' '}

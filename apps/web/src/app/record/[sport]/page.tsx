@@ -26,9 +26,11 @@ export default function RecordSportPage() {
   const sport = typeof params.sport === "string" ? params.sport : "";
   const isPadel = sport === "padel";
   const isPickleball = sport === "pickleball";
+  const isBowling = sport === "bowling";
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [ids, setIds] = useState<IdMap>({ a1: "", a2: "", b1: "", b2: "" });
+  const [bowlingIds, setBowlingIds] = useState<string[]>([""]); 
   const [scoreA, setScoreA] = useState("0");
   const [scoreB, setScoreB] = useState("0");
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +59,10 @@ export default function RecordSportPage() {
     setIds((prev) => ({ ...prev, [key]: value }));
   };
 
+  const handleBowlingIdChange = (index: number, value: string) => {
+    setBowlingIds((prev) => prev.map((id, i) => (i === index ? value : id)));
+  };
+
   const handleToggle = (checked: boolean) => {
     setDoubles(checked);
     if (!checked) {
@@ -70,42 +76,59 @@ export default function RecordSportPage() {
     setError(null);
 
     interface MatchParticipant {
-      side: "A" | "B";
+      side: string;
       playerIds: string[];
     }
 
-    const idValues = doubles
-      ? [ids.a1, ids.a2, ids.b1, ids.b2]
-      : [ids.a1, ids.b1];
-
-    const filtered = idValues.filter((v) => v);
-    if (new Set(filtered).size !== filtered.length) {
-      setError("Please select unique players.");
-      return;
+    let participants: MatchParticipant[] = [];
+    if (isBowling) {
+      const filtered = bowlingIds.filter((v) => v);
+      if (!filtered.length) {
+        setError("Please select at least one player.");
+        return;
+      }
+      if (new Set(filtered).size !== filtered.length) {
+        setError("Please select unique players.");
+        return;
+      }
+      participants = filtered.map((id, idx) => ({
+        side: String.fromCharCode(65 + idx),
+        playerIds: [id],
+      }));
+    } else {
+      const idValues = doubles
+        ? [ids.a1, ids.a2, ids.b1, ids.b2]
+        : [ids.a1, ids.b1];
+      const filtered = idValues.filter((v) => v);
+      if (new Set(filtered).size !== filtered.length) {
+        setError("Please select unique players.");
+        return;
+      }
+      participants = doubles
+        ? [
+            { side: "A", playerIds: [ids.a1].concat(ids.a2 ? [ids.a2] : []) },
+            { side: "B", playerIds: [ids.b1].concat(ids.b2 ? [ids.b2] : []) },
+          ]
+        : [
+            { side: "A", playerIds: [ids.a1] },
+            { side: "B", playerIds: [ids.b1] },
+          ];
     }
-
-    const participants: MatchParticipant[] = doubles
-      ? [
-          { side: "A", playerIds: [ids.a1].concat(ids.a2 ? [ids.a2] : []) },
-          { side: "B", playerIds: [ids.b1].concat(ids.b2 ? [ids.b2] : []) },
-        ]
-      : [
-          { side: "A", playerIds: [ids.a1] },
-          { side: "B", playerIds: [ids.b1] },
-        ];
 
     try {
       interface MatchPayload {
         sport: string;
         participants: MatchParticipant[];
-        score: [number, number];
+        score?: [number, number];
         playedAt?: string;
       }
       const payload: MatchPayload = {
         sport,
         participants,
-        score: [Number(scoreA), Number(scoreB)],
       };
+      if (!isBowling) {
+        payload.score = [Number(scoreA), Number(scoreB)];
+      }
       if (date) {
         if (time) {
           payload.playedAt = new Date(`${date}T${time}`).toISOString();
@@ -155,82 +178,112 @@ export default function RecordSportPage() {
           />
         </div>
 
-        <div className="players">
-          <select
-            aria-label="Player A1"
-            value={ids.a1}
-            onChange={(e) => handleIdChange("a1", e.target.value)}
-          >
-            <option value="">Select player</option>
-            {players.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
+        {isBowling ? (
+          <div className="players">
+            {bowlingIds.map((id, idx) => (
+              <select
+                key={idx}
+                aria-label={`Player ${idx + 1}`}
+                value={id}
+                onChange={(e) => handleBowlingIdChange(idx, e.target.value)}
+              >
+                <option value="">Select player</option>
+                {players.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
             ))}
-          </select>
+            {bowlingIds.length < 6 && (
+              <button
+                type="button"
+                onClick={() => setBowlingIds((prev) => prev.concat(""))}
+              >
+                Add Player
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="players">
+              <select
+                aria-label="Player A1"
+                value={ids.a1}
+                onChange={(e) => handleIdChange("a1", e.target.value)}
+              >
+                <option value="">Select player</option>
+                {players.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
 
-          {doubles && (
-            <select
-              aria-label="Player A2"
-              value={ids.a2}
-              onChange={(e) => handleIdChange("a2", e.target.value)}
-            >
-              <option value="">Select player</option>
-              {players.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          )}
+              {doubles && (
+                <select
+                  aria-label="Player A2"
+                  value={ids.a2}
+                  onChange={(e) => handleIdChange("a2", e.target.value)}
+                >
+                  <option value="">Select player</option>
+                  {players.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              )}
 
-          <select
-            aria-label="Player B1"
-            value={ids.b1}
-            onChange={(e) => handleIdChange("b1", e.target.value)}
-          >
-            <option value="">Select player</option>
-            {players.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+              <select
+                aria-label="Player B1"
+                value={ids.b1}
+                onChange={(e) => handleIdChange("b1", e.target.value)}
+              >
+                <option value="">Select player</option>
+                {players.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
 
-          {doubles && (
-            <select
-              aria-label="Player B2"
-              value={ids.b2}
-              onChange={(e) => handleIdChange("b2", e.target.value)}
-            >
-              <option value="">Select player</option>
-              {players.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
+              {doubles && (
+                <select
+                  aria-label="Player B2"
+                  value={ids.b2}
+                  onChange={(e) => handleIdChange("b2", e.target.value)}
+                >
+                  <option value="">Select player</option>
+                  {players.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
 
-        <div className="score">
-          <input
-            type="number"
-            min="0"
-            step="1"
-            placeholder="A"
-            value={scoreA}
-            onChange={(e) => setScoreA(e.target.value)}
-          />
-          <input
-            type="number"
-            min="0"
-            step="1"
-            placeholder="B"
-            value={scoreB}
-            onChange={(e) => setScoreB(e.target.value)}
-          />
-        </div>
+            <div className="score">
+              <input
+                type="number"
+                min="0"
+                step="1"
+                placeholder="A"
+                value={scoreA}
+                onChange={(e) => setScoreA(e.target.value)}
+              />
+              <input
+                type="number"
+                min="0"
+                step="1"
+                placeholder="B"
+                value={scoreB}
+                onChange={(e) => setScoreB(e.target.value)}
+              />
+            </div>
+          </>
+        )}
 
         {error && (
           <p role="alert" className="error">

@@ -15,10 +15,11 @@ from sqlalchemy import select
 from sqlalchemy.dialects.sqlite import JSON
 
 from backend.app.db import Base, get_session
-from backend.app.models import Match, Sport, ScoreEvent, MatchParticipant
+from backend.app.models import Match, Sport, ScoreEvent, MatchParticipant, User
 from backend.app.routers import matches
 from backend.app.scoring import disc_golf
 from backend.app.routers.admin import require_admin
+from backend.app.routers.auth import get_current_user
 
 
 @pytest.fixture()
@@ -56,6 +57,9 @@ def client_and_session():
     app = FastAPI()
     app.include_router(matches.router)
     app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[get_current_user] = lambda: User(
+        id="u1", username="admin", password_hash="", is_admin=True
+    )
     app.dependency_overrides[require_admin] = lambda: None
 
     with TestClient(app) as client:

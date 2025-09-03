@@ -19,9 +19,9 @@ type Participant = {
 type MatchDetail = {
   participants: Participant[];
   summary?: {
-    sets?: { A: number; B: number };
-    games?: { A: number; B: number };
-    points?: { A: number; B: number };
+    sets?: Record<string, number>;
+    games?: Record<string, number>;
+    points?: Record<string, number>;
   } | null;
 };
 
@@ -87,9 +87,15 @@ async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
 
 function formatSummary(s?: MatchDetail["summary"]): string {
   if (!s) return "";
-  if (s.sets) return `Sets ${s.sets.A}-${s.sets.B}`;
-  if (s.games) return `Games ${s.games.A}-${s.games.B}`;
-  if (s.points) return `Points ${s.points.A}-${s.points.B}`;
+  const render = (scores: Record<string, number>, label: string) => {
+    const parts = Object.keys(scores)
+      .sort()
+      .map((k) => scores[k]);
+    return `${label} ${parts.join("-")}`;
+  };
+  if (s.sets) return render(s.sets, "Sets");
+  if (s.games) return render(s.games, "Games");
+  if (s.points) return render(s.points, "Points");
   return "";
 }
 
@@ -99,7 +105,7 @@ export default async function MatchesPage(
   }
 ) {
   const searchParams = props.searchParams ?? {};
-  const limit = Number(searchParams.limit) || 25;
+  the limit = Number(searchParams.limit) || 25;
   const offset = Number(searchParams.offset) || 0;
 
   try {
@@ -129,8 +135,8 @@ export default async function MatchesPage(
               <div className="match-meta">
                 {formatSummary(m.summary)}
                 {m.summary ? " · " : ""}
-                {m.sport} · Best of {m.bestOf ?? "—"} · {" "}
-                {m.playedAt ? new Date(m.playedAt).toLocaleDateString() : "—"} · {" "}
+                {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
+                {m.playedAt ? new Date(m.playedAt).toLocaleDateString() : "—"} ·{" "}
                 {m.location ?? "—"}
               </div>
               <div>

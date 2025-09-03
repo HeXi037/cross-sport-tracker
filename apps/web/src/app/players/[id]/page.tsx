@@ -25,23 +25,23 @@ type MatchRow = {
   location: string | null;
 };
 
-type Participant = { side: "A" | "B"; playerIds: string[] };
+type Participant = { side: string; playerIds: string[] };
 type MatchDetail = {
   participants: Participant[];
   summary?:
     | {
-        sets?: { A: number; B: number };
-        games?: { A: number; B: number };
-        points?: { A: number; B: number };
+        sets?: Record<string, number>;
+        games?: Record<string, number>;
+        points?: Record<string, number>;
       }
     | null;
 };
 
 type EnrichedMatch = MatchRow & {
-  names: Record<"A" | "B", string[]>;
+  names: Record<string, string[]>;
   participants: Participant[];
   summary?: MatchDetail["summary"];
-  playerSide: "A" | "B" | null;
+  playerSide: string | null;
   playerWon?: boolean;
 };
 
@@ -115,8 +115,8 @@ async function getMatches(
   );
 
   return details.map(({ row, detail }) => {
-    const names: Record<"A" | "B", string[]> = { A: [], B: [] };
-    let playerSide: "A" | "B" | null = null;
+    const names: Record<string, string[]> = {};
+    let playerSide: string | null = null;
     for (const p of detail.participants ?? []) {
       const ids = p.playerIds ?? [];
       names[p.side] = ids.map((id) => idToName.get(id) ?? id);
@@ -127,16 +127,11 @@ async function getMatches(
     let playerWon: boolean | undefined = undefined;
     const summary = detail.summary;
     if (playerSide && summary) {
-      const opp = playerSide === "A" ? "B" : "A";
-      const sets = summary.sets;
-      const games = summary.games;
-      const points = summary.points;
-      if (sets) {
-        playerWon = sets[playerSide] > sets[opp];
-      } else if (games) {
-        playerWon = games[playerSide] > games[opp];
-      } else if (points) {
-        playerWon = points[playerSide] > points[opp];
+      const metric = summary.sets || summary.games || summary.points;
+      if (metric && playerSide in metric) {
+        const myScore = metric[playerSide];
+        const others = Object.entries(metric).filter(([s]) => s !== playerSide);
+        playerWon = others.every(([, v]) => myScore > v);
       }
     }
     return {
@@ -165,15 +160,19 @@ async function getStats(playerId: string): Promise<PlayerStats | null> {
 
 function formatSummary(s?: MatchDetail["summary"]): string {
   if (!s) return "";
-  if (s.sets) return `Sets ${s.sets.A}-${s.sets.B}`;
-  if (s.games) return `Games ${s.games.A}-${s.games.B}`;
-  if (s.points) return `Points ${s.points.A}-${s.points.B}`;
+  const render = (scores: Record<string, number>, label: string) => {
+    const parts = Object.keys(scores)
+      .sort()
+      .map((k) => scores[k]);
+    return `${label} ${parts.join("-")}`;
+  };
+  if (s.sets) return render(s.sets, "Sets");
+  if (s.games) return render(s.games, "Games");
+  if (s.points) return render(s.points, "Points");
   return "";
 }
 
-function winnerFromSummary(
-  s?: MatchDetail["summary"]
-): "A" | "B" | null {
+function winnerFromSummary(s?: MatchDetail["summary"]): string | null {
   if (!s) return null;
   const checks: (keyof NonNullable<typeof s>)[] = [
     "sets",
@@ -187,17 +186,25 @@ function winnerFromSummary(
   ];
   for (const key of checks) {
     const raw = (s as Record<string, unknown>)[key];
-    if (
-      raw &&
-      typeof raw === "object" &&
-      "A" in raw &&
-      "B" in raw &&
-      typeof (raw as { A: unknown }).A === "number" &&
-      typeof (raw as { B: unknown }).B === "number"
-    ) {
-      const val = raw as { A: number; B: number };
-      if (val.A > val.B) return "A";
-      if (val.B > val.A) return "B";
+    if (raw && typeof raw === "object") {
+      const entries = Object.entries(raw as Record<string, unknown>).filter(
+        ([, v]) => typeof v === "number"
+      ) as [string, number][];
+      if (entries.length >= 2) {
+        let maxSide: string | null = null;
+        let maxVal = -Infinity;
+        let tie = false;
+        for (const [side, val] of entries) {
+          if (val > maxVal) {
+            maxVal = val;
+            maxSide = side;
+            tie = false;
+          } else if (val === maxVal) {
+            tie = true;
+          }
+        }
+        if (!tie && maxSide !== null) return maxSide;
+      }
     }
   }
   return null;
@@ -255,8 +262,10 @@ export default async function PlayerPage({
         );
         if (!part) return null;
         const mySide = part.side;
-        const oppSide = mySide === "A" ? "B" : "A";
-        const opponentName = m.names[oppSide].join(" & ");
+        const opponentName = Object.entries(m.names)
+          .filter(([side]) => side !== mySide)
+          .map(([, names]) => names.join(" & "))
+          .join(" vs ");
         const winner = winnerFromSummary(m.summary);
         const result = winner ? (winner === mySide ? "Win" : "Loss") : "—";
         const date = m.playedAt
@@ -309,7 +318,9 @@ export default async function PlayerPage({
                       <li key={m.id} className="mb-2">
                         <div>
                           <Link href={`/matches/${m.id}`}>
-                            {m.names.A.join(" & ")} vs {m.names.B.join(" & ")}
+                            {Object.values(m.names)
+                              .map((n) => n.join(" & "))
+                              .join(" vs ")}
                           </Link>
                         </div>
                         <div className="text-sm text-gray-700">
@@ -395,7 +406,9 @@ export default async function PlayerPage({
               {upcoming.map((m) => (
                 <li key={m.id} className="mb-2">
                   <Link href={`/matches/${m.id}`}>
-                    {m.names.A.join(" & ")} vs {m.names.B.join(" & ")}
+                    {Object.values(m.names)
+                      .map((n) => n.join(" & "))
+                      .join(" vs ")}
                   </Link>
                   <div className="text-sm text-gray-700">
                     {m.playedAt

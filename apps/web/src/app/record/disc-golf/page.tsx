@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 
-export default function RecordDiscGolfPage() {
+function DiscGolfForm() {
   const params = useSearchParams();
   const mid = params.get("mid") || "";
   const [hole, setHole] = useState(1);
@@ -57,5 +57,13 @@ export default function RecordDiscGolfPage() {
       <button onClick={submit}>Record Hole</button>
       {error && <p>{error}</p>}
     </main>
+  );
+}
+
+export default function RecordDiscGolfPage() {
+  return (
+    <Suspense fallback={<main className="container"><h1 className="heading">Record Disc Golf</h1></main>}>
+      <DiscGolfForm />
+    </Suspense>
   );
 }

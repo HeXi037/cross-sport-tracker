@@ -26,7 +26,7 @@ type MatchDetail = {
 };
 
 type EnrichedMatch = MatchRow & {
-  names: Record<string, string[]>;
+  participants: string[][];
   summary?: MatchDetail["summary"];
 };
 
@@ -78,11 +78,10 @@ async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
   }
 
   return details.map(({ row, detail }) => {
-    const names: Record<string, string[]> = {};
-    for (const p of detail.participants) {
-      names[p.side] = p.playerIds.map((id) => idToName.get(id) ?? id);
-    }
-    return { ...row, names, summary: detail.summary };
+    const participants = detail.participants.map((p) =>
+      p.playerIds.map((id) => idToName.get(id) ?? id)
+    );
+    return { ...row, participants, summary: detail.summary };
   });
 }
 
@@ -106,7 +105,7 @@ export default async function MatchesPage(
   }
 ) {
   const searchParams = props.searchParams ?? {};
-  const limit = Number(searchParams.limit) || 25;
+  the limit = Number(searchParams.limit) || 25;
   const offset = Number(searchParams.offset) || 0;
 
   try {
@@ -129,15 +128,15 @@ export default async function MatchesPage(
           {matches.map((m) => (
             <li key={m.id} className="card match-item">
               <div style={{ fontWeight: 500 }}>
-                {Object.values(m.names)
-                  .map((n) => n.join(" & "))
+                {m.participants
+                  .map((names) => names.join(" & "))
                   .join(" vs ")}
               </div>
               <div className="match-meta">
                 {formatSummary(m.summary)}
                 {m.summary ? " · " : ""}
-                {m.sport} · Best of {m.bestOf ?? "—"} · {" "}
-                {m.playedAt ? new Date(m.playedAt).toLocaleDateString() : "—"} · {" "}
+                {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
+                {m.playedAt ? new Date(m.playedAt).toLocaleDateString() : "—"} ·{" "}
                 {m.location ?? "—"}
               </div>
               <div>

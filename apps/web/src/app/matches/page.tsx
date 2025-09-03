@@ -12,21 +12,21 @@ type MatchRow = {
 };
 
 type Participant = {
-  side: "A" | "B";
+  side: string;
   playerIds: string[];
 };
 
 type MatchDetail = {
   participants: Participant[];
   summary?: {
-    sets?: { A: number; B: number };
-    games?: { A: number; B: number };
-    points?: { A: number; B: number };
+    sets?: Record<string, number>;
+    games?: Record<string, number>;
+    points?: Record<string, number>;
   } | null;
 };
 
 type EnrichedMatch = MatchRow & {
-  names: Record<"A" | "B", string[]>;
+  names: Record<string, string[]>;
   summary?: MatchDetail["summary"];
 };
 
@@ -78,7 +78,7 @@ async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
   }
 
   return details.map(({ row, detail }) => {
-    const names: Record<"A" | "B", string[]> = { A: [], B: [] };
+    const names: Record<string, string[]> = {};
     for (const p of detail.participants) {
       names[p.side] = p.playerIds.map((id) => idToName.get(id) ?? id);
     }
@@ -88,9 +88,15 @@ async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
 
 function formatSummary(s?: MatchDetail["summary"]): string {
   if (!s) return "";
-  if (s.sets) return `Sets ${s.sets.A}-${s.sets.B}`;
-  if (s.games) return `Games ${s.games.A}-${s.games.B}`;
-  if (s.points) return `Points ${s.points.A}-${s.points.B}`;
+  const render = (scores: Record<string, number>, label: string) => {
+    const parts = Object.keys(scores)
+      .sort()
+      .map((k) => scores[k]);
+    return `${label} ${parts.join("-")}`;
+  };
+  if (s.sets) return render(s.sets, "Sets");
+  if (s.games) return render(s.games, "Games");
+  if (s.points) return render(s.points, "Points");
   return "";
 }
 
@@ -123,7 +129,9 @@ export default async function MatchesPage(
           {matches.map((m) => (
             <li key={m.id} className="card match-item">
               <div style={{ fontWeight: 500 }}>
-                {m.names.A.join(" & ")} vs {m.names.B.join(" & ")}
+                {Object.values(m.names)
+                  .map((n) => n.join(" & "))
+                  .join(" vs ")}
               </div>
               <div className="match-meta">
                 {formatSummary(m.summary)}

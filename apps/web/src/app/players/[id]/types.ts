@@ -1,7 +1,7 @@
 export type MatchSummary = {
-  sets?: { A: number; B: number };
-  games?: { A: number; B: number };
-  points?: { A: number; B: number };
+  sets?: Record<string, number>;
+  games?: Record<string, number>;
+  points?: Record<string, number>;
 } | null;
 
 export type EnrichedMatch = {
@@ -10,7 +10,7 @@ export type EnrichedMatch = {
   bestOf: number | null;
   playedAt: string | null;
   location: string | null;
-  names: Record<"A" | "B", string[]>;
-  playerIds: Record<"A" | "B", string[]>;
+  names: Record<string, string[]>;
+  playerIds: Record<string, string[]>;
   summary?: MatchSummary;
 };

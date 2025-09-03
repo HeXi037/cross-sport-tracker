@@ -5,7 +5,8 @@ import LiveSummary from "./live-summary";
 
 type ID = string;
 
-type Participant = { side: "A" | "B"; playerIds: string[] };
+// "side" can be any identifier (A, B, C, ...), so keep it loose
+type Participant = { side: string; playerIds: string[] };
 
 type MatchDetail = {
   id: ID;
@@ -63,7 +64,7 @@ export default async function MatchDetailPage({
     })
   );
 
-  const sideNames: Record<"A" | "B", string[]> = { A: [], B: [] };
+  const sideNames: Record<string, string[]> = {};
   for (const p of parts) {
     const names = (p.playerIds ?? []).map((id) => idToName.get(id) ?? id);
     sideNames[p.side] = names;
@@ -86,8 +87,9 @@ export default async function MatchDetailPage({
 
       <header className="section">
         <h1 className="heading">
-          {sideNames.A.length ? sideNames.A.join(" / ") : "A"} vs {" "}
-          {sideNames.B.length ? sideNames.B.join(" / ") : "B"}
+          {Object.keys(sideNames)
+            .map((s) => (sideNames[s]?.length ? sideNames[s].join(" / ") : s))
+            .join(" vs ") || "A vs B"}
         </h1>
         <p className="match-meta">
           {match.sport || "sport"} · {match.ruleset || "rules"} · {" "}

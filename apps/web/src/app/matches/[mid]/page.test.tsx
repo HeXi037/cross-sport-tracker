@@ -43,4 +43,32 @@ describe("MatchDetailPage", () => {
       .trim();
     expect(displayed).toBe(laDate);
   });
+
+  it("renders all participants dynamically", async () => {
+    const match = {
+      id: "m2",
+      sport: "bowling",
+      ruleset: "",
+      status: "",
+      playedAt: null,
+      participants: [
+        { side: "A", playerIds: ["p1"] },
+        { side: "B", playerIds: ["p2"] },
+        { side: "C", playerIds: ["p3"] },
+      ],
+      sets: [],
+    };
+
+    apiFetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => match })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "p1", name: "Ann" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "p2", name: "Ben" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "p3", name: "Cam" }) });
+
+    render(await MatchDetailPage({ params: { mid: "m2" } }));
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Ann vs Ben vs Cam" })
+    ).toBeInTheDocument();
+  });
 });

@@ -109,8 +109,11 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
   with TestClient(app) as client:
     resp = client.get("/matches")
     assert resp.status_code == 200
-    data = resp.json
-    assert [m["id"] for m in data] == ["m2", "m1"]
+    data = resp.json()
+    ids = [m["id"] for m in data]
+    assert ids == ["m2", "m1"]
+    sorted_ids = [m["id"] for m in sorted(data, key=lambda m: m["playedAt"], reverse=True)]
+    assert ids == sorted_ids
 
 
 @pytest.mark.anyio

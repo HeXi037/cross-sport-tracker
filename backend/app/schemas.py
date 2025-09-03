@@ -74,7 +74,7 @@ class LeaderboardOut(BaseModel):
     offset: int
 
 class Participant(BaseModel):
-    side: Literal["A", "B"]
+    side: Literal["A", "B", "C", "D", "E", "F"]
     playerIds: List[str]
 
 class MatchCreate(BaseModel):
@@ -86,7 +86,7 @@ class MatchCreate(BaseModel):
     location: Optional[str] = None
 
 class ParticipantByName(BaseModel):
-    side: Literal["A", "B"]
+    side: Literal["A", "B", "C", "D", "E", "F"]
     playerNames: List[str]
 
 class MatchCreateByName(BaseModel):
@@ -102,9 +102,9 @@ class SetsIn(BaseModel):
 
 class EventIn(BaseModel):
     type: Literal["POINT", "ROLL", "UNDO", "HOLE"]
-    by: Optional[Literal["A", "B"]] = None
+    by: Optional[Literal["A", "B", "C", "D", "E", "F"]] = None
     pins: Optional[int] = None
-    side: Optional[Literal["A", "B"]] = None
+    side: Optional[Literal["A", "B", "C", "D", "E", "F"]] = None
     hole: Optional[int] = None
     strokes: Optional[int] = None
 
@@ -205,7 +205,7 @@ class ParticipantOut(BaseModel):
     """Participant information for a match."""
 
     id: str
-    side: Literal["A", "B"]
+    side: Literal["A", "B", "C", "D", "E", "F"]
     playerIds: List[str]
 
 

@@ -140,4 +140,41 @@ describe("RecordSportPage", () => {
     const payload = JSON.parse(fetchMock.mock.calls[1][1].body);
     expect(payload.score).toEqual([5, 7]);
   });
+
+  it("allows recording multiple bowling players", async () => {
+    sportParam = "bowling";
+    const players = [
+      { id: "1", name: "Alice" },
+      { id: "2", name: "Bob" },
+      { id: "3", name: "Cara" },
+    ];
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+    global.fetch = fetchMock;
+
+    render(<RecordSportPage />);
+
+    await screen.findAllByText("Alice");
+
+    fireEvent.click(screen.getByText(/add player/i));
+    fireEvent.click(screen.getByText(/add player/i));
+    const selects = screen.getAllByRole("combobox");
+    fireEvent.change(selects[0], { target: { value: "1" } });
+    fireEvent.change(selects[1], { target: { value: "2" } });
+    fireEvent.change(selects[2], { target: { value: "3" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const payload = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(payload.participants).toEqual([
+      { side: "A", playerIds: ["1"] },
+      { side: "B", playerIds: ["2"] },
+      { side: "C", playerIds: ["3"] },
+    ]);
+    expect(payload.score).toBeUndefined();
+  });
 });

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, isAdmin } from "../../lib/api";
 
 const NAME_REGEX = /^[A-Za-z0-9 '-]{1,50}$/;
 
@@ -23,6 +23,7 @@ export default function PlayersPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const admin = isAdmin();
 
   const trimmedName = name.trim();
   const nameIsValid = NAME_REGEX.test(trimmedName);
@@ -127,6 +128,15 @@ export default function PlayersPage() {
     }
   }
 
+  async function handleDelete(id: string) {
+    try {
+      await apiFetch(`/v0/players/${id}`, { method: "DELETE" });
+      await load();
+    } catch {
+      setError("Failed to delete player.");
+    }
+  }
+
   return (
     <main className="container">
       <h1 className="heading">Players</h1>
@@ -155,6 +165,14 @@ export default function PlayersPage() {
                   >
                     {p.name}
                   </Link>
+                  {admin && (
+                    <button
+                      style={{ marginLeft: 8 }}
+                      onClick={() => handleDelete(p.id)}
+                    >
+                      Delete
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

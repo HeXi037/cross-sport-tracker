@@ -304,7 +304,7 @@ def test_password_reset_flow():
     auth.limiter.reset()
     captured = {}
 
-    def fake_send(username: str, token: str) -> None:
+    async def fake_send(username: str, token: str) -> None:
         captured["token"] = token
 
     original = auth._send_password_reset_token

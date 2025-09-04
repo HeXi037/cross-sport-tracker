@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from passlib.context import CryptContext
 import jwt
+import httpx
 
 from ..db import get_session
 from ..models import User, Player, PasswordResetToken, RefreshToken
@@ -103,9 +104,17 @@ def create_refresh_token_record(user: User) -> tuple[str, RefreshToken]:
     return token, rec
 
 
-def _send_password_reset_token(username: str, token: str) -> None:
-    """Placeholder for sending password reset token to the user."""
-    print(f"Password reset token for {username}: {token}")
+async def _send_password_reset_token(username: str, token: str) -> None:
+    """Send password reset token to the user without blocking the event loop."""
+    url = os.getenv("MAILER_URL")
+    if not url:
+        print(f"Password reset token for {username}: {token}")
+        return
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.post(url, json={"username": username, "token": token})
+    except Exception:
+        print(f"Password reset token for {username}: {token}")
 
 
 @router.post("/signup", response_model=TokenOut)
@@ -227,7 +236,7 @@ async def reset_request(
         )
         session.add(rec)
         await session.commit()
-        _send_password_reset_token(user.username, token)
+        await _send_password_reset_token(user.username, token)
     return {"detail": "If the account exists, reset instructions have been sent."}
 
 

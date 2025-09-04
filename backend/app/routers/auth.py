@@ -25,9 +25,9 @@ JWT_EXPIRE_SECONDS = 3600
 def _get_client_ip(request: Request) -> str:
   forwarded = request.headers.get("X-Forwarded-For")
   if forwarded:
-    ip = forwarded.split(",")[0].strip()
-    if ip:
-      return ip
+    parts = [ip.strip() for ip in forwarded.split(",") if ip.strip()]
+    if parts:
+      return parts[-1]
   real_ip = request.headers.get("X-Real-IP")
   if real_ip:
     return real_ip

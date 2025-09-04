@@ -28,6 +28,7 @@ interface CreateMatchPayload {
   participants: { side: string; playerIds: string[] }[];
   bestOf: number;
   playedAt?: string;
+  location?: string;
 }
 
 export default function RecordPadelPage() {
@@ -38,6 +39,7 @@ export default function RecordPadelPage() {
   const [sets, setSets] = useState<SetScore[]>([{ A: "", B: "" }]);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
+  const [location, setLocation] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -98,6 +100,9 @@ export default function RecordPadelPage() {
           ? new Date(`${date}T${time}`).toISOString()
           : `${date}T00:00:00`;
       }
+      if (location) {
+        payload.location = location;
+      }
 
       const res = await apiFetch(`/v0/matches`, {
         method: "POST",
@@ -141,6 +146,14 @@ export default function RecordPadelPage() {
             onChange={(e) => setTime(e.target.value)}
           />
         </div>
+
+        <input
+          type="text"
+          aria-label="Location"
+          placeholder="Location"
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+        />
 
         <div className="players">
           <select

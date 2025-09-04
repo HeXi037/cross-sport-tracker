@@ -13,14 +13,14 @@ describe("PlayersPage", () => {
     vi.restoreAllMocks();
   });
 
-  it("shows a loading message while fetching players", () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
+  it("shows a loading message while fetching players", async () => {
+    const fetchMock = vi.fn().mockReturnValue(new Promise(() => {}));
     // @ts-expect-error override global fetch for test
     global.fetch = fetchMock;
 
-    render(<PlayersPage />);
+    await act(async () => {
+      render(<PlayersPage />);
+    });
 
     expect(screen.getByText(/loading players/i)).toBeTruthy();
   });
@@ -32,7 +32,9 @@ describe("PlayersPage", () => {
     // @ts-expect-error override global fetch for test
     global.fetch = fetchMock;
 
-    render(<PlayersPage />);
+    await act(async () => {
+      render(<PlayersPage />);
+    });
 
     const button = await screen.findByRole("button", { name: /add/i });
     expect(button.disabled).toBe(true);
@@ -55,7 +57,9 @@ describe("PlayersPage", () => {
     // @ts-expect-error override global fetch for test
     global.fetch = fetchMock;
 
-    render(<PlayersPage />);
+    await act(async () => {
+      render(<PlayersPage />);
+    });
     await screen.findByText("Alice");
     vi.useFakeTimers();
     const search = screen.getByPlaceholderText(/search/i);
@@ -81,7 +85,9 @@ describe("PlayersPage", () => {
     // @ts-expect-error override global fetch for test
     global.fetch = fetchMock;
 
-    render(<PlayersPage />);
+    await act(async () => {
+      render(<PlayersPage />);
+    });
     await screen.findByText("Alice");
     vi.useFakeTimers();
     const search = screen.getByPlaceholderText(/search/i);
@@ -103,7 +109,9 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock;
 
     vi.useFakeTimers();
-    render(<PlayersPage />);
+    await act(async () => {
+      render(<PlayersPage />);
+    });
 
     const input = screen.getByPlaceholderText(/name/i);
     fireEvent.change(input, { target: { value: "New Player" } });

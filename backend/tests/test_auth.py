@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from app import db
 from app.models import User, Player, Club
 from app.routers import auth, players
+from app.routers.auth import pwd_context
 
 app = FastAPI()
 app.include_router(auth.router)
@@ -58,6 +59,18 @@ def test_signup_login_and_protected_access():
         assert resp.status_code == 200
         token = resp.json()["access_token"]
         assert token
+
+        async def fetch_user():
+            async with db.AsyncSessionLocal() as session:
+                return (
+                    await session.execute(
+                        select(User).where(User.username == "alice")
+                    )
+                ).scalar_one()
+
+        user = asyncio.run(fetch_user())
+        assert user.password_hash != "pw"
+        assert pwd_context.verify("pw", user.password_hash)
 
         resp = client.post(
             "/auth/login", json={"username": "alice", "password": "Str0ng!Pass"}

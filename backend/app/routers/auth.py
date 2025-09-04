@@ -1,11 +1,11 @@
 import os
-import hashlib
 import uuid
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import jwt
+from passlib.context import CryptContext
 
 from ..db import get_session
 from ..models import User, Player
@@ -18,8 +18,11 @@ JWT_EXPIRE_SECONDS = 3600
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
 def hash_password(password: str) -> str:
-  return hashlib.sha256(password.encode()).hexdigest()
+  return pwd_context.hash(password)
 
 
 def create_token(user: User) -> str:
@@ -80,7 +83,7 @@ async def login(body: UserLogin, session: AsyncSession = Depends(get_session)):
   user = (
       await session.execute(select(User).where(User.username == body.username))
   ).scalar_one_or_none()
-  if not user or user.password_hash != hash_password(body.password):
+  if not user or not pwd_context.verify(body.password, user.password_hash):
     raise HTTPException(status_code=401, detail="invalid credentials")
   token = create_token(user)
   return TokenOut(access_token=token)

@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from slowapi.errors import RateLimitExceeded
 from fastapi.testclient import TestClient
 from app import db
-from app.models import User, Player, Club, PasswordResetToken
+from app.models import User, Player, Club, PasswordResetToken, RefreshToken
 from app.routers import auth, players
 from app.routers.auth import pwd_context
 
@@ -51,6 +51,7 @@ def setup_db():
                     Player.__table__,
                     Club.__table__,
                     PasswordResetToken.__table__,
+                    RefreshToken.__table__,
                 ],
             )
     asyncio.run(init_models())
@@ -337,3 +338,27 @@ def test_password_reset_flow():
             assert resp.status_code == 200
     finally:
         auth._send_password_reset_token = original  # type: ignore
+
+
+def test_refresh_and_logout():
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup", json={"username": "logout", "password": "Str0ng!Pass"}
+        )
+        assert resp.status_code == 200
+        # login to get refresh token cookie
+        resp = client.post(
+            "/auth/login", json={"username": "logout", "password": "Str0ng!Pass"}
+        )
+        assert resp.status_code == 200
+        assert client.cookies.get("refresh_token") is not None
+        # ensure refresh works
+        ok = client.post("/auth/refresh")
+        assert ok.status_code == 200
+        # logout should clear cookie
+        out = client.post("/auth/logout")
+        assert out.status_code == 204
+        assert client.cookies.get("refresh_token") is None
+        # refresh should now fail
+        fail = client.post("/auth/refresh")
+        assert fail.status_code == 401

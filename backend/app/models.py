@@ -143,6 +143,15 @@ class PasswordResetToken(Base):
     expires_at = Column(DateTime, nullable=False)
 
 
+class RefreshToken(Base):
+    """Stores refresh tokens for users."""
+
+    __tablename__ = "refresh_token"
+    token_hash = Column(String, primary_key=True)
+    user_id = Column(String, ForeignKey("user.id"), nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+
+
 class Comment(Base):
     __tablename__ = "comment"
     id = Column(String, primary_key=True)

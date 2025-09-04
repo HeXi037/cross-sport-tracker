@@ -12,7 +12,15 @@ from fastapi.testclient import TestClient
 from fastapi.responses import JSONResponse
 from app import db
 from app.routers import players, auth, badges
-from app.models import Player, Club, User, Badge, PlayerBadge, PlayerMetric
+from app.models import (
+    Player,
+    Club,
+    User,
+    Badge,
+    PlayerBadge,
+    PlayerMetric,
+    RefreshToken,
+)
 from app.exceptions import DomainException, ProblemDetail
 
 app = FastAPI()
@@ -53,6 +61,7 @@ def setup_db():
                     Badge.__table__,
                     PlayerBadge.__table__,
                     PlayerMetric.__table__,
+                    RefreshToken.__table__,
                 ],
             )
     asyncio.run(init_models())

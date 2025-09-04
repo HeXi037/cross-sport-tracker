@@ -14,7 +14,7 @@ from passlib.context import CryptContext
 import jwt
 
 from ..db import get_session
-from ..models import User, Player, PasswordResetToken
+from ..models import User, Player, PasswordResetToken, RefreshToken
 from ..schemas import (
     UserCreate,
     UserLogin,
@@ -40,6 +40,7 @@ def get_jwt_secret() -> str:
 JWT_ALG = "HS256"
 JWT_EXPIRE_SECONDS = 3600
 RESET_TOKEN_EXPIRE_SECONDS = 3600
+REFRESH_TOKEN_EXPIRE_SECONDS = 60 * 60 * 24 * 30
 
 
 def _get_client_ip(request: Request) -> str:
@@ -90,6 +91,18 @@ def create_token(user: User) -> str:
     return jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALG)
 
 
+def create_refresh_token_record(user: User) -> tuple[str, RefreshToken]:
+    token = secrets.token_urlsafe(32)
+    token_hash = hash_password_sha256(token)
+    rec = RefreshToken(
+        token_hash=token_hash,
+        user_id=user.id,
+        expires_at=datetime.utcnow()
+        + timedelta(seconds=REFRESH_TOKEN_EXPIRE_SECONDS),
+    )
+    return token, rec
+
+
 def _send_password_reset_token(username: str, token: str) -> None:
     """Placeholder for sending password reset token to the user."""
     print(f"Password reset token for {username}: {token}")
@@ -134,8 +147,23 @@ async def signup(
         player = Player(id=uuid.uuid4().hex, user_id=uid, name=body.username)
         session.add(player)
     await session.commit()
+    await session.refresh(user)
+    # create refresh token
+    await session.execute(
+        delete(RefreshToken).where(RefreshToken.user_id == user.id)
+    )
+    refresh_token, refresh_rec = create_refresh_token_record(user)
+    session.add(refresh_rec)
+    await session.commit()
     token = create_token(user)
-    return TokenOut(access_token=token)
+    resp = JSONResponse(status_code=200, content={"access_token": token})
+    resp.set_cookie(
+        "refresh_token",
+        refresh_token,
+        httponly=True,
+        max_age=REFRESH_TOKEN_EXPIRE_SECONDS,
+    )
+    return resp
 
 
 @router.post("/login", response_model=TokenOut)
@@ -157,8 +185,22 @@ async def login(
     else:
         if not pwd_context.verify(body.password, stored):
             raise HTTPException(status_code=401, detail="invalid credentials")
+    # remove existing refresh tokens for this user
+    await session.execute(
+        delete(RefreshToken).where(RefreshToken.user_id == user.id)
+    )
+    refresh_token, refresh_rec = create_refresh_token_record(user)
+    session.add(refresh_rec)
+    await session.commit()
     token = create_token(user)
-    return TokenOut(access_token=token)
+    resp = JSONResponse(status_code=200, content={"access_token": token})
+    resp.set_cookie(
+        "refresh_token",
+        refresh_token,
+        httponly=True,
+        max_age=REFRESH_TOKEN_EXPIRE_SECONDS,
+    )
+    return resp
 
 
 @router.post("/reset/request")
@@ -266,3 +308,48 @@ async def update_me(
     await session.refresh(current)
     token = create_token(current)
     return TokenOut(access_token=token)
+
+
+@router.post("/refresh", response_model=TokenOut)
+async def refresh(
+    request: Request, session: AsyncSession = Depends(get_session)
+):
+    token = request.cookies.get("refresh_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="missing token")
+    token_hash = hash_password_sha256(token)
+    rec = await session.get(RefreshToken, token_hash)
+    if not rec or rec.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=401, detail="invalid token")
+    user = await session.get(User, rec.user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="user not found")
+    await session.delete(rec)
+    refresh_token, refresh_rec = create_refresh_token_record(user)
+    session.add(refresh_rec)
+    await session.commit()
+    access_token = create_token(user)
+    resp = JSONResponse(status_code=200, content={"access_token": access_token})
+    resp.set_cookie(
+        "refresh_token",
+        refresh_token,
+        httponly=True,
+        max_age=REFRESH_TOKEN_EXPIRE_SECONDS,
+    )
+    return resp
+
+
+@router.post("/logout")
+async def logout(
+    request: Request, session: AsyncSession = Depends(get_session)
+):
+    token = request.cookies.get("refresh_token")
+    if token:
+        token_hash = hash_password_sha256(token)
+        rec = await session.get(RefreshToken, token_hash)
+        if rec:
+            await session.delete(rec)
+            await session.commit()
+    resp = JSONResponse(status_code=204, content=None)
+    resp.delete_cookie("refresh_token")
+    return resp

@@ -20,7 +20,11 @@ export async function apiFetch(path: string, init?: RequestInit) {
     if (token) headers.set("Authorization", `Bearer ${token}`);
   }
   try {
-    return await fetch(apiUrl(path), { ...init, headers });
+    return await fetch(apiUrl(path), {
+      credentials: init?.credentials ?? "include",
+      ...init,
+      headers,
+    });
   } catch (err) {
     console.error("API request failed", err);
     throw err;
@@ -62,6 +66,7 @@ export function isLoggedIn(): boolean {
 
 export function logout() {
   if (typeof window !== "undefined") {
+    void apiFetch("/v0/auth/logout", { method: "POST" });
     window.localStorage.removeItem("token");
     // Manually notify listeners since the `storage` event doesn't fire in
     // the same tab that performed the update.  Header components listen for

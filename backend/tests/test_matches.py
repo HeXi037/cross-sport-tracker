@@ -58,7 +58,12 @@ async def test_create_match_rejects_duplicate_players(tmp_path):
 
   db.engine = None
   db.AsyncSessionLocal = None
-  db.get_engine()
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+        db.Base.metadata.create_all,
+        tables=[Sport.__table__, Match.__table__, MatchParticipant.__table__],
+    )
 
   async with db.AsyncSessionLocal() as session:
     body = MatchCreate(
@@ -73,6 +78,33 @@ async def test_create_match_rejects_duplicate_players(tmp_path):
       await create_match(body, session, user=admin)
     assert exc.value.status_code == 400
     assert exc.value.detail == "duplicate players"
+
+
+@pytest.mark.anyio
+async def test_create_match_with_scores(tmp_path):
+  os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
+  from app import db
+  from app.models import Match, MatchParticipant, Sport, User
+  from app.schemas import MatchCreate, Participant
+  from app.routers.matches import create_match
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  db.get_engine()
+
+  async with db.AsyncSessionLocal() as session:
+    body = MatchCreate(
+        sport="bowling",
+        participants=[
+            Participant(side="A", playerIds=["p1"]),
+            Participant(side="B", playerIds=["p2"]),
+        ],
+        score=[120, 100],
+    )
+    admin = User(id="u1", username="admin", password_hash="", is_admin=True)
+    resp = await create_match(body, session, user=admin)
+    m = await session.get(Match, resp.id)
+    assert m.details == {"score": {"A": 120, "B": 100}}
 
 
 @pytest.mark.anyio

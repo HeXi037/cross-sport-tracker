@@ -165,6 +165,11 @@ describe("RecordSportPage", () => {
     fireEvent.change(selects[1], { target: { value: "2" } });
     fireEvent.change(selects[2], { target: { value: "3" } });
 
+    const scoreInputs = screen.getAllByPlaceholderText(/score/i);
+    fireEvent.change(scoreInputs[0], { target: { value: "100" } });
+    fireEvent.change(scoreInputs[1], { target: { value: "120" } });
+    fireEvent.change(scoreInputs[2], { target: { value: "90" } });
+
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
@@ -174,6 +179,6 @@ describe("RecordSportPage", () => {
       { side: "B", playerIds: ["2"] },
       { side: "C", playerIds: ["3"] },
     ]);
-    expect(payload.score).toBeUndefined();
+    expect(payload.score).toEqual([100, 120, 90]);
   });
 });

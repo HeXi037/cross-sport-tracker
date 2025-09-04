@@ -334,10 +334,10 @@ export default async function PlayerPage({
                           <Link href={`/matches/${m.id}`}>
                             {m.participants.map((p, idx) => (
                               <span key={p.side}>
-                                {p.playerIds.map((pid, j) => (
+                                {(p.playerIds || []).map((pid, j) => (
                                   <span key={pid}>
                                     <PlayerLabel id={pid} />
-                                    {j < p.playerIds.length - 1 ? ' & ' : ''}
+                                    {j < (p.playerIds?.length || 0) - 1 ? ' & ' : ''}
                                   </span>
                                 ))}
                                 {idx < m.participants.length - 1 ? ' vs ' : ''}
@@ -437,10 +437,10 @@ export default async function PlayerPage({
                   <Link href={`/matches/${m.id}`}>
                     {m.participants.map((p, idx) => (
                       <span key={p.side}>
-                        {p.playerIds.map((pid, j) => (
+                        {(p.playerIds || []).map((pid, j) => (
                           <span key={pid}>
                             <PlayerLabel id={pid} />
-                            {j < p.playerIds.length - 1 ? ' & ' : ''}
+                            {j < (p.playerIds?.length || 0) - 1 ? ' & ' : ''}
                           </span>
                         ))}
                         {idx < m.participants.length - 1 ? ' vs ' : ''}

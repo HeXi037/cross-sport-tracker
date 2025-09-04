@@ -8,8 +8,8 @@
     "start": "next start -p 3000",
     "lint": "next lint",
     "test": "vitest",
-    "test:e2e": "cypress run",
-    "cypress:open": "cypress open"
+    "test:e2e": "TS_NODE_PROJECT=tsconfig.cypress.json cypress run",
+    "cypress:open": "TS_NODE_PROJECT=tsconfig.cypress.json cypress open"
   },
   "dependencies": {
     "@sentry/react": "^7.115.0",
@@ -28,6 +28,7 @@
     "@typescript-eslint/eslint-plugin": "8.42.0",
     "@typescript-eslint/parser": "8.42.0",
     "cypress": "^15.1.0",
+    "ts-node": "^10.9.2",
     "eslint": "^8.57.1",
     "eslint-config-next": "^15.5.2",
     "jsdom": "^22.1.0",

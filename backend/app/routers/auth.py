@@ -17,9 +17,14 @@ from ..db import get_session
 from ..models import User, Player
 from ..schemas import UserCreate, UserLogin, TokenOut
 
-JWT_SECRET = os.getenv("JWT_SECRET")
-if not JWT_SECRET:
-  raise RuntimeError("JWT_SECRET environment variable is required")
+
+def get_jwt_secret() -> str:
+  secret = os.getenv("JWT_SECRET")
+  if not secret:
+    raise RuntimeError("JWT_SECRET environment variable is required")
+  return secret
+
+
 JWT_ALG = "HS256"
 JWT_EXPIRE_SECONDS = 3600
 
@@ -49,7 +54,7 @@ def create_token(user: User) -> str:
       "is_admin": user.is_admin,
       "exp": datetime.utcnow() + timedelta(seconds=JWT_EXPIRE_SECONDS),
   }
-  return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
+  return jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALG)
 
 
 @router.post("/signup", response_model=TokenOut)
@@ -122,7 +127,7 @@ async def get_current_user(
     raise HTTPException(status_code=401, detail="missing token")
   token = authorization.split(" ", 1)[1]
   try:
-    payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
+    payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALG])
   except jwt.PyJWTError:
     raise HTTPException(status_code=401, detail="invalid token")
   uid = payload.get("sub")

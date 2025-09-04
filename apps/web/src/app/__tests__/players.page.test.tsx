@@ -20,7 +20,7 @@ describe('PlayersPage', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ id: '1' }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
-    global.fetch = fetchMock as any;
+    global.fetch = fetchMock as unknown as typeof fetch;
 
     await act(async () => {
       render(<PlayersPage />);

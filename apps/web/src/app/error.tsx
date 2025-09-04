@@ -11,7 +11,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
   return (
     <main className="container" style={{ padding: "2rem" }}>
       <h2>Something went wrong.</h2>
-      <p>We're working to fix the issue. Please try again.</p>
+      <p>We&apos;re working to fix the issue. Please try again.</p>
       <button onClick={() => reset()}>Try again</button>
     </main>
   );

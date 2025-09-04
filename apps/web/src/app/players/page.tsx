@@ -16,6 +16,12 @@ interface Player {
   photo_url?: string | null;
 }
 
+interface ErrorResponse {
+  detail?: string;
+  message?: string;
+  [key: string]: unknown;
+}
+
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [recentMatches, setRecentMatches] =
@@ -117,14 +123,14 @@ export default function PlayersPage() {
       });
       const data = (await res.json().catch(() => null)) as
         | Player
-        | (Record<string, unknown> & { detail?: string; message?: string })
+        | ErrorResponse
         | null;
       if (!res.ok || !data || !("id" in data)) {
         let message = "Failed to create player.";
-        if (data && typeof (data as any)["detail"] === "string")
-          message = (data as any)["detail"] as string;
-        else if (data && typeof (data as any)["message"] === "string")
-          message = (data as any)["message"] as string;
+        if (data && "detail" in data && typeof data.detail === "string")
+          message = data.detail;
+        else if (data && "message" in data && typeof data.message === "string")
+          message = data.message;
         setError(message);
         return;
       }

@@ -1,11 +1,9 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { apiFetch } from "../../lib/api";
 
 export default function ResetConfirmPage() {
-  const router = useRouter();
   const [token, setToken] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);

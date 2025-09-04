@@ -37,7 +37,7 @@ describe('MatchesPage', () => {
       .mockResolvedValueOnce({ ok: true, json: async () => matches })
       .mockResolvedValueOnce({ ok: true, json: async () => detail })
       .mockResolvedValueOnce({ ok: true, json: async () => players });
-    global.fetch = fetchMock as any;
+    global.fetch = fetchMock as unknown as typeof fetch;
 
     const page = await MatchesPage({ searchParams: {} });
     render(page);

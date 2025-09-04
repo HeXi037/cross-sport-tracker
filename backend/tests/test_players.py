@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from app import db
 from app.routers import players, auth, badges
 from app.models import Player, Club, User, Badge, PlayerBadge, PlayerMetric
-from app.exceptions import DomainException, ProblemDetail
+from app.exceptions include DomainException, ProblemDetail
 
 app = FastAPI()
 
@@ -118,6 +118,30 @@ def test_delete_player_soft_delete() -> None:
             assert p is not None and p.deleted_at is not None
 
     asyncio.run(check_deleted())
+
+
+def test_hard_delete_player_allows_username_reuse() -> None:
+    with TestClient(app) as client:
+        token = admin_token(client)
+
+        # initial signup creates both user and player
+        resp = client.post("/auth/signup", json={"username": "Eve", "password": "pw"})
+        assert resp.status_code == 200
+
+        # lookup player id for Eve
+        pid = client.get("/players", params={"q": "Eve"}).json()["players"][0]["id"]
+
+        # hard delete the player (and associated user)
+        resp = client.delete(
+            f"/players/{pid}",
+            params={"hard": "true"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 204
+
+        # signup again with the same username should now succeed
+        resp = client.post("/auth/signup", json={"username": "Eve", "password": "pw"})
+        assert resp.status_code == 200
 
 def test_create_player_invalid_name() -> None:
     with TestClient(app) as client:

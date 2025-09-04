@@ -244,13 +244,24 @@ async def delete_comment(
 @router.delete("/{player_id}", status_code=204)
 async def delete_player(
     player_id: str,
+    hard: bool = False,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_admin),
 ):
     p = await session.get(Player, player_id)
     if not p or p.deleted_at is not None:
         raise PlayerNotFound(player_id)
-    p.deleted_at = func.now()
+
+    if hard:
+        # remove associated user so the username can be reused
+        if p.user_id:
+            u = await session.get(User, p.user_id)
+            if u:
+                await session.delete(u)
+        await session.delete(p)
+    else:
+        p.deleted_at = func.now()
+
     await session.commit()
     return Response(status_code=204)
 

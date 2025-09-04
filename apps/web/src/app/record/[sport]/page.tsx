@@ -4,6 +4,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
+import ErrorBoundary from "../../../components/ErrorBoundary";
 
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 
@@ -132,7 +133,7 @@ export default function RecordSportPage() {
       interface MatchPayload {
         sport: string;
         participants: MatchParticipant[];
-        score?: [number, number];
+        score?: number[];
         playedAt?: string;
         location?: string;
       }
@@ -169,8 +170,9 @@ export default function RecordSportPage() {
   };
 
   return (
-    <main className="container">
-      <form onSubmit={handleSubmit}>
+    <ErrorBoundary>
+      <main className="container">
+        <form onSubmit={handleSubmit}>
         {isPickleball && (
           <label>
             <input
@@ -332,7 +334,8 @@ export default function RecordSportPage() {
 
         <button type="submit">Save</button>
       </form>
-    </main>
+      </main>
+    </ErrorBoundary>
   );
 }
 

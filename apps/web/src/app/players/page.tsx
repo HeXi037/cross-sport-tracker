@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { apiFetch, isAdmin } from "../../lib/api";
+import ErrorBoundary from "../../components/ErrorBoundary";
 
 const NAME_REGEX = /^[A-Za-z0-9 '-]{1,50}$/;
 
@@ -138,7 +139,8 @@ export default function PlayersPage() {
   }
 
   return (
-    <main className="container">
+    <ErrorBoundary>
+      <main className="container">
       <h1 className="heading">Players</h1>
       {loading && players.length === 0 ? (
         <div>Loading players…</div>
@@ -207,6 +209,7 @@ export default function PlayersPage() {
           </button>
         </div>
       )}
-    </main>
+      </main>
+    </ErrorBoundary>
   );
 }

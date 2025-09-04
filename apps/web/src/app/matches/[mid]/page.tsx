@@ -2,6 +2,8 @@ import Link from "next/link";
 import { apiFetch } from "../../../lib/api";
 import LiveSummary from "./live-summary";
 
+export const dynamic = "force-dynamic";
+
 type ID = string;
 
 // "side" can be any identifier (A, B, C, ...), so keep it loose

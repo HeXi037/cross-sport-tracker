@@ -17,7 +17,6 @@ from ..schemas import (
     SetsIn,
     MatchIdOut,
     MatchSummaryOut,
-    MatchSummaryListOut,
     MatchOut,
     ParticipantOut,
     ScoreEventOut,
@@ -33,8 +32,9 @@ from .auth import get_current_user
 router = APIRouter(prefix="/matches", tags=["matches"])
 
 # GET /api/v0/matches
-@router.get("", response_model=MatchSummaryListOut)
+@router.get("", response_model=list[MatchSummaryOut])
 async def list_matches(
+    response: Response,
     playerId: str | None = None,
     upcoming: bool = False,
     limit: int = 50,
@@ -55,21 +55,20 @@ async def list_matches(
     stmt = stmt.order_by(Match.played_at.desc()).limit(limit).offset(offset)
     matches = (await session.execute(stmt)).scalars().unique().all()
 
-    return MatchSummaryListOut(
-        matches=[
-            MatchSummaryOut(
-                id=m.id,
-                sport=m.sport_id,
-                bestOf=m.best_of,
-                playedAt=m.played_at,
-                location=m.location,
-            )
-            for m in matches
-        ],
-        total=total,
-        limit=limit,
-        offset=offset,
-    )
+    response.headers["X-Total-Count"] = str(total)
+    response.headers["X-Limit"] = str(limit)
+    response.headers["X-Offset"] = str(offset)
+
+    return [
+        MatchSummaryOut(
+            id=m.id,
+            sport=m.sport_id,
+            bestOf=m.best_of,
+            playedAt=m.played_at,
+            location=m.location,
+        )
+        for m in matches
+    ]
 
 # POST /api/v0/matches
 @router.post("", response_model=MatchIdOut)

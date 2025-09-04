@@ -287,13 +287,6 @@ class MatchSummaryOut(BaseModel):
     location: Optional[str] = None
 
 
-class MatchSummaryListOut(BaseModel):
-    matches: List[MatchSummaryOut]
-    total: int
-    limit: int
-    offset: int
-
-
 class ParticipantOut(BaseModel):
     """Participant information for a match."""
     id: str

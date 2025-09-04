@@ -2,6 +2,7 @@ import os
 import sys
 import asyncio
 import uuid
+import hashlib
 import pytest
 from sqlalchemy import select
 
@@ -73,7 +74,7 @@ def test_signup_login_and_protected_access():
 
         user = asyncio.run(fetch_user())
         assert user.password_hash != "pw"
-        assert pwd_context.verify("pw", user.password_hash)
+        assert pwd_context.verify("Str0ng!Pass", user.password_hash)
 
         resp = client.post(
             "/auth/login", json={"username": "alice", "password": "Str0ng!Pass"}
@@ -173,13 +174,36 @@ def test_signup_rejects_attached_player():
 def test_login_rate_limited():
     auth.limiter.reset()
     with TestClient(app) as client:
-        client.post("/auth/signup", json={"username": "rate", "password": "pw"})
+        client.post(
+            "/auth/signup",
+            json={"username": "rate", "password": "Str0ng!Pass"},
+        )
         for _ in range(5):
             ok = client.post(
-                "/auth/login", json={"username": "rate", "password": "pw"}
+                "/auth/login",
+                json={"username": "rate", "password": "Str0ng!Pass"},
             )
             assert ok.status_code == 200
         resp = client.post(
-            "/auth/login", json={"username": "rate", "password": "pw"}
+            "/auth/login",
+            json={"username": "rate", "password": "Str0ng!Pass"},
         )
         assert resp.status_code == 429
+
+
+def test_login_accepts_sha256_hash():
+    auth.limiter.reset()
+    async def create_legacy_user():
+        async with db.AsyncSessionLocal() as session:
+            uid = uuid.uuid4().hex
+            legacy_hash = hashlib.sha256("pw".encode()).hexdigest()
+            user = User(id=uid, username="legacy", password_hash=legacy_hash)
+            session.add(user)
+            player = Player(id=uuid.uuid4().hex, user_id=uid, name="legacy")
+            session.add(player)
+            await session.commit()
+
+    asyncio.run(create_legacy_user())
+    with TestClient(app) as client:
+        resp = client.post("/auth/login", json={"username": "legacy", "password": "pw"})
+        assert resp.status_code == 200

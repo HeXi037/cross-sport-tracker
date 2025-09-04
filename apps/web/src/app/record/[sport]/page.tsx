@@ -36,6 +36,7 @@ export default function RecordSportPage() {
   const [error, setError] = useState<string | null>(null);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
+  const [location, setLocation] = useState("");
 
   // Padal is always doubles. Other sports default to singles unless specified.
   const [doubles, setDoubles] = useState(isPadel);
@@ -121,6 +122,7 @@ export default function RecordSportPage() {
         participants: MatchParticipant[];
         score?: [number, number];
         playedAt?: string;
+        location?: string;
       }
       const payload: MatchPayload = {
         sport,
@@ -135,6 +137,9 @@ export default function RecordSportPage() {
         } else {
           payload.playedAt = `${date}T00:00:00`;
         }
+      }
+      if (location) {
+        payload.location = location;
       }
       const res = await apiFetch(`/v0/matches`, {
         method: "POST",
@@ -177,6 +182,14 @@ export default function RecordSportPage() {
             onChange={(e) => setTime(e.target.value)}
           />
         </div>
+
+        <input
+          type="text"
+          aria-label="Location"
+          placeholder="Location"
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+        />
 
         {isBowling ? (
           <div className="players">

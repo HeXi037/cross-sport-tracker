@@ -26,7 +26,7 @@ describe("MatchDetailPage", () => {
       status: "",
       playedAt: "2024-01-01T00:00:00",
       participants: [],
-      sets: [],
+      summary: {},
     };
     apiFetchMock.mockResolvedValueOnce({ ok: true, json: async () => match });
 
@@ -55,14 +55,19 @@ describe("MatchDetailPage", () => {
         { side: "B", playerIds: ["p2"] },
         { side: "C", playerIds: ["p3"] },
       ],
-      sets: [],
+      summary: {},
     };
 
     apiFetchMock
       .mockResolvedValueOnce({ ok: true, json: async () => match })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "p1", name: "Ann" }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "p2", name: "Ben" }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "p3", name: "Cam" }) });
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: "p1", name: "Ann" },
+          { id: "p2", name: "Ben" },
+          { id: "p3", name: "Cam" },
+        ],
+      });
 
     render(await MatchDetailPage({ params: { mid: "m2" } }));
 

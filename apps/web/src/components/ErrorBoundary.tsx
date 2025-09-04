@@ -1,6 +1,7 @@
 "use client";
 
 import { Component, ErrorInfo, ReactNode } from "react";
+import Sentry from "../lib/monitoring";
 
 interface Props {
   children: ReactNode;
@@ -23,7 +24,7 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("ErrorBoundary caught an error", error, errorInfo);
-    // TODO: send error and errorInfo to monitoring service here
+    Sentry.captureException(error, { extra: { errorInfo } });
   }
 
   render() {

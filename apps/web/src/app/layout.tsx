@@ -1,6 +1,7 @@
 // apps/web/src/app/layout.tsx
 import './globals.css';
 import Header from './header';
+import Providers from './providers';
 
 export const metadata = {
   title: 'cross-sport-tracker',
@@ -16,7 +17,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <Header />
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

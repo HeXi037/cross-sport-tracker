@@ -19,7 +19,7 @@ Runtime: Python 3.12, Node 20, Postgres 16
 
 IDs & pagination: ULID strings, cursor-based pagination
 
-Auth: Credentials (username/password) for $0 email costs; magic-link later
+Auth: Credentials (username/password) for $0 email costs; magic-link later. JWT tokens require a high-entropy `JWT_SECRET` env var
 
 Multi-tenancy: Club-scoped (club_id on entities)
 

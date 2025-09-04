@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 from passlib.context import CryptContext
 import jwt
+import httpx
 
 from ..db import get_session
 from ..models import User, Player, PasswordResetToken, RefreshToken
@@ -104,8 +105,26 @@ def create_refresh_token_record(user: User) -> tuple[str, RefreshToken]:
 
 
 def _send_password_reset_token(username: str, token: str) -> None:
-    """Placeholder for sending password reset token to the user."""
-    print(f"Password reset token for {username}: {token}")
+    """Send the password reset token to the user via an external service."""
+    mailer_url = os.getenv("PASSWORD_RESET_MAILER_URL")
+    if not mailer_url:
+        raise RuntimeError(
+            "PASSWORD_RESET_MAILER_URL environment variable is required"
+        )
+
+    api_key = os.getenv("PASSWORD_RESET_MAILER_API_KEY")
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+
+    try:
+        resp = httpx.post(
+            mailer_url,
+            json={"username": username, "token": token},
+            headers=headers,
+            timeout=10,
+        )
+        resp.raise_for_status()
+    except Exception as exc:  # pragma: no cover - network failures
+        raise RuntimeError("Failed to send password reset token") from exc
 
 
 @router.post("/signup", response_model=TokenOut)

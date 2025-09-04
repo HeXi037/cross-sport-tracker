@@ -152,13 +152,13 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
     resp = client.get("/matches")
     assert resp.status_code == 200
     data = resp.json()
-    matches = data["matches"]
-    ids = [m["id"] for m in matches]
+    ids = [m["id"] for m in data]
     sorted_ids = [
         m["id"]
-        for m in sorted(matches, key=lambda m: m["playedAt"], reverse=True)
+        for m in sorted(data, key=lambda m: m["playedAt"], reverse=True)
     ]
     assert ids == sorted_ids
+    assert resp.headers["X-Total-Count"] == "2"
 
 
 @pytest.mark.anyio
@@ -196,7 +196,8 @@ async def test_list_matches_upcoming_filter(tmp_path):
     resp = client.get("/matches", params={"upcoming": True})
     assert resp.status_code == 200
     data = resp.json()
-    assert [m["id"] for m in data["matches"]] == ["future"]
+    assert [m["id"] for m in data] == ["future"]
+    assert resp.headers["X-Total-Count"] == "1"
 
 
 @pytest.mark.skip(reason="SQLite lacks ARRAY support for MatchParticipant")

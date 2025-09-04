@@ -14,7 +14,14 @@ import jwt
 
 from ..db import get_session
 from ..models import User, Player
-from ..schemas import UserCreate, UserLogin, TokenOut
+from ..schemas import (
+  UserCreate,
+  UserLogin,
+  TokenOut,
+  PasswordResetRequest,
+  PasswordResetTokenOut,
+  PasswordResetConfirm,
+)
 
 
 def get_jwt_secret() -> str:
@@ -48,6 +55,9 @@ limiter = Limiter(key_func=_get_client_ip)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+reset_tokens: dict[str, tuple[str, datetime]] = {}
+RESET_TOKEN_EXPIRE_MINUTES = 30
 
 
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
@@ -136,6 +146,44 @@ async def login(
       raise HTTPException(status_code=401, detail="invalid credentials")
   token = create_token(user)
   return TokenOut(access_token=token)
+
+
+@router.post("/reset/request", response_model=PasswordResetTokenOut)
+async def reset_request(
+    body: PasswordResetRequest,
+    session: AsyncSession = Depends(get_session),
+):
+  user = (
+      await session.execute(select(User).where(User.username == body.username))
+  ).scalar_one_or_none()
+  if not user:
+    raise HTTPException(status_code=404, detail="user not found")
+  token = uuid.uuid4().hex
+  expires = datetime.utcnow() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
+  reset_tokens[token] = (user.id, expires)
+  return PasswordResetTokenOut(reset_token=token)
+
+
+@router.post("/reset/confirm")
+async def reset_confirm(
+    body: PasswordResetConfirm,
+    session: AsyncSession = Depends(get_session),
+):
+  record = reset_tokens.get(body.token)
+  if not record:
+    raise HTTPException(status_code=400, detail="invalid token")
+  uid, expires = record
+  if datetime.utcnow() > expires:
+    del reset_tokens[body.token]
+    raise HTTPException(status_code=400, detail="expired token")
+  user = await session.get(User, uid)
+  if not user:
+    del reset_tokens[body.token]
+    raise HTTPException(status_code=404, detail="user not found")
+  user.password_hash = pwd_context.hash(body.new_password)
+  await session.commit()
+  del reset_tokens[body.token]
+  return {"detail": "password reset"}
 
 
 async def get_current_user(

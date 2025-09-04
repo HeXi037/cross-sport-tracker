@@ -2,10 +2,11 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, currentUsername, logout } from "../../lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [user, setUser] = useState(currentUsername());
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [newUser, setNewUser] = useState("");
@@ -53,6 +54,22 @@ export default function LoginPage() {
       setError("Signup failed");
     }
   };
+
+  if (user) {
+    return (
+      <main className="container">
+        <h1 className="heading">Logged in as {user}</h1>
+        <button
+          onClick={() => {
+            logout();
+            setUser(null);
+          }}
+        >
+          Logout
+        </button>
+      </main>
+    );
+  }
 
   return (
     <main className="container">

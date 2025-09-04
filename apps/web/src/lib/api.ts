@@ -33,15 +33,34 @@ function base64UrlDecode(str: string): string {
   return atob(padded);
 }
 
-export function isAdmin(): boolean {
-  if (typeof window === "undefined") return false;
+function getTokenPayload(): any | null {
+  if (typeof window === "undefined") return null;
   const token = window.localStorage?.getItem("token");
-  if (!token) return false;
+  if (!token) return null;
   try {
     const [, payload] = token.split(".");
-    const decoded = JSON.parse(base64UrlDecode(payload));
-    return !!decoded.is_admin;
+    return JSON.parse(base64UrlDecode(payload));
   } catch {
-    return false;
+    return null;
   }
+}
+
+export function currentUsername(): string | null {
+  const payload = getTokenPayload();
+  return payload?.username ?? null;
+}
+
+export function isLoggedIn(): boolean {
+  return getTokenPayload() !== null;
+}
+
+export function logout() {
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem("token");
+  }
+}
+
+export function isAdmin(): boolean {
+  const payload = getTokenPayload();
+  return !!payload?.is_admin;
 }

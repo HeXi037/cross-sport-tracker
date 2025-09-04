@@ -28,10 +28,10 @@ test('record padel match', async ({ page }) => {
   });
 
   await page.goto('/record/padel');
-  await page.selectOption('select[aria-label="Player A1"]', '1');
-  await page.selectOption('select[aria-label="Player A2"]', '2');
-  await page.selectOption('select[aria-label="Player B1"]', '3');
-  await page.selectOption('select[aria-label="Player B2"]', '4');
+  await page.getByLabel('Player A1').selectOption('1');
+  await page.getByLabel('Player A2').selectOption('2');
+  await page.getByLabel('Player B1').selectOption('3');
+  await page.getByLabel('Player B2').selectOption('4');
   await page.getByPlaceholder('Set 1 A').fill('6');
   await page.getByPlaceholder('Set 1 B').fill('4');
   await page.getByRole('button', { name: 'Save' }).click();

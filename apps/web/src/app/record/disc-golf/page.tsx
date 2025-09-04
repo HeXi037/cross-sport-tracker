@@ -60,9 +60,17 @@ function DiscGolfForm() {
   );
 }
 
+function DiscGolfLoading() {
+  return (
+    <main className="container">
+      <h1 className="heading">Record Disc Golf</h1>
+    </main>
+  );
+}
+
 export default function RecordDiscGolfPage() {
   return (
-    <Suspense fallback={<main className="container"><h1 className="heading">Record Disc Golf</h1></main>}>
+    <Suspense fallback={<DiscGolfLoading />}>
       <DiscGolfForm />
     </Suspense>
   );

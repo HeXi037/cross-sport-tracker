@@ -13,13 +13,13 @@ describe("PlayersPage", () => {
     vi.restoreAllMocks();
   });
 
-  it("shows a loading message while fetching players", () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
+  it("shows a loading message while fetching players", async () => {
+    const fetchMock = vi.fn().mockReturnValue(new Promise(() => {}));
     global.fetch = fetchMock as typeof fetch;
 
-    render(<PlayersPage />);
+    await act(async () => {
+      render(<PlayersPage />);
+    });
 
     expect(screen.getByText(/loading players/i)).toBeTruthy();
   });

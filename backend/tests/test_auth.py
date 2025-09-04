@@ -27,7 +27,6 @@ app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
 app.include_router(auth.router)
 app.include_router(players.router)
 
-
 async def create_player(name: str, user_id: str | None = None) -> str:
     async with db.AsyncSessionLocal() as session:
         pid = uuid.uuid4().hex
@@ -35,7 +34,6 @@ async def create_player(name: str, user_id: str | None = None) -> str:
         session.add(player)
         await session.commit()
         return pid
-
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():
@@ -54,7 +52,6 @@ def setup_db():
     yield
     if os.path.exists("./test_auth.db"):
         os.remove("./test_auth.db")
-
 
 def test_signup_login_and_protected_access():
     with TestClient(app) as client:
@@ -110,7 +107,6 @@ def test_signup_login_and_protected_access():
         )
         assert resp.status_code == 204
 
-
 @pytest.mark.parametrize(
     "username,password",
     [
@@ -126,7 +122,6 @@ def test_signup_rejects_invalid_password(username, password):
             "/auth/signup", json={"username": username, "password": password}
         )
         assert resp.status_code == 422
-
 
 def test_signup_links_orphan_player():
     pid = asyncio.run(create_player("charlie"))
@@ -151,7 +146,6 @@ def test_signup_links_orphan_player():
     assert player.user_id == user.id
     assert len(same_name_players) == 1
 
-
 def test_signup_rejects_attached_player():
     asyncio.run(create_player("dave", user_id="attached"))
     with TestClient(app) as client:
@@ -171,26 +165,52 @@ def test_signup_rejects_attached_player():
     user = asyncio.run(fetch_user())
     assert user is None
 
-
 def test_login_rate_limited():
     auth.limiter.reset()
     with TestClient(app) as client:
-        client.post(
-            "/auth/signup",
-            json={"username": "rate", "password": "Str0ng!Pass"},
+        resp = client.post(
+            "/auth/signup", json={"username": "rate", "password": "Str0ng!Pass"}
         )
+        assert resp.status_code == 200
+        for _ in range(5):
+            ok = client.post(
+                "/auth/login", json={"username": "rate", "password": "Str0ng!Pass"}
+            )
+            assert ok.status_code == 200
+        resp = client.post(
+            "/auth/login", json={"username": "rate", "password": "Str0ng!Pass"}
+        )
+        assert resp.status_code == 429
+
+def test_login_rate_limited_per_ip():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup",
+            json={"username": "iprate", "password": "Str0ng!Pass"},
+        )
+        assert resp.status_code == 200
+        h1 = {"X-Forwarded-For": "1.1.1.1"}
+        h2 = {"X-Forwarded-For": "2.2.2.2"}
         for _ in range(5):
             ok = client.post(
                 "/auth/login",
-                json={"username": "rate", "password": "Str0ng!Pass"},
+                json={"username": "iprate", "password": "Str0ng!Pass"},
+                headers=h1,
             )
             assert ok.status_code == 200
         resp = client.post(
             "/auth/login",
-            json={"username": "rate", "password": "Str0ng!Pass"},
+            json={"username": "iprate", "password": "Str0ng!Pass"},
+            headers=h1,
         )
         assert resp.status_code == 429
-
+        ok2 = client.post(
+            "/auth/login",
+            json={"username": "iprate", "password": "Str0ng!Pass"},
+            headers=h2,
+        )
+        assert ok2.status_code == 200
 
 def test_login_accepts_sha256_hash():
     auth.limiter.reset()

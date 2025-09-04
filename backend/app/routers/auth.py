@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from passlib.context import CryptContext
@@ -32,9 +31,21 @@ def get_jwt_secret() -> str:
 JWT_ALG = "HS256"
 JWT_EXPIRE_SECONDS = 3600
 
-limiter = Limiter(key_func=get_remote_address)
-router = APIRouter(prefix="/auth", tags=["auth"])
 
+def _get_client_ip(request: Request) -> str:
+  forwarded = request.headers.get("X-Forwarded-For")
+  if forwarded:
+    ip = forwarded.split(",")[0].strip()
+    if ip:
+      return ip
+  real_ip = request.headers.get("X-Real-IP")
+  if real_ip:
+    return real_ip
+  return request.client.host if request.client else ""
+
+
+limiter = Limiter(key_func=_get_client_ip)
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -106,7 +117,11 @@ async def signup(
 
 @router.post("/login", response_model=TokenOut)
 @limiter.limit("5/minute")
-async def login(request: Request, body: UserLogin, session: AsyncSession = Depends(get_session)):
+async def login(
+    request: Request,
+    body: UserLogin,
+    session: AsyncSession = Depends(get_session),
+):
   user = (
       await session.execute(select(User).where(User.username == body.username))
   ).scalar_one_or_none()

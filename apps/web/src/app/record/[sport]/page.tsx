@@ -30,7 +30,8 @@ export default function RecordSportPage() {
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [ids, setIds] = useState<IdMap>({ a1: "", a2: "", b1: "", b2: "" });
-  const [bowlingIds, setBowlingIds] = useState<string[]>([""]); 
+  const [bowlingIds, setBowlingIds] = useState<string[]>([""]);
+  const [bowlingScores, setBowlingScores] = useState<string[]>(["0"]);
   const [scoreA, setScoreA] = useState("0");
   const [scoreB, setScoreB] = useState("0");
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +65,10 @@ export default function RecordSportPage() {
     setBowlingIds((prev) => prev.map((id, i) => (i === index ? value : id)));
   };
 
+  const handleBowlingScoreChange = (index: number, value: string) => {
+    setBowlingScores((prev) => prev.map((s, i) => (i === index ? value : s)));
+  };
+
   const handleToggle = (checked: boolean) => {
     setDoubles(checked);
     if (!checked) {
@@ -82,19 +87,26 @@ export default function RecordSportPage() {
     }
 
     let participants: MatchParticipant[] = [];
+    let entries: { id: string; score: string }[] = [];
     if (isBowling) {
-      const filtered = bowlingIds.filter((v) => v);
-      if (!filtered.length) {
+      entries = bowlingIds
+        .map((id, idx) => ({ id, score: bowlingScores[idx] }))
+        .filter((e) => e.id);
+      if (!entries.length) {
         setError("Please select at least one player.");
         return;
       }
-      if (new Set(filtered).size !== filtered.length) {
+      if (new Set(entries.map((e) => e.id)).size !== entries.length) {
         setError("Please select unique players.");
         return;
       }
-      participants = filtered.map((id, idx) => ({
+      if (entries.some((e) => e.score === "")) {
+        setError("Please enter scores for all players.");
+        return;
+      }
+      participants = entries.map((e, idx) => ({
         side: String.fromCharCode(65 + idx),
-        playerIds: [id],
+        playerIds: [e.id],
       }));
     } else {
       const idValues = doubles
@@ -128,7 +140,9 @@ export default function RecordSportPage() {
         sport,
         participants,
       };
-      if (!isBowling) {
+      if (isBowling) {
+        payload.score = entries.map((e) => Number(e.score));
+      } else {
         payload.score = [Number(scoreA), Number(scoreB)];
       }
       if (date) {
@@ -194,24 +208,36 @@ export default function RecordSportPage() {
         {isBowling ? (
           <div className="players">
             {bowlingIds.map((id, idx) => (
-              <select
-                key={idx}
-                aria-label={`Player ${idx + 1}`}
-                value={id}
-                onChange={(e) => handleBowlingIdChange(idx, e.target.value)}
-              >
-                <option value="">Select player</option>
-                {players.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+              <div key={idx} className="bowling-player">
+                <select
+                  aria-label={`Player ${idx + 1}`}
+                  value={id}
+                  onChange={(e) => handleBowlingIdChange(idx, e.target.value)}
+                >
+                  <option value="">Select player</option>
+                  {players.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Score"
+                  value={bowlingScores[idx]}
+                  onChange={(e) => handleBowlingScoreChange(idx, e.target.value)}
+                />
+              </div>
             ))}
             {bowlingIds.length < 6 && (
               <button
                 type="button"
-                onClick={() => setBowlingIds((prev) => prev.concat(""))}
+                onClick={() => {
+                  setBowlingIds((prev) => prev.concat(""));
+                  setBowlingScores((prev) => prev.concat("0"));
+                }}
               >
                 Add Player
               </button>

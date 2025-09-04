@@ -15,7 +15,9 @@ from ..db import get_session
 from ..models import User, Player
 from ..schemas import UserCreate, UserLogin, TokenOut
 
-JWT_SECRET = os.getenv("JWT_SECRET", "secret")
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+  raise RuntimeError("JWT_SECRET environment variable is required")
 JWT_ALG = "HS256"
 JWT_EXPIRE_SECONDS = 3600
 

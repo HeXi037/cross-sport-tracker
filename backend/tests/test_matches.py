@@ -9,6 +9,8 @@ from sqlalchemy import select, text
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+os.environ["JWT_SECRET"] = "testsecret"
+
 
 @pytest.fixture
 def anyio_backend():
@@ -18,7 +20,6 @@ def anyio_backend():
 @pytest.mark.anyio
 async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
   os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
-  os.environ["JWT_SECRET"] = "testsecret"
   from app import db
   from app.models import Player, User
   from app.schemas import MatchCreateByName, ParticipantByName
@@ -77,7 +78,6 @@ async def test_create_match_rejects_duplicate_players(tmp_path):
 @pytest.mark.anyio
 async def test_list_matches_returns_most_recent_first(tmp_path):
   os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
-  os.environ["JWT_SECRET"] = "testsecret"
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
   from app import db
@@ -121,7 +121,6 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
 @pytest.mark.anyio
 async def test_list_matches_upcoming_filter(tmp_path):
   os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
-  os.environ["JWT_SECRET"] = "testsecret"
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
   from app import db
@@ -231,7 +230,6 @@ def test_list_matches_filters_by_player(tmp_path):
 @pytest.mark.anyio
 async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
   os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
-  os.environ["JWT_SECRET"] = "testsecret"
   os.environ["ADMIN_SECRET"] = "admintest"
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
@@ -312,7 +310,6 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
 @pytest.mark.anyio
 async def test_delete_match_missing_returns_404(tmp_path):
   os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
-  os.environ["JWT_SECRET"] = "testsecret"
   os.environ["ADMIN_SECRET"] = "admintest"
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
@@ -465,7 +462,6 @@ async def test_delete_match_updates_ratings_and_leaderboard(tmp_path):
 @pytest.mark.anyio
 async def test_create_match_preserves_naive_date(tmp_path):
   os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
-  os.environ["JWT_SECRET"] = "testsecret"
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
   from app import db

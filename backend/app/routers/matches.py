@@ -17,6 +17,7 @@ from ..schemas import (
     SetsIn,
     MatchIdOut,
     MatchSummaryOut,
+    MatchSummaryListOut,
     MatchOut,
     ParticipantOut,
     ScoreEventOut,
@@ -32,49 +33,43 @@ from .auth import get_current_user
 router = APIRouter(prefix="/matches", tags=["matches"])
 
 # GET /api/v0/matches
-@router.get("", response_model=list[MatchSummaryOut])
+@router.get("", response_model=MatchSummaryListOut)
 async def list_matches(
     playerId: str | None = None,
     upcoming: bool = False,
+    limit: int = 50,
+    offset: int = 0,
     session: AsyncSession = Depends(get_session),
 ):
+    stmt = select(Match).where(Match.deleted_at.is_(None))
+    if upcoming:
+        stmt = stmt.where((Match.played_at.is_(None)) | (Match.played_at > func.now()))
     if playerId:
-        rows = (
-            await session.execute(
-                select(Match, MatchParticipant)
-                .join(MatchParticipant)
-                .where(Match.deleted_at.is_(None))
-                .order_by(Match.played_at.desc())
-            )
-        ).all()
-        matches: list[Match] = []
-        seen: set[str] = set()
-        for row in rows:
-            match = row.Match
-            mp = row.MatchParticipant
-            if playerId in (mp.player_ids or []) and match.id not in seen:
-                if not upcoming or match.played_at is None or match.played_at > datetime.utcnow():
-                    matches.append(match)
-                    seen.add(match.id)
-    else:
-        stmt = select(Match).where(Match.deleted_at.is_(None))
-        if upcoming:
-            stmt = stmt.where(
-                (Match.played_at.is_(None)) | (Match.played_at > func.now())
-            )
-        stmt = stmt.order_by(Match.played_at.desc())
-        matches = (await session.execute(stmt)).scalars().all()
-
-    return [
-        MatchSummaryOut(
-            id=m.id,
-            sport=m.sport_id,
-            bestOf=m.best_of,
-            playedAt=m.played_at,
-            location=m.location,
+        stmt = stmt.join(MatchParticipant).where(
+            MatchParticipant.player_ids.contains([playerId])
         )
-        for m in matches
-    ]
+
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = (await session.execute(count_stmt)).scalar() or 0
+
+    stmt = stmt.order_by(Match.played_at.desc()).limit(limit).offset(offset)
+    matches = (await session.execute(stmt)).scalars().unique().all()
+
+    return MatchSummaryListOut(
+        matches=[
+            MatchSummaryOut(
+                id=m.id,
+                sport=m.sport_id,
+                bestOf=m.best_of,
+                playedAt=m.played_at,
+                location=m.location,
+            )
+            for m in matches
+        ],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 # POST /api/v0/matches
 @router.post("", response_model=MatchIdOut)

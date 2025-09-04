@@ -27,7 +27,7 @@ describe("RecordPadelPage", () => {
       })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "m1" }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
-    global.fetch = fetchMock as unknown as typeof fetch;
+    global.fetch = fetchMock as typeof fetch;
 
     render(<RecordPadelPage />);
 

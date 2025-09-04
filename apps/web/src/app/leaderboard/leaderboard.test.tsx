@@ -9,7 +9,7 @@ describe("Leaderboard", () => {
 
   it("fetches disc_golf when showing all sports", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
-    global.fetch = fetchMock as unknown as typeof fetch;
+    global.fetch = fetchMock as typeof fetch;
 
     render(<Leaderboard sport="all" />);
 

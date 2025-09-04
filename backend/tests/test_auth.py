@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 from app import db
 from app.models import User, Player, Club
 from app.routers import auth, players
+from app.routers.auth import pwd_context
 
 app = FastAPI()
 app.state.limiter = auth.limiter
@@ -56,26 +57,39 @@ def setup_db():
 def test_signup_login_and_protected_access():
     with TestClient(app) as client:
         resp = client.post(
-            "/auth/signup", json={"username": "alice", "password": "pw"}
+            "/auth/signup", json={"username": "alice", "password": "Str0ng!Pass"}
         )
         assert resp.status_code == 200
         token = resp.json()["access_token"]
         assert token
 
+        async def fetch_user():
+            async with db.AsyncSessionLocal() as session:
+                return (
+                    await session.execute(
+                        select(User).where(User.username == "alice")
+                    )
+                ).scalar_one()
+
+        user = asyncio.run(fetch_user())
+        assert user.password_hash != "pw"
+        assert pwd_context.verify("pw", user.password_hash)
+
         resp = client.post(
-            "/auth/login", json={"username": "alice", "password": "pw"}
+            "/auth/login", json={"username": "alice", "password": "Str0ng!Pass"}
         )
         assert resp.status_code == 200
         user_token = resp.json()["access_token"]
 
         resp = client.post(
-            "/auth/signup", json={"username": "admin", "password": "pw", "is_admin": True}
+            "/auth/signup",
+            json={"username": "admin", "password": "Str0ng!Pass", "is_admin": True},
         )
         assert resp.status_code == 403
 
         admin_token = client.post(
             "/auth/signup",
-            json={"username": "admin", "password": "pw", "is_admin": True},
+            json={"username": "admin", "password": "Str0ng!Pass", "is_admin": True},
             headers={"X-Admin-Secret": "admintest"},
         ).json()["access_token"]
 
@@ -95,11 +109,28 @@ def test_signup_login_and_protected_access():
         assert resp.status_code == 204
 
 
+@pytest.mark.parametrize(
+    "username,password",
+    [
+        ("weak1", "short"),
+        ("weak2", "allletters"),
+        ("weak3", "NoSymbol1"),
+        ("weak4", "NoNumber!"),
+    ],
+)
+def test_signup_rejects_invalid_password(username, password):
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup", json={"username": username, "password": password}
+        )
+        assert resp.status_code == 422
+
+
 def test_signup_links_orphan_player():
     pid = asyncio.run(create_player("charlie"))
     with TestClient(app) as client:
         resp = client.post(
-            "/auth/signup", json={"username": "charlie", "password": "pw"}
+            "/auth/signup", json={"username": "charlie", "password": "Str0ng!Pass"}
         )
         assert resp.status_code == 200
 
@@ -123,7 +154,7 @@ def test_signup_rejects_attached_player():
     asyncio.run(create_player("dave", user_id="attached"))
     with TestClient(app) as client:
         resp = client.post(
-            "/auth/signup", json={"username": "dave", "password": "pw"}
+            "/auth/signup", json={"username": "dave", "password": "Str0ng!Pass"}
         )
         assert resp.status_code == 400
         assert resp.json()["detail"] == "player exists"

@@ -4,6 +4,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
+import InputField from "../../../components/InputField";
+import SelectField from "../../../components/SelectField";
 
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 
@@ -183,23 +185,26 @@ export default function RecordSportPage() {
         )}
 
         <div className="datetime">
-          <input
+          <InputField
+            id="match-date"
             type="date"
-            aria-label="Date"
+            label="Date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
-          <input
+          <InputField
+            id="match-time"
             type="time"
-            aria-label="Time"
+            label="Time"
             value={time}
             onChange={(e) => setTime(e.target.value)}
           />
         </div>
 
-        <input
+        <InputField
+          id="match-location"
           type="text"
-          aria-label="Location"
+          label="Location"
           placeholder="Location"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
@@ -209,8 +214,9 @@ export default function RecordSportPage() {
           <div className="players">
             {bowlingIds.map((id, idx) => (
               <div key={idx} className="bowling-player">
-                <select
-                  aria-label={`Player ${idx + 1}`}
+                <SelectField
+                  id={`bowler-${idx}`}
+                  label={`Player ${idx + 1}`}
                   value={id}
                   onChange={(e) => handleBowlingIdChange(idx, e.target.value)}
                 >
@@ -220,14 +226,18 @@ export default function RecordSportPage() {
                       {p.name}
                     </option>
                   ))}
-                </select>
-                <input
+                </SelectField>
+                <InputField
+                  id={`bowler-${idx}-score`}
                   type="number"
                   min="0"
                   step="1"
+                  label="Score"
                   placeholder="Score"
                   value={bowlingScores[idx]}
-                  onChange={(e) => handleBowlingScoreChange(idx, e.target.value)}
+                  onChange={(e) =>
+                    handleBowlingScoreChange(idx, e.target.value)
+                  }
                 />
               </div>
             ))}
@@ -246,8 +256,9 @@ export default function RecordSportPage() {
         ) : (
           <>
             <div className="players">
-              <select
-                aria-label="Player A1"
+              <SelectField
+                id="player-a1"
+                label="Player A1"
                 value={ids.a1}
                 onChange={(e) => handleIdChange("a1", e.target.value)}
               >
@@ -257,11 +268,12 @@ export default function RecordSportPage() {
                     {p.name}
                   </option>
                 ))}
-              </select>
+              </SelectField>
 
               {doubles && (
-                <select
-                  aria-label="Player A2"
+                <SelectField
+                  id="player-a2"
+                  label="Player A2"
                   value={ids.a2}
                   onChange={(e) => handleIdChange("a2", e.target.value)}
                 >
@@ -271,11 +283,12 @@ export default function RecordSportPage() {
                       {p.name}
                     </option>
                   ))}
-                </select>
+                </SelectField>
               )}
 
-              <select
-                aria-label="Player B1"
+              <SelectField
+                id="player-b1"
+                label="Player B1"
                 value={ids.b1}
                 onChange={(e) => handleIdChange("b1", e.target.value)}
               >
@@ -285,11 +298,12 @@ export default function RecordSportPage() {
                     {p.name}
                   </option>
                 ))}
-              </select>
+              </SelectField>
 
               {doubles && (
-                <select
-                  aria-label="Player B2"
+                <SelectField
+                  id="player-b2"
+                  label="Player B2"
                   value={ids.b2}
                   onChange={(e) => handleIdChange("b2", e.target.value)}
                 >
@@ -299,23 +313,27 @@ export default function RecordSportPage() {
                       {p.name}
                     </option>
                   ))}
-                </select>
+                </SelectField>
               )}
             </div>
 
             <div className="score">
-              <input
+              <InputField
+                id="score-a"
                 type="number"
                 min="0"
                 step="1"
+                label="Score A"
                 placeholder="A"
                 value={scoreA}
                 onChange={(e) => setScoreA(e.target.value)}
               />
-              <input
+              <InputField
+                id="score-b"
                 type="number"
                 min="0"
                 step="1"
+                label="Score B"
                 placeholder="B"
                 value={scoreB}
                 onChange={(e) => setScoreB(e.target.value)}

@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { apiFetch, isAdmin } from "../../lib/api";
+import InputField from "../../components/InputField";
 
 const NAME_REGEX = /^[A-Za-z0-9 '-]{1,50}$/;
 
@@ -144,7 +145,9 @@ export default function PlayersPage() {
         <div>Loading players…</div>
       ) : (
         <>
-          <input
+          <InputField
+            id="player-search"
+            label="Search"
             className="input mb-2"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -179,28 +182,36 @@ export default function PlayersPage() {
           )}
         </>
       )}
-      <input
-        className="input"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="name"
-      />
-      {!nameIsValid && trimmedName !== "" && (
-        <div className="text-red-500 mt-2">
-          Name must be 1-50 characters and contain only letters,
-          numbers, spaces, hyphens, or apostrophes.
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          create();
+        }}
+      >
+        <InputField
+          id="new-player"
+          label="Player name"
+          className="input"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="name"
+          error={!nameIsValid && trimmedName !== "" ? "Name must be 1-50 characters and contain only letters, numbers, spaces, hyphens, or apostrophes." : undefined}
+        />
+        <button
+          className="button"
+          type="submit"
+          disabled={creating || name.trim() === ""}
+        >
+          {creating ? "Saving…" : "Add"}
+        </button>
+      </form>
+      {success && (
+        <div className="text-green-600 mt-2" role="alert">
+          {success}
         </div>
       )}
-      <button
-        className="button"
-        onClick={create}
-        disabled={creating || name.trim() === ""}
-      >
-        {creating ? "Saving…" : "Add"}
-      </button>
-      {success && <div className="text-green-600 mt-2">{success}</div>}
       {error && (
-        <div className="text-red-500 mt-2">
+        <div className="text-red-500 mt-2" role="alert">
           {error}
           <button className="ml-2 underline" onClick={load}>
             Retry

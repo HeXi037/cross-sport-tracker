@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 type ID = string;
 
 // "side" can be any identifier (A, B, C, ...), so keep it loose
-type Participant = { side: string; playerIds: string[] };
+type Participant = { side: string; playerIds?: string[] };
 
 type Summary = {
   sets?: Record<string, number>;

@@ -14,7 +14,7 @@ type MatchRow = {
 
 type Participant = {
   side: string;
-  playerIds: string[];
+  playerIds?: string[];
 };
 
 type MatchDetail = {
@@ -54,7 +54,7 @@ async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
   // Fetch all unique player names.
   const ids = new Set<string>();
   for (const { detail } of details) {
-    for (const p of detail.participants) p.playerIds.forEach((id) => ids.add(id));
+    for (const p of detail.participants) (p.playerIds ?? []).forEach((id) => ids.add(id));
   }
   const idToName = new Map<string, string>();
   const idList = Array.from(ids);
@@ -82,7 +82,11 @@ async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
     const participants = detail.participants
       .slice()
       .sort((a, b) => a.side.localeCompare(b.side))
-      .map((p) => p.playerIds.map((id) => idToName.get(id) ?? id));
+      .map((p) => {
+        const ids = p.playerIds ?? [];
+        const names = ids.map((id) => idToName.get(id) ?? id);
+        return names.length ? names : [p.side];
+      });
     return { ...row, participants, summary: detail.summary };
   });
 }

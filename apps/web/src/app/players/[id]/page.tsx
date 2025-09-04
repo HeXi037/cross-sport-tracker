@@ -26,7 +26,7 @@ type MatchRow = {
   location: string | null;
 };
 
-type Participant = { side: string; playerIds: string[] };
+type Participant = { side: string; playerIds?: string[] };
 type MatchDetail = {
   participants: Participant[];
   summary?:
@@ -120,7 +120,8 @@ async function getMatches(
     let playerSide: string | null = null;
     for (const p of detail.participants ?? []) {
       const ids = p.playerIds ?? [];
-      names[p.side] = ids.map((id) => idToName.get(id) ?? id);
+      const mapped = ids.map((id) => idToName.get(id) ?? id);
+      names[p.side] = mapped.length ? mapped : [p.side];
       if (ids.includes(playerId)) {
         playerSide = p.side;
       }

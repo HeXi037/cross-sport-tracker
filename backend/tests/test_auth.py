@@ -212,6 +212,31 @@ def test_login_rate_limited_per_ip():
         )
         assert ok2.status_code == 200
 
+
+def test_login_rate_limit_not_bypassed_by_spoofed_x_forwarded_for():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup", json={"username": "spoof", "password": "Str0ng!Pass"}
+        )
+        assert resp.status_code == 200
+        real_ip = "9.9.9.9"
+        for i in range(5):
+            headers = {"X-Forwarded-For": f"{i}.0.0.1, {real_ip}"}
+            ok = client.post(
+                "/auth/login",
+                json={"username": "spoof", "password": "Str0ng!Pass"},
+                headers=headers,
+            )
+            assert ok.status_code == 200
+        headers = {"X-Forwarded-For": f"random, {real_ip}"}
+        resp = client.post(
+            "/auth/login",
+            json={"username": "spoof", "password": "Str0ng!Pass"},
+            headers=headers,
+        )
+        assert resp.status_code == 429
+
 def test_login_accepts_sha256_hash():
     auth.limiter.reset()
     async def create_legacy_user():

@@ -97,6 +97,9 @@ export default function LoginPage() {
         />
         <button type="submit">Login</button>
       </form>
+      <p>
+        <a href="/reset-password/request">Forgot password?</a>
+      </p>
 
       <h2 className="heading">Sign Up</h2>
       <form onSubmit={handleSignup} className="auth-form">

@@ -149,6 +149,30 @@ class TokenOut(BaseModel):
     """Returned on successful authentication."""
     access_token: str
 
+
+class PasswordResetRequest(BaseModel):
+    """Schema for requesting a password reset token."""
+    username: str
+
+
+class PasswordResetTokenOut(BaseModel):
+    """Returned when a password reset token is issued."""
+    reset_token: str
+
+
+class PasswordResetConfirm(BaseModel):
+    """Schema for submitting a new password using a reset token."""
+    token: str
+    new_password: str = Field(..., min_length=8)
+
+    @field_validator("new_password")
+    def _check_password_complexity(cls, v: str) -> str:
+        if not PASSWORD_REGEX.match(v):
+            raise ValueError(
+                "Password must contain letters, numbers, and symbols"
+            )
+        return v
+
 class CommentCreate(BaseModel):
     """Schema for creating a comment on a player."""
     content: str = Field(..., min_length=1, max_length=500)

@@ -12,7 +12,8 @@ describe('LoginPage', () => {
   });
 
   it('shows error on failed login', async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: false }) as any;
+    global.fetch =
+      vi.fn().mockResolvedValue({ ok: false }) as unknown as typeof fetch;
     render(<LoginPage />);
     const username = screen.getAllByPlaceholderText(/username/i)[0];
     const password = screen.getAllByPlaceholderText(/password/i)[0];
@@ -26,7 +27,8 @@ describe('LoginPage', () => {
   });
 
   it('shows error on failed signup', async () => {
-    global.fetch = vi.fn().mockResolvedValue({ ok: false }) as any;
+    global.fetch =
+      vi.fn().mockResolvedValue({ ok: false }) as unknown as typeof fetch;
     render(<LoginPage />);
     const username = screen.getAllByPlaceholderText(/username/i)[1];
     const password = screen.getAllByPlaceholderText(/password/i)[1];

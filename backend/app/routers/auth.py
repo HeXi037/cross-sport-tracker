@@ -4,7 +4,7 @@ import hashlib
 import uuid
 import secrets
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Header, Request
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, Response
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
@@ -248,7 +248,7 @@ async def reset_confirm(
     user.password_hash = pwd_context.hash(body.new_password)
     await session.delete(rec)
     await session.commit()
-    return JSONResponse(status_code=204, content=None)
+    return Response(status_code=204)
 
 
 async def get_current_user(
@@ -350,6 +350,6 @@ async def logout(
         if rec:
             await session.delete(rec)
             await session.commit()
-    resp = JSONResponse(status_code=204, content=None)
+    resp = Response(status_code=204)
     resp.delete_cookie("refresh_token")
     return resp

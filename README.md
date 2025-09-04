@@ -45,7 +45,7 @@ Ratings: ELO baseline 1000; K=24 (K=32 if <30 games); per-sport rows
 
 Timezone: Store UTC; render client TZ (default Australia/Melbourne)
 
-Testing targets: Engines ≥ 90% coverage; Playwright E2E for core flows
+Testing targets: Engines ≥ 90% coverage; Cypress E2E for core flows
 
 Deploy: Single VPS with Docker Compose; Caddy for HTTPS; nightly pg_dump backups
 
@@ -189,6 +189,22 @@ python seed.py  # adds default sports, rulesets, demo club/player
 ### Web
 cd ../apps/web
 npm install
+
+### Cypress E2E tests
+From `apps/web`:
+
+```bash
+# headless run
+npm run test:e2e
+
+# interactive mode
+npx cypress open
+```
+
+Troubleshooting:
+
+- Run `npx cypress verify` if the Cypress binary is missing.
+- Use `DEBUG=cypress:*` for verbose logs.
 
 ### Run backend & frontend together
 Start the API and UI in separate terminals:

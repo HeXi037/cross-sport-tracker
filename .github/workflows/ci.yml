@@ -19,5 +19,4 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
       - run: npm ci
       - run: npm test
-      - run: npx playwright install --with-deps
-      - run: npx playwright test
+      - run: npm run test:e2e

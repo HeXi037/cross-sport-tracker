@@ -50,6 +50,7 @@ def client_and_session():
 
     with TestClient(app) as client:
         yield client, async_session_maker
+    asyncio.run(engine.dispose())
 
 
 def seed(session_maker):

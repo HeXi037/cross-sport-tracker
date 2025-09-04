@@ -233,6 +233,43 @@ def test_login_rate_limited_per_ip():
         assert ok2.status_code == 200
 
 
+def test_me_endpoints():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        signup = client.post(
+            "/auth/signup",
+            json={"username": "profile", "password": "Str0ng!Pass"},
+        )
+        assert signup.status_code == 200
+        token = signup.json()["access_token"]
+
+        resp = client.get(
+            "/auth/me", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert resp.status_code == 200
+        assert resp.json()["username"] == "profile"
+
+        update = client.put(
+            "/auth/me",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"username": "newprofile", "password": "An0ther!Pass"},
+        )
+        assert update.status_code == 200
+        new_token = update.json()["access_token"]
+
+        resp = client.get(
+            "/auth/me", headers={"Authorization": f"Bearer {new_token}"}
+        )
+        assert resp.status_code == 200
+        assert resp.json()["username"] == "newprofile"
+
+        login = client.post(
+            "/auth/login",
+            json={"username": "newprofile", "password": "An0ther!Pass"},
+        )
+        assert login.status_code == 200
+
+
 def test_login_rate_limit_not_bypassed_by_spoofed_x_forwarded_for(monkeypatch):
     monkeypatch.setenv("TRUSTED_PROXIES", "3.3.3.3")
     auth.limiter.reset()

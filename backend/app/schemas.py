@@ -18,6 +18,12 @@ class RuleSetOut(BaseModel):
     config: dict
 
 
+class RuleSetCreate(BaseModel):
+    sport_id: str
+    name: str
+    config: dict
+
+
 class BadgeCreate(BaseModel):
     name: str
     icon: Optional[str] = None
@@ -61,11 +67,6 @@ class PlayerListOut(BaseModel):
     total: int
     limit: int
     offset: int
-
-
-class PlayerNameOut(BaseModel):
-    id: str
-    name: str
 
 
 class LeaderboardEntryOut(BaseModel):
@@ -172,14 +173,26 @@ class TokenOut(BaseModel):
 
 
 class UserOut(BaseModel):
+    """Public user information."""
     id: str
     username: str
     is_admin: bool
 
 
 class UserUpdate(BaseModel):
-    username: str | None = None
-    password: str | None = None
+    """Schema for updating user profile."""
+    username: str | None = Field(None, min_length=3, max_length=50)
+    password: str | None = Field(None, min_length=8)
+
+    @field_validator("password")
+    def _check_password_complexity(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not PASSWORD_REGEX.match(v):
+            raise ValueError(
+                "Password must contain letters, numbers, and symbols"
+            )
+        return v
 
 
 class PasswordResetRequest(BaseModel):
@@ -269,6 +282,13 @@ class MatchSummaryOut(BaseModel):
     bestOf: Optional[int] = None
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
+
+
+class MatchSummaryListOut(BaseModel):
+    matches: List[MatchSummaryOut]
+    total: int
+    limit: int
+    offset: int
 
 
 class ParticipantOut(BaseModel):

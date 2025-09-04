@@ -30,7 +30,9 @@ describe("PlayersPage", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<PlayersPage />);
+    await act(async () => {
+      render(<PlayersPage />);
+    });
 
     const button = await screen.findByRole("button", { name: /add/i });
     expect(button.disabled).toBe(true);
@@ -52,7 +54,9 @@ describe("PlayersPage", () => {
     });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<PlayersPage />);
+    await act(async () => {
+      render(<PlayersPage />);
+    });
     await screen.findByText("Alice");
     vi.useFakeTimers();
     const search = screen.getByPlaceholderText(/search/i);
@@ -77,7 +81,9 @@ describe("PlayersPage", () => {
     });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<PlayersPage />);
+    await act(async () => {
+      render(<PlayersPage />);
+    });
     await screen.findByText("Alice");
     vi.useFakeTimers();
     const search = screen.getByPlaceholderText(/search/i);
@@ -98,7 +104,9 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     vi.useFakeTimers();
-    render(<PlayersPage />);
+    await act(async () => {
+      render(<PlayersPage />);
+    });
 
     const input = screen.getByPlaceholderText(/name/i);
     fireEvent.change(input, { target: { value: "New Player" } });

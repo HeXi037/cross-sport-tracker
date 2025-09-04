@@ -26,3 +26,16 @@ export async function apiFetch(path: string, init?: RequestInit) {
     throw err;
   }
 }
+
+export function isAdmin(): boolean {
+  if (typeof window === "undefined") return false;
+  const token = window.localStorage?.getItem("token");
+  if (!token) return false;
+  try {
+    const [, payload] = token.split(".");
+    const decoded = JSON.parse(atob(payload));
+    return !!decoded.is_admin;
+  } catch {
+    return false;
+  }
+}

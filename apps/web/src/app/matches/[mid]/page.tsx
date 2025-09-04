@@ -90,10 +90,10 @@ export default async function MatchDetailPage({
         <h1 className="heading">
           {parts.map((p, idx) => (
             <span key={p.side}>
-              {p.playerIds.map((pid, j) => (
+              {(p.playerIds ?? []).map((pid, j, arr) => (
                 <span key={pid}>
                   <PlayerLabel id={pid} name={idToName.get(pid)} />
-                  {j < p.playerIds.length - 1 ? " / " : ""}
+                  {j < arr.length - 1 ? " / " : ""}
                 </span>
               ))}
               {idx < parts.length - 1 ? " vs " : ""}

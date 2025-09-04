@@ -1,4 +1,3 @@
-import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import RecordSportPage from "./page";
@@ -26,7 +25,7 @@ describe("RecordSportPage", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) });
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as typeof fetch;
 
     render(<RecordSportPage />);
 
@@ -67,7 +66,7 @@ describe("RecordSportPage", () => {
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as typeof fetch;
 
     render(<RecordSportPage />);
 
@@ -115,7 +114,7 @@ describe("RecordSportPage", () => {
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as typeof fetch;
 
     render(<RecordSportPage />);
 
@@ -153,7 +152,7 @@ describe("RecordSportPage", () => {
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as typeof fetch;
 
     render(<RecordSportPage />);
 

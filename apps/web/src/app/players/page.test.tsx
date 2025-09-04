@@ -1,9 +1,9 @@
-import React from "react";
+import type { ReactNode } from "react";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import PlayersPage from "./page";
 
 vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: React.ReactNode; href: string }) => (
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
 }));
@@ -15,8 +15,7 @@ describe("PlayersPage", () => {
 
   it("shows a loading message while fetching players", async () => {
     const fetchMock = vi.fn().mockReturnValue(new Promise(() => {}));
-    // @ts-expect-error override global fetch for test
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
       render(<PlayersPage />);
@@ -29,12 +28,9 @@ describe("PlayersPage", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
-    // @ts-expect-error override global fetch for test
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as typeof fetch;
 
-    await act(async () => {
-      render(<PlayersPage />);
-    });
+    render(<PlayersPage />);
 
     const button = await screen.findByRole("button", { name: /add/i });
     expect(button.disabled).toBe(true);
@@ -54,12 +50,9 @@ describe("PlayersPage", () => {
         ],
       }),
     });
-    // @ts-expect-error override global fetch for test
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as typeof fetch;
 
-    await act(async () => {
-      render(<PlayersPage />);
-    });
+    render(<PlayersPage />);
     await screen.findByText("Alice");
     vi.useFakeTimers();
     const search = screen.getByPlaceholderText(/search/i);
@@ -82,12 +75,9 @@ describe("PlayersPage", () => {
         ],
       }),
     });
-    // @ts-expect-error override global fetch for test
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as typeof fetch;
 
-    await act(async () => {
-      render(<PlayersPage />);
-    });
+    render(<PlayersPage />);
     await screen.findByText("Alice");
     vi.useFakeTimers();
     const search = screen.getByPlaceholderText(/search/i);
@@ -105,13 +95,10 @@ describe("PlayersPage", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "1" }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
-    // @ts-expect-error override global fetch for test
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as typeof fetch;
 
     vi.useFakeTimers();
-    await act(async () => {
-      render(<PlayersPage />);
-    });
+    render(<PlayersPage />);
 
     const input = screen.getByPlaceholderText(/name/i);
     fireEvent.change(input, { target: { value: "New Player" } });

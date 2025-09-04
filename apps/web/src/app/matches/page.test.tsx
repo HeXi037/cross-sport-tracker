@@ -1,10 +1,10 @@
-import React from "react";
+import type { ReactNode } from "react";
 import { render, screen } from "@testing-library/react";
 import MatchesPage from "./page";
 import "@testing-library/jest-dom";
 
 vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: React.ReactNode; href: string }) => (
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
 }));
@@ -48,8 +48,7 @@ describe("MatchesPage", () => {
       // players by ids
       .mockResolvedValueOnce({ ok: true, json: async () => players });
 
-    // @ts-expect-error override for test
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as typeof fetch;
 
     const page = await MatchesPage({ searchParams: {} });
     render(page);
@@ -86,8 +85,7 @@ describe("MatchesPage", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => detail })
       // players by ids
       .mockResolvedValueOnce({ ok: true, json: async () => [] });
-    // @ts-expect-error override for test
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as typeof fetch;
 
     const page = await MatchesPage({ searchParams: {} });
     render(page);

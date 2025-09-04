@@ -1,4 +1,3 @@
-import React from "react";
 import type { EnrichedMatch, MatchSummary } from "./types";
 
 function winner(summary?: MatchSummary): string | null {

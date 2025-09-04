@@ -3,6 +3,7 @@ import os, sys, asyncio, pytest
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_players.db"
+# Use a high-entropy JWT secret for tests
 os.environ["JWT_SECRET"] = "x" * 32
 os.environ["ADMIN_SECRET"] = "admintest"
 

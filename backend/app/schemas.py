@@ -15,6 +15,12 @@ class RuleSetOut(BaseModel):
     name: str
     config: dict
 
+
+class RuleSetCreate(BaseModel):
+    sport_id: str
+    name: str
+    config: dict
+
 class BadgeCreate(BaseModel):
     name: str
     icon: Optional[str] = None

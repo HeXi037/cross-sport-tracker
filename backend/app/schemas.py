@@ -5,9 +5,11 @@ from pydantic import BaseModel, Field, model_validator, field_validator
 
 PASSWORD_REGEX = re.compile(r"^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$")
 
+
 class SportOut(BaseModel):
     id: str
     name: str
+
 
 class RuleSetOut(BaseModel):
     id: str
@@ -15,14 +17,17 @@ class RuleSetOut(BaseModel):
     name: str
     config: dict
 
+
 class BadgeCreate(BaseModel):
     name: str
     icon: Optional[str] = None
+
 
 class BadgeOut(BaseModel):
     id: str
     name: str
     icon: Optional[str] = None
+
 
 class PlayerCreate(BaseModel):
     name: str = Field(
@@ -32,6 +37,7 @@ class PlayerCreate(BaseModel):
     photo_url: Optional[str] = None
     location: Optional[str] = None
     ranking: Optional[int] = None
+
 
 class PlayerOut(BaseModel):
     id: str
@@ -44,9 +50,11 @@ class PlayerOut(BaseModel):
     milestones: Optional[Dict[str, List[str]]] = None
     badges: List[BadgeOut] = []
 
+
 class PlayerNameOut(BaseModel):
     id: str
     name: str
+
 
 class PlayerListOut(BaseModel):
     players: List[PlayerOut]
@@ -54,9 +62,11 @@ class PlayerListOut(BaseModel):
     limit: int
     offset: int
 
+
 class PlayerNameOut(BaseModel):
     id: str
     name: str
+
 
 class LeaderboardEntryOut(BaseModel):
     rank: int
@@ -69,6 +79,7 @@ class LeaderboardEntryOut(BaseModel):
     setsLost: int
     setDiff: int
 
+
 class LeaderboardOut(BaseModel):
     sport: str
     leaders: List[LeaderboardEntryOut]
@@ -76,9 +87,11 @@ class LeaderboardOut(BaseModel):
     limit: int
     offset: int
 
+
 class Participant(BaseModel):
     side: Literal["A", "B", "C", "D", "E", "F"]
     playerIds: List[str]
+
 
 class MatchCreate(BaseModel):
     sport: str
@@ -89,9 +102,11 @@ class MatchCreate(BaseModel):
     location: Optional[str] = None
     score: Optional[List[int]] = None
 
+
 class ParticipantByName(BaseModel):
     side: Literal["A", "B", "C", "D", "E", "F"]
     playerNames: List[str]
+
 
 class MatchCreateByName(BaseModel):
     sport: str
@@ -101,8 +116,10 @@ class MatchCreateByName(BaseModel):
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
 
+
 class SetsIn(BaseModel):
     sets: List[Tuple[int, int]]
+
 
 class EventIn(BaseModel):
     type: Literal["POINT", "ROLL", "UNDO", "HOLE"]
@@ -125,6 +142,8 @@ class EventIn(BaseModel):
                     "side, hole, and strokes are required for HOLE events"
                 )
         return values
+
+
 # (remaining schema definitions unchanged)
 class UserCreate(BaseModel):
     """Schema for user signup requests."""
@@ -140,10 +159,12 @@ class UserCreate(BaseModel):
             )
         return v
 
+
 class UserLogin(BaseModel):
     """Schema for user login requests."""
     username: str
     password: str
+
 
 class TokenOut(BaseModel):
     """Returned on successful authentication."""
@@ -169,9 +190,11 @@ class PasswordResetConfirm(BaseModel):
             )
         return v
 
+
 class CommentCreate(BaseModel):
     """Schema for creating a comment on a player."""
     content: str = Field(..., min_length=1, max_length=500)
+
 
 class CommentOut(BaseModel):
     """Schema representing a comment returned to clients."""
@@ -182,6 +205,7 @@ class CommentOut(BaseModel):
     content: str
     createdAt: datetime
 
+
 class VersusRecord(BaseModel):
     """Win/loss record versus or with another player."""
     playerId: str
@@ -189,6 +213,7 @@ class VersusRecord(BaseModel):
     wins: int
     losses: int
     winPct: float
+
 
 class SportFormatStats(BaseModel):
     """Aggregated stats for a particular sport and team size."""
@@ -198,11 +223,13 @@ class SportFormatStats(BaseModel):
     losses: int
     winPct: float
 
+
 class StreakSummary(BaseModel):
     """Represents winning and losing streak information."""
     current: int
     longestWin: int
     longestLoss: int
+
 
 class PlayerStatsOut(BaseModel):
     """Statistics summary returned by the player stats endpoint."""

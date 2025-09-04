@@ -9,6 +9,7 @@ from sqlalchemy import select, text
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+os.environ["JWT_SECRET"] = "x" * 32
 
 
 @pytest.fixture
@@ -51,7 +52,7 @@ async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
 async def test_create_match_rejects_duplicate_players(tmp_path):
   os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from app import db
-  from app.models import Match, MatchParticipant, Sport, User
+  from app.models import User, Sport, Match, MatchParticipant
   from app.schemas import MatchCreate, Participant
   from app.routers.matches import create_match
 

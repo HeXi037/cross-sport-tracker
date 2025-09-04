@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, currentUsername, logout } from "../../lib/api";
+import InputField from "../../components/InputField";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,10 +13,17 @@ export default function LoginPage() {
   const [newUser, setNewUser] = useState("");
   const [newPass, setNewPass] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loginErrors, setLoginErrors] = useState<{ username?: string; password?: string }>({});
+  const [signupErrors, setSignupErrors] = useState<{ username?: string; password?: string }>({});
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    const errs: { username?: string; password?: string } = {};
+    if (!username.trim()) errs.username = "Username required";
+    if (!password.trim()) errs.password = "Password required";
+    setLoginErrors(errs);
+    if (Object.keys(errs).length) return;
     try {
       const res = await apiFetch("/v0/auth/login", {
         method: "POST",
@@ -42,6 +50,11 @@ export default function LoginPage() {
   const handleSignup = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    const errs: { username?: string; password?: string } = {};
+    if (!newUser.trim()) errs.username = "Username required";
+    if (!newPass.trim()) errs.password = "Password required";
+    setSignupErrors(errs);
+    if (Object.keys(errs).length) return;
     try {
       const res = await apiFetch("/v0/auth/signup", {
         method: "POST",
@@ -83,17 +96,22 @@ export default function LoginPage() {
     <main className="container">
       <h1 className="heading">Login</h1>
       <form onSubmit={handleLogin} className="auth-form">
-        <input
-          type="text"
+        <InputField
+          id="login-username"
+          label="Username"
           placeholder="Username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
+          error={loginErrors.username}
         />
-        <input
+        <InputField
+          id="login-password"
           type="password"
+          label="Password"
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          error={loginErrors.password}
         />
         <button type="submit">Login</button>
       </form>
@@ -103,17 +121,22 @@ export default function LoginPage() {
 
       <h2 className="heading">Sign Up</h2>
       <form onSubmit={handleSignup} className="auth-form">
-        <input
-          type="text"
+        <InputField
+          id="signup-username"
+          label="Username"
           placeholder="Username"
           value={newUser}
           onChange={(e) => setNewUser(e.target.value)}
+          error={signupErrors.username}
         />
-        <input
+        <InputField
+          id="signup-password"
           type="password"
+          label="Password"
           placeholder="Password"
           value={newPass}
           onChange={(e) => setNewPass(e.target.value)}
+          error={signupErrors.password}
         />
         <button type="submit">Sign Up</button>
       </form>

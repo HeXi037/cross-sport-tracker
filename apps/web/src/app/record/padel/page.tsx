@@ -3,6 +3,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
+import InputField from "../../../components/InputField";
+import SelectField from "../../../components/SelectField";
 
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 
@@ -133,15 +135,17 @@ export default function RecordPadelPage() {
     <main className="container">
       <form onSubmit={handleSubmit}>
         <div className="datetime">
-          <input
+          <InputField
+            id="padel-date"
             type="date"
-            aria-label="Date"
+            label="Date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
-          <input
+          <InputField
+            id="padel-time"
             type="time"
-            aria-label="Time"
+            label="Time"
             value={time}
             onChange={(e) => setTime(e.target.value)}
           />
@@ -156,8 +160,9 @@ export default function RecordPadelPage() {
         />
 
         <div className="players">
-          <select
-            aria-label="Player A1"
+          <SelectField
+            id="padel-a1"
+            label="Player A1"
             value={ids.a1}
             onChange={(e) => handleIdChange("a1", e.target.value)}
           >
@@ -167,10 +172,11 @@ export default function RecordPadelPage() {
                 {p.name}
               </option>
             ))}
-          </select>
+          </SelectField>
 
-          <select
-            aria-label="Player A2"
+          <SelectField
+            id="padel-a2"
+            label="Player A2"
             value={ids.a2}
             onChange={(e) => handleIdChange("a2", e.target.value)}
           >
@@ -180,10 +186,11 @@ export default function RecordPadelPage() {
                 {p.name}
               </option>
             ))}
-          </select>
+          </SelectField>
 
-          <select
-            aria-label="Player B1"
+          <SelectField
+            id="padel-b1"
+            label="Player B1"
             value={ids.b1}
             onChange={(e) => handleIdChange("b1", e.target.value)}
           >
@@ -193,10 +200,11 @@ export default function RecordPadelPage() {
                 {p.name}
               </option>
             ))}
-          </select>
+          </SelectField>
 
-          <select
-            aria-label="Player B2"
+          <SelectField
+            id="padel-b2"
+            label="Player B2"
             value={ids.b2}
             onChange={(e) => handleIdChange("b2", e.target.value)}
           >
@@ -206,37 +214,39 @@ export default function RecordPadelPage() {
                 {p.name}
               </option>
             ))}
-          </select>
+          </SelectField>
         </div>
 
-        <label>
-          Best of
-          <select
-            aria-label="Best of"
-            value={bestOf}
-            onChange={(e) => setBestOf(e.target.value)}
-          >
-            <option value="1">1</option>
-            <option value="3">3</option>
-            <option value="5">5</option>
-          </select>
-        </label>
+        <SelectField
+          id="padel-bestof"
+          label="Best of"
+          value={bestOf}
+          onChange={(e) => setBestOf(e.target.value)}
+        >
+          <option value="1">1</option>
+          <option value="3">3</option>
+          <option value="5">5</option>
+        </SelectField>
 
         <div className="sets">
           {sets.map((s, idx) => (
             <div key={idx} className="set">
-              <input
+              <InputField
+                id={`set-${idx}-a`}
                 type="number"
                 min="0"
                 step="1"
+                label={`Set ${idx + 1} A`}
                 placeholder={`Set ${idx + 1} A`}
                 value={s.A}
                 onChange={(e) => handleSetChange(idx, "A", e.target.value)}
               />
-              <input
+              <InputField
+                id={`set-${idx}-b`}
                 type="number"
                 min="0"
                 step="1"
+                label={`Set ${idx + 1} B`}
                 placeholder={`Set ${idx + 1} B`}
                 value={s.B}
                 onChange={(e) => handleSetChange(idx, "B", e.target.value)}

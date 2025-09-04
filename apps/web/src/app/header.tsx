@@ -76,6 +76,11 @@ export default function Header() {
           )}
           {user ? (
             <>
+              <li>
+                <Link href="/profile" onClick={() => setOpen(false)}>
+                  Profile
+                </Link>
+              </li>
               <li className="user-status">Logged in as {user}</li>
               <li>
                 <button onClick={handleLogout}>Logout</button>

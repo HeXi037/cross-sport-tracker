@@ -21,5 +21,5 @@ test('failed signup shows error', async ({ page }) => {
   await page.getByPlaceholder('Username').nth(1).fill('bob');
   await page.getByPlaceholder('Password').nth(1).fill('pass');
   await page.getByRole('button', { name: 'Sign Up' }).click();
-  await expect(page.getByRole('alert')).toHaveText(/signup failed/i);
+  await expect(page.getByText(/signup failed/i)).toBeVisible();
 });

@@ -2,19 +2,26 @@ import os
 import re
 import hashlib
 import uuid
+import secrets
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from passlib.context import CryptContext
 import jwt
 
 from ..db import get_session
-from ..models import User, Player
-from ..schemas import UserCreate, UserLogin, TokenOut
+from ..models import User, Player, PasswordResetToken
+from ..schemas import (
+    UserCreate,
+    UserLogin,
+    TokenOut,
+    PasswordResetRequest,
+    PasswordResetConfirm,
+)
 
 
 def get_jwt_secret() -> str:
@@ -30,6 +37,7 @@ def get_jwt_secret() -> str:
 
 JWT_ALG = "HS256"
 JWT_EXPIRE_SECONDS = 3600
+RESET_TOKEN_EXPIRE_SECONDS = 3600
 
 
 def _get_client_ip(request: Request) -> str:
@@ -37,7 +45,15 @@ def _get_client_ip(request: Request) -> str:
   if forwarded:
     parts = [ip.strip() for ip in forwarded.split(",") if ip.strip()]
     if parts:
-      return parts[-1]
+      trusted = {
+          ip.strip()
+          for ip in os.getenv("TRUSTED_PROXIES", "").split(",")
+          if ip.strip()
+      }
+      for ip in reversed(parts):
+        if ip not in trusted:
+          return ip
+      return parts[0]
   real_ip = request.headers.get("X-Real-IP")
   if real_ip:
     return real_ip
@@ -70,6 +86,11 @@ def create_token(user: User) -> str:
       "exp": datetime.utcnow() + timedelta(seconds=JWT_EXPIRE_SECONDS),
   }
   return jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALG)
+
+
+def _send_password_reset_token(username: str, token: str) -> None:
+  """Placeholder for sending password reset token to the user."""
+  print(f"Password reset token for {username}: {token}")
 
 
 @router.post("/signup", response_model=TokenOut)
@@ -136,6 +157,53 @@ async def login(
       raise HTTPException(status_code=401, detail="invalid credentials")
   token = create_token(user)
   return TokenOut(access_token=token)
+
+
+@router.post("/reset/request")
+@limiter.limit("5/minute")
+async def reset_request(
+    request: Request,
+    body: PasswordResetRequest,
+    session: AsyncSession = Depends(get_session),
+):
+  user = (
+      await session.execute(select(User).where(User.username == body.username))
+  ).scalar_one_or_none()
+  if user:
+    await session.execute(
+        delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id)
+    )
+    token = secrets.token_urlsafe(32)
+    token_hash = hash_password_sha256(token)
+    rec = PasswordResetToken(
+        token_hash=token_hash,
+        user_id=user.id,
+        expires_at=datetime.utcnow() + timedelta(seconds=RESET_TOKEN_EXPIRE_SECONDS),
+    )
+    session.add(rec)
+    await session.commit()
+    _send_password_reset_token(user.username, token)
+  return {"detail": "If the account exists, reset instructions have been sent."}
+
+
+@router.post("/reset/confirm")
+async def reset_confirm(
+    body: PasswordResetConfirm,
+    session: AsyncSession = Depends(get_session),
+):
+  user = (
+      await session.execute(select(User).where(User.username == body.username))
+  ).scalar_one_or_none()
+  if not user:
+    raise HTTPException(status_code=400, detail="invalid token")
+  token_hash = hash_password_sha256(body.token)
+  rec = await session.get(PasswordResetToken, token_hash)
+  if not rec or rec.user_id != user.id or rec.expires_at < datetime.utcnow():
+    raise HTTPException(status_code=400, detail="invalid token")
+  user.password_hash = pwd_context.hash(body.new_password)
+  await session.delete(rec)
+  await session.commit()
+  return JSONResponse(status_code=204, content=None)
 
 
 async def get_current_user(

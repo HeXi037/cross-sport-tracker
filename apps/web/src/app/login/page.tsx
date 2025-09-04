@@ -25,6 +25,11 @@ export default function LoginPage() {
       if (res.ok) {
         const data = await res.json();
         window.localStorage.setItem("token", data.access_token);
+        // The header listens for the `storage` event to refresh auth state,
+        // but that event isn't emitted in the same tab that updates
+        // localStorage.  Manually dispatch it so the header reflects the new
+        // login immediately.
+        window.dispatchEvent(new Event("storage"));
         router.push("/");
       } else {
         setError("Login failed");
@@ -46,6 +51,9 @@ export default function LoginPage() {
       if (res.ok) {
         const data = await res.json();
         window.localStorage.setItem("token", data.access_token);
+        // Notify other components of the updated auth token.  Without this the
+        // header will continue showing stale login state until a page reload.
+        window.dispatchEvent(new Event("storage"));
         router.push("/");
       } else {
         setError("Signup failed");

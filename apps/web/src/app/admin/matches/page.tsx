@@ -31,12 +31,20 @@ type EnrichedMatch = MatchRow & {
   summary?: MatchDetail["summary"];
 };
 
-async function getMatches(limit: number, offset: number): Promise<MatchRow[]> {
+async function getMatches(
+  limit: number,
+  offset: number
+): Promise<{ matches: MatchRow[]; total: number }> {
   const r = await apiFetch(`/v0/matches?limit=${limit}&offset=${offset}`, {
     cache: "no-store",
   });
   if (!r.ok) throw new Error(`Failed to load matches: ${r.status}`);
-  return (await r.json()) as MatchRow[];
+  return (await r.json()) as {
+    matches: MatchRow[];
+    total: number;
+    limit: number;
+    offset: number;
+  };
 }
 
 async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
@@ -101,22 +109,24 @@ function formatSummary(s?: MatchDetail["summary"]): string {
 export default function AdminMatchesPage() {
   const [matches, setMatches] = useState<EnrichedMatch[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 25;
 
   const load = useCallback(async () => {
     try {
-      const rows = await getMatches(100, 0);
-      rows.sort((a, b) => {
-        if (!a.playedAt) return 1;
-        if (!b.playedAt) return -1;
-        return new Date(b.playedAt).getTime() - new Date(a.playedAt).getTime();
-      });
+      const { matches: rows, total } = await getMatches(
+        PAGE_SIZE,
+        page * PAGE_SIZE
+      );
       const enriched = await enrichMatches(rows);
       setMatches(enriched);
+      setTotal(total);
       setError(null);
     } catch {
       setError("Failed to load matches.");
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     if (!isAdmin()) {
@@ -160,6 +170,22 @@ export default function AdminMatchesPage() {
           </li>
         ))}
       </ul>
+      <div className="mt-4 flex gap-2">
+        <button
+          className="button"
+          onClick={() => setPage((p) => p - 1)}
+          disabled={page === 0}
+        >
+          Previous
+        </button>
+        <button
+          className="button"
+          onClick={() => setPage((p) => p + 1)}
+          disabled={(page + 1) * PAGE_SIZE >= total}
+        >
+          Next
+        </button>
+      </div>
     </main>
   );
 }

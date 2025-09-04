@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { apiFetch, isAdmin } from "../../lib/api";
 
@@ -23,6 +23,9 @@ export default function PlayersPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 25;
   const admin = isAdmin();
 
   const trimmedName = name.trim();
@@ -32,7 +35,13 @@ export default function PlayersPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await apiFetch("/v0/players?limit=100&offset=0", {
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String(page * PAGE_SIZE),
+      });
+      const term = debouncedSearch.trim();
+      if (term) params.set("q", term);
+      const res = await apiFetch(`/v0/players?${params.toString()}`, {
         cache: "no-store",
       });
       if (res.ok) {
@@ -41,6 +50,7 @@ export default function PlayersPage() {
           (p) => !p.name.toLowerCase().startsWith("albert")
         );
         setPlayers(filtered);
+        setTotal(data.total ?? filtered.length);
       } else {
         setError("Failed to load players.");
       }
@@ -52,18 +62,12 @@ export default function PlayersPage() {
   }
   useEffect(() => {
     load();
-  }, []);
+  }, [page, debouncedSearch]);
 
   useEffect(() => {
     const handle = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(handle);
   }, [search]);
-
-  const filteredPlayers = useMemo(() => {
-    const term = debouncedSearch.trim().toLowerCase();
-    if (!term) return players;
-    return players.filter((p) => p.name.toLowerCase().includes(term));
-  }, [players, debouncedSearch]);
 
   useEffect(() => {
     if (!players.length) return;
@@ -72,12 +76,14 @@ export default function PlayersPage() {
         players.map(async (p) => {
           try {
             const r = await apiFetch(
-              `/v0/matches?playerId=${encodeURIComponent(p.id)}`,
+              `/v0/matches?playerId=${encodeURIComponent(p.id)}&limit=1`,
               { cache: "no-store" }
             );
             if (r.ok) {
-              const data = (await r.json()) as { id: string }[];
-              return [p.id, data[0]?.id ?? null] as const;
+              const data = (await r.json()) as {
+                matches: { id: string }[];
+              };
+              return [p.id, data.matches[0]?.id ?? null] as const;
             }
           } catch {
             /* ignore */
@@ -147,35 +153,56 @@ export default function PlayersPage() {
           <input
             className="input mb-2"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(0);
+            }}
             placeholder="search"
           />
-          {filteredPlayers.length === 0 && debouncedSearch.trim() !== "" ? (
+          {players.length === 0 && debouncedSearch.trim() !== "" ? (
             <p>No players found.</p>
           ) : (
-            <ul>
-              {filteredPlayers.map((p) => (
-                <li key={p.id}>
-                  <Link
-                    href={
-                      recentMatches[p.id]
-                        ? `/matches/${recentMatches[p.id]}`
-                        : `/players/${p.id}`
-                    }
-                  >
-                    {p.name}
-                  </Link>
-                  {admin && (
-                    <button
-                      style={{ marginLeft: 8 }}
-                      onClick={() => handleDelete(p.id)}
+            <>
+              <ul>
+                {players.map((p) => (
+                  <li key={p.id}>
+                    <Link
+                      href={
+                        recentMatches[p.id]
+                          ? `/matches/${recentMatches[p.id]}`
+                          : `/players/${p.id}`
+                      }
                     >
-                      Delete
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
+                      {p.name}
+                    </Link>
+                    {admin && (
+                      <button
+                        style={{ marginLeft: 8 }}
+                        onClick={() => handleDelete(p.id)}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-4 flex gap-2">
+                <button
+                  className="button"
+                  onClick={() => setPage((p) => p - 1)}
+                  disabled={page === 0}
+                >
+                  Previous
+                </button>
+                <button
+                  className="button"
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={(page + 1) * PAGE_SIZE >= total}
+                >
+                  Next
+                </button>
+              </div>
+            </>
           )}
         </>
       )}

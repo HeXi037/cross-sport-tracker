@@ -2,6 +2,7 @@ import os
 import sys
 import asyncio
 import uuid
+import hashlib
 import pytest
 from sqlalchemy import select
 
@@ -25,7 +26,6 @@ app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
 app.include_router(auth.router)
 app.include_router(players.router)
 
-
 async def create_player(name: str, user_id: str | None = None) -> str:
     async with db.AsyncSessionLocal() as session:
         pid = uuid.uuid4().hex
@@ -33,7 +33,6 @@ async def create_player(name: str, user_id: str | None = None) -> str:
         session.add(player)
         await session.commit()
         return pid
-
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():
@@ -52,7 +51,6 @@ def setup_db():
     yield
     if os.path.exists("./test_auth.db"):
         os.remove("./test_auth.db")
-
 
 def test_signup_login_and_protected_access():
     with TestClient(app) as client:
@@ -108,7 +106,6 @@ def test_signup_login_and_protected_access():
         )
         assert resp.status_code == 204
 
-
 @pytest.mark.parametrize(
     "username,password",
     [
@@ -124,7 +121,6 @@ def test_signup_rejects_invalid_password(username, password):
             "/auth/signup", json={"username": username, "password": password}
         )
         assert resp.status_code == 422
-
 
 def test_signup_links_orphan_player():
     pid = asyncio.run(create_player("charlie"))
@@ -149,7 +145,6 @@ def test_signup_links_orphan_player():
     assert player.user_id == user.id
     assert len(same_name_players) == 1
 
-
 def test_signup_rejects_attached_player():
     asyncio.run(create_player("dave", user_id="attached"))
     with TestClient(app) as client:
@@ -169,7 +164,6 @@ def test_signup_rejects_attached_player():
     user = asyncio.run(fetch_user())
     assert user is None
 
-
 def test_login_rate_limited():
     auth.limiter.reset()
     with TestClient(app) as client:
@@ -186,7 +180,6 @@ def test_login_rate_limited():
             "/auth/login", json={"username": "rate", "password": "Str0ng!Pass"}
         )
         assert resp.status_code == 429
-
 
 def test_login_rate_limited_per_ip():
     auth.limiter.reset()
@@ -217,3 +210,20 @@ def test_login_rate_limited_per_ip():
             headers=h2,
         )
         assert ok2.status_code == 200
+
+def test_login_accepts_sha256_hash():
+    auth.limiter.reset()
+    async def create_legacy_user():
+        async with db.AsyncSessionLocal() as session:
+            uid = uuid.uuid4().hex
+            legacy_hash = hashlib.sha256("pw".encode()).hexdigest()
+            user = User(id=uid, username="legacy", password_hash=legacy_hash)
+            session.add(user)
+            player = Player(id=uuid.uuid4().hex, user_id=uid, name="legacy")
+            session.add(player)
+            await session.commit()
+
+    asyncio.run(create_legacy_user())
+    with TestClient(app) as client:
+        resp = client.post("/auth/login", json={"username": "legacy", "password": "pw"})
+        assert resp.status_code == 200

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { apiFetch } from "../../../lib/api";
 import LiveSummary from "./live-summary";
+import PlayerLabel from "../../../components/PlayerLabel";
 
 export const dynamic = "force-dynamic";
 
@@ -69,11 +70,6 @@ export default async function MatchDetailPage({
   );
   const idToName = await fetchPlayerNames(uniqueIds);
 
-  const sideNames: Record<string, string[]> = {};
-  for (const p of parts) {
-    const names = (p.playerIds ?? []).map((id) => idToName.get(id) ?? id);
-    sideNames[p.side] = names;
-  }
 
   const playedAtDate = match.playedAt ? new Date(match.playedAt) : null;
   const playedAtStr = playedAtDate
@@ -92,9 +88,17 @@ export default async function MatchDetailPage({
 
       <header className="section">
         <h1 className="heading">
-          {Object.keys(sideNames)
-            .map((s) => (sideNames[s]?.length ? sideNames[s].join(" / ") : s))
-            .join(" vs ") || "A vs B"}
+          {parts.map((p, idx) => (
+            <span key={p.side}>
+              {p.playerIds.map((pid, j) => (
+                <span key={pid}>
+                  <PlayerLabel id={pid} name={idToName.get(pid)} />
+                  {j < p.playerIds.length - 1 ? " / " : ""}
+                </span>
+              ))}
+              {idx < parts.length - 1 ? " vs " : ""}
+            </span>
+          )) || "A vs B"}
         </h1>
         <p className="match-meta">
           {match.sport || "sport"} · {match.ruleset || "rules"} · {" "}

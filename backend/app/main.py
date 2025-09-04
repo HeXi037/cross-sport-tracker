@@ -2,6 +2,8 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from slowapi.errors import RateLimitExceeded
 from .routers import (
     sports,
@@ -52,6 +54,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+uploads_dir = Path(__file__).resolve().parents[1] / "uploads"
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 
 @app.exception_handler(DomainException)

@@ -281,12 +281,12 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
 
   token_resp = client.post(
       "/auth/signup",
-      json={"username": "admin", "password": "pw", "is_admin": True},
+      json={"username": "admin", "password": "Str0ng!Pass", "is_admin": True},
       headers={"X-Admin-Secret": "admintest"},
   )
   if token_resp.status_code != 200:
     token_resp = client.post(
-        "/auth/login", json={"username": "admin", "password": "pw"}
+        "/auth/login", json={"username": "admin", "password": "Str0ng!Pass"}
     )
   token = token_resp.json()["access_token"]
 
@@ -335,12 +335,12 @@ async def test_delete_match_missing_returns_404(tmp_path):
   with TestClient(app) as client:
     token_resp = client.post(
         "/auth/signup",
-        json={"username": "admin", "password": "pw", "is_admin": True},
+        json={"username": "admin", "password": "Str0ng!Pass", "is_admin": True},
         headers={"X-Admin-Secret": "admintest"},
     )
     if token_resp.status_code != 200:
       token_resp = client.post(
-          "/auth/login", json={"username": "admin", "password": "pw"}
+          "/auth/login", json={"username": "admin", "password": "Str0ng!Pass"}
       )
     token = token_resp.json()["access_token"]
     resp = client.delete(

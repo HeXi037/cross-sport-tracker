@@ -1,6 +1,9 @@
 from typing import Any, Dict, List, Literal, Optional, Tuple
 from datetime import datetime
-from pydantic import BaseModel, Field, model_validator
+import re
+from pydantic import BaseModel, Field, model_validator, field_validator
+
+PASSWORD_REGEX = re.compile(r"^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$")
 
 class SportOut(BaseModel):
     id: str
@@ -125,8 +128,16 @@ class EventIn(BaseModel):
 class UserCreate(BaseModel):
     """Schema for user signup requests."""
     username: str = Field(..., min_length=3, max_length=50)
-    password: str
+    password: str = Field(..., min_length=8)
     is_admin: bool = False
+
+    @field_validator("password")
+    def _check_password_complexity(cls, v: str) -> str:
+        if not PASSWORD_REGEX.match(v):
+            raise ValueError(
+                "Password must contain letters, numbers, and symbols"
+            )
+        return v
 
 class UserLogin(BaseModel):
     """Schema for user login requests."""

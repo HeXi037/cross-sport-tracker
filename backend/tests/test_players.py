@@ -63,12 +63,12 @@ def setup_db():
 def admin_token(client: TestClient) -> str:
     resp = client.post(
         "/auth/signup",
-        json={"username": "admin", "password": "pw", "is_admin": True},
+        json={"username": "admin", "password": "Str0ng!Pass", "is_admin": True},
         headers={"X-Admin-Secret": "admintest"},
     )
     if resp.status_code != 200:
         resp = client.post(
-            "/auth/login", json={"username": "admin", "password": "pw"}
+            "/auth/login", json={"username": "admin", "password": "Str0ng!Pass"}
         )
     return resp.json()["access_token"]
 

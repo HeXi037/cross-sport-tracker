@@ -9,7 +9,6 @@ from sqlalchemy import select, text
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-os.environ["JWT_SECRET"] = "testsecret"
 
 
 @pytest.fixture
@@ -52,7 +51,7 @@ async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
 async def test_create_match_rejects_duplicate_players(tmp_path):
   os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from app import db
-  from app.models import User
+  from app.models import Sport, Match, MatchParticipant, User
   from app.schemas import MatchCreate, Participant
   from app.routers.matches import create_match
 
@@ -90,7 +89,12 @@ async def test_create_match_with_scores(tmp_path):
 
   db.engine = None
   db.AsyncSessionLocal = None
-  db.get_engine()
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+        db.Base.metadata.create_all,
+        tables=[Sport.__table__, Match.__table__, MatchParticipant.__table__],
+    )
 
   async with db.AsyncSessionLocal() as session:
     body = MatchCreate(

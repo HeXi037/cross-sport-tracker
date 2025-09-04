@@ -142,7 +142,7 @@ Create an admin user
 curl -X POST http://localhost:8000/api/v0/auth/signup \
   -H 'Content-Type: application/json' \
   -H 'X-Admin-Secret: <admin-secret>' \
-  -d '{"username":"alice","password":"s3cret","is_admin":true}'
+  -d '{"username":"alice","password":"Str0ng!Pass","is_admin":true}'
 
 Example: create a Padel match
 

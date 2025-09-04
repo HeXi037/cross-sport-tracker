@@ -120,6 +120,9 @@ async def create_match(
         )
         session.add(mp)
 
+    if body.score:
+        match.details = {"score": {chr(65 + i): s for i, s in enumerate(body.score)}}
+
     await session.commit()
     return MatchIdOut(id=mid)
 

@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from app import db
 from app.routers import players, auth, badges
 from app.models import Player, Club, User, Badge, PlayerBadge, PlayerMetric
-from app.exceptions include DomainException, ProblemDetail
+from app.exceptions import DomainException, ProblemDetail
 
 app = FastAPI()
 

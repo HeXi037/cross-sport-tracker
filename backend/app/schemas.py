@@ -87,6 +87,7 @@ class MatchCreate(BaseModel):
     bestOf: Optional[int] = None
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
+    score: Optional[List[int]] = None
 
 class ParticipantByName(BaseModel):
     side: Literal["A", "B", "C", "D", "E", "F"]

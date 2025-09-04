@@ -3,6 +3,8 @@ import Link from "next/link";
 import { apiFetch } from "../../lib/api";
 import Pager from "./pager";
 
+export const dynamic = "force-dynamic";
+
 type MatchRow = {
   id: string;
   sport: string;

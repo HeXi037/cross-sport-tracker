@@ -4,6 +4,8 @@ import { apiFetch } from "../../../lib/api";
 import PlayerCharts from "./PlayerCharts";
 import PlayerComments from "./comments-client";
 
+export const dynamic = "force-dynamic";
+
 interface Player {
   id: string;
   name: string;

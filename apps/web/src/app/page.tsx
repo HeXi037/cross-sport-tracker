@@ -1,4 +1,4 @@
-export const revalidate = 60; // cache the page for one minute
+export const dynamic = 'force-dynamic';
 
 import { apiFetch } from '../lib/api';
 import HomePageClient from './home-page-client';

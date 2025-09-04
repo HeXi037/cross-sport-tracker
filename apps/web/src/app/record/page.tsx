@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { apiFetch } from "../../lib/api";
 
+export const dynamic = "force-dynamic";
+
 type Sport = { id: string; name: string };
 
 export default async function RecordPage() {

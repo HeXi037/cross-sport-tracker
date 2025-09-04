@@ -1,4 +1,5 @@
 import os
+import re
 import hashlib
 import uuid
 from datetime import datetime, timedelta
@@ -9,6 +10,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from passlib.context import CryptContext
 import jwt
 
 from ..db import get_session
@@ -25,12 +27,19 @@ limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
   return JSONResponse(status_code=429, content={"detail": "Too Many Requests"})
 
 
-def hash_password(password: str) -> str:
+def hash_password_sha256(password: str) -> str:
   return hashlib.sha256(password.encode()).hexdigest()
+
+
+def is_sha256_digest(hash_str: str) -> bool:
+  return bool(re.fullmatch(r"[a-f0-9]{64}", hash_str))
 
 
 def create_token(user: User) -> str:
@@ -72,7 +81,7 @@ async def signup(
   user = User(
       id=uid,
       username=body.username,
-      password_hash=hash_password(body.password),
+      password_hash=pwd_context.hash(body.password),
       is_admin=is_admin,
   )
   session.add(user)
@@ -92,8 +101,15 @@ async def login(request: Request, body: UserLogin, session: AsyncSession = Depen
   user = (
       await session.execute(select(User).where(User.username == body.username))
   ).scalar_one_or_none()
-  if not user or user.password_hash != hash_password(body.password):
+  if not user:
     raise HTTPException(status_code=401, detail="invalid credentials")
+  stored = user.password_hash
+  if is_sha256_digest(stored):
+    if hash_password_sha256(body.password) != stored:
+      raise HTTPException(status_code=401, detail="invalid credentials")
+  else:
+    if not pwd_context.verify(body.password, stored):
+      raise HTTPException(status_code=401, detail="invalid credentials")
   token = create_token(user)
   return TokenOut(access_token=token)
 

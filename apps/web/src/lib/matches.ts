@@ -8,7 +8,7 @@ export type MatchRow = {
 
 export type Participant = {
   side: string;
-  playerIds: string[];
+  playerIds?: string[];
 };
 
 export type MatchDetail = {
@@ -33,7 +33,7 @@ export async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> 
 
   const ids = new Set<string>();
   for (const { detail } of details) {
-    for (const p of detail.participants) p.playerIds.forEach((id) => ids.add(id));
+    for (const p of detail.participants) (p.playerIds ?? []).forEach((id) => ids.add(id));
   }
 
   const idToName = new Map<string, string>();
@@ -61,7 +61,9 @@ export async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> 
   return details.map(({ row, detail }) => {
     const names: Record<string, string[]> = {};
     for (const p of detail.participants) {
-      names[p.side] = p.playerIds.map((id) => idToName.get(id) ?? id);
+      const ids = p.playerIds ?? [];
+      const mapped = ids.map((id) => idToName.get(id) ?? id);
+      names[p.side] = mapped.length ? mapped : [p.side];
     }
     return { ...row, names };
   });

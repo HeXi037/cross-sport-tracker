@@ -1,4 +1,3 @@
-import React from "react";
 import Link from "next/link";
 import { apiFetch } from "../../lib/api";
 import Pager from "./pager";

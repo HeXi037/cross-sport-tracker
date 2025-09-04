@@ -1,9 +1,9 @@
-import React from "react";
+import type { ReactNode } from "react";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import PlayersPage from "./page";
 
 vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: React.ReactNode; href: string }) => (
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
 }));
@@ -17,8 +17,7 @@ describe("PlayersPage", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
-    // @ts-expect-error override global fetch for test
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as typeof fetch;
 
     render(<PlayersPage />);
 
@@ -29,8 +28,7 @@ describe("PlayersPage", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
-    // @ts-expect-error override global fetch for test
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as typeof fetch;
 
     render(<PlayersPage />);
 
@@ -52,8 +50,7 @@ describe("PlayersPage", () => {
         ],
       }),
     });
-    // @ts-expect-error override global fetch for test
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as typeof fetch;
 
     render(<PlayersPage />);
     await screen.findByText("Alice");
@@ -78,8 +75,7 @@ describe("PlayersPage", () => {
         ],
       }),
     });
-    // @ts-expect-error override global fetch for test
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as typeof fetch;
 
     render(<PlayersPage />);
     await screen.findByText("Alice");
@@ -99,8 +95,7 @@ describe("PlayersPage", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "1" }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
-    // @ts-expect-error override global fetch for test
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as typeof fetch;
 
     vi.useFakeTimers();
     render(<PlayersPage />);

@@ -27,13 +27,19 @@ export async function apiFetch(path: string, init?: RequestInit) {
   }
 }
 
+function base64UrlDecode(str: string): string {
+  const base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, "=");
+  return atob(padded);
+}
+
 export function isAdmin(): boolean {
   if (typeof window === "undefined") return false;
   const token = window.localStorage?.getItem("token");
   if (!token) return false;
   try {
     const [, payload] = token.split(".");
-    const decoded = JSON.parse(atob(payload));
+    const decoded = JSON.parse(base64UrlDecode(payload));
     return !!decoded.is_admin;
   } catch {
     return false;

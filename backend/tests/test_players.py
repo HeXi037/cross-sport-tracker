@@ -3,7 +3,6 @@ import os, sys, asyncio, pytest
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_players.db"
-os.environ["JWT_SECRET"] = "testsecret"
 os.environ["ADMIN_SECRET"] = "admintest"
 
 from fastapi import FastAPI

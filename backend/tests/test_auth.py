@@ -9,7 +9,8 @@ from sqlalchemy import select
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_auth.db"
-os.environ["JWT_SECRET"] = "testsecret"
+# Use a sufficiently long JWT secret for tests
+os.environ["JWT_SECRET"] = "x" * 32
 os.environ["ADMIN_SECRET"] = "admintest"
 
 from fastapi import FastAPI
@@ -227,3 +228,9 @@ def test_login_accepts_sha256_hash():
     with TestClient(app) as client:
         resp = client.post("/auth/login", json={"username": "legacy", "password": "pw"})
         assert resp.status_code == 200
+
+
+def test_jwt_secret_rejects_short(monkeypatch):
+    monkeypatch.setenv("JWT_SECRET", "short")
+    with pytest.raises(RuntimeError):
+        auth.get_jwt_secret()

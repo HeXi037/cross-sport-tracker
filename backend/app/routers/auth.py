@@ -16,11 +16,21 @@ from ..db import get_session
 from ..models import User, Player
 from ..schemas import UserCreate, UserLogin, TokenOut
 
-JWT_SECRET = os.getenv("JWT_SECRET")
-if not JWT_SECRET:
-  raise RuntimeError("JWT_SECRET environment variable is required")
+
+def get_jwt_secret() -> str:
+  secret = os.getenv("JWT_SECRET")
+  if not secret:
+    raise RuntimeError("JWT_SECRET environment variable is required")
+  if len(secret) < 32 or secret.lower() in {"secret", "changeme", "default"}:
+    raise RuntimeError(
+        "JWT_SECRET must be at least 32 characters and not a common default"
+    )
+  return secret
+
+
 JWT_ALG = "HS256"
 JWT_EXPIRE_SECONDS = 3600
+
 
 def _get_client_ip(request: Request) -> str:
   forwarded = request.headers.get("X-Forwarded-For")
@@ -33,19 +43,24 @@ def _get_client_ip(request: Request) -> str:
     return real_ip
   return request.client.host if request.client else ""
 
+
 limiter = Limiter(key_func=_get_client_ip)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
   return JSONResponse(status_code=429, content={"detail": "Too Many Requests"})
+
 
 def hash_password_sha256(password: str) -> str:
   return hashlib.sha256(password.encode()).hexdigest()
 
+
 def is_sha256_digest(hash_str: str) -> bool:
   return bool(re.fullmatch(r"[a-f0-9]{64}", hash_str))
+
 
 def create_token(user: User) -> str:
   payload = {
@@ -54,7 +69,8 @@ def create_token(user: User) -> str:
       "is_admin": user.is_admin,
       "exp": datetime.utcnow() + timedelta(seconds=JWT_EXPIRE_SECONDS),
   }
-  return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
+  return jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALG)
+
 
 @router.post("/signup", response_model=TokenOut)
 async def signup(
@@ -98,9 +114,14 @@ async def signup(
   token = create_token(user)
   return TokenOut(access_token=token)
 
+
 @router.post("/login", response_model=TokenOut)
 @limiter.limit("5/minute")
-async def login(request: Request, body: UserLogin, session: AsyncSession = Depends(get_session)):
+async def login(
+    request: Request,
+    body: UserLogin,
+    session: AsyncSession = Depends(get_session),
+):
   user = (
       await session.execute(select(User).where(User.username == body.username))
   ).scalar_one_or_none()
@@ -116,6 +137,7 @@ async def login(request: Request, body: UserLogin, session: AsyncSession = Depen
   token = create_token(user)
   return TokenOut(access_token=token)
 
+
 async def get_current_user(
     authorization: str | None = Header(None),
     session: AsyncSession = Depends(get_session),
@@ -124,7 +146,7 @@ async def get_current_user(
     raise HTTPException(status_code=401, detail="missing token")
   token = authorization.split(" ", 1)[1]
   try:
-    payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
+    payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALG])
   except jwt.PyJWTError:
     raise HTTPException(status_code=401, detail="invalid token")
   uid = payload.get("sub")

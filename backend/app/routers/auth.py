@@ -37,7 +37,15 @@ def _get_client_ip(request: Request) -> str:
   if forwarded:
     parts = [ip.strip() for ip in forwarded.split(",") if ip.strip()]
     if parts:
-      return parts[-1]
+      trusted = {
+          ip.strip()
+          for ip in os.getenv("TRUSTED_PROXIES", "").split(",")
+          if ip.strip()
+      }
+      for ip in reversed(parts):
+        if ip not in trusted:
+          return ip
+      return parts[0]
   real_ip = request.headers.get("X-Real-IP")
   if real_ip:
     return real_ip

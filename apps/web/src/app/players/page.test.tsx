@@ -69,6 +69,26 @@ describe("PlayersPage", () => {
     vi.useRealTimers();
   });
 
+  it("filters out Albert accounts", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        players: [
+          { id: "1", name: "Albert" },
+          { id: "2", name: "Bob" },
+        ],
+      }),
+    });
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      render(<PlayersPage />);
+    });
+
+    expect(screen.queryByText("Albert")).toBeNull();
+    expect(screen.getByText("Bob")).toBeTruthy();
+  });
+
   it("shows a message when no players match the search", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce({
       ok: true,

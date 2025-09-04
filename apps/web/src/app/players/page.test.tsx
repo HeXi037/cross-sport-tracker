@@ -144,4 +144,43 @@ describe("PlayersPage", () => {
     expect(screen.queryByText(/added successfully/i)).toBeNull();
     vi.useRealTimers();
   });
+
+  it("allows admin to delete a player", async () => {
+    // mock token with admin privileges
+    window.localStorage.setItem(
+      "token",
+      "x.eyJpc19hZG1pbiI6dHJ1ZX0.y"
+    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ players: [{ id: "1", name: "Alice" }] }),
+      })
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ players: [] }),
+      });
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      render(<PlayersPage />);
+    });
+
+    const button = await screen.findByRole("button", { name: /delete/i });
+    await act(async () => {
+      fireEvent.click(button);
+    });
+
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) =>
+          typeof url === "string" &&
+          url.includes("/v0/players/1") &&
+          (init as RequestInit | undefined)?.method === "DELETE"
+      )
+    ).toBe(true);
+    window.localStorage.removeItem("token");
+  });
 });

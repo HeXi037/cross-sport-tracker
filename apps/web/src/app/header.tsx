@@ -1,11 +1,29 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { isAdmin } from '../lib/api';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { currentUsername, isAdmin, logout } from '../lib/api';
 
 export default function Header() {
   const [open, setOpen] = useState(false);
+  const [user, setUser] = useState<string | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const update = () => setUser(currentUsername());
+    update();
+    window.addEventListener('storage', update);
+    return () => window.removeEventListener('storage', update);
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    setUser(null);
+    setOpen(false);
+    router.push('/');
+  };
+
   return (
     <header className="nav">
       <button
@@ -56,11 +74,20 @@ export default function Header() {
               </Link>
             </li>
           )}
-          <li>
-            <Link href="/login" onClick={() => setOpen(false)}>
-              Login
-            </Link>
-          </li>
+          {user ? (
+            <>
+              <li className="user-status">Logged in as {user}</li>
+              <li>
+                <button onClick={handleLogout}>Logout</button>
+              </li>
+            </>
+          ) : (
+            <li>
+              <Link href="/login" onClick={() => setOpen(false)}>
+                Login
+              </Link>
+            </li>
+          )}
         </ul>
       </nav>
     </header>

@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from slowapi.errors import RateLimitExceeded
 from fastapi.testclient import TestClient
 from app import db
-from app.models import User, Player, Club
+from app.models import User, Player, Club, RefreshToken
 from app.routers import auth, players
 from app.routers.auth import pwd_context
 
@@ -46,7 +46,7 @@ def setup_db():
         async with engine.begin() as conn:
             await conn.run_sync(
                 db.Base.metadata.create_all,
-                tables=[User.__table__, Player.__table__, Club.__table__],
+                tables=[User.__table__, Player.__table__, Club.__table__, RefreshToken.__table__],
             )
     asyncio.run(init_models())
     yield
@@ -164,6 +164,20 @@ def test_signup_rejects_attached_player():
 
     user = asyncio.run(fetch_user())
     assert user is None
+
+
+def test_refresh_flow():
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup", json={"username": "eve", "password": "Str0ng!Pass"}
+        )
+        assert resp.status_code == 200
+        first = resp.json()["access_token"]
+        assert client.cookies.get("refresh_token")
+        resp2 = client.post("/auth/refresh")
+        assert resp2.status_code == 200
+        second = resp2.json()["access_token"]
+        assert second
 
 def test_login_rate_limited():
     auth.limiter.reset()

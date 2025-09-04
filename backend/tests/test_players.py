@@ -3,7 +3,7 @@ import os, sys, asyncio, pytest
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_players.db"
-os.environ["JWT_SECRET"] = "testsecret"
+os.environ["JWT_SECRET"] = "x" * 32
 os.environ["ADMIN_SECRET"] = "admintest"
 
 from fastapi import FastAPI
@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from fastapi.responses import JSONResponse
 from app import db
 from app.routers import players, auth, badges
-from app.models import Player, Club, User, Badge, PlayerBadge, PlayerMetric
+from app.models import Player, Club, User, Badge, PlayerBadge, PlayerMetric, RefreshToken
 from app.exceptions import DomainException, ProblemDetail
 
 app = FastAPI()
@@ -52,6 +52,7 @@ def setup_db():
                     Badge.__table__,
                     PlayerBadge.__table__,
                     PlayerMetric.__table__,
+                    RefreshToken.__table__,
                 ],
             )
     asyncio.run(init_models())

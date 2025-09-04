@@ -3,17 +3,17 @@ import re
 import hashlib
 import uuid
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Header, Request
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, Response
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from passlib.context import CryptContext
 import jwt
 
 from ..db import get_session
-from ..models import User, Player
+from ..models import User, Player, RefreshToken
 from ..schemas import UserCreate, UserLogin, TokenOut
 
 
@@ -30,6 +30,7 @@ def get_jwt_secret() -> str:
 
 JWT_ALG = "HS256"
 JWT_EXPIRE_SECONDS = 3600
+REFRESH_EXPIRE_SECONDS = 30 * 24 * 3600
 
 
 def _get_client_ip(request: Request) -> str:
@@ -72,9 +73,23 @@ def create_token(user: User) -> str:
   return jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALG)
 
 
+async def issue_refresh_token(session: AsyncSession, user: User) -> str:
+  await session.execute(delete(RefreshToken).where(RefreshToken.user_id == user.id))
+  token = uuid.uuid4().hex
+  rt = RefreshToken(
+      token=token,
+      user_id=user.id,
+      expires_at=datetime.utcnow() + timedelta(seconds=REFRESH_EXPIRE_SECONDS),
+  )
+  session.add(rt)
+  await session.commit()
+  return token
+
+
 @router.post("/signup", response_model=TokenOut)
 async def signup(
     body: UserCreate,
+    response: Response,
     session: AsyncSession = Depends(get_session),
     admin_secret: str | None = Header(default=None, alias="X-Admin-Secret"),
 ):
@@ -111,8 +126,16 @@ async def signup(
     player = Player(id=uuid.uuid4().hex, user_id=uid, name=body.username)
     session.add(player)
   await session.commit()
-  token = create_token(user)
-  return TokenOut(access_token=token)
+  access = create_token(user)
+  refresh = await issue_refresh_token(session, user)
+  response.set_cookie(
+      "refresh_token",
+      refresh,
+      httponly=True,
+      max_age=REFRESH_EXPIRE_SECONDS,
+      samesite="lax",
+  )
+  return TokenOut(access_token=access)
 
 
 @router.post("/login", response_model=TokenOut)
@@ -120,6 +143,7 @@ async def signup(
 async def login(
     request: Request,
     body: UserLogin,
+    response: Response,
     session: AsyncSession = Depends(get_session),
 ):
   user = (
@@ -134,8 +158,45 @@ async def login(
   else:
     if not pwd_context.verify(body.password, stored):
       raise HTTPException(status_code=401, detail="invalid credentials")
-  token = create_token(user)
-  return TokenOut(access_token=token)
+  access = create_token(user)
+  refresh = await issue_refresh_token(session, user)
+  response.set_cookie(
+      "refresh_token",
+      refresh,
+      httponly=True,
+      max_age=REFRESH_EXPIRE_SECONDS,
+      samesite="lax",
+  )
+  return TokenOut(access_token=access)
+
+
+@router.post("/refresh", response_model=TokenOut)
+async def refresh(
+    request: Request,
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+):
+  token = request.cookies.get("refresh_token")
+  if not token:
+    raise HTTPException(status_code=401, detail="missing refresh token")
+  db_token = await session.get(RefreshToken, token)
+  if not db_token or db_token.expires_at < datetime.utcnow():
+    raise HTTPException(status_code=401, detail="invalid refresh token")
+  user = await session.get(User, db_token.user_id)
+  if not user:
+    raise HTTPException(status_code=401, detail="user not found")
+  await session.delete(db_token)
+  await session.commit()
+  refresh_token = await issue_refresh_token(session, user)
+  access_token = create_token(user)
+  response.set_cookie(
+      "refresh_token",
+      refresh_token,
+      httponly=True,
+      max_age=REFRESH_EXPIRE_SECONDS,
+      samesite="lax",
+  )
+  return TokenOut(access_token=access_token)
 
 
 async def get_current_user(

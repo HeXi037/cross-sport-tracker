@@ -9,7 +9,7 @@ from sqlalchemy import select, text
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-os.environ["JWT_SECRET"] = "testsecret"
+os.environ["JWT_SECRET"] = "x" * 32
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def anyio_backend():
 async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
   os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from app import db
-  from app.models import Player, User
+  from app.models import Player, User, RefreshToken
   from app.schemas import MatchCreateByName, ParticipantByName
   from app.routers.matches import create_match_by_name
 
@@ -52,7 +52,7 @@ async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
 async def test_create_match_rejects_duplicate_players(tmp_path):
   os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from app import db
-  from app.models import User
+  from app.models import User, RefreshToken, Sport, Match, MatchParticipant
   from app.schemas import MatchCreate, Participant
   from app.routers.matches import create_match
 
@@ -84,13 +84,17 @@ async def test_create_match_rejects_duplicate_players(tmp_path):
 async def test_create_match_with_scores(tmp_path):
   os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from app import db
-  from app.models import Match, MatchParticipant, Sport, User
+  from app.models import Match, MatchParticipant, Sport, User, RefreshToken
   from app.schemas import MatchCreate, Participant
   from app.routers.matches import create_match
 
   db.engine = None
   db.AsyncSessionLocal = None
-  db.get_engine()
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(Match.__table__.create)
+    await conn.run_sync(MatchParticipant.__table__.create)
+    await conn.run_sync(Sport.__table__.create)
 
   async with db.AsyncSessionLocal() as session:
     body = MatchCreate(
@@ -113,7 +117,7 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
   from app import db
-  from app.models import Sport, Match, User
+  from app.models import Sport, Match, User, RefreshToken
   from app.routers import matches
   from app.routers.auth import get_current_user
 
@@ -156,7 +160,7 @@ async def test_list_matches_upcoming_filter(tmp_path):
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
   from app import db
-  from app.models import Sport, Match, User
+  from app.models import Sport, Match, User, RefreshToken
   from app.routers import matches
   from app.routers.auth import get_current_user
 
@@ -266,7 +270,7 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
   from app import db
-  from app.models import Match, ScoreEvent, User, Player
+  from app.models import Match, ScoreEvent, User, Player, RefreshToken
   from app.routers import matches, auth
 
   db.engine = None
@@ -278,6 +282,7 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
     await conn.run_sync(ScoreEvent.__table__.create)
     await conn.run_sync(User.__table__.create)
     await conn.run_sync(Player.__table__.create)
+    await conn.run_sync(RefreshToken.__table__.create)
     await conn.exec_driver_sql(
         "CREATE TABLE match_participant (id TEXT PRIMARY KEY, match_id TEXT, side TEXT, player_ids TEXT)"
     )
@@ -346,7 +351,7 @@ async def test_delete_match_missing_returns_404(tmp_path):
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
   from app import db
-  from app.models import Match, User, Player
+  from app.models import Match, User, Player, RefreshToken
   from app.routers import matches, auth
 
   db.engine = None
@@ -357,6 +362,7 @@ async def test_delete_match_missing_returns_404(tmp_path):
     await conn.run_sync(Match.__table__.create)
     await conn.run_sync(User.__table__.create)
     await conn.run_sync(Player.__table__.create)
+    await conn.run_sync(RefreshToken.__table__.create)
 
   app = FastAPI()
   app.include_router(auth.router)
@@ -497,7 +503,7 @@ async def test_create_match_preserves_naive_date(tmp_path):
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
   from app import db
-  from app.models import Sport, Match, User
+  from app.models import Sport, Match, User, RefreshToken
   from app.routers import matches
   from app.routers.auth import get_current_user
 

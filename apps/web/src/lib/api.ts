@@ -15,12 +15,13 @@ export function apiUrl(path: string): string {
 
 export async function apiFetch(path: string, init?: RequestInit) {
   const headers = new Headers(init?.headers);
+  let token: string | null = null;
   if (typeof window !== "undefined") {
-    const token = window.localStorage?.getItem("token");
+    token = await ensureAccessToken();
     if (token) headers.set("Authorization", `Bearer ${token}`);
   }
   try {
-    return await fetch(apiUrl(path), { ...init, headers });
+    return await fetch(apiUrl(path), { ...init, headers, credentials: "include" });
   } catch (err) {
     console.error("API request failed", err);
     throw err;
@@ -31,6 +32,34 @@ function base64UrlDecode(str: string): string {
   const base64 = str.replace(/-/g, "+").replace(/_/g, "/");
   const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, "=");
   return atob(padded);
+}
+
+async function ensureAccessToken(): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+  let token = window.localStorage?.getItem("token");
+  if (!token) return null;
+  let exp = 0;
+  try {
+    const [, payload] = token.split(".");
+    const data = JSON.parse(base64UrlDecode(payload));
+    exp = data.exp ?? 0;
+  } catch {
+    return token;
+  }
+  if (exp && Date.now() / 1000 >= exp) {
+    const resp = await fetch(apiUrl("/auth/refresh"), {
+      method: "POST",
+      credentials: "include",
+    });
+    if (!resp.ok) {
+      logout();
+      return null;
+    }
+    const data = await resp.json();
+    token = data.access_token;
+    window.localStorage?.setItem("token", token);
+  }
+  return token;
 }
 
 interface TokenPayload {

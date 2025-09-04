@@ -14,6 +14,17 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 def anyio_backend():
     return "asyncio"
 
+
+@pytest.fixture(autouse=True)
+async def dispose_engine():
+    """Ensure database engines are closed after each test."""
+    yield
+    from app import db
+    if db.engine is not None:
+        await db.engine.dispose()
+        db.engine = None
+        db.AsyncSessionLocal = None
+
 @pytest.mark.anyio
 async def test_tournament_crud(tmp_path):
     os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"

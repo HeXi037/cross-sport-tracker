@@ -18,6 +18,17 @@ def anyio_backend():
   return "asyncio"
 
 
+@pytest.fixture(autouse=True)
+async def dispose_engine():
+  """Dispose any leftover database engines after each test."""
+  yield
+  from app import db
+  if db.engine is not None:
+    await db.engine.dispose()
+    db.engine = None
+    db.AsyncSessionLocal = None
+
+
 @pytest.mark.anyio
 async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
   os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"

@@ -63,6 +63,7 @@ def client_and_session():
 
     with TestClient(app) as client:
         yield client, async_session_maker
+    asyncio.run(engine.dispose())
 def test_create_and_append_event_hole(client_and_session):
     client, session_maker = client_and_session
 

@@ -58,6 +58,10 @@ def setup_db():
             )
     asyncio.run(init_models())
     yield
+    if db.engine is not None:
+        asyncio.run(db.engine.dispose())
+        db.engine = None
+        db.AsyncSessionLocal = None
     if os.path.exists("./test_comments.db"):
         os.remove("./test_comments.db")
 

@@ -278,7 +278,7 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
   from app import db
-  from app.models import Match, ScoreEvent, User, Player
+  from app.models import Match, ScoreEvent, User, Player, RefreshToken
   from app.routers import matches, auth
 
   db.engine = None
@@ -290,6 +290,7 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
     await conn.run_sync(ScoreEvent.__table__.create)
     await conn.run_sync(User.__table__.create)
     await conn.run_sync(Player.__table__.create)
+    await conn.run_sync(RefreshToken.__table__.create)
     await conn.exec_driver_sql(
         "CREATE TABLE match_participant (id TEXT PRIMARY KEY, match_id TEXT, side TEXT, player_ids TEXT)"
     )
@@ -358,7 +359,7 @@ async def test_delete_match_missing_returns_404(tmp_path):
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
   from app import db
-  from app.models import Match, User, Player
+  from app.models import Match, User, Player, RefreshToken
   from app.routers import matches, auth
 
   db.engine = None
@@ -369,6 +370,7 @@ async def test_delete_match_missing_returns_404(tmp_path):
     await conn.run_sync(Match.__table__.create)
     await conn.run_sync(User.__table__.create)
     await conn.run_sync(Player.__table__.create)
+    await conn.run_sync(RefreshToken.__table__.create)
 
   app = FastAPI()
   app.include_router(auth.router)

@@ -28,8 +28,7 @@ export default function HomePageClient({
   matches: initialMatches,
   sportError: initialSportError,
   matchError: initialMatchError,
-}: Props) {
-  React;
+}: Props): React.ReactElement {
   const [sports, setSports] = useState(initialSports);
   const [matches, setMatches] = useState(initialMatches);
   const [sportError, setSportError] = useState(initialSportError);

@@ -22,6 +22,10 @@ def get_jwt_secret() -> str:
   secret = os.getenv("JWT_SECRET")
   if not secret:
     raise RuntimeError("JWT_SECRET environment variable is required")
+  if len(secret) < 32 or secret.lower() in {"secret", "changeme", "default"}:
+    raise RuntimeError(
+        "JWT_SECRET must be at least 32 characters and not a common default"
+    )
   return secret
 
 

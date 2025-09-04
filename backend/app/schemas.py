@@ -18,6 +18,12 @@ class RuleSetOut(BaseModel):
     config: dict
 
 
+class RuleSetCreate(BaseModel):
+    sport_id: str
+    name: str
+    config: dict
+
+
 class BadgeCreate(BaseModel):
     name: str
     icon: Optional[str] = None
@@ -252,7 +258,6 @@ class MatchIdOut(BaseModel):
 
 class MatchSummaryOut(BaseModel):
     """Lightweight representation of a match used in listings."""
-
     id: str
     sport: str
     bestOf: Optional[int] = None
@@ -262,7 +267,6 @@ class MatchSummaryOut(BaseModel):
 
 class ParticipantOut(BaseModel):
     """Participant information for a match."""
-
     id: str
     side: Literal["A", "B", "C", "D", "E", "F"]
     playerIds: List[str]
@@ -270,7 +274,6 @@ class ParticipantOut(BaseModel):
 
 class ScoreEventOut(BaseModel):
     """Represents an individual scoring event within a match."""
-
     id: str
     type: str
     payload: Dict[str, Any]
@@ -279,7 +282,6 @@ class ScoreEventOut(BaseModel):
 
 class MatchOut(BaseModel):
     """Detailed match information returned by the API."""
-
     id: str
     sport: str
     rulesetId: Optional[str] = None
@@ -293,7 +295,6 @@ class MatchOut(BaseModel):
 
 class TournamentCreate(BaseModel):
     """Schema for creating a tournament."""
-
     sport: str
     name: str
     clubId: Optional[str] = None
@@ -301,7 +302,6 @@ class TournamentCreate(BaseModel):
 
 class TournamentOut(BaseModel):
     """Returned representation of a tournament."""
-
     id: str
     sport: str
     name: str
@@ -310,13 +310,11 @@ class TournamentOut(BaseModel):
 
 class StageCreate(BaseModel):
     """Schema for creating a tournament stage."""
-
     type: str
 
 
 class StageOut(BaseModel):
     """Returned representation of a tournament stage."""
-
     id: str
     tournamentId: str
     type: str

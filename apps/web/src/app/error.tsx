@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
+import Sentry from "../lib/monitoring";
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error(error);
-    // TODO: send error to monitoring service
+    Sentry.captureException(error);
   }, [error]);
 
   return (

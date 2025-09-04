@@ -157,7 +157,6 @@ async def signup(
         session.add(player)
     await session.commit()
     await session.refresh(user)
-    # create refresh token
     await session.execute(
         delete(RefreshToken).where(RefreshToken.user_id == user.id)
     )
@@ -194,7 +193,6 @@ async def login(
     else:
         if not pwd_context.verify(body.password, stored):
             raise HTTPException(status_code=401, detail="invalid credentials")
-    # remove existing refresh tokens for this user
     await session.execute(
         delete(RefreshToken).where(RefreshToken.user_id == user.id)
     )

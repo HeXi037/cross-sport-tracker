@@ -137,6 +137,13 @@ POST /api/v0/matches/{id}/sets
 GET  /api/v0/leaderboards?sport=padel
 WS   /api/v0/matches/{id}/stream
 
+Create an admin user
+
+curl -X POST http://localhost:8000/api/v0/auth/signup \
+  -H 'Content-Type: application/json' \
+  -H 'X-Admin-Secret: <admin-secret>' \
+  -d '{"username":"alice","password":"s3cret","is_admin":true}'
+
 Example: create a Padel match
 
 POST /api/v0/matches

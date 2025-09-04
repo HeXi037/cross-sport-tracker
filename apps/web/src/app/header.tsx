@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { isAdmin } from '../lib/api';
 
 export default function Header() {
   const [open, setOpen] = useState(false);
@@ -48,6 +49,13 @@ export default function Header() {
               All Sports
             </Link>
           </li>
+          {isAdmin() && (
+            <li>
+              <Link href="/admin/matches" onClick={() => setOpen(false)}>
+                Admin
+              </Link>
+            </li>
+          )}
           <li>
             <Link href="/login" onClick={() => setOpen(false)}>
               Login

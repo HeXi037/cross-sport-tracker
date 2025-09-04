@@ -171,6 +171,17 @@ class TokenOut(BaseModel):
     access_token: str
 
 
+class UserOut(BaseModel):
+    id: str
+    username: str
+    is_admin: bool
+
+
+class UserUpdate(BaseModel):
+    username: str | None = None
+    password: str | None = None
+
+
 class PasswordResetRequest(BaseModel):
     """Schema for initiating a password reset."""
     username: str

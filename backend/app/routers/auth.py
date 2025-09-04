@@ -21,6 +21,8 @@ from ..schemas import (
     TokenOut,
     PasswordResetRequest,
     PasswordResetConfirm,
+    UserOut,
+    UserUpdate,
 )
 
 
@@ -271,15 +273,57 @@ async def get_current_user(
     authorization: str | None = Header(None),
     session: AsyncSession = Depends(get_session),
 ) -> User:
-  if not authorization or not authorization.lower().startswith("bearer "):
-    raise HTTPException(status_code=401, detail="missing token")
-  token = authorization.split(" ", 1)[1]
-  try:
-    payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALG])
-  except jwt.PyJWTError:
-    raise HTTPException(status_code=401, detail="invalid token")
-  uid = payload.get("sub")
-  user = await session.get(User, uid)
-  if not user:
-    raise HTTPException(status_code=401, detail="user not found")
-  return user
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="missing token")
+    token = authorization.split(" ", 1)[1]
+    try:
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALG])
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="invalid token")
+    uid = payload.get("sub")
+    user = await session.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=401, detail="user not found")
+    return user
+
+
+@router.get("/me", response_model=UserOut)
+async def read_me(current: User = Depends(get_current_user)):
+    """Return the current user's profile."""
+    return UserOut(
+        id=current.id, username=current.username, is_admin=current.is_admin
+    )
+
+
+@router.put("/me", response_model=TokenOut)
+async def update_me(
+    body: UserUpdate,
+    current: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    if body.username and body.username != current.username:
+        existing = (
+            await session.execute(
+                select(User).where(User.username == body.username)
+            )
+        ).scalar_one_or_none()
+        if existing:
+            raise HTTPException(status_code=400, detail="username exists")
+        existing_player = (
+            await session.execute(select(Player).where(Player.name == body.username))
+        ).scalar_one_or_none()
+        if existing_player and existing_player.user_id != current.id:
+            raise HTTPException(status_code=400, detail="player exists")
+        player = (
+            await session.execute(select(Player).where(Player.user_id == current.id))
+        ).scalar_one_or_none()
+        if player:
+            player.name = body.username
+        current.username = body.username
+    if body.password:
+        current.password_hash = pwd_context.hash(body.password)
+    await session.commit()
+    await session.refresh(current)
+    token = create_token(current)
+    return TokenOut(access_token=token)
+

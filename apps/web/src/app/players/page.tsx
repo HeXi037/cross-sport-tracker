@@ -1,7 +1,8 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { apiFetch, isAdmin } from "../../lib/api";
+import PlayerLabel from "../../components/PlayerLabel";
 import InputField from "../../components/InputField";
 import ErrorBoundary from "../../components/ErrorBoundary";
 
@@ -12,6 +13,7 @@ interface Player {
   name: string;
   club_id?: string | null;
   badges?: { id: string; name: string; icon?: string | null }[];
+  photo_url?: string | null;
 }
 
 export default function PlayersPage() {
@@ -19,12 +21,16 @@ export default function PlayersPage() {
   const [recentMatches, setRecentMatches] =
     useState<Record<string, string | null>>({});
   const [name, setName] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 25;
   const admin = isAdmin();
 
   const trimmedName = name.trim();
@@ -34,15 +40,19 @@ export default function PlayersPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await apiFetch("/v0/players?limit=100&offset=0", {
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String(page * PAGE_SIZE),
+      });
+      const term = debouncedSearch.trim();
+      if (term) params.set("q", term);
+      const res = await apiFetch(`/v0/players?${params.toString()}`, {
         cache: "no-store",
       });
       if (res.ok) {
         const data = await res.json();
-        const filtered = (data.players as Player[]).filter(
-          (p) => !p.name.toLowerCase().startsWith("albert")
-        );
-        setPlayers(filtered);
+        setPlayers(data.players as Player[]);
+        setTotal(data.total ?? (data.players as Player[]).length);
       } else {
         setError("Failed to load players.");
       }
@@ -52,20 +62,15 @@ export default function PlayersPage() {
       setLoading(false);
     }
   }
+
   useEffect(() => {
     load();
-  }, []);
+  }, [page, debouncedSearch]);
 
   useEffect(() => {
     const handle = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(handle);
   }, [search]);
-
-  const filteredPlayers = useMemo(() => {
-    const term = debouncedSearch.trim().toLowerCase();
-    if (!term) return players;
-    return players.filter((p) => p.name.toLowerCase().includes(term));
-  }, [players, debouncedSearch]);
 
   useEffect(() => {
     if (!players.length) return;
@@ -74,12 +79,14 @@ export default function PlayersPage() {
         players.map(async (p) => {
           try {
             const r = await apiFetch(
-              `/v0/matches?playerId=${encodeURIComponent(p.id)}`,
+              `/v0/matches?playerId=${encodeURIComponent(p.id)}&limit=1`,
               { cache: "no-store" }
             );
             if (r.ok) {
-              const data = (await r.json()) as { id: string }[];
-              return [p.id, data[0]?.id ?? null] as const;
+              const data = (await r.json()) as {
+                matches: { id: string }[];
+              };
+              return [p.id, data.matches[0]?.id ?? null] as const;
             }
           } catch {
             /* ignore */
@@ -105,20 +112,29 @@ export default function PlayersPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: trimmedName }),
       });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as
-          | Record<string, unknown>
-          | null;
+      const data = (await res.json().catch(() => null)) as
+        | Player
+        | (Record<string, unknown> & { detail?: string; message?: string })
+        | null;
+      if (!res.ok || !data || !("id" in data)) {
         let message = "Failed to create player.";
-        if (data) {
-          if (typeof data["detail"] === "string") message = data["detail"];
-          else if (typeof data["message"] === "string")
-            message = data["message"];
-        }
+        if (data && typeof (data as any)["detail"] === "string")
+          message = (data as any)["detail"] as string;
+        else if (data && typeof (data as any)["message"] === "string")
+          message = (data as any)["message"] as string;
         setError(message);
         return;
       }
       setName("");
+      if (photo) {
+        const form = new FormData();
+        form.append("file", photo);
+        await apiFetch(`/v0/players/${data.id}/photo`, {
+          method: "POST",
+          body: form,
+        });
+        setPhoto(null);
+      }
       load();
       setSuccess("Player added successfully!");
       setTimeout(() => setSuccess(null), 3000);
@@ -152,35 +168,60 @@ export default function PlayersPage() {
               label="Search"
               className="input mb-2"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(0);
+              }}
               placeholder="search"
             />
-            {filteredPlayers.length === 0 && debouncedSearch.trim() !== "" ? (
+            {players.length === 0 && debouncedSearch.trim() !== "" ? (
               <p>No players found.</p>
             ) : (
-              <ul>
-                {filteredPlayers.map((p) => (
-                  <li key={p.id}>
-                    <Link
-                      href={
-                        recentMatches[p.id]
-                          ? `/matches/${recentMatches[p.id]}`
-                          : `/players/${p.id}`
-                      }
-                    >
-                      {p.name}
-                    </Link>
-                    {admin && (
-                      <button
-                        style={{ marginLeft: 8 }}
-                        onClick={() => handleDelete(p.id)}
+              <>
+                <ul>
+                  {players.map((p) => (
+                    <li key={p.id}>
+                      <Link
+                        href={
+                          recentMatches[p.id]
+                            ? `/matches/${recentMatches[p.id]}`
+                            : `/players/${p.id}`
+                        }
                       >
-                        Delete
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
+                        <PlayerLabel
+                          id={p.id}
+                          name={p.name}
+                          photoUrl={p.photo_url}
+                        />
+                      </Link>
+                      {admin && (
+                        <button
+                          style={{ marginLeft: 8 }}
+                          onClick={() => handleDelete(p.id)}
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    className="button"
+                    onClick={() => setPage((p) => p - 1)}
+                    disabled={page === 0}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    className="button"
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={(page + 1) * PAGE_SIZE >= total}
+                  >
+                    Next
+                  </button>
+                </div>
+              </>
             )}
           </>
         )}
@@ -202,6 +243,12 @@ export default function PlayersPage() {
                 ? "Name must be 1-50 characters and contain only letters, numbers, spaces, hyphens, or apostrophes."
                 : undefined
             }
+          />
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+            className="my-2"
           />
           <button
             className="button"
@@ -228,3 +275,4 @@ export default function PlayersPage() {
     </ErrorBoundary>
   );
 }
+

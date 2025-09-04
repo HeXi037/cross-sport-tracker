@@ -53,6 +53,7 @@ app.add_middleware(
     allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Total-Count", "X-Limit", "X-Offset"],
 )
 
 uploads_dir = Path(__file__).resolve().parents[1] / "uploads"

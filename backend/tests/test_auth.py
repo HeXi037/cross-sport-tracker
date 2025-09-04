@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from slowapi.errors import RateLimitExceeded
 from fastapi.testclient import TestClient
 from app import db
-from app.models import User, Player, Club
+from app.models import User, Player, Club, PasswordResetToken
 from app.routers import auth, players
 from app.routers.auth import pwd_context
 
@@ -46,7 +46,12 @@ def setup_db():
         async with engine.begin() as conn:
             await conn.run_sync(
                 db.Base.metadata.create_all,
-                tables=[User.__table__, Player.__table__, Club.__table__],
+                tables=[
+                    User.__table__,
+                    Player.__table__,
+                    Club.__table__,
+                    PasswordResetToken.__table__,
+                ],
             )
     asyncio.run(init_models())
     yield
@@ -244,7 +249,8 @@ def test_me_endpoints():
         assert login.status_code == 200
 
 
-def test_login_rate_limit_not_bypassed_by_spoofed_x_forwarded_for():
+def test_login_rate_limit_not_bypassed_by_spoofed_x_forwarded_for(monkeypatch):
+    monkeypatch.setenv("TRUSTED_PROXIES", "3.3.3.3")
     auth.limiter.reset()
     with TestClient(app) as client:
         resp = client.post(
@@ -252,15 +258,16 @@ def test_login_rate_limit_not_bypassed_by_spoofed_x_forwarded_for():
         )
         assert resp.status_code == 200
         real_ip = "9.9.9.9"
+        proxy = "3.3.3.3"
         for i in range(5):
-            headers = {"X-Forwarded-For": f"{i}.0.0.1, {real_ip}"}
+            headers = {"X-Forwarded-For": f"{i}.0.0.1, {real_ip}, {proxy}"}
             ok = client.post(
                 "/auth/login",
                 json={"username": "spoof", "password": "Str0ng!Pass"},
                 headers=headers,
             )
             assert ok.status_code == 200
-        headers = {"X-Forwarded-For": f"random, {real_ip}"}
+        headers = {"X-Forwarded-For": f"random, {real_ip}, {proxy}"}
         resp = client.post(
             "/auth/login",
             json={"username": "spoof", "password": "Str0ng!Pass"},
@@ -290,3 +297,43 @@ def test_jwt_secret_rejects_short(monkeypatch):
     monkeypatch.setenv("JWT_SECRET", "short")
     with pytest.raises(RuntimeError):
         auth.get_jwt_secret()
+
+
+def test_password_reset_flow():
+    auth.limiter.reset()
+    captured = {}
+
+    def fake_send(username: str, token: str) -> None:
+        captured["token"] = token
+
+    original = auth._send_password_reset_token
+    auth._send_password_reset_token = fake_send  # type: ignore
+
+    try:
+        with TestClient(app) as client:
+            resp = client.post(
+                "/auth/signup", json={"username": "resetme", "password": "Str0ng!Pass"}
+            )
+            assert resp.status_code == 200
+
+            resp = client.post("/auth/reset/request", json={"username": "resetme"})
+            assert resp.status_code == 200
+            assert "token" not in resp.json()
+
+            token = captured["token"]
+            resp = client.post(
+                "/auth/reset/confirm",
+                json={
+                    "username": "resetme",
+                    "token": token,
+                    "new_password": "N3w!Passw0rd",
+                },
+            )
+            assert resp.status_code == 204
+
+            resp = client.post(
+                "/auth/login", json={"username": "resetme", "password": "N3w!Passw0rd"}
+            )
+            assert resp.status_code == 200
+    finally:
+        auth._send_password_reset_token = original  # type: ignore

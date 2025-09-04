@@ -2,6 +2,9 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { apiFetch, isAdmin } from "../../lib/api";
+import PlayerLabel from "../../components/PlayerLabel";
+import InputField from "../../components/InputField";
+import ErrorBoundary from "../../components/ErrorBoundary";
 
 const NAME_REGEX = /^[A-Za-z0-9 '-]{1,50}$/;
 
@@ -10,13 +13,15 @@ interface Player {
   name: string;
   club_id?: string | null;
   badges?: { id: string; name: string; icon?: string | null }[];
+  photo_url?: string | null;
 }
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [recentMatches, setRecentMatches] =
     useState<Record<string, string | null>>({});
-  const [name, setName] = useState("");
+  the const [name, setName] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -103,20 +108,29 @@ export default function PlayersPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: trimmedName }),
       });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as
-          | Record<string, unknown>
-          | null;
+      const data = (await res.json().catch(() => null)) as
+        | Player
+        | (Record<string, unknown> & { detail?: string; message?: string })
+        | null;
+      if (!res.ok || !data || !("id" in data)) {
         let message = "Failed to create player.";
-        if (data) {
-          if (typeof data["detail"] === "string") message = data["detail"];
-          else if (typeof data["message"] === "string")
-            message = data["message"];
-        }
+        if (data && typeof (data as any)["detail"] === "string")
+          message = (data as any)["detail"] as string;
+        else if (data && typeof (data as any)["message"] === "string")
+          message = (data as any)["message"] as string;
         setError(message);
         return;
       }
       setName("");
+      if (photo) {
+        const form = new FormData();
+        form.append("file", photo);
+        await apiFetch(`/v0/players/${data.id}/photo`, {
+          method: "POST",
+          body: form,
+        });
+        setPhoto(null);
+      }
       load();
       setSuccess("Player added successfully!");
       setTimeout(() => setSuccess(null), 3000);
@@ -138,75 +152,101 @@ export default function PlayersPage() {
   }
 
   return (
-    <main className="container">
-      <h1 className="heading">Players</h1>
-      {loading && players.length === 0 ? (
-        <div>Loading players…</div>
-      ) : (
-        <>
-          <input
-            className="input mb-2"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="search"
-          />
-          {filteredPlayers.length === 0 && debouncedSearch.trim() !== "" ? (
-            <p>No players found.</p>
-          ) : (
-            <ul>
-              {filteredPlayers.map((p) => (
-                <li key={p.id}>
-                  <Link
-                    href={
-                      recentMatches[p.id]
-                        ? `/matches/${recentMatches[p.id]}`
-                        : `/players/${p.id}`
-                    }
-                  >
-                    {p.name}
-                  </Link>
-                  {admin && (
-                    <button
-                      style={{ marginLeft: 8 }}
-                      onClick={() => handleDelete(p.id)}
+    <ErrorBoundary>
+      <main className="container">
+        <h1 className="heading">Players</h1>
+        {loading && players.length === 0 ? (
+          <div>Loading players…</div>
+        ) : (
+          <>
+            <InputField
+              id="player-search"
+              label="Search"
+              className="input mb-2"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="search"
+            />
+            {filteredPlayers.length === 0 && debouncedSearch.trim() !== "" ? (
+              <p>No players found.</p>
+            ) : (
+              <ul>
+                {filteredPlayers.map((p) => (
+                  <li key={p.id}>
+                    <Link
+                      href={
+                        recentMatches[p.id]
+                          ? `/matches/${recentMatches[p.id]}`
+                          : `/players/${p.id}`
+                      }
                     >
-                      Delete
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
-      )}
-      <input
-        className="input"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="name"
-      />
-      {!nameIsValid && trimmedName !== "" && (
-        <div className="text-red-500 mt-2">
-          Name must be 1-50 characters and contain only letters,
-          numbers, spaces, hyphens, or apostrophes.
-        </div>
-      )}
-      <button
-        className="button"
-        onClick={create}
-        disabled={creating || name.trim() === ""}
-      >
-        {creating ? "Saving…" : "Add"}
-      </button>
-      {success && <div className="text-green-600 mt-2">{success}</div>}
-      {error && (
-        <div className="text-red-500 mt-2">
-          {error}
-          <button className="ml-2 underline" onClick={load}>
-            Retry
+                      <PlayerLabel
+                        id={p.id}
+                        name={p.name}
+                        photoUrl={p.photo_url}
+                      />
+                    </Link>
+                    {admin && (
+                      <button
+                        style={{ marginLeft: 8 }}
+                        onClick={() => handleDelete(p.id)}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            create();
+          }}
+        >
+          <InputField
+            id="new-player"
+            label="Player name"
+            className="input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="name"
+            error={
+              !nameIsValid && trimmedName !== ""
+                ? "Name must be 1-50 characters and contain only letters, numbers, spaces, hyphens, or apostrophes."
+                : undefined
+            }
+          />
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+            className="my-2"
+          />
+          <button
+            className="button"
+            type="submit"
+            disabled={creating || name.trim() === ""}
+          >
+            {creating ? "Saving…" : "Add"}
           </button>
-        </div>
-      )}
-    </main>
+        </form>
+        {success && (
+          <div className="text-green-600 mt-2" role="alert">
+            {success}
+          </div>
+        )}
+        {error && (
+          <div className="text-red-500 mt-2" role="alert">
+            {error}
+            <button className="ml-2 underline" onClick={load}>
+              Retry
+            </button>
+          </div>
+        )}
+      </main>
+    </ErrorBoundary>
   );
 }

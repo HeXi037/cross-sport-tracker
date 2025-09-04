@@ -20,6 +20,7 @@ async def test_tournament_crud(tmp_path):
     from app import db
     from app.models import Sport, Tournament, Stage
     from app.routers import tournaments
+    from app.routers.admin import require_admin
 
     db.engine = None
     db.AsyncSessionLocal = None
@@ -35,6 +36,7 @@ async def test_tournament_crud(tmp_path):
 
     app = FastAPI()
     app.include_router(tournaments.router)
+    app.dependency_overrides[require_admin] = lambda: None
 
     with TestClient(app) as client:
         resp = client.post("/tournaments", json={"sport": "padel", "name": "Winter Cup"})
@@ -56,6 +58,7 @@ async def test_stage_crud(tmp_path):
     from app import db
     from app.models import Sport, Tournament, Stage
     from app.routers import tournaments
+    from app.routers.admin import require_admin
 
     db.engine = None
     db.AsyncSessionLocal = None
@@ -71,6 +74,7 @@ async def test_stage_crud(tmp_path):
 
     app = FastAPI()
     app.include_router(tournaments.router)
+    app.dependency_overrides[require_admin] = lambda: None
 
     with TestClient(app) as client:
         tid = client.post("/tournaments", json={"sport": "padel", "name": "Winter Cup"}).json()["id"]

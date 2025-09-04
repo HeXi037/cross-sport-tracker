@@ -62,6 +62,10 @@ describe("RecordPadelPage", () => {
       target: { value: "2" },
     });
 
+    fireEvent.change(screen.getByPlaceholderText("Location"), {
+      target: { value: "Court 1" },
+    });
+
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
@@ -75,6 +79,7 @@ describe("RecordPadelPage", () => {
         { side: "A", playerIds: ["p1", "p2"] },
         { side: "B", playerIds: ["p3", "p4"] },
       ],
+      location: "Court 1",
     });
     expect(setsPayload).toEqual({
       sets: [

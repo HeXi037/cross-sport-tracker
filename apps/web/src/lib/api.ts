@@ -33,7 +33,13 @@ function base64UrlDecode(str: string): string {
   return atob(padded);
 }
 
-function getTokenPayload(): any | null {
+interface TokenPayload {
+  username?: string;
+  is_admin?: boolean;
+  [key: string]: unknown;
+}
+
+function getTokenPayload(): TokenPayload | null {
   if (typeof window === "undefined") return null;
   const token = window.localStorage?.getItem("token");
   if (!token) return null;
@@ -57,6 +63,10 @@ export function isLoggedIn(): boolean {
 export function logout() {
   if (typeof window !== "undefined") {
     window.localStorage.removeItem("token");
+    // Manually notify listeners since the `storage` event doesn't fire in
+    // the same tab that performed the update.  Header components listen for
+    // this event to refresh login state.
+    window.dispatchEvent(new Event("storage"));
   }
 }
 

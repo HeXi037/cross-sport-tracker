@@ -1,6 +1,7 @@
 import uuid
 from collections import defaultdict
-from fastapi import APIRouter, Depends, Response, HTTPException
+from pathlib import Path
+from fastapi import APIRouter, Depends, Response, HTTPException, UploadFile, File
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
@@ -43,6 +44,8 @@ router = APIRouter(
     tags=["players"],
     responses={400: {"model": ProblemDetail}, 404: {"model": ProblemDetail}},
 )
+
+UPLOAD_DIR = Path(__file__).resolve().parents[2] / "uploads" / "players"
 
 @router.post("", response_model=PlayerOut)
 async def create_player(
@@ -152,6 +155,27 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
         milestones=milestones or None,
         badges=[BadgeOut(id=b.id, name=b.name, icon=b.icon) for b in badges],
     )
+
+
+@router.post("/{player_id}/photo")
+async def upload_player_photo(
+    player_id: str,
+    file: UploadFile = File(...),
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_admin),
+):
+    p = await session.get(Player, player_id)
+    if not p or p.deleted_at is not None:
+        raise PlayerNotFound(player_id)
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    ext = Path(file.filename or "").suffix
+    dest = UPLOAD_DIR / f"{player_id}{ext}"
+    contents = await file.read()
+    with open(dest, "wb") as f:
+        f.write(contents)
+    p.photo_url = f"/uploads/players/{dest.name}"
+    await session.commit()
+    return {"photo_url": p.photo_url}
 
 @router.post("/{player_id}/badges/{badge_id}", status_code=204)
 async def add_badge_to_player(

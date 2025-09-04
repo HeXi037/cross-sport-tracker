@@ -2,6 +2,8 @@ import Link from "next/link";
 import { apiFetch } from "../../../lib/api";
 import PlayerCharts from "./PlayerCharts";
 import PlayerComments from "./comments-client";
+import PlayerLabel from "../../../components/PlayerLabel";
+import PhotoUpload from "./PhotoUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +11,7 @@ interface Player {
   id: string;
   name: string;
   club_id?: string | null;
+  photo_url?: string | null;
   badges: Badge[];
 }
 
@@ -263,20 +266,19 @@ export default async function PlayerPage({
         );
         if (!part) return null;
         const mySide = part.side;
-        const opponentName = Object.entries(m.names)
-          .filter(([side]) => side !== mySide)
-          .map(([, names]) => names.join(" & "))
-          .join(" vs ");
+        const opponentIds = m.participants
+          .filter((p) => p.side !== mySide)
+          .flatMap((p) => p.playerIds ?? []);
         const winner = winnerFromSummary(m.summary);
         const result = winner ? (winner === mySide ? "Win" : "Loss") : "—";
         const date = m.playedAt
           ? new Date(m.playedAt).toLocaleDateString()
           : "—";
-        return { id: m.id, opponentName, date, result };
+        return { id: m.id, opponentIds, date, result };
       })
       .filter(Boolean) as {
       id: string;
-      opponentName: string;
+      opponentIds: string[];
       date: string;
       result: string;
     }[];
@@ -284,7 +286,17 @@ export default async function PlayerPage({
     return (
       <main className="container md:flex">
         <section className="flex-1 md:mr-4">
-          <h1 className="heading">{player.name}</h1>
+          <div className="flex items-center mb-2">
+            {player.photo_url && (
+              <img
+                src={player.photo_url}
+                alt={player.name}
+                className="w-16 h-16 rounded-full object-cover mr-2"
+              />
+            )}
+            <h1 className="heading">{player.name}</h1>
+          </div>
+          <PhotoUpload playerId={player.id} />
           {player.club_id && <p>Club: {player.club_id}</p>}
 
           <nav className="mt-4 mb-4 space-x-4">
@@ -319,9 +331,17 @@ export default async function PlayerPage({
                       <li key={m.id} className="mb-2">
                         <div>
                           <Link href={`/matches/${m.id}`}>
-                            {Object.values(m.names)
-                              .map((n) => n.join(" & "))
-                              .join(" vs ")}
+                            {m.participants.map((p, idx) => (
+                              <span key={p.side}>
+                                {p.playerIds.map((pid, j) => (
+                                  <span key={pid}>
+                                    <PlayerLabel id={pid} />
+                                    {j < p.playerIds.length - 1 ? ' & ' : ''}
+                                  </span>
+                                ))}
+                                {idx < m.participants.length - 1 ? ' vs ' : ''}
+                              </span>
+                            ))}
                           </Link>
                         </div>
                         <div className="text-sm text-gray-700">
@@ -368,7 +388,14 @@ export default async function PlayerPage({
             <ul>
               {recentOpponents.map((o) => (
                 <li key={o.id} className="mb-2">
-                  <div>{o.opponentName}</div>
+                  <div>
+                    {o.opponentIds.map((pid, idx) => (
+                      <span key={pid}>
+                        <PlayerLabel id={pid} />
+                        {idx < o.opponentIds.length - 1 ? ' & ' : ''}
+                      </span>
+                    ))}
+                  </div>
                   <div className="text-sm text-gray-700">
                     {o.date} · {o.result}
                   </div>
@@ -385,7 +412,7 @@ export default async function PlayerPage({
               <ul>
                 {stats.withRecords.map((r) => (
                   <li key={r.playerId}>
-                    {r.wins}-{r.losses} with {r.playerName || r.playerId}
+                    {r.wins}-{r.losses} with <PlayerLabel id={r.playerId} name={r.playerName} />
                   </li>
                 ))}
               </ul>
@@ -407,9 +434,17 @@ export default async function PlayerPage({
               {upcoming.map((m) => (
                 <li key={m.id} className="mb-2">
                   <Link href={`/matches/${m.id}`}>
-                    {Object.values(m.names)
-                      .map((n) => n.join(" & "))
-                      .join(" vs ")}
+                    {m.participants.map((p, idx) => (
+                      <span key={p.side}>
+                        {p.playerIds.map((pid, j) => (
+                          <span key={pid}>
+                            <PlayerLabel id={pid} />
+                            {j < p.playerIds.length - 1 ? ' & ' : ''}
+                          </span>
+                        ))}
+                        {idx < m.participants.length - 1 ? ' vs ' : ''}
+                      </span>
+                    ))}
                   </Link>
                   <div className="text-sm text-gray-700">
                     {m.playedAt

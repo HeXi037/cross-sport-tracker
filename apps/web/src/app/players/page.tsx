@@ -23,7 +23,7 @@ export default function PlayersPage() {
   const [name, setName] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
   const [search, setSearch] = useState("");
-  the const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);

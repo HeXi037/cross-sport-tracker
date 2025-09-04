@@ -16,11 +16,15 @@ export default function PlayerLabel({ id, name: initialName, photoUrl: initialPh
   useEffect(() => {
     if (initialName !== undefined && initialPhoto !== undefined) return;
     async function load() {
-      const res = await apiFetch(`/v0/players/${encodeURIComponent(id)}`);
-      if (res.ok) {
-        const data = (await res.json()) as { name: string; photo_url?: string | null };
-        if (initialName === undefined) setName(data.name);
-        if (initialPhoto === undefined) setPhotoUrl(data.photo_url ?? null);
+      try {
+        const res = await apiFetch(`/v0/players/${encodeURIComponent(id)}`);
+        if (res?.ok) {
+          const data = (await res.json()) as { name: string; photo_url?: string | null };
+          if (initialName === undefined) setName(data.name);
+          if (initialPhoto === undefined) setPhotoUrl(data.photo_url ?? null);
+        }
+      } catch {
+        // ignore fetch errors in offline/tests environments
       }
     }
     load();

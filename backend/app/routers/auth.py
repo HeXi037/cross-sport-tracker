@@ -21,18 +21,20 @@ from ..schemas import (
     TokenOut,
     PasswordResetRequest,
     PasswordResetConfirm,
+    UserOut,
+    UserUpdate,
 )
 
 
 def get_jwt_secret() -> str:
-  secret = os.getenv("JWT_SECRET")
-  if not secret:
-    raise RuntimeError("JWT_SECRET environment variable is required")
-  if len(secret) < 32 or secret.lower() in {"secret", "changeme", "default"}:
-    raise RuntimeError(
-        "JWT_SECRET must be at least 32 characters and not a common default"
-    )
-  return secret
+    secret = os.getenv("JWT_SECRET")
+    if not secret:
+        raise RuntimeError("JWT_SECRET environment variable is required")
+    if len(secret) < 32 or secret.lower() in {"secret", "changeme", "default"}:
+        raise RuntimeError(
+            "JWT_SECRET must be at least 32 characters and not a common default"
+        )
+    return secret
 
 
 JWT_ALG = "HS256"
@@ -41,23 +43,23 @@ RESET_TOKEN_EXPIRE_SECONDS = 3600
 
 
 def _get_client_ip(request: Request) -> str:
-  forwarded = request.headers.get("X-Forwarded-For")
-  if forwarded:
-    parts = [ip.strip() for ip in forwarded.split(",") if ip.strip()]
-    if parts:
-      trusted = {
-          ip.strip()
-          for ip in os.getenv("TRUSTED_PROXIES", "").split(",")
-          if ip.strip()
-      }
-      for ip in reversed(parts):
-        if ip not in trusted:
-          return ip
-      return parts[0]
-  real_ip = request.headers.get("X-Real-IP")
-  if real_ip:
-    return real_ip
-  return request.client.host if request.client else ""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        parts = [ip.strip() for ip in forwarded.split(",") if ip.strip()]
+        if parts:
+            trusted = {
+                ip.strip()
+                for ip in os.getenv("TRUSTED_PROXIES", "").split(",")
+                if ip.strip()
+            }
+            for ip in reversed(parts):
+                if ip not in trusted:
+                    return ip
+            return parts[0]
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip
+    return request.client.host if request.client else ""
 
 
 limiter = Limiter(key_func=_get_client_ip)
@@ -67,30 +69,30 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
-  return JSONResponse(status_code=429, content={"detail": "Too Many Requests"})
+    return JSONResponse(status_code=429, content={"detail": "Too Many Requests"})
 
 
 def hash_password_sha256(password: str) -> str:
-  return hashlib.sha256(password.encode()).hexdigest()
+    return hashlib.sha256(password.encode()).hexdigest()
 
 
 def is_sha256_digest(hash_str: str) -> bool:
-  return bool(re.fullmatch(r"[a-f0-9]{64}", hash_str))
+    return bool(re.fullmatch(r"[a-f0-9]{64}", hash_str))
 
 
 def create_token(user: User) -> str:
-  payload = {
-      "sub": user.id,
-      "username": user.username,
-      "is_admin": user.is_admin,
-      "exp": datetime.utcnow() + timedelta(seconds=JWT_EXPIRE_SECONDS),
-  }
-  return jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALG)
+    payload = {
+        "sub": user.id,
+        "username": user.username,
+        "is_admin": user.is_admin,
+        "exp": datetime.utcnow() + timedelta(seconds=JWT_EXPIRE_SECONDS),
+    }
+    return jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALG)
 
 
 def _send_password_reset_token(username: str, token: str) -> None:
-  """Placeholder for sending password reset token to the user."""
-  print(f"Password reset token for {username}: {token}")
+    """Placeholder for sending password reset token to the user."""
+    print(f"Password reset token for {username}: {token}")
 
 
 @router.post("/signup", response_model=TokenOut)
@@ -99,41 +101,41 @@ async def signup(
     session: AsyncSession = Depends(get_session),
     admin_secret: str | None = Header(default=None, alias="X-Admin-Secret"),
 ):
-  existing = (
-      await session.execute(select(User).where(User.username == body.username))
-  ).scalar_one_or_none()
-  if existing:
-    raise HTTPException(status_code=400, detail="username exists")
+    existing = (
+        await session.execute(select(User).where(User.username == body.username))
+    ).scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=400, detail="username exists")
 
-  existing_player = (
-      await session.execute(select(Player).where(Player.name == body.username))
-  ).scalar_one_or_none()
-  if existing_player and existing_player.user_id is not None:
-    raise HTTPException(status_code=400, detail="player exists")
+    existing_player = (
+        await session.execute(select(Player).where(Player.name == body.username))
+    ).scalar_one_or_none()
+    if existing_player and existing_player.user_id is not None:
+        raise HTTPException(status_code=400, detail="player exists")
 
-  is_admin = False
-  if body.is_admin:
-    expected = os.getenv("ADMIN_SECRET")
-    if not expected or admin_secret != expected:
-      raise HTTPException(status_code=403, detail="invalid admin secret")
-    is_admin = True
+    is_admin = False
+    if body.is_admin:
+        expected = os.getenv("ADMIN_SECRET")
+        if not expected or admin_secret != expected:
+            raise HTTPException(status_code=403, detail="invalid admin secret")
+        is_admin = True
 
-  uid = uuid.uuid4().hex
-  user = User(
-      id=uid,
-      username=body.username,
-      password_hash=pwd_context.hash(body.password),
-      is_admin=is_admin,
-  )
-  session.add(user)
-  if existing_player:
-    existing_player.user_id = uid
-  else:
-    player = Player(id=uuid.uuid4().hex, user_id=uid, name=body.username)
-    session.add(player)
-  await session.commit()
-  token = create_token(user)
-  return TokenOut(access_token=token)
+    uid = uuid.uuid4().hex
+    user = User(
+        id=uid,
+        username=body.username,
+        password_hash=pwd_context.hash(body.password),
+        is_admin=is_admin,
+    )
+    session.add(user)
+    if existing_player:
+        existing_player.user_id = uid
+    else:
+        player = Player(id=uuid.uuid4().hex, user_id=uid, name=body.username)
+        session.add(player)
+    await session.commit()
+    token = create_token(user)
+    return TokenOut(access_token=token)
 
 
 @router.post("/login", response_model=TokenOut)
@@ -143,20 +145,20 @@ async def login(
     body: UserLogin,
     session: AsyncSession = Depends(get_session),
 ):
-  user = (
-      await session.execute(select(User).where(User.username == body.username))
-  ).scalar_one_or_none()
-  if not user:
-    raise HTTPException(status_code=401, detail="invalid credentials")
-  stored = user.password_hash
-  if is_sha256_digest(stored):
-    if hash_password_sha256(body.password) != stored:
-      raise HTTPException(status_code=401, detail="invalid credentials")
-  else:
-    if not pwd_context.verify(body.password, stored):
-      raise HTTPException(status_code=401, detail="invalid credentials")
-  token = create_token(user)
-  return TokenOut(access_token=token)
+    user = (
+        await session.execute(select(User).where(User.username == body.username))
+    ).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=401, detail="invalid credentials")
+    stored = user.password_hash
+    if is_sha256_digest(stored):
+        if hash_password_sha256(body.password) != stored:
+            raise HTTPException(status_code=401, detail="invalid credentials")
+    else:
+        if not pwd_context.verify(body.password, stored):
+            raise HTTPException(status_code=401, detail="invalid credentials")
+    token = create_token(user)
+    return TokenOut(access_token=token)
 
 
 @router.post("/reset/request")
@@ -166,24 +168,25 @@ async def reset_request(
     body: PasswordResetRequest,
     session: AsyncSession = Depends(get_session),
 ):
-  user = (
-      await session.execute(select(User).where(User.username == body.username))
-  ).scalar_one_or_none()
-  if user:
-    await session.execute(
-        delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id)
-    )
-    token = secrets.token_urlsafe(32)
-    token_hash = hash_password_sha256(token)
-    rec = PasswordResetToken(
-        token_hash=token_hash,
-        user_id=user.id,
-        expires_at=datetime.utcnow() + timedelta(seconds=RESET_TOKEN_EXPIRE_SECONDS),
-    )
-    session.add(rec)
-    await session.commit()
-    _send_password_reset_token(user.username, token)
-  return {"detail": "If the account exists, reset instructions have been sent."}
+    user = (
+        await session.execute(select(User).where(User.username == body.username))
+    ).scalar_one_or_none()
+    if user:
+        await session.execute(
+            delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id)
+        )
+        token = secrets.token_urlsafe(32)
+        token_hash = hash_password_sha256(token)
+        rec = PasswordResetToken(
+            token_hash=token_hash,
+            user_id=user.id,
+            expires_at=datetime.utcnow()
+            + timedelta(seconds=RESET_TOKEN_EXPIRE_SECONDS),
+        )
+        session.add(rec)
+        await session.commit()
+        _send_password_reset_token(user.username, token)
+    return {"detail": "If the account exists, reset instructions have been sent."}
 
 
 @router.post("/reset/confirm")
@@ -191,34 +194,75 @@ async def reset_confirm(
     body: PasswordResetConfirm,
     session: AsyncSession = Depends(get_session),
 ):
-  user = (
-      await session.execute(select(User).where(User.username == body.username))
-  ).scalar_one_or_none()
-  if not user:
-    raise HTTPException(status_code=400, detail="invalid token")
-  token_hash = hash_password_sha256(body.token)
-  rec = await session.get(PasswordResetToken, token_hash)
-  if not rec or rec.user_id != user.id or rec.expires_at < datetime.utcnow():
-    raise HTTPException(status_code=400, detail="invalid token")
-  user.password_hash = pwd_context.hash(body.new_password)
-  await session.delete(rec)
-  await session.commit()
-  return JSONResponse(status_code=204, content=None)
+    user = (
+        await session.execute(select(User).where(User.username == body.username))
+    ).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=400, detail="invalid token")
+    token_hash = hash_password_sha256(body.token)
+    rec = await session.get(PasswordResetToken, token_hash)
+    if not rec or rec.user_id != user.id or rec.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="invalid token")
+    user.password_hash = pwd_context.hash(body.new_password)
+    await session.delete(rec)
+    await session.commit()
+    return JSONResponse(status_code=204, content=None)
 
 
 async def get_current_user(
     authorization: str | None = Header(None),
     session: AsyncSession = Depends(get_session),
 ) -> User:
-  if not authorization or not authorization.lower().startswith("bearer "):
-    raise HTTPException(status_code=401, detail="missing token")
-  token = authorization.split(" ", 1)[1]
-  try:
-    payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALG])
-  except jwt.PyJWTError:
-    raise HTTPException(status_code=401, detail="invalid token")
-  uid = payload.get("sub")
-  user = await session.get(User, uid)
-  if not user:
-    raise HTTPException(status_code=401, detail="user not found")
-  return user
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="missing token")
+    token = authorization.split(" ", 1)[1]
+    try:
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALG])
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="invalid token")
+    uid = payload.get("sub")
+    user = await session.get(User, uid)
+    if not user:
+        raise HTTPException(status_code=401, detail="user not found")
+    return user
+
+
+@router.get("/me", response_model=UserOut)
+async def read_me(current: User = Depends(get_current_user)):
+    """Return the current user's profile."""
+    return UserOut(
+        id=current.id, username=current.username, is_admin=current.is_admin
+    )
+
+
+@router.put("/me", response_model=TokenOut)
+async def update_me(
+    body: UserUpdate,
+    current: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    if body.username and body.username != current.username:
+        existing = (
+            await session.execute(
+                select(User).where(User.username == body.username)
+            )
+        ).scalar_one_or_none()
+        if existing:
+            raise HTTPException(status_code=400, detail="username exists")
+        existing_player = (
+            await session.execute(select(Player).where(Player.name == body.username))
+        ).scalar_one_or_none()
+        if existing_player and existing_player.user_id != current.id:
+            raise HTTPException(status_code=400, detail="player exists")
+        player = (
+            await session.execute(select(Player).where(Player.user_id == current.id))
+        ).scalar_one_or_none()
+        if player:
+            player.name = body.username
+        current.username = body.username
+    if body.password:
+        current.password_hash = pwd_context.hash(body.password)
+    await session.commit()
+    await session.refresh(current)
+    token = create_token(current)
+    return TokenOut(access_token=token)

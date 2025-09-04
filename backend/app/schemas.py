@@ -177,6 +177,29 @@ class TokenOut(BaseModel):
     access_token: str
 
 
+class UserOut(BaseModel):
+    """Public user information."""
+    id: str
+    username: str
+    is_admin: bool
+
+
+class UserUpdate(BaseModel):
+    """Schema for updating user profile."""
+    username: str | None = Field(None, min_length=3, max_length=50)
+    password: str | None = Field(None, min_length=8)
+
+    @field_validator("password")
+    def _check_password_complexity(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not PASSWORD_REGEX.match(v):
+            raise ValueError(
+                "Password must contain letters, numbers, and symbols"
+            )
+        return v
+
+
 class PasswordResetRequest(BaseModel):
     """Schema for initiating a password reset."""
     username: str
@@ -252,7 +275,6 @@ class PlayerStatsOut(BaseModel):
 
 class MatchIdOut(BaseModel):
     """Schema returned after creating a match."""
-
     id: str
 
 

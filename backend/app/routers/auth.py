@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import jwt
@@ -21,7 +20,19 @@ if not JWT_SECRET:
 JWT_ALG = "HS256"
 JWT_EXPIRE_SECONDS = 3600
 
-limiter = Limiter(key_func=get_remote_address)
+def _get_client_ip(request: Request) -> str:
+  forwarded = request.headers.get("X-Forwarded-For")
+  if forwarded:
+    ip = forwarded.split(",")[0].strip()
+    if ip:
+      return ip
+  real_ip = request.headers.get("X-Real-IP")
+  if real_ip:
+    return real_ip
+  return request.client.host if request.client else ""
+
+
+limiter = Limiter(key_func=_get_client_ip)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
@@ -31,6 +42,14 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 def hash_password(password: str) -> str:
   return hashlib.sha256(password.encode()).hexdigest()
+
+
+class _PwdContext:
+  def verify(self, password: str, hashed: str) -> bool:
+    return hash_password(password) == hashed
+
+
+pwd_context = _PwdContext()
 
 
 def create_token(user: User) -> str:

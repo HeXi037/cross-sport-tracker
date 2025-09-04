@@ -73,7 +73,7 @@ def test_signup_login_and_protected_access():
 
         user = asyncio.run(fetch_user())
         assert user.password_hash != "pw"
-        assert pwd_context.verify("pw", user.password_hash)
+        assert pwd_context.verify("Str0ng!Pass", user.password_hash)
 
         resp = client.post(
             "/auth/login", json={"username": "alice", "password": "Str0ng!Pass"}
@@ -173,13 +173,47 @@ def test_signup_rejects_attached_player():
 def test_login_rate_limited():
     auth.limiter.reset()
     with TestClient(app) as client:
-        client.post("/auth/signup", json={"username": "rate", "password": "pw"})
+        resp = client.post(
+            "/auth/signup", json={"username": "rate", "password": "Str0ng!Pass"}
+        )
+        assert resp.status_code == 200
         for _ in range(5):
             ok = client.post(
-                "/auth/login", json={"username": "rate", "password": "pw"}
+                "/auth/login", json={"username": "rate", "password": "Str0ng!Pass"}
             )
             assert ok.status_code == 200
         resp = client.post(
-            "/auth/login", json={"username": "rate", "password": "pw"}
+            "/auth/login", json={"username": "rate", "password": "Str0ng!Pass"}
         )
         assert resp.status_code == 429
+
+
+def test_login_rate_limited_per_ip():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup",
+            json={"username": "iprate", "password": "Str0ng!Pass"},
+        )
+        assert resp.status_code == 200
+        h1 = {"X-Forwarded-For": "1.1.1.1"}
+        h2 = {"X-Forwarded-For": "2.2.2.2"}
+        for _ in range(5):
+            ok = client.post(
+                "/auth/login",
+                json={"username": "iprate", "password": "Str0ng!Pass"},
+                headers=h1,
+            )
+            assert ok.status_code == 200
+        resp = client.post(
+            "/auth/login",
+            json={"username": "iprate", "password": "Str0ng!Pass"},
+            headers=h1,
+        )
+        assert resp.status_code == 429
+        ok2 = client.post(
+            "/auth/login",
+            json={"username": "iprate", "password": "Str0ng!Pass"},
+            headers=h2,
+        )
+        assert ok2.status_code == 200

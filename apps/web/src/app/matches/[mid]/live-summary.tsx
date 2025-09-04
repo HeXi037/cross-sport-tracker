@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import { useEffect, useState } from "react";
 import { useMatchStream } from "../../../lib/useMatchStream";
 
 export type SetData = Array<[number, number] | { A?: number; B?: number }> | null | undefined;
@@ -33,11 +33,11 @@ export default function LiveSummary({
   mid: string;
   initialSets?: SetData;
 }) {
-  const [sets, setSets] = React.useState(initialSets);
+  const [sets, setSets] = useState(initialSets);
   const { event, connected, fallback } = useMatchStream(mid);
   const isLive = connected && !fallback;
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (event?.sets) {
       setSets(event.sets as SetData);
     }

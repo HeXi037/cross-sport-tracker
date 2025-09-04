@@ -13,7 +13,7 @@ describe("RecordDiscGolfPage", () => {
 
   it("posts hole events", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
-    global.fetch = fetchMock as unknown as typeof fetch;
+    global.fetch = fetchMock as typeof fetch;
 
     render(<RecordDiscGolfPage />);
 

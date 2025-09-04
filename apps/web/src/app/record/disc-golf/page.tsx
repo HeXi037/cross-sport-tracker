@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { apiFetch } from "../../lib/api";
 

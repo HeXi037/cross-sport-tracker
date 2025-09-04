@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, type MouseEvent } from 'react';
+import { useState, type MouseEvent, type ReactElement } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '../lib/api';
 import { enrichMatches, type MatchRow, type EnrichedMatch } from '../lib/matches';
@@ -28,7 +28,7 @@ export default function HomePageClient({
   matches: initialMatches,
   sportError: initialSportError,
   matchError: initialMatchError,
-}: Props): React.ReactElement {
+}: Props): ReactElement {
   const [sports, setSports] = useState(initialSports);
   const [matches, setMatches] = useState(initialMatches);
   const [sportError, setSportError] = useState(initialSportError);

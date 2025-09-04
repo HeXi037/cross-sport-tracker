@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { apiFetch } from "../../../lib/api";
 
 interface Comment {
@@ -29,7 +29,7 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
     load();
   }, [load]);
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: FormEvent) {
     e.preventDefault();
     if (!token) return;
     const resp = await apiFetch(`/v0/players/${playerId}/comments`, {

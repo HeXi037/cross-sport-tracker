@@ -1,6 +1,6 @@
 "use client";
 
-import React, { FormEvent, useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "../../lib/api";
 

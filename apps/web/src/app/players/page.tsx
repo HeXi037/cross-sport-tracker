@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { apiFetch, isAdmin } from "../../lib/api";
 import InputField from "../../components/InputField";
+import ErrorBoundary from "../../components/ErrorBoundary";
 
 const NAME_REGEX = /^[A-Za-z0-9 '-]{1,50}$/;
 
@@ -139,85 +140,91 @@ export default function PlayersPage() {
   }
 
   return (
-    <main className="container">
-      <h1 className="heading">Players</h1>
-      {loading && players.length === 0 ? (
-        <div>Loading players…</div>
-      ) : (
-        <>
-          <InputField
-            id="player-search"
-            label="Search"
-            className="input mb-2"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="search"
-          />
-          {filteredPlayers.length === 0 && debouncedSearch.trim() !== "" ? (
-            <p>No players found.</p>
-          ) : (
-            <ul>
-              {filteredPlayers.map((p) => (
-                <li key={p.id}>
-                  <Link
-                    href={
-                      recentMatches[p.id]
-                        ? `/matches/${recentMatches[p.id]}`
-                        : `/players/${p.id}`
-                    }
-                  >
-                    {p.name}
-                  </Link>
-                  {admin && (
-                    <button
-                      style={{ marginLeft: 8 }}
-                      onClick={() => handleDelete(p.id)}
+    <ErrorBoundary>
+      <main className="container">
+        <h1 className="heading">Players</h1>
+        {loading && players.length === 0 ? (
+          <div>Loading players…</div>
+        ) : (
+          <>
+            <InputField
+              id="player-search"
+              label="Search"
+              className="input mb-2"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="search"
+            />
+            {filteredPlayers.length === 0 && debouncedSearch.trim() !== "" ? (
+              <p>No players found.</p>
+            ) : (
+              <ul>
+                {filteredPlayers.map((p) => (
+                  <li key={p.id}>
+                    <Link
+                      href={
+                        recentMatches[p.id]
+                          ? `/matches/${recentMatches[p.id]}`
+                          : `/players/${p.id}`
+                      }
                     >
-                      Delete
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
-      )}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          create();
-        }}
-      >
-        <InputField
-          id="new-player"
-          label="Player name"
-          className="input"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="name"
-          error={!nameIsValid && trimmedName !== "" ? "Name must be 1-50 characters and contain only letters, numbers, spaces, hyphens, or apostrophes." : undefined}
-        />
-        <button
-          className="button"
-          type="submit"
-          disabled={creating || name.trim() === ""}
+                      {p.name}
+                    </Link>
+                    {admin && (
+                      <button
+                        style={{ marginLeft: 8 }}
+                        onClick={() => handleDelete(p.id)}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            create();
+          }}
         >
-          {creating ? "Saving…" : "Add"}
-        </button>
-      </form>
-      {success && (
-        <div className="text-green-600 mt-2" role="alert">
-          {success}
-        </div>
-      )}
-      {error && (
-        <div className="text-red-500 mt-2" role="alert">
-          {error}
-          <button className="ml-2 underline" onClick={load}>
-            Retry
+          <InputField
+            id="new-player"
+            label="Player name"
+            className="input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="name"
+            error={
+              !nameIsValid && trimmedName !== ""
+                ? "Name must be 1-50 characters and contain only letters, numbers, spaces, hyphens, or apostrophes."
+                : undefined
+            }
+          />
+          <button
+            className="button"
+            type="submit"
+            disabled={creating || name.trim() === ""}
+          >
+            {creating ? "Saving…" : "Add"}
           </button>
-        </div>
-      )}
-    </main>
+        </form>
+        {success && (
+          <div className="text-green-600 mt-2" role="alert">
+            {success}
+          </div>
+        )}
+        {error && (
+          <div className="text-red-500 mt-2" role="alert">
+            {error}
+            <button className="ml-2 underline" onClick={load}>
+              Retry
+            </button>
+          </div>
+        )}
+      </main>
+    </ErrorBoundary>
   );
 }

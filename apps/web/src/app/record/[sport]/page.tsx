@@ -1,4 +1,3 @@
-// apps/web/src/app/record/[sport]/page.tsx
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
@@ -6,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
 import InputField from "../../../components/InputField";
 import SelectField from "../../../components/SelectField";
+import ErrorBoundary from "../../../components/ErrorBoundary";
 
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 
@@ -134,7 +134,7 @@ export default function RecordSportPage() {
       interface MatchPayload {
         sport: string;
         participants: MatchParticipant[];
-        score?: [number, number];
+        score?: number[];
         playedAt?: string;
         location?: string;
       }
@@ -171,54 +171,99 @@ export default function RecordSportPage() {
   };
 
   return (
-    <main className="container">
-      <form onSubmit={handleSubmit}>
-        {isPickleball && (
-          <label>
-            <input
-              type="checkbox"
-              checked={doubles}
-              onChange={(e) => handleToggle(e.target.checked)}
+    <ErrorBoundary>
+      <main className="container">
+        <form onSubmit={handleSubmit}>
+          {isPickleball && (
+            <label>
+              <input
+                type="checkbox"
+                checked={doubles}
+                onChange={(e) => handleToggle(e.target.checked)}
+              />
+              Doubles
+            </label>
+          )}
+
+          <div className="datetime">
+            <InputField
+              id="match-date"
+              type="date"
+              label="Date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
             />
-            Doubles
-          </label>
-        )}
+            <InputField
+              id="match-time"
+              type="time"
+              label="Time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+            />
+          </div>
 
-        <div className="datetime">
           <InputField
-            id="match-date"
-            type="date"
-            label="Date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
+            id="match-location"
+            type="text"
+            label="Location"
+            placeholder="Location"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
           />
-          <InputField
-            id="match-time"
-            type="time"
-            label="Time"
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-          />
-        </div>
 
-        <InputField
-          id="match-location"
-          type="text"
-          label="Location"
-          placeholder="Location"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-        />
-
-        {isBowling ? (
-          <div className="players">
-            {bowlingIds.map((id, idx) => (
-              <div key={idx} className="bowling-player">
+          {isBowling ? (
+            <div className="players">
+              {bowlingIds.map((id, idx) => (
+                <div key={idx} className="bowling-player">
+                  <SelectField
+                    id={`bowler-${idx}`}
+                    label={`Player ${idx + 1}`}
+                    value={id}
+                    onChange={(e) =>
+                      handleBowlingIdChange(idx, e.target.value)
+                    }
+                  >
+                    <option value="">Select player</option>
+                    {players.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </SelectField>
+                  <InputField
+                    id={`bowler-${idx}-score`}
+                    type="number"
+                    min="0"
+                    step="1"
+                    label="Score"
+                    placeholder="Score"
+                    value={bowlingScores[idx]}
+                    onChange={(e) =>
+                      handleBowlingScoreChange(idx, e.target.value)
+                    }
+                  />
+                </div>
+              ))}
+              {bowlingIds.length < 6 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBowlingIds((prev) => prev.concat(""));
+                    setBowlingScores((prev) => prev.concat("0"));
+                  }}
+                >
+                  Add Player
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="players">
                 <SelectField
-                  id={`bowler-${idx}`}
-                  label={`Player ${idx + 1}`}
-                  value={id}
-                  onChange={(e) => handleBowlingIdChange(idx, e.target.value)}
+                  id="player-a1"
+                  label="Player A1"
+                  value={ids.a1}
+                  onChange={(e) => handleIdChange("a1", e.target.value)}
                 >
                   <option value="">Select player</option>
                   {players.map((p) => (
@@ -227,130 +272,88 @@ export default function RecordSportPage() {
                     </option>
                   ))}
                 </SelectField>
+
+                {doubles && (
+                  <SelectField
+                    id="player-a2"
+                    label="Player A2"
+                    value={ids.a2}
+                    onChange={(e) => handleIdChange("a2", e.target.value)}
+                  >
+                    <option value="">Select player</option>
+                    {players.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </SelectField>
+                )}
+
+                <SelectField
+                  id="player-b1"
+                  label="Player B1"
+                  value={ids.b1}
+                  onChange={(e) => handleIdChange("b1", e.target.value)}
+                >
+                  <option value="">Select player</option>
+                  {players.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </SelectField>
+
+                {doubles && (
+                  <SelectField
+                    id="player-b2"
+                    label="Player B2"
+                    value={ids.b2}
+                    onChange={(e) => handleIdChange("b2", e.target.value)}
+                  >
+                    <option value="">Select player</option>
+                    {players.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </SelectField>
+                )}
+              </div>
+
+              <div className="score">
                 <InputField
-                  id={`bowler-${idx}-score`}
+                  id="score-a"
                   type="number"
                   min="0"
                   step="1"
-                  label="Score"
-                  placeholder="Score"
-                  value={bowlingScores[idx]}
-                  onChange={(e) =>
-                    handleBowlingScoreChange(idx, e.target.value)
-                  }
+                  label="Score A"
+                  placeholder="A"
+                  value={scoreA}
+                  onChange={(e) => setScoreA(e.target.value)}
+                />
+                <InputField
+                  id="score-b"
+                  type="number"
+                  min="0"
+                  step="1"
+                  label="Score B"
+                  placeholder="B"
+                  value={scoreB}
+                  onChange={(e) => setScoreB(e.target.value)}
                 />
               </div>
-            ))}
-            {bowlingIds.length < 6 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setBowlingIds((prev) => prev.concat(""));
-                  setBowlingScores((prev) => prev.concat("0"));
-                }}
-              >
-                Add Player
-              </button>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className="players">
-              <SelectField
-                id="player-a1"
-                label="Player A1"
-                value={ids.a1}
-                onChange={(e) => handleIdChange("a1", e.target.value)}
-              >
-                <option value="">Select player</option>
-                {players.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </SelectField>
+            </>
+          )}
 
-              {doubles && (
-                <SelectField
-                  id="player-a2"
-                  label="Player A2"
-                  value={ids.a2}
-                  onChange={(e) => handleIdChange("a2", e.target.value)}
-                >
-                  <option value="">Select player</option>
-                  {players.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </SelectField>
-              )}
+          {error && (
+            <p role="alert" className="error">
+              {error}
+            </p>
+          )}
 
-              <SelectField
-                id="player-b1"
-                label="Player B1"
-                value={ids.b1}
-                onChange={(e) => handleIdChange("b1", e.target.value)}
-              >
-                <option value="">Select player</option>
-                {players.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </SelectField>
-
-              {doubles && (
-                <SelectField
-                  id="player-b2"
-                  label="Player B2"
-                  value={ids.b2}
-                  onChange={(e) => handleIdChange("b2", e.target.value)}
-                >
-                  <option value="">Select player</option>
-                  {players.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </SelectField>
-              )}
-            </div>
-
-            <div className="score">
-              <InputField
-                id="score-a"
-                type="number"
-                min="0"
-                step="1"
-                label="Score A"
-                placeholder="A"
-                value={scoreA}
-                onChange={(e) => setScoreA(e.target.value)}
-              />
-              <InputField
-                id="score-b"
-                type="number"
-                min="0"
-                step="1"
-                label="Score B"
-                placeholder="B"
-                value={scoreB}
-                onChange={(e) => setScoreB(e.target.value)}
-              />
-            </div>
-          </>
-        )}
-
-        {error && (
-          <p role="alert" className="error">
-            {error}
-          </p>
-        )}
-
-        <button type="submit">Save</button>
-      </form>
-    </main>
+          <button type="submit">Save</button>
+        </form>
+      </main>
+    </ErrorBoundary>
   );
 }
-

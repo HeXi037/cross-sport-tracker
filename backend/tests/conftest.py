@@ -1,4 +1,5 @@
 import os
 
-# Provide a default JWT secret of at least 32 characters for tests
-os.environ.setdefault("JWT_SECRET", "x" * 32)
+# Provide a JWT secret of at least 32 characters for tests
+# Set it unconditionally to avoid inherited, insecure values from the environment
+os.environ["JWT_SECRET"] = "x" * 32

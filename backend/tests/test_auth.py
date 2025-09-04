@@ -12,12 +12,15 @@ os.environ["JWT_SECRET"] = "testsecret"
 os.environ["ADMIN_SECRET"] = "admintest"
 
 from fastapi import FastAPI
+from slowapi.errors import RateLimitExceeded
 from fastapi.testclient import TestClient
 from app import db
 from app.models import User, Player, Club
 from app.routers import auth, players
 
 app = FastAPI()
+app.state.limiter = auth.limiter
+app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
 app.include_router(auth.router)
 app.include_router(players.router)
 
@@ -134,3 +137,18 @@ def test_signup_rejects_attached_player():
 
     user = asyncio.run(fetch_user())
     assert user is None
+
+
+def test_login_rate_limited():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        client.post("/auth/signup", json={"username": "rate", "password": "pw"})
+        for _ in range(5):
+            ok = client.post(
+                "/auth/login", json={"username": "rate", "password": "pw"}
+            )
+            assert ok.status_code == 200
+        resp = client.post(
+            "/auth/login", json={"username": "rate", "password": "pw"}
+        )
+        assert resp.status_code == 429

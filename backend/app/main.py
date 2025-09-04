@@ -2,6 +2,7 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
 from .routers import (
     sports,
     rulesets,
@@ -40,6 +41,9 @@ app = FastAPI(
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
 )
+
+app.state.limiter = auth.limiter
+app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
 
 app.add_middleware(
     CORSMiddleware,

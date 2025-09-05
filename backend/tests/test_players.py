@@ -189,7 +189,6 @@ def test_players_by_ids_omits_deleted() -> None:
         data = resp.json()
         assert data == [{"id": active_id, "name": "Active", "photo_url": None}]
 
-
 def test_upload_player_photo_prefixed_url() -> None:
     with TestClient(app) as client:
         token = admin_token(client)

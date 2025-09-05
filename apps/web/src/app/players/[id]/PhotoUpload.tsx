@@ -1,5 +1,7 @@
 'use client';
+
 import { useState } from 'react';
+import { apiFetch } from '../../../lib/api';
 
 interface Props {
   playerId: string;
@@ -16,7 +18,10 @@ export default function PhotoUpload({ playerId, initialUrl }: Props) {
     const form = new FormData();
     form.append('file', file);
     setUploading(true);
-    const r = await fetch(`/v0/players/${playerId}/photo`, { method: 'POST', body: form });
+    const r = await apiFetch(`/v0/players/${playerId}/photo`, {
+      method: 'POST',
+      body: form,
+    });
     if (r.ok) {
       const data = (await r.json()) as { photo_url?: string };
       setUrl(data.photo_url ?? null);

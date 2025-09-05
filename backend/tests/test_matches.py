@@ -9,9 +9,6 @@ from sqlalchemy import select, text
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-# Use a sufficiently long JWT secret for tests
-os.environ["JWT_SECRET"] = "x" * 32
-
 
 @pytest.fixture
 def anyio_backend():
@@ -53,21 +50,13 @@ async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
 async def test_create_match_rejects_duplicate_players(tmp_path):
   os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from app import db
-  from app.models import (
-      Match,
-      MatchParticipant,
-      Sport,
-      User,
-  )
-  from sqlalchemy.dialects.sqlite import JSON
+  from app.models import Match, MatchParticipant, Sport, User
   from app.schemas import MatchCreate, Participant
   from app.routers.matches import create_match
 
   db.engine = None
   db.AsyncSessionLocal = None
   engine = db.get_engine()
-  # Patch player_ids to use JSON for SQLite
-  MatchParticipant.__table__.columns["player_ids"].type = JSON()
   async with engine.begin() as conn:
     await conn.run_sync(
         db.Base.metadata.create_all,
@@ -102,8 +91,8 @@ async def test_create_match_with_scores(tmp_path):
   engine = db.get_engine()
   async with engine.begin() as conn:
     await conn.run_sync(
-        db.Base.metadata.create_all,
-        tables=[Sport.__table__, Match.__table__, MatchParticipant.__table__],
+      db.Base.metadata.create_all,
+      tables=[Sport.__table__, Match.__table__, MatchParticipant.__table__],
     )
 
   async with db.AsyncSessionLocal() as session:

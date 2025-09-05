@@ -8,9 +8,6 @@ from slowapi.errors import RateLimitExceeded
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_auth_me.db"
-os.environ["JWT_SECRET"] = "x" * 32
-
 from app import db
 from app.models import User, Player
 from app.routers import auth
@@ -24,6 +21,7 @@ app.include_router(auth.router)
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():
     async def init_models():
+        os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_auth_me.db"
         if os.path.exists("./test_auth_me.db"):
             os.remove("./test_auth_me.db")
         db.engine = None
@@ -38,6 +36,7 @@ def setup_db():
 
 
 def test_get_and_update_me():
+    auth.limiter.reset()
     with TestClient(app) as client:
         resp = client.post("/auth/signup", json={"username": "alice", "password": "Str0ng!Pass"})
         assert resp.status_code == 200

@@ -8,9 +8,6 @@ from sqlalchemy import select
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_auth.db"
-# Use a sufficiently long JWT secret for tests
-os.environ["JWT_SECRET"] = "x" * 32
 os.environ["ADMIN_SECRET"] = "admintest"
 
 from fastapi import FastAPI
@@ -38,6 +35,7 @@ async def create_player(name: str, user_id: str | None = None) -> str:
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():
     async def init_models():
+        os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_auth.db"
         if os.path.exists("./test_auth.db"):
             os.remove("./test_auth.db")
         db.engine = None

@@ -9,7 +9,6 @@ from sqlalchemy import select, text
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-os.environ["JWT_SECRET"] = "x" * 32
 
 
 @pytest.fixture

@@ -2,9 +2,6 @@ import os, sys, asyncio, pytest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_players.db"
-# Use a sufficiently long secret for JWTs in tests
-os.environ["JWT_SECRET"] = "x" * 32
 os.environ["ADMIN_SECRET"] = "admintest"
 
 from fastapi import FastAPI
@@ -38,6 +35,7 @@ app.include_router(badges.router)
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():
     async def init_models():
+        os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_players.db"
         if os.path.exists("./test_players.db"):
             os.remove("./test_players.db")
         db.engine = None

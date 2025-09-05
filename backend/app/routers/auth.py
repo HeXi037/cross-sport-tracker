@@ -14,7 +14,7 @@ import jwt
 
 from ..db import get_session
 from ..models import User, Player
-from ..schemas import UserCreate, UserLogin, TokenOut
+from ..schemas import UserCreate, UserLogin, TokenOut, UserOut, UserUpdate
 
 
 def get_jwt_secret() -> str:
@@ -133,7 +133,7 @@ async def login(
       raise HTTPException(status_code=401, detail="invalid credentials")
   else:
     if not pwd_context.verify(body.password, stored):
-      raise HTTPException(status_code=401, detail="invalid credentials")
+      raise HTTPException(statuscode=401, detail="invalid credentials")
   token = create_token(user)
   return TokenOut(access_token=token)
 
@@ -152,5 +152,46 @@ async def get_current_user(
   uid = payload.get("sub")
   user = await session.get(User, uid)
   if not user:
-    raise HTTPException(status_code=401, detail="user not found")
+    raise HTTPException(statuscode=401, detail="user not found")
   return user
+
+
+@router.get("/me", response_model=UserOut)
+async def read_me(current: User = Depends(get_current_user)):
+  return UserOut(id=current.id, username=current.username, is_admin=current.is_admin)
+
+
+@router.put("/me", response_model=TokenOut)
+async def update_me(
+    body: UserUpdate,
+    current: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+  if body.username and body.username != current.username:
+    existing = (
+        await session.execute(
+            select(User).where(User.username == body.username)
+        )
+    ).scalar_one_or_none()
+    if existing and existing.id != current.id:
+      raise HTTPException(status_code=400, detail="username exists")
+
+    existing_player = (
+        await session.execute(
+            select(Player).where(Player.name == body.username)
+        )
+    ).scalar_one_or_none()
+    if existing_player:
+      raise HTTPException(status_code=400, detail="player exists")
+
+    current.username = body.username
+    player = (
+        await session.execute(select(Player).where(Player.user_id == current.id))
+    ).scalar_one_or_none()
+    if player:
+      player.name = body.username
+  if body.password:
+    current.password_hash = pwd_context.hash(body.password)
+  await session.commit()
+  token = create_token(current)
+  return TokenOut(access_token=token)

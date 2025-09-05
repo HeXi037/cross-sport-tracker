@@ -9,8 +9,6 @@ from sqlalchemy import select, text
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-os.environ["JWT_SECRET"] = "testsecret"
-
 
 @pytest.fixture
 def anyio_backend():
@@ -90,7 +88,12 @@ async def test_create_match_with_scores(tmp_path):
 
   db.engine = None
   db.AsyncSessionLocal = None
-  db.get_engine()
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+      db.Base.metadata.create_all,
+      tables=[Sport.__table__, Match.__table__, MatchParticipant.__table__],
+    )
 
   async with db.AsyncSessionLocal() as session:
     body = MatchCreate(

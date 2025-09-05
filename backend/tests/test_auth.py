@@ -3,6 +3,7 @@ import sys
 import asyncio
 import uuid
 import hashlib
+import secrets
 import pytest
 from sqlalchemy import select
 
@@ -212,7 +213,6 @@ def test_login_rate_limited_per_ip():
         )
         assert ok2.status_code == 200
 
-
 def test_login_rate_limit_not_bypassed_by_spoofed_x_forwarded_for():
     auth.limiter.reset()
     with TestClient(app) as client:
@@ -254,8 +254,59 @@ def test_login_accepts_sha256_hash():
         resp = client.post("/auth/login", json={"username": "legacy", "password": "pw"})
         assert resp.status_code == 200
 
-
 def test_jwt_secret_rejects_short(monkeypatch):
     monkeypatch.setenv("JWT_SECRET", "short")
     with pytest.raises(RuntimeError):
         auth.get_jwt_secret()
+
+def test_jwt_secret_unset(monkeypatch):
+    monkeypatch.delenv("JWT_SECRET", raising=False)
+    with pytest.raises(RuntimeError):
+        auth.get_jwt_secret()
+
+@pytest.mark.parametrize("secret", ["secret", "changeme"])
+def test_jwt_secret_rejects_common_defaults(monkeypatch, secret):
+    monkeypatch.setenv("JWT_SECRET", secret)
+    with pytest.raises(RuntimeError):
+        auth.get_jwt_secret()
+
+def test_jwt_secret_accepts_strong_value(monkeypatch):
+    strong = secrets.token_hex(16)
+    monkeypatch.setenv("JWT_SECRET", strong)
+    assert auth.get_jwt_secret() == strong
+
+def test_me_endpoints():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup", json={"username": "meuser", "password": "Str0ng!Pass"}
+        )
+        assert resp.status_code == 200
+        token = resp.json()["access_token"]
+
+        headers = {"Authorization": f"Bearer {token}"}
+        resp = client.get("/auth/me", headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["username"] == "meuser"
+
+        resp = client.put(
+            "/auth/me",
+            json={"username": "meuser2", "password": "NewStr0ng!Pass"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        new_token = resp.json()["access_token"]
+
+        resp = client.get("/auth/me", headers={"Authorization": f"Bearer {new_token}"})
+        assert resp.status_code == 200
+        assert resp.json()["username"] == "meuser2"
+
+        bad_login = client.post(
+            "/auth/login", json={"username": "meuser", "password": "Str0ng!Pass"}
+        )
+        assert bad_login.status_code == 401
+
+        good_login = client.post(
+            "/auth/login", json={"username": "meuser2", "password": "NewStr0ng!Pass"}
+        )
+        assert good_login.status_code == 200

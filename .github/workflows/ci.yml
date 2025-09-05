@@ -19,6 +19,16 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
       - run: npm ci
       - run: npx cypress install
-      - run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: Install Cypress dependencies
+        run: sudo apt-get update && sudo apt-get install -y \
+          libgtk2.0-0 \
+          libgtk-3-0 \
+          libgbm-dev \
+          libnotify-dev \
+          libnss3 \
+          libxss1 \
+          libxtst6 \
+          xauth \
+          xvfb
       - run: npm test
       - run: xvfb-run -a npm run test:e2e

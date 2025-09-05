@@ -131,14 +131,14 @@ export default function RecordSportPage() {
     }
 
     try {
-      interface MatchPayload {
+      interface CreateMatchPayload {
         sport: string;
         participants: MatchParticipant[];
         score?: number[];
         playedAt?: string;
         location?: string;
       }
-      const payload: MatchPayload = {
+      const payload: CreateMatchPayload = {
         sport,
         participants,
       };

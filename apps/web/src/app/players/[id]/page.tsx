@@ -337,10 +337,10 @@ export default async function PlayerPage({
                                 {(p.playerIds ?? []).map((pid, j, arr) => (
                                   <span key={pid}>
                                     <PlayerLabel id={pid} />
-                                    {j < arr.length - 1 ? ' & ' : ''}
+                                    {j < arr.length - 1 ? " & " : ""}
                                   </span>
                                 ))}
-                                {idx < m.participants.length - 1 ? ' vs ' : ''}
+                                {idx < m.participants.length - 1 ? " vs " : ""}
                               </span>
                             ))}
                           </Link>
@@ -393,7 +393,7 @@ export default async function PlayerPage({
                     {o.opponentIds.map((pid, idx) => (
                       <span key={pid}>
                         <PlayerLabel id={pid} />
-                        {idx < o.opponentIds.length - 1 ? ' & ' : ''}
+                        {idx < o.opponentIds.length - 1 ? " & " : ""}
                       </span>
                     ))}
                   </div>
@@ -413,7 +413,8 @@ export default async function PlayerPage({
               <ul>
                 {stats.withRecords.map((r) => (
                   <li key={r.playerId}>
-                    {r.wins}-{r.losses} with <PlayerLabel id={r.playerId} name={r.playerName} />
+                    {r.wins}-{r.losses} with{" "}
+                    <PlayerLabel id={r.playerId} name={r.playerName} />
                   </li>
                 ))}
               </ul>
@@ -440,10 +441,10 @@ export default async function PlayerPage({
                         {(p.playerIds ?? []).map((pid, j, arr) => (
                           <span key={pid}>
                             <PlayerLabel id={pid} />
-                            {j < arr.length - 1 ? ' & ' : ''}
+                            {j < arr.length - 1 ? " & " : ""}
                           </span>
                         ))}
-                        {idx < m.participants.length - 1 ? ' vs ' : ''}
+                        {idx < m.participants.length - 1 ? " vs " : ""}
                       </span>
                     ))}
                   </Link>

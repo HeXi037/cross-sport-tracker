@@ -33,6 +33,10 @@ describe("RecordPadelPage", () => {
 
     await waitFor(() => screen.getByLabelText("Player A1"));
 
+    fireEvent.change(screen.getByPlaceholderText("Location"), {
+      target: { value: "Center Court" },
+    });
+
     fireEvent.change(screen.getByLabelText("Player A1"), {
       target: { value: "p1" },
     });
@@ -89,4 +93,3 @@ describe("RecordPadelPage", () => {
     });
   });
 });
-

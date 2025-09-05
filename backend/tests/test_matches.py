@@ -9,7 +9,8 @@ from sqlalchemy import select, text
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-os.environ["JWT_SECRET"] = "testsecret"
+# Use a sufficiently long JWT secret for tests
+os.environ["JWT_SECRET"] = "x" * 32
 
 
 @pytest.fixture
@@ -62,7 +63,10 @@ async def test_create_match_rejects_duplicate_players(tmp_path):
   async with engine.begin() as conn:
     await conn.run_sync(
         db.Base.metadata.create_all,
-        tables=[Sport.__table__, Match.__table__, MatchParticipant.__table__],
+        tables=[Sport.__table__, Match.__table__],
+    )
+    await conn.exec_driver_sql(
+        "CREATE TABLE match_participant (id TEXT PRIMARY KEY, match_id TEXT, side TEXT, player_ids TEXT)"
     )
 
   async with db.AsyncSessionLocal() as session:
@@ -84,21 +88,23 @@ async def test_create_match_rejects_duplicate_players(tmp_path):
 async def test_create_match_with_scores(tmp_path):
   os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from app import db
-  from app.models import Match, MatchParticipant, Sport, User
-  from app.schemas import MatchCreate, Participant
+  from app.models import Match, Sport, User
+  from app.schemas import MatchCreate
   from app.routers.matches import create_match
 
   db.engine = None
   db.AsyncSessionLocal = None
-  db.get_engine()
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+        db.Base.metadata.create_all,
+        tables=[Sport.__table__, Match.__table__],
+    )
 
   async with db.AsyncSessionLocal() as session:
     body = MatchCreate(
         sport="bowling",
-        participants=[
-            Participant(side="A", playerIds=["p1"]),
-            Participant(side="B", playerIds=["p2"]),
-        ],
+        participants=[],
         score=[120, 100],
     )
     admin = User(id="u1", username="admin", password_hash="", is_admin=True)

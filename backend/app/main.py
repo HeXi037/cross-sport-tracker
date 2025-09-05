@@ -53,6 +53,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Fail fast if JWT_SECRET is missing or weak
+auth.get_jwt_secret()
+
 
 @app.exception_handler(DomainException)
 async def domain_exception_handler(request: Request, exc: DomainException) -> JSONResponse:

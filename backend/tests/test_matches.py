@@ -10,7 +10,6 @@ from sqlalchemy import select, text
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 
-
 @pytest.fixture
 def anyio_backend():
   return "asyncio"

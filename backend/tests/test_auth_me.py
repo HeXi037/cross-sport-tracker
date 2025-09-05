@@ -1,6 +1,7 @@
 import os
 import sys
 import asyncio
+import uuid
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -70,3 +71,27 @@ def test_get_and_update_me():
         )
         assert me2.status_code == 200
         assert me2.json()["username"] == "alice2"
+
+
+def test_update_me_conflicting_player_name():
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup", json={"username": "bob", "password": "Str0ng!Pass"}
+        )
+        assert resp.status_code == 200
+        token = resp.json()["access_token"]
+
+        async def create_player():
+            async with db.AsyncSessionLocal() as session:
+                session.add(Player(id=uuid.uuid4().hex, name="taken"))
+                await session.commit()
+
+        asyncio.run(create_player())
+
+        resp = client.put(
+            "/auth/me",
+            json={"username": "taken"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "player exists"

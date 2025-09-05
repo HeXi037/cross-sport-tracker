@@ -175,6 +175,15 @@ async def update_me(
     ).scalar_one_or_none()
     if existing and existing.id != current.id:
       raise HTTPException(status_code=400, detail="username exists")
+
+    existing_player = (
+        await session.execute(
+            select(Player).where(Player.name == body.username)
+        )
+    ).scalar_one_or_none()
+    if existing_player:
+      raise HTTPException(status_code=400, detail="player exists")
+
     current.username = body.username
     player = (
         await session.execute(select(Player).where(Player.user_id == current.id))

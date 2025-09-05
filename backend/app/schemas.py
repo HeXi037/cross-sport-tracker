@@ -149,6 +149,27 @@ class TokenOut(BaseModel):
     """Returned on successful authentication."""
     access_token: str
 
+
+class UserOut(BaseModel):
+    """Public user information."""
+    id: str
+    username: str
+    is_admin: bool
+
+
+class UserUpdate(BaseModel):
+    """Payload for updating the current user."""
+    username: Optional[str] = Field(None, min_length=3, max_length=50)
+    password: Optional[str] = Field(None, min_length=8)
+
+    @field_validator("password")
+    def _check_password_complexity(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not PASSWORD_REGEX.match(v):
+            raise ValueError("Password must contain letters, numbers, and symbols")
+        return v
+
 class CommentCreate(BaseModel):
     """Schema for creating a comment on a player."""
     content: str = Field(..., min_length=1, max_length=500)

@@ -2,12 +2,11 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { apiFetch, isAdmin } from "../../lib/api";
+import PlayerName, { PlayerInfo } from "../../components/PlayerName";
 
 const NAME_REGEX = /^[A-Za-z0-9 '-]{1,50}$/;
 
-interface Player {
-  id: string;
-  name: string;
+interface Player extends PlayerInfo {
   club_id?: string | null;
   badges?: { id: string; name: string; icon?: string | null }[];
 }
@@ -23,6 +22,7 @@ export default function PlayersPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const admin = isAdmin();
 
   const trimmedName = name.trim();
@@ -116,7 +116,17 @@ export default function PlayersPage() {
         setError(message);
         return;
       }
+      const created = (await res.json()) as Player;
+      if (photoFile) {
+        const form = new FormData();
+        form.append("file", photoFile);
+        await apiFetch(`/v0/players/${created.id}/photo`, {
+          method: "POST",
+          body: form,
+        });
+      }
       setName("");
+      setPhotoFile(null);
       load();
       setSuccess("Player added successfully!");
       setTimeout(() => setSuccess(null), 3000);
@@ -163,7 +173,7 @@ export default function PlayersPage() {
                         : `/players/${p.id}`
                     }
                   >
-                    {p.name}
+                    <PlayerName player={p} />
                   </Link>
                   {admin && (
                     <button
@@ -191,6 +201,12 @@ export default function PlayersPage() {
           numbers, spaces, hyphens, or apostrophes.
         </div>
       )}
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+        className="input mt-2"
+      />
       <button
         className="button"
         onClick={create}

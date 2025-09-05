@@ -42,7 +42,16 @@ describe('HomePageClient error messages', () => {
             bestOf: 3,
             playedAt: null,
             location: null,
-            names: { A: ['A1', 'A2'], B: ['B1', 'B2'] },
+            players: {
+              A: [
+                { id: 'a1', name: 'A1' },
+                { id: 'a2', name: 'A2' },
+              ],
+              B: [
+                { id: 'b1', name: 'B1' },
+                { id: 'b2', name: 'B2' },
+              ],
+            },
           },
         ]}
         sportError={false}
@@ -50,7 +59,7 @@ describe('HomePageClient error messages', () => {
       />
     );
     expect(
-      screen.getByText('A1 & A2 vs B1 & B2')
+      screen.getByText((_, el) => el?.textContent === 'A1 & A2 vs B1 & B2')
     ).toBeInTheDocument();
     const link = screen.getByText('Match details');
     expect(link).toBeInTheDocument();

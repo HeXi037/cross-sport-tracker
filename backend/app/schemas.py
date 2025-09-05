@@ -47,6 +47,7 @@ class PlayerOut(BaseModel):
 class PlayerNameOut(BaseModel):
     id: str
     name: str
+    photo_url: Optional[str] = None
 
 class PlayerListOut(BaseModel):
     players: List[PlayerOut]
@@ -57,6 +58,7 @@ class PlayerListOut(BaseModel):
 class PlayerNameOut(BaseModel):
     id: str
     name: str
+    photo_url: Optional[str] = None
 
 class LeaderboardEntryOut(BaseModel):
     rank: int

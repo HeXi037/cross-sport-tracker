@@ -1,6 +1,5 @@
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 revision = "0001_initial"
 down_revision = None
@@ -35,7 +34,7 @@ def upgrade():
     op.create_table(
         "team",
         sa.Column("id", sa.String(), primary_key=True),
-        sa.Column("player_ids", postgresql.ARRAY(sa.String()), nullable=False),
+        sa.Column("player_ids", sa.JSON(), nullable=False),
     )
     op.create_table(
         "tournament",
@@ -64,7 +63,7 @@ def upgrade():
         sa.Column("id", sa.String(), primary_key=True),
         sa.Column("match_id", sa.String(), sa.ForeignKey("match.id"), nullable=False),
         sa.Column("side", sa.String(), nullable=False),
-        sa.Column("player_ids", postgresql.ARRAY(sa.String()), nullable=False),
+        sa.Column("player_ids", sa.JSON(), nullable=False),
     )
     op.create_table(
         "score_event",

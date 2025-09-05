@@ -53,13 +53,21 @@ async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
 async def test_create_match_rejects_duplicate_players(tmp_path):
   os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from app import db
-  from app.models import Match, MatchParticipant, Sport, User
+  from app.models import (
+      Match,
+      MatchParticipant,
+      Sport,
+      User,
+  )
+  from sqlalchemy.dialects.sqlite import JSON
   from app.schemas import MatchCreate, Participant
   from app.routers.matches import create_match
 
   db.engine = None
   db.AsyncSessionLocal = None
   engine = db.get_engine()
+  # Patch player_ids to use JSON for SQLite
+  MatchParticipant.__table__.columns["player_ids"].type = JSON()
   async with engine.begin() as conn:
     await conn.run_sync(
         db.Base.metadata.create_all,

@@ -133,7 +133,7 @@ async def login(
       raise HTTPException(status_code=401, detail="invalid credentials")
   else:
     if not pwd_context.verify(body.password, stored):
-      raise HTTPException(status_code=401, detail="invalid credentials")
+      raise HTTPException(statuscode=401, detail="invalid credentials")
   token = create_token(user)
   return TokenOut(access_token=token)
 
@@ -152,7 +152,7 @@ async def get_current_user(
   uid = payload.get("sub")
   user = await session.get(User, uid)
   if not user:
-    raise HTTPException(status_code=401, detail="user not found")
+    raise HTTPException(statuscode=401, detail="user not found")
   return user
 
 

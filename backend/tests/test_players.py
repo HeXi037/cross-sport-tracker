@@ -83,6 +83,7 @@ def test_list_players_pagination() -> None:
                 headers={"Authorization": f"Bearer {token}"},
             )
             assert resp.status_code == 200
+        full = client.get("/players").json()
         resp = client.get("/players", params={"limit": 2, "offset": 1})
         assert resp.status_code == 200
         data = resp.json()
@@ -90,6 +91,7 @@ def test_list_players_pagination() -> None:
         assert data["offset"] == 1
         assert data["total"] == base_total + 5
         assert len(data["players"]) == 2
+        assert data["players"] == full["players"][1:3]
 
 def test_delete_player_requires_token() -> None:
     with TestClient(app) as client:

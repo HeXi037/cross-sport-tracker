@@ -33,6 +33,10 @@ describe("RecordPadelPage", () => {
 
     await waitFor(() => screen.getByLabelText("Player A1"));
 
+    fireEvent.change(screen.getByPlaceholderText("Location"), {
+      target: { value: "Center Court" },
+    });
+
     fireEvent.change(screen.getByLabelText("Player A1"), {
       target: { value: "p1" },
     });
@@ -44,6 +48,10 @@ describe("RecordPadelPage", () => {
     });
     fireEvent.change(screen.getByLabelText("Player B2"), {
       target: { value: "p4" },
+    });
+
+    fireEvent.change(screen.getByLabelText("Location"), {
+      target: { value: "Court 1" },
     });
 
     fireEvent.change(screen.getByPlaceholderText("Set 1 A"), {
@@ -75,6 +83,7 @@ describe("RecordPadelPage", () => {
         { side: "A", playerIds: ["p1", "p2"] },
         { side: "B", playerIds: ["p3", "p4"] },
       ],
+      location: "Court 1",
     });
     expect(setsPayload).toEqual({
       sets: [
@@ -84,4 +93,3 @@ describe("RecordPadelPage", () => {
     });
   });
 });
-

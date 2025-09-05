@@ -9,6 +9,7 @@ from sqlalchemy import select, text
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+# Use a sufficiently long JWT secret for tests
 os.environ["JWT_SECRET"] = "x" * 32
 
 

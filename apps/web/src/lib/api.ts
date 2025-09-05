@@ -74,3 +74,22 @@ export function isAdmin(): boolean {
   const payload = getTokenPayload();
   return !!payload?.is_admin;
 }
+
+export async function fetchMe() {
+  const res = await apiFetch("/v0/auth/me");
+  if (!res.ok) throw new Error("Failed to load profile");
+  return res.json();
+}
+
+export async function updateMe(data: {
+  username?: string;
+  password?: string;
+}) {
+  const res = await apiFetch("/v0/auth/me", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to update profile");
+  return res.json();
+}

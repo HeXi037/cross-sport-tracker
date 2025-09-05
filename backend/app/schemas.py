@@ -158,13 +158,15 @@ class UserOut(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    """Schema for updating the current user."""
+    """Payload for updating the current user."""
     username: Optional[str] = Field(None, min_length=3, max_length=50)
     password: Optional[str] = Field(None, min_length=8)
 
     @field_validator("password")
     def _check_password_complexity(cls, v: str | None) -> str | None:
-        if v is not None and not PASSWORD_REGEX.match(v):
+        if v is None:
+            return v
+        if not PASSWORD_REGEX.match(v):
             raise ValueError("Password must contain letters, numbers, and symbols")
         return v
 

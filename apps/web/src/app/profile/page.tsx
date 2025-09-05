@@ -2,7 +2,21 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch } from "../../lib/api";
+import { fetchMe, updateMe, isLoggedIn } from "../../lib/api";
+
+const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
+
+export default function ProfilePage() {
+  const router = useRouter();
+  const [username, setUsername] = useState("");
+  the repo in the final message may be large.  To maintain clarity and readability, a summarization of unchanged portions may be provided.  If so, the summarization *must* be clearly indicated.
+
+```tsx
+"use client";
+
+import { useEffect, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { fetchMe, updateMe, isLoggedIn } from "../../lib/api";
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
 
@@ -10,29 +24,29 @@ export default function ProfilePage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchMe = async () => {
-      const res = await apiFetch("/v0/auth/me");
-      if (res.ok) {
-        const data = await res.json();
+    if (!isLoggedIn()) {
+      router.push("/login");
+      return;
+    }
+    fetchMe()
+      .then((data) => {
         setUsername(data.username);
-      } else if (res.status === 401) {
-        router.push("/login");
-      }
-      setLoading(false);
-    };
-    fetchMe();
+        setLoading(false);
+      })
+      .catch(() => router.push("/login"));
   }, [router]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setMessage(null);
-    if (username.trim().length < 3) {
+    const trimmed = username.trim();
+    if (trimmed.length < 3) {
       setError("Username must be at least 3 characters");
       return;
     }
@@ -42,20 +56,17 @@ export default function ProfilePage() {
       );
       return;
     }
-    const payload: Record<string, string> = { username };
-    if (password) payload.password = password;
-    const res = await apiFetch("/v0/auth/me", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      window.localStorage.setItem("token", data.access_token);
-      window.dispatchEvent(new Event("storage"));
+    try {
+      const body: { username: string; password?: string } = { username: trimmed };
+      if (password) body.password = password;
+      const res = await updateMe(body);
+      if (res.access_token) {
+        window.localStorage.setItem("token", res.access_token);
+        window.dispatchEvent(new Event("storage"));
+      }
       setPassword("");
       setMessage("Profile updated");
-    } else {
+    } catch {
       setError("Update failed");
     }
   };
@@ -85,14 +96,14 @@ export default function ProfilePage() {
         />
         <button type="submit">Save</button>
       </form>
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      )}
       {message && (
         <p role="status" className="success">
           {message}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="error">
+          {error}
         </p>
       )}
     </main>

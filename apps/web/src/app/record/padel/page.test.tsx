@@ -33,6 +33,10 @@ describe("RecordPadelPage", () => {
 
     await waitFor(() => screen.getByLabelText("Player A1"));
 
+    fireEvent.change(screen.getByPlaceholderText("Location"), {
+      target: { value: "Center Court" },
+    });
+
     fireEvent.change(screen.getByLabelText("Player A1"), {
       target: { value: "p1" },
     });
@@ -75,6 +79,7 @@ describe("RecordPadelPage", () => {
         { side: "A", playerIds: ["p1", "p2"] },
         { side: "B", playerIds: ["p3", "p4"] },
       ],
+      location: "Center Court",
     });
     expect(setsPayload).toEqual({
       sets: [

@@ -132,7 +132,7 @@ export default function RecordSportPage() {
       interface MatchPayload {
         sport: string;
         participants: MatchParticipant[];
-        score?: [number, number];
+        score?: number[];
         playedAt?: string;
         location?: string;
       }

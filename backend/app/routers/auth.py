@@ -14,7 +14,7 @@ import jwt
 
 from ..db import get_session
 from ..models import User, Player
-from ..schemas import UserCreate, UserLogin, TokenOut
+from ..schemas import UserCreate, UserLogin, TokenOut, UserOut, UserUpdate
 
 
 def get_jwt_secret() -> str:
@@ -154,3 +154,34 @@ async def get_current_user(
   if not user:
     raise HTTPException(status_code=401, detail="user not found")
   return user
+
+
+@router.get("/me", response_model=UserOut)
+async def read_me(user: User = Depends(get_current_user)):
+  return UserOut(id=user.id, username=user.username, is_admin=user.is_admin)
+
+
+@router.put("/me", response_model=TokenOut)
+async def update_me(
+    body: UserUpdate,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+  if body.username and body.username != user.username:
+    existing = (
+        await session.execute(select(User).where(User.username == body.username))
+    ).scalar_one_or_none()
+    if existing:
+      raise HTTPException(status_code=400, detail="username exists")
+    user.username = body.username
+    player = (
+        await session.execute(select(Player).where(Player.user_id == user.id))
+    ).scalar_one_or_none()
+    if player:
+      player.name = body.username
+  if body.password:
+    user.password_hash = pwd_context.hash(body.password)
+  await session.commit()
+  await session.refresh(user)
+  token = create_token(user)
+  return TokenOut(access_token=token)

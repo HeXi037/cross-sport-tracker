@@ -259,3 +259,40 @@ def test_jwt_secret_rejects_short(monkeypatch):
     monkeypatch.setenv("JWT_SECRET", "short")
     with pytest.raises(RuntimeError):
         auth.get_jwt_secret()
+
+
+def test_me_endpoints():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup", json={"username": "meuser", "password": "Str0ng!Pass"}
+        )
+        assert resp.status_code == 200
+        token = resp.json()["access_token"]
+
+        headers = {"Authorization": f"Bearer {token}"}
+        resp = client.get("/auth/me", headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["username"] == "meuser"
+
+        resp = client.put(
+            "/auth/me",
+            json={"username": "meuser2", "password": "NewStr0ng!Pass"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        new_token = resp.json()["access_token"]
+
+        resp = client.get("/auth/me", headers={"Authorization": f"Bearer {new_token}"})
+        assert resp.status_code == 200
+        assert resp.json()["username"] == "meuser2"
+
+        bad_login = client.post(
+            "/auth/login", json={"username": "meuser", "password": "Str0ng!Pass"}
+        )
+        assert bad_login.status_code == 401
+
+        good_login = client.post(
+            "/auth/login", json={"username": "meuser2", "password": "NewStr0ng!Pass"}
+        )
+        assert good_login.status_code == 200

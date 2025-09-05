@@ -136,15 +136,15 @@ export default function RecordSportPage() {
         playedAt?: string;
         location?: string;
       }
+      const score = isBowling
+        ? entries.map((e) => Number(e.score))
+        : [Number(scoreA), Number(scoreB)];
+
       const payload: MatchPayload = {
         sport,
         participants,
+        score,
       };
-      if (isBowling) {
-        payload.score = entries.map((e) => Number(e.score));
-      } else {
-        payload.score = [Number(scoreA), Number(scoreB)];
-      }
       if (date) {
         if (time) {
           payload.playedAt = new Date(`${date}T${time}`).toISOString();

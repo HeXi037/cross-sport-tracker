@@ -2,12 +2,12 @@ import Link from "next/link";
 import { apiFetch } from "../../../lib/api";
 import PlayerCharts from "./PlayerCharts";
 import PlayerComments from "./comments-client";
+import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
+import PhotoUpload from "./PhotoUpload";
 
 export const dynamic = "force-dynamic";
 
-interface Player {
-  id: string;
-  name: string;
+interface Player extends PlayerInfo {
   club_id?: string | null;
   badges: Badge[];
 }
@@ -39,7 +39,7 @@ type MatchDetail = {
 };
 
 type EnrichedMatch = MatchRow & {
-  names: Record<string, string[]>;
+  players: Record<string, PlayerInfo[]>;
   participants: Participant[];
   summary?: MatchDetail["summary"];
   playerSide: string | null;
@@ -102,25 +102,24 @@ async function getMatches(
     }
   }
 
-  const idToName = new Map<string, string>();
-  await Promise.all(
-    Array.from(ids).map(async (pid) => {
-      const resp = await apiFetch(`/v0/players/${encodeURIComponent(pid)}`, {
-        cache: "no-store",
-      } as RequestInit);
-      if (resp.ok) {
-        const j = (await resp.json()) as { id: string; name: string };
-        idToName.set(pid, j.name);
-      }
-    })
-  );
+  const idList = Array.from(ids);
+  const idToPlayer = new Map<string, PlayerInfo>();
+  if (idList.length) {
+    const resp = await apiFetch(`/v0/players/by-ids?ids=${idList.join(",")}`, {
+      cache: "no-store",
+    } as RequestInit);
+    if (resp.ok) {
+      const players = (await resp.json()) as PlayerInfo[];
+      players.forEach((p) => idToPlayer.set(p.id, p));
+    }
+  }
 
   return details.map(({ row, detail }) => {
-    const names: Record<string, string[]> = {};
+    const players: Record<string, PlayerInfo[]> = {};
     let playerSide: string | null = null;
     for (const p of detail.participants ?? []) {
       const ids = p.playerIds ?? [];
-      names[p.side] = ids.map((id) => idToName.get(id) ?? id);
+      players[p.side] = ids.map((id) => idToPlayer.get(id) ?? { id, name: id });
       if (ids.includes(playerId)) {
         playerSide = p.side;
       }
@@ -137,7 +136,7 @@ async function getMatches(
     }
     return {
       ...row,
-      names,
+      players,
       participants: detail.participants ?? [],
       summary,
       playerSide,
@@ -263,20 +262,19 @@ export default async function PlayerPage({
         );
         if (!part) return null;
         const mySide = part.side;
-        const opponentName = Object.entries(m.names)
+        const opponents = Object.entries(m.players)
           .filter(([side]) => side !== mySide)
-          .map(([, names]) => names.join(" & "))
-          .join(" vs ");
+          .flatMap(([, pl]) => pl);
         const winner = winnerFromSummary(m.summary);
         const result = winner ? (winner === mySide ? "Win" : "Loss") : "—";
         const date = m.playedAt
           ? new Date(m.playedAt).toLocaleDateString()
           : "—";
-        return { id: m.id, opponentName, date, result };
+        return { id: m.id, opponents, date, result };
       })
       .filter(Boolean) as {
       id: string;
-      opponentName: string;
+      opponents: PlayerInfo[];
       date: string;
       result: string;
     }[];
@@ -284,7 +282,10 @@ export default async function PlayerPage({
     return (
       <main className="container md:flex">
         <section className="flex-1 md:mr-4">
-          <h1 className="heading">{player.name}</h1>
+          <PhotoUpload playerId={player.id} initialUrl={player.photo_url} />
+          <h1 className="heading">
+            <PlayerName player={player} />
+          </h1>
           {player.club_id && <p>Club: {player.club_id}</p>}
 
           <nav className="mt-4 mb-4 space-x-4">
@@ -319,9 +320,17 @@ export default async function PlayerPage({
                       <li key={m.id} className="mb-2">
                         <div>
                           <Link href={`/matches/${m.id}`}>
-                            {Object.values(m.names)
-                              .map((n) => n.join(" & "))
-                              .join(" vs ")}
+                            {Object.values(m.players).map((side, i) => (
+                              <span key={i}>
+                                {side.map((pl, j) => (
+                                  <span key={pl.id}>
+                                    <PlayerName player={pl} />
+                                    {j < side.length - 1 ? " & " : ""}
+                                  </span>
+                                ))}
+                                {i < Object.values(m.players).length - 1 ? " vs " : ""}
+                              </span>
+                            ))}
                           </Link>
                         </div>
                         <div className="text-sm text-gray-700">
@@ -368,7 +377,14 @@ export default async function PlayerPage({
             <ul>
               {recentOpponents.map((o) => (
                 <li key={o.id} className="mb-2">
-                  <div>{o.opponentName}</div>
+                  <div>
+                    {o.opponents.map((pl, j) => (
+                      <span key={pl.id}>
+                        <PlayerName player={pl} />
+                        {j < o.opponents.length - 1 ? " & " : ""}
+                      </span>
+                    ))}
+                  </div>
                   <div className="text-sm text-gray-700">
                     {o.date} · {o.result}
                   </div>
@@ -407,9 +423,17 @@ export default async function PlayerPage({
               {upcoming.map((m) => (
                 <li key={m.id} className="mb-2">
                   <Link href={`/matches/${m.id}`}>
-                    {Object.values(m.names)
-                      .map((n) => n.join(" & "))
-                      .join(" vs ")}
+                    {Object.values(m.players).map((side, i) => (
+                      <span key={i}>
+                        {side.map((pl, j) => (
+                          <span key={pl.id}>
+                            <PlayerName player={pl} />
+                            {j < side.length - 1 ? " & " : ""}
+                          </span>
+                        ))}
+                        {i < Object.values(m.players).length - 1 ? " vs " : ""}
+                      </span>
+                    ))}
                   </Link>
                   <div className="text-sm text-gray-700">
                     {m.playedAt

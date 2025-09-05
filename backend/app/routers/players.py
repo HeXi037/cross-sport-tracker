@@ -1,6 +1,8 @@
 import uuid
+import os
+from pathlib import Path
 from collections import defaultdict
-from fastapi import APIRouter, Depends, Response, HTTPException
+from fastapi import APIRouter, Depends, Response, HTTPException, UploadFile, File
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
@@ -38,6 +40,8 @@ from ..services import (
 from .admin import require_admin
 from .auth import get_current_user
 
+
+UPLOAD_DIR = Path(__file__).resolve().parent.parent / "static" / "players"
 router = APIRouter(
     prefix="/players",
     tags=["players"],
@@ -119,7 +123,7 @@ async def players_by_ids(ids: str = "", session: AsyncSession = Depends(get_sess
             )
         )
     ).scalars().all()
-    return [PlayerNameOut(id=p.id, name=p.name) for p in rows]
+    return [PlayerNameOut(id=p.id, name=p.name, photo_url=p.photo_url) for p in rows]
 
 @router.get("/{player_id}", response_model=PlayerOut)
 async def get_player(player_id: str, session: AsyncSession = Depends(get_session)):
@@ -152,6 +156,30 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
         milestones=milestones or None,
         badges=[BadgeOut(id=b.id, name=b.name, icon=b.icon) for b in badges],
     )
+
+
+@router.post("/{player_id}/photo", response_model=PlayerNameOut)
+async def upload_player_photo(
+    player_id: str,
+    file: UploadFile = File(...),
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_admin),
+):
+    p = await session.get(Player, player_id)
+    if not p or p.deleted_at is not None:
+        raise PlayerNotFound(player_id)
+
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    suffix = Path(file.filename).suffix
+    filename = f"{uuid.uuid4().hex}{suffix}"
+    filepath = UPLOAD_DIR / filename
+    contents = await file.read()
+    with open(filepath, "wb") as f:
+        f.write(contents)
+
+    p.photo_url = f"/static/players/{filename}"
+    await session.commit()
+    return PlayerNameOut(id=p.id, name=p.name, photo_url=p.photo_url)
 
 @router.post("/{player_id}/badges/{badge_id}", status_code=204)
 async def add_badge_to_player(

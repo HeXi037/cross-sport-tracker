@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { apiFetch } from "../../../lib/api";
 import LiveSummary from "./live-summary";
+import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
 
 export const dynamic = "force-dynamic";
 
@@ -34,24 +35,17 @@ async function fetchMatch(mid: string): Promise<MatchDetail> {
   return (await res.json()) as MatchDetail;
 }
 
-async function fetchPlayerNames(ids: string[]): Promise<Map<string, string>> {
+async function fetchPlayers(ids: string[]): Promise<Map<string, PlayerInfo>> {
   if (!ids.length) return new Map();
   const res = (await apiFetch(
     `/v0/players/by-ids?ids=${ids.join(",")}`,
     { cache: "no-store" }
   )) as Response;
-  const map = new Map<string, string>();
+  const map = new Map<string, PlayerInfo>();
   if (!res.ok) return map;
-  const players = (await res.json()) as {
-    id?: string;
-    name?: string;
-    playerId?: string;
-    playerName?: string;
-  }[];
+  const players = (await res.json()) as PlayerInfo[];
   players.forEach((p) => {
-    const pid = p.id ?? p.playerId;
-    const pname = p.name ?? p.playerName;
-    if (pid && pname) map.set(pid, pname);
+    map.set(p.id, p);
   });
   return map;
 }
@@ -67,12 +61,14 @@ export default async function MatchDetailPage({
   const uniqueIds = Array.from(
     new Set(parts.flatMap((p) => p.playerIds ?? []))
   );
-  const idToName = await fetchPlayerNames(uniqueIds);
+  const idToPlayer = await fetchPlayers(uniqueIds);
 
-  const sideNames: Record<string, string[]> = {};
+  const sidePlayers: Record<string, PlayerInfo[]> = {};
   for (const p of parts) {
-    const names = (p.playerIds ?? []).map((id) => idToName.get(id) ?? id);
-    sideNames[p.side] = names;
+    const players = (p.playerIds ?? []).map(
+      (id) => idToPlayer.get(id) ?? { id, name: id }
+    );
+    sidePlayers[p.side] = players;
   }
 
   const playedAtDate = match.playedAt ? new Date(match.playedAt) : null;
@@ -92,9 +88,17 @@ export default async function MatchDetailPage({
 
       <header className="section">
         <h1 className="heading">
-          {Object.keys(sideNames)
-            .map((s) => (sideNames[s]?.length ? sideNames[s].join(" / ") : s))
-            .join(" vs ") || "A vs B"}
+          {Object.keys(sidePlayers).map((s, i) => (
+            <span key={s}>
+              {sidePlayers[s]?.map((pl, j) => (
+                <span key={pl.id}>
+                  <PlayerName player={pl} />
+                  {j < (sidePlayers[s]?.length ?? 0) - 1 ? " / " : ""}
+                </span>
+              ))}
+              {i < Object.keys(sidePlayers).length - 1 ? " vs " : ""}
+            </span>
+          )) || "A vs B"}
         </h1>
         <p className="match-meta">
           {match.sport || "sport"} · {match.ruleset || "rules"} · {" "}

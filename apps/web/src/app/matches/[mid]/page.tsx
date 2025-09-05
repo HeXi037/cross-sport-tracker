@@ -66,14 +66,16 @@ export default async function MatchDetailPage({
 
   const parts = match.participants ?? [];
   const uniqueIds = Array.from(
-    new Set(parts.flatMap((p) => p.playerIds ?? []))
+  new Set(parts.flatMap((p) => p.playerIds ?? []))
   );
   const idToName = await fetchPlayerNames(uniqueIds);
 
-
   const playedAtDate = match.playedAt ? new Date(match.playedAt) : null;
   const playedAtStr = playedAtDate
-    ? playedAtDate.getHours() || playedAtDate.getMinutes() || playedAtDate.getSeconds() || playedAtDate.getMilliseconds()
+    ? playedAtDate.getHours() ||
+      playedAtDate.getMinutes() ||
+      playedAtDate.getSeconds() ||
+      playedAtDate.getMilliseconds()
       ? playedAtDate.toLocaleString()
       : playedAtDate.toLocaleDateString()
     : "";
@@ -90,10 +92,10 @@ export default async function MatchDetailPage({
         <h1 className="heading">
           {parts.map((p, idx) => (
             <span key={p.side}>
-              {(p.playerIds || []).map((pid, j) => (
+              {(p.playerIds ?? []).map((pid, j, arr) => (
                 <span key={pid}>
                   <PlayerLabel id={pid} name={idToName.get(pid)} />
-                  {j < (p.playerIds?.length || 0) - 1 ? " / " : ""}
+                  {j < arr.length - 1 ? " / " : ""}
                 </span>
               ))}
               {idx < parts.length - 1 ? " vs " : ""}
@@ -101,7 +103,7 @@ export default async function MatchDetailPage({
           )) || "A vs B"}
         </h1>
         <p className="match-meta">
-          {match.sport || "sport"} · {match.ruleset || "rules"} · {" "}
+          {match.sport || "sport"} · {match.ruleset || "rules"} ·{" "}
           {match.status || "status"}
           {playedAtStr ? ` · ${playedAtStr}` : ""}
           {match.location ? ` · ${match.location}` : ""}

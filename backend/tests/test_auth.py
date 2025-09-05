@@ -3,6 +3,7 @@ import sys
 import asyncio
 import uuid
 import hashlib
+import secrets
 import pytest
 from sqlalchemy import select
 
@@ -259,3 +260,22 @@ def test_jwt_secret_rejects_short(monkeypatch):
     monkeypatch.setenv("JWT_SECRET", "short")
     with pytest.raises(RuntimeError):
         auth.get_jwt_secret()
+
+
+def test_jwt_secret_unset(monkeypatch):
+    monkeypatch.delenv("JWT_SECRET", raising=False)
+    with pytest.raises(RuntimeError):
+        auth.get_jwt_secret()
+
+
+@pytest.mark.parametrize("secret", ["secret", "changeme"])
+def test_jwt_secret_rejects_common_defaults(monkeypatch, secret):
+    monkeypatch.setenv("JWT_SECRET", secret)
+    with pytest.raises(RuntimeError):
+        auth.get_jwt_secret()
+
+
+def test_jwt_secret_accepts_strong_value(monkeypatch):
+    strong = secrets.token_hex(16)
+    monkeypatch.setenv("JWT_SECRET", strong)
+    assert auth.get_jwt_secret() == strong

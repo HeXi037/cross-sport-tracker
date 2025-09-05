@@ -42,6 +42,8 @@ from .auth import get_current_user
 
 
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "static" / "players"
+API_PREFIX = os.getenv("API_PREFIX", "/api").rstrip("/")
+UPLOAD_URL_PREFIX = f"{API_PREFIX}/static/players"
 router = APIRouter(
     prefix="/players",
     tags=["players"],
@@ -177,7 +179,7 @@ async def upload_player_photo(
     with open(filepath, "wb") as f:
         f.write(contents)
 
-    p.photo_url = f"/static/players/{filename}"
+    p.photo_url = f"{UPLOAD_URL_PREFIX}/{filename}"
     await session.commit()
     return PlayerNameOut(id=p.id, name=p.name, photo_url=p.photo_url)
 

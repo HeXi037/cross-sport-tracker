@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetch, isAdmin } from "../../../lib/api";
+import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
 
 type MatchRow = {
   id: string;
@@ -27,7 +28,7 @@ type MatchDetail = {
 };
 
 type EnrichedMatch = MatchRow & {
-  participants: string[][];
+  participants: PlayerInfo[][];
   summary?: MatchDetail["summary"];
 };
 
@@ -53,7 +54,7 @@ async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
   for (const { detail } of details) {
     for (const p of detail.participants) p.playerIds.forEach((id) => ids.add(id));
   }
-  const idToName = new Map<string, string>();
+  const idToPlayer = new Map<string, PlayerInfo>();
   const idList = Array.from(ids);
   if (idList.length) {
     const r = await apiFetch(
@@ -61,16 +62,9 @@ async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
       { cache: "no-store" }
     );
     if (r.ok) {
-      const players = (await r.json()) as {
-        id?: string;
-        name?: string;
-        playerId?: string;
-        playerName?: string;
-      }[];
+      const players = (await r.json()) as PlayerInfo[];
       players.forEach((p) => {
-        const pid = p.id ?? p.playerId;
-        const pname = p.name ?? p.playerName;
-        if (pid && pname) idToName.set(pid, pname);
+        if (p.id && p.name) idToPlayer.set(p.id, p);
       });
     }
   }
@@ -79,7 +73,7 @@ async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
     const participants = detail.participants
       .slice()
       .sort((a, b) => a.side.localeCompare(b.side))
-      .map((p) => p.playerIds.map((id) => idToName.get(id) ?? id));
+      .map((p) => p.playerIds.map((id) => idToPlayer.get(id) ?? { id, name: id }));
     return { ...row, participants, summary: detail.summary };
   });
 }
@@ -139,7 +133,17 @@ export default function AdminMatchesPage() {
         {matches.map((m) => (
           <li key={m.id} className="card match-item">
             <div style={{ fontWeight: 500 }}>
-              {m.participants.map((names) => names.join(" & ")).join(" vs ")}
+              {m.participants.map((side, i) => (
+                <span key={i}>
+                  {side.map((pl, j) => (
+                    <span key={pl.id}>
+                      <PlayerName player={pl} />
+                      {j < side.length - 1 ? " & " : ""}
+                    </span>
+                  ))}
+                  {i < m.participants.length - 1 ? " vs " : ""}
+                </span>
+              ))}
             </div>
             <div className="match-meta">
               {formatSummary(m.summary)}

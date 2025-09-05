@@ -187,4 +187,4 @@ def test_players_by_ids_omits_deleted() -> None:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data == [{"id": active_id, "name": "Active"}]
+        assert data == [{"id": active_id, "name": "Active", "photo_url": None}]

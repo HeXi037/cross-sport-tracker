@@ -15,8 +15,14 @@ export type MatchDetail = {
   participants: Participant[];
 };
 
+export type PlayerInfo = {
+  id: string;
+  name: string;
+  photo_url?: string | null;
+};
+
 export type EnrichedMatch = MatchRow & {
-  names: Record<string, string[]>;
+  players: Record<string, PlayerInfo[]>;
 };
 
 import { apiFetch } from './api';
@@ -36,7 +42,7 @@ export async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> 
     for (const p of detail.participants) p.playerIds.forEach((id) => ids.add(id));
   }
 
-  const idToName = new Map<string, string>();
+  const idToPlayer = new Map<string, PlayerInfo>();
   const idList = Array.from(ids);
   if (idList.length) {
     const r = await apiFetch(
@@ -44,25 +50,20 @@ export async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> 
       { cache: 'no-store' }
     );
     if (r.ok) {
-      const players = (await r.json()) as {
-        id?: string;
-        name?: string;
-        playerId?: string;
-        playerName?: string;
-      }[];
+      const players = (await r.json()) as PlayerInfo[];
       players.forEach((p) => {
-        const pid = p.id ?? p.playerId;
-        const pname = p.name ?? p.playerName;
-        if (pid && pname) idToName.set(pid, pname);
+        if (p.id && p.name) idToPlayer.set(p.id, p);
       });
     }
   }
 
   return details.map(({ row, detail }) => {
-    const names: Record<string, string[]> = {};
+    const players: Record<string, PlayerInfo[]> = {};
     for (const p of detail.participants) {
-      names[p.side] = p.playerIds.map((id) => idToName.get(id) ?? id);
+      players[p.side] = p.playerIds.map(
+        (id) => idToPlayer.get(id) ?? { id, name: id }
+      );
     }
-    return { ...row, names };
+    return { ...row, players };
   });
 }

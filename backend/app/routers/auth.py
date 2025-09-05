@@ -9,6 +9,7 @@ from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from passlib.context import CryptContext
 import jwt
 
@@ -192,6 +193,12 @@ async def update_me(
       player.name = body.username
   if body.password:
     current.password_hash = pwd_context.hash(body.password)
-  await session.commit()
+  try:
+    await session.commit()
+  except IntegrityError as e:
+    await session.rollback()
+    if "player" in str(e.orig):
+      raise HTTPException(status_code=400, detail="player exists")
+    raise HTTPException(status_code=400, detail="username exists")
   token = create_token(current)
   return TokenOut(access_token=token)

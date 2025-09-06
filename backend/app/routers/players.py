@@ -18,6 +18,7 @@ from ..models import (
     Badge,
     PlayerBadge,
 )
+from ..config import API_PREFIX
 from ..schemas import (
     PlayerCreate,
     PlayerOut,
@@ -177,7 +178,7 @@ async def upload_player_photo(
     with open(filepath, "wb") as f:
         f.write(contents)
 
-    p.photo_url = f"/static/players/{filename}"
+    p.photo_url = f"{API_PREFIX}/static/players/{filename}"
     await session.commit()
     return PlayerNameOut(id=p.id, name=p.name, photo_url=p.photo_url)
 

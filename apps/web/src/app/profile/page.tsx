@@ -9,20 +9,6 @@ const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
 export default function ProfilePage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
-  the repo in the final message may be large.  To maintain clarity and readability, a summarization of unchanged portions may be provided.  If so, the summarization *must* be clearly indicated.
-
-```tsx
-"use client";
-
-import { useEffect, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
-import { fetchMe, updateMe, isLoggedIn } from "../../lib/api";
-
-const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
-
-export default function ProfilePage() {
-  const router = useRouter();
-  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);

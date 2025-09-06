@@ -188,3 +188,39 @@ def test_players_by_ids_omits_deleted() -> None:
         assert resp.status_code == 200
         data = resp.json()
         assert data == [{"id": active_id, "name": "Active", "photo_url": None}]
+
+def test_upload_player_photo_prefixed_url() -> None:
+    with TestClient(app) as client:
+        token = admin_token(client)
+        pid = client.post(
+            "/players", json={"name": "Pic"}, headers={"Authorization": f"Bearer {token}"}
+        ).json()["id"]
+        files = {"file": ("avatar.png", b"avatar", "image/png")}
+        resp = client.post(
+            f"/players/{pid}/photo",
+            files=files,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["photo_url"].startswith("/api/static/players/")
+        filename = data["photo_url"].split("/")[-1]
+        filepath = players.UPLOAD_DIR / filename
+        if filepath.exists():
+            filepath.unlink()
+
+
+def test_upload_player_photo_too_large() -> None:
+    with TestClient(app) as client:
+        token = admin_token(client)
+        pid = client.post(
+            "/players", json={"name": "BigPic"}, headers={"Authorization": f"Bearer {token}"}
+        ).json()["id"]
+        big_file = b"x" * (players.MAX_PHOTO_SIZE + 1)
+        files = {"file": ("big.png", big_file, "image/png")}
+        resp = client.post(
+            f"/players/{pid}/photo",
+            files=files,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 413

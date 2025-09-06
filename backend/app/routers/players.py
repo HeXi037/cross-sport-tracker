@@ -1,5 +1,4 @@
 import uuid
-import os
 from pathlib import Path
 from collections import defaultdict
 from fastapi import APIRouter, Depends, Response, HTTPException, UploadFile, File
@@ -18,6 +17,7 @@ from ..models import (
     Badge,
     PlayerBadge,
 )
+from ..config import API_PREFIX
 from ..schemas import (
     PlayerCreate,
     PlayerOut,
@@ -42,7 +42,6 @@ from .auth import get_current_user
 
 
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "static" / "players"
-API_PREFIX = os.getenv("API_PREFIX", "/api").rstrip("/")
 UPLOAD_URL_PREFIX = f"{API_PREFIX}/static/players"
 MAX_PHOTO_SIZE = 5 * 1024 * 1024  # 5MB limit on upload size
 CHUNK_SIZE = 1024 * 1024  # 1MB chunks for streaming uploads
@@ -358,7 +357,7 @@ async def player_stats(
     opp_stats: dict[str, dict[str, int]] = defaultdict(
         lambda: {"wins": 0, "total": 0}
     )
-    team_stats: dict[str, dict[str, int]] = defaultdict(
+    team stats: dict[str, dict[str, int]] = defaultdict(
         lambda: {"wins": 0, "total": 0}
     )
     results: list[bool] = []
@@ -377,7 +376,7 @@ async def player_stats(
         for tid in teammates:
             team_stats[tid]["total"] += 1
             if is_win:
-                team_stats[tid]["wins"] += 1
+                team stats[tid]["wins"] += 1
 
         others = [p for p in match_to_parts[match.id] if p.id != mp.id]
         opp_ids = [pid for part in others for pid in part.player_ids]
@@ -415,7 +414,7 @@ async def player_stats(
         worst_against = min(records, key=lambda r: r.winPct)
 
     if team_stats:
-        records = [to_record(pid, s) for pid, s in team_stats.items()]
+        records = [to_record(pid, s) for pid, s in team stats.items()]
         best_with = max(records, key=lambda r: r.winPct)
         worst_with = min(records, key=lambda r: r.winPct)
         with_records = records
@@ -436,7 +435,7 @@ async def player_stats(
     streak_info = compute_streaks(results)
     streaks = StreakSummary(**streak_info)
 
-    rolling = rolling_win_percentage(results, span) if results else []
+    rolling = rolling win_percentage(results, span) if results else []
 
     return PlayerStatsOut(
         playerId=player_id,

@@ -44,6 +44,8 @@ from .auth import get_current_user
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "static" / "players"
 API_PREFIX = os.getenv("API_PREFIX", "/api").rstrip("/")
 UPLOAD_URL_PREFIX = f"{API_PREFIX}/static/players"
+MAX_PHOTO_SIZE = 5 * 1024 * 1024  # 5MB limit on upload size
+CHUNK_SIZE = 1024 * 1024  # 1MB chunks for streaming uploads
 router = APIRouter(
     prefix="/players",
     tags=["players"],
@@ -175,9 +177,18 @@ async def upload_player_photo(
     suffix = Path(file.filename).suffix
     filename = f"{uuid.uuid4().hex}{suffix}"
     filepath = UPLOAD_DIR / filename
-    contents = await file.read()
+    size = 0
     with open(filepath, "wb") as f:
-        f.write(contents)
+        while True:
+            chunk = await file.read(CHUNK_SIZE)
+            if not chunk:
+                break
+            size += len(chunk)
+            if size > MAX_PHOTO_SIZE:
+                f.close()
+                filepath.unlink(missing_ok=True)
+                raise HTTPException(status_code=413, detail="Uploaded file too large")
+            f.write(chunk)
 
     p.photo_url = f"{UPLOAD_URL_PREFIX}/{filename}"
     await session.commit()

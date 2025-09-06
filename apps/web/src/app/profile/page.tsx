@@ -36,9 +36,9 @@ export default function ProfilePage() {
       setError("Username must be at least 3 characters");
       return;
     }
-    if (password && (password.length < 8 || !PASSWORD_REGEX.test(password))) {
+    if (password && (password.length < 12 || !PASSWORD_REGEX.test(password))) {
       setError(
-        "Password must be at least 8 characters and include letters, numbers, and symbols",
+        "Password must be at least 12 characters and include letters, numbers, and symbols",
       );
       return;
     }

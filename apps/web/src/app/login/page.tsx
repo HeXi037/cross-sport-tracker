@@ -4,6 +4,8 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, currentUsername, logout } from "../../lib/api";
 
+const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
+
 export default function LoginPage() {
   const router = useRouter();
   const [user, setUser] = useState(currentUsername());
@@ -42,11 +44,22 @@ export default function LoginPage() {
   const handleSignup = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    const trimmedUser = newUser.trim();
+    if (trimmedUser.length < 3) {
+      setError("Username must be at least 3 characters");
+      return;
+    }
+    if (newPass.length < 12 || !PASSWORD_REGEX.test(newPass)) {
+      setError(
+        "Password must be at least 12 characters and include letters, numbers, and symbols",
+      );
+      return;
+    }
     try {
       const res = await apiFetch("/v0/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: newUser, password: newPass }),
+        body: JSON.stringify({ username: trimmedUser, password: newPass }),
       });
       if (res.ok) {
         const data = await res.json();

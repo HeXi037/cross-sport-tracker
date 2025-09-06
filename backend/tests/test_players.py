@@ -63,12 +63,12 @@ def admin_token(client: TestClient) -> str:
     auth.limiter.reset()
     resp = client.post(
         "/auth/signup",
-        json={"username": "admin", "password": "Str0ng!Pass", "is_admin": True},
+        json={"username": "admin", "password": "Str0ng!Pass!", "is_admin": True},
         headers={"X-Admin-Secret": "admintest"},
     )
     if resp.status_code != 200:
         resp = client.post(
-            "/auth/login", json={"username": "admin", "password": "Str0ng!Pass"}
+            "/auth/login", json={"username": "admin", "password": "Str0ng!Pass!"}
         )
     return resp.json()["access_token"]
 
@@ -126,7 +126,7 @@ def test_hard_delete_player_allows_username_reuse() -> None:
 
         # initial signup creates both user and player
         resp = client.post(
-            "/auth/signup", json={"username": "Eve", "password": "Str0ng!Pass"}
+            "/auth/signup", json={"username": "Eve", "password": "Str0ng!Pass!"}
         )
         assert resp.status_code == 200
 
@@ -143,7 +143,7 @@ def test_hard_delete_player_allows_username_reuse() -> None:
 
         # signup again with the same username should now succeed
         resp = client.post(
-            "/auth/signup", json={"username": "Eve", "password": "Str0ng!Pass"}
+            "/auth/signup", json={"username": "Eve", "password": "Str0ng!Pass!"}
         )
         assert resp.status_code == 200
 

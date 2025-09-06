@@ -131,7 +131,7 @@ class EventIn(BaseModel):
 class UserCreate(BaseModel):
     """Schema for user signup requests."""
     username: str = Field(..., min_length=3, max_length=50)
-    password: str = Field(..., min_length=8)
+    password: str = Field(..., min_length=12)
     is_admin: bool = False
 
     @field_validator("password")
@@ -162,7 +162,7 @@ class UserOut(BaseModel):
 class UserUpdate(BaseModel):
     """Payload for updating the current user."""
     username: Optional[str] = Field(None, min_length=3, max_length=50)
-    password: Optional[str] = Field(None, min_length=8)
+    password: Optional[str] = Field(None, min_length=12)
 
     @field_validator("password")
     def _check_password_complexity(cls, v: str | None) -> str | None:

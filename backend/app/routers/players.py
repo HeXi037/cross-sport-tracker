@@ -357,7 +357,7 @@ async def player_stats(
     opp_stats: dict[str, dict[str, int]] = defaultdict(
         lambda: {"wins": 0, "total": 0}
     )
-    team stats: dict[str, dict[str, int]] = defaultdict(
+    team_stats: dict[str, dict[str, int]] = defaultdict(
         lambda: {"wins": 0, "total": 0}
     )
     results: list[bool] = []
@@ -376,7 +376,7 @@ async def player_stats(
         for tid in teammates:
             team_stats[tid]["total"] += 1
             if is_win:
-                team stats[tid]["wins"] += 1
+                team_stats[tid]["wins"] += 1
 
         others = [p for p in match_to_parts[match.id] if p.id != mp.id]
         opp_ids = [pid for part in others for pid in part.player_ids]
@@ -414,7 +414,7 @@ async def player_stats(
         worst_against = min(records, key=lambda r: r.winPct)
 
     if team_stats:
-        records = [to_record(pid, s) for pid, s in team stats.items()]
+        records = [to_record(pid, s) for pid, s in team_stats.items()]
         best_with = max(records, key=lambda r: r.winPct)
         worst_with = min(records, key=lambda r: r.winPct)
         with_records = records
@@ -435,7 +435,7 @@ async def player_stats(
     streak_info = compute_streaks(results)
     streaks = StreakSummary(**streak_info)
 
-    rolling = rolling win_percentage(results, span) if results else []
+    rolling = rolling_win_percentage(results, span) if results else []
 
     return PlayerStatsOut(
         playerId=player_id,

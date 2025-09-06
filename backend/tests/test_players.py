@@ -208,3 +208,19 @@ def test_upload_player_photo_prefixed_url() -> None:
         filepath = players.UPLOAD_DIR / filename
         if filepath.exists():
             filepath.unlink()
+
+
+def test_upload_player_photo_too_large() -> None:
+    with TestClient(app) as client:
+        token = admin_token(client)
+        pid = client.post(
+            "/players", json={"name": "BigPic"}, headers={"Authorization": f"Bearer {token}"}
+        ).json()["id"]
+        big_file = b"x" * (players.MAX_PHOTO_SIZE + 1)
+        files = {"file": ("big.png", big_file, "image/png")}
+        resp = client.post(
+            f"/players/{pid}/photo",
+            files=files,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 413

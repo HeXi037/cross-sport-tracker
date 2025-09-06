@@ -55,14 +55,6 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
   return JSONResponse(status_code=429, content={"detail": "Too Many Requests"})
 
 
-def hash_password_sha256(password: str) -> str:
-  return hashlib.sha256(password.encode()).hexdigest()
-
-
-def is_sha256_digest(hash_str: str) -> bool:
-  return bool(re.fullmatch(r"[a-f0-9]{64}", hash_str))
-
-
 def create_token(user: User) -> str:
   payload = {
       "sub": user.id,
@@ -129,12 +121,14 @@ async def login(
   if not user:
     raise HTTPException(status_code=401, detail="invalid credentials")
   stored = user.password_hash
-  if is_sha256_digest(stored):
-    if hash_password_sha256(body.password) != stored:
+  if re.fullmatch(r"[a-f0-9]{64}", stored):
+    if hashlib.sha256(body.password.encode()).hexdigest() != stored:
       raise HTTPException(status_code=401, detail="invalid credentials")
-  else:
-    if not pwd_context.verify(body.password, stored):
-      raise HTTPException(statuscode=401, detail="invalid credentials")
+    user.password_hash = pwd_context.hash(body.password)
+    await session.commit()
+    stored = user.password_hash
+  if not pwd_context.verify(body.password, stored):
+    raise HTTPException(status_code=401, detail="invalid credentials")
   token = create_token(user)
   return TokenOut(access_token=token)
 

@@ -58,13 +58,13 @@ def test_comment_crud():
     auth.limiter.reset()
     with TestClient(app) as client:
         resp = client.post(
-            "/auth/signup", json={"username": "bob", "password": "Str0ng!Pass"}
+            "/auth/signup", json={"username": "bob", "password": "Str0ng!Pass!"}
         )
         assert resp.status_code == 200
         token = resp.json()["access_token"]
         admin_token = client.post(
             "/auth/signup",
-            json={"username": "admin", "password": "Str0ng!Pass", "is_admin": True},
+            json={"username": "admin", "password": "Str0ng!Pass!", "is_admin": True},
             headers={"X-Admin-Secret": "admintest"},
         ).json()["access_token"]
         pid = client.post(

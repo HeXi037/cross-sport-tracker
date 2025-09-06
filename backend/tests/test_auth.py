@@ -58,7 +58,7 @@ def setup_db():
 def test_signup_login_and_protected_access():
     with TestClient(app) as client:
         resp = client.post(
-            "/auth/signup", json={"username": "alice", "password": "Str0ng!Pass"}
+            "/auth/signup", json={"username": "alice", "password": "Str0ng!Pass!"}
         )
         assert resp.status_code == 200
         token = resp.json()["access_token"]
@@ -74,23 +74,23 @@ def test_signup_login_and_protected_access():
 
         user = asyncio.run(fetch_user())
         assert user.password_hash != "pw"
-        assert pwd_context.verify("Str0ng!Pass", user.password_hash)
+        assert pwd_context.verify("Str0ng!Pass!", user.password_hash)
 
         resp = client.post(
-            "/auth/login", json={"username": "alice", "password": "Str0ng!Pass"}
+            "/auth/login", json={"username": "alice", "password": "Str0ng!Pass!"}
         )
         assert resp.status_code == 200
         user_token = resp.json()["access_token"]
 
         resp = client.post(
             "/auth/signup",
-            json={"username": "admin", "password": "Str0ng!Pass", "is_admin": True},
+            json={"username": "admin", "password": "Str0ng!Pass!", "is_admin": True},
         )
         assert resp.status_code == 403
 
         admin_token = client.post(
             "/auth/signup",
-            json={"username": "admin", "password": "Str0ng!Pass", "is_admin": True},
+            json={"username": "admin", "password": "Str0ng!Pass!", "is_admin": True},
             headers={"X-Admin-Secret": "admintest"},
         ).json()["access_token"]
 
@@ -129,7 +129,7 @@ def test_signup_links_orphan_player():
     pid = asyncio.run(create_player("charlie"))
     with TestClient(app) as client:
         resp = client.post(
-            "/auth/signup", json={"username": "charlie", "password": "Str0ng!Pass"}
+            "/auth/signup", json={"username": "charlie", "password": "Str0ng!Pass!"}
         )
         assert resp.status_code == 200
 
@@ -152,7 +152,7 @@ def test_signup_rejects_attached_player():
     asyncio.run(create_player("dave", user_id="attached"))
     with TestClient(app) as client:
         resp = client.post(
-            "/auth/signup", json={"username": "dave", "password": "Str0ng!Pass"}
+            "/auth/signup", json={"username": "dave", "password": "Str0ng!Pass!"}
         )
         assert resp.status_code == 400
         assert resp.json()["detail"] == "player exists"
@@ -171,16 +171,16 @@ def test_login_rate_limited():
     auth.limiter.reset()
     with TestClient(app) as client:
         resp = client.post(
-            "/auth/signup", json={"username": "rate", "password": "Str0ng!Pass"}
+            "/auth/signup", json={"username": "rate", "password": "Str0ng!Pass!"}
         )
         assert resp.status_code == 200
         for _ in range(5):
             ok = client.post(
-                "/auth/login", json={"username": "rate", "password": "Str0ng!Pass"}
+                "/auth/login", json={"username": "rate", "password": "Str0ng!Pass!"}
             )
             assert ok.status_code == 200
         resp = client.post(
-            "/auth/login", json={"username": "rate", "password": "Str0ng!Pass"}
+            "/auth/login", json={"username": "rate", "password": "Str0ng!Pass!"}
         )
         assert resp.status_code == 429
 
@@ -189,7 +189,7 @@ def test_login_rate_limited_per_ip():
     with TestClient(app) as client:
         resp = client.post(
             "/auth/signup",
-            json={"username": "iprate", "password": "Str0ng!Pass"},
+            json={"username": "iprate", "password": "Str0ng!Pass!"},
         )
         assert resp.status_code == 200
         h1 = {"X-Forwarded-For": "1.1.1.1"}
@@ -197,19 +197,19 @@ def test_login_rate_limited_per_ip():
         for _ in range(5):
             ok = client.post(
                 "/auth/login",
-                json={"username": "iprate", "password": "Str0ng!Pass"},
+                json={"username": "iprate", "password": "Str0ng!Pass!"},
                 headers=h1,
             )
             assert ok.status_code == 200
         resp = client.post(
             "/auth/login",
-            json={"username": "iprate", "password": "Str0ng!Pass"},
+            json={"username": "iprate", "password": "Str0ng!Pass!"},
             headers=h1,
         )
         assert resp.status_code == 429
         ok2 = client.post(
             "/auth/login",
-            json={"username": "iprate", "password": "Str0ng!Pass"},
+            json={"username": "iprate", "password": "Str0ng!Pass!"},
             headers=h2,
         )
         assert ok2.status_code == 200
@@ -218,7 +218,7 @@ def test_login_rate_limit_not_bypassed_by_spoofed_x_forwarded_for():
     auth.limiter.reset()
     with TestClient(app) as client:
         resp = client.post(
-            "/auth/signup", json={"username": "spoof", "password": "Str0ng!Pass"}
+            "/auth/signup", json={"username": "spoof", "password": "Str0ng!Pass!"}
         )
         assert resp.status_code == 200
         real_ip = "9.9.9.9"
@@ -226,14 +226,14 @@ def test_login_rate_limit_not_bypassed_by_spoofed_x_forwarded_for():
             headers = {"X-Forwarded-For": f"{i}.0.0.1, {real_ip}"}
             ok = client.post(
                 "/auth/login",
-                json={"username": "spoof", "password": "Str0ng!Pass"},
+                json={"username": "spoof", "password": "Str0ng!Pass!"},
                 headers=headers,
             )
             assert ok.status_code == 200
         headers = {"X-Forwarded-For": f"random, {real_ip}"}
         resp = client.post(
             "/auth/login",
-            json={"username": "spoof", "password": "Str0ng!Pass"},
+            json={"username": "spoof", "password": "Str0ng!Pass!"},
             headers=headers,
         )
         assert resp.status_code == 429
@@ -295,7 +295,7 @@ def test_me_endpoints():
     auth.limiter.reset()
     with TestClient(app) as client:
         resp = client.post(
-            "/auth/signup", json={"username": "meuser", "password": "Str0ng!Pass"}
+            "/auth/signup", json={"username": "meuser", "password": "Str0ng!Pass!"}
         )
         assert resp.status_code == 200
         token = resp.json()["access_token"]
@@ -307,7 +307,7 @@ def test_me_endpoints():
 
         resp = client.put(
             "/auth/me",
-            json={"username": "meuser2", "password": "NewStr0ng!Pass"},
+            json={"username": "meuser2", "password": "NewStr0ng!Pass!"},
             headers=headers,
         )
         assert resp.status_code == 200
@@ -318,11 +318,11 @@ def test_me_endpoints():
         assert resp.json()["username"] == "meuser2"
 
         bad_login = client.post(
-            "/auth/login", json={"username": "meuser", "password": "Str0ng!Pass"}
+            "/auth/login", json={"username": "meuser", "password": "Str0ng!Pass!"}
         )
         assert bad_login.status_code == 401
 
         good_login = client.post(
-            "/auth/login", json={"username": "meuser2", "password": "NewStr0ng!Pass"}
+            "/auth/login", json={"username": "meuser2", "password": "NewStr0ng!Pass!"}
         )
         assert good_login.status_code == 200

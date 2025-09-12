@@ -44,7 +44,7 @@ async def list_matches(
                 select(Match, MatchParticipant)
                 .join(MatchParticipant)
                 .where(Match.deleted_at.is_(None))
-                .order_by(Match.played_at.desc())
+                .order_by(Match.played_at.desc().nullsfirst())
             )
         ).all()
         matches: list[Match] = []
@@ -62,7 +62,7 @@ async def list_matches(
             stmt = stmt.where(
                 (Match.played_at.is_(None)) | (Match.played_at > func.now())
             )
-        stmt = stmt.order_by(Match.played_at.desc())
+        stmt = stmt.order_by(Match.played_at.desc().nullsfirst())
         matches = (await session.execute(stmt)).scalars().all()
 
     return [

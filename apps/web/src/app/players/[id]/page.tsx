@@ -110,7 +110,30 @@ async function getMatches(
     } as RequestInit);
     if (resp.ok) {
       const players = (await resp.json()) as PlayerInfo[];
-      players.forEach((p) => idToPlayer.set(p.id, p));
+      const remaining = new Set(idList);
+      const missing: string[] = [];
+      players.forEach((p) => {
+        if (p.id) {
+          remaining.delete(p.id);
+          if (p.name) {
+            idToPlayer.set(p.id, p);
+          } else {
+            missing.push(p.id);
+            idToPlayer.set(p.id, { id: p.id, name: "Unknown" });
+          }
+        }
+      });
+      if (remaining.size) {
+        missing.push(...Array.from(remaining));
+        remaining.forEach((id) =>
+          idToPlayer.set(id, { id, name: "Unknown" })
+        );
+      }
+      if (missing.length) {
+        console.warn(
+          `Player names missing for ids: ${missing.join(", ")}`
+        );
+      }
     }
   }
 
@@ -119,7 +142,9 @@ async function getMatches(
     let playerSide: string | null = null;
     for (const p of detail.participants ?? []) {
       const ids = p.playerIds ?? [];
-      players[p.side] = ids.map((id) => idToPlayer.get(id) ?? { id, name: id });
+      players[p.side] = ids.map(
+        (id) => idToPlayer.get(id) ?? { id, name: "Unknown" }
+      );
       if (ids.includes(playerId)) {
         playerSide = p.side;
       }

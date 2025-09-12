@@ -42,11 +42,32 @@ async function fetchPlayers(ids: string[]): Promise<Map<string, PlayerInfo>> {
     { cache: "no-store" }
   )) as Response;
   const map = new Map<string, PlayerInfo>();
-  if (!res.ok) return map;
+  if (!res.ok) {
+    ids.forEach((id) => map.set(id, { id, name: "Unknown" }));
+    console.warn(`Player names missing for ids: ${ids.join(", ")}`);
+    return map;
+  }
   const players = (await res.json()) as PlayerInfo[];
+  const remaining = new Set(ids);
+  const missing: string[] = [];
   players.forEach((p) => {
-    map.set(p.id, p);
+    if (p.id) {
+      remaining.delete(p.id);
+      if (p.name) {
+        map.set(p.id, p);
+      } else {
+        missing.push(p.id);
+        map.set(p.id, { id: p.id, name: "Unknown" });
+      }
+    }
   });
+  if (remaining.size) {
+    missing.push(...Array.from(remaining));
+    remaining.forEach((id) => map.set(id, { id, name: "Unknown" }));
+  }
+  if (missing.length) {
+    console.warn(`Player names missing for ids: ${missing.join(", ")}`);
+  }
   return map;
 }
 
@@ -66,7 +87,7 @@ export default async function MatchDetailPage({
   const sidePlayers: Record<string, PlayerInfo[]> = {};
   for (const p of parts) {
     const players = (p.playerIds ?? []).map(
-      (id) => idToPlayer.get(id) ?? { id, name: id }
+      (id) => idToPlayer.get(id) ?? { id, name: "Unknown" }
     );
     sidePlayers[p.side] = players;
   }

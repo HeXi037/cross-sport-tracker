@@ -140,7 +140,7 @@ async def get_current_user(
   uid = payload.get("sub")
   user = await session.get(User, uid)
   if not user:
-    raise HTTPException(statuscode=401, detail="user not found")
+    raise HTTPException(status_code=401, detail="user not found")
   return user
 
 

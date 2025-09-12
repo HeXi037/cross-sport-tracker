@@ -18,6 +18,7 @@ from .routers import (
 from .routes import player as player_pages
 from .exceptions import DomainException, ProblemDetail
 from .config import API_PREFIX
+import logging
 import os
 
 
@@ -91,7 +92,12 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    problem = ProblemDetail(title="Internal Server Error", status=500, detail=str(exc))
+    logging.exception("Unhandled exception", exc_info=exc)
+    problem = ProblemDetail(
+        title="Internal Server Error",
+        status=500,
+        detail="An unexpected error occurred",
+    )
     return JSONResponse(
         status_code=500,
         content=problem.model_dump(),

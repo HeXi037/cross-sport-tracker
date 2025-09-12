@@ -43,7 +43,7 @@ Tournaments (MVP): Round-robin + Single-elimination; seeding=random; RR tiebreak
 
 Ratings: ELO baseline 1000; K=24 (K=32 if <30 games); per-sport rows
 
-Timezone: Store UTC; render client TZ (default Australia/Melbourne)
+Timezone: Store UTC; render client TZ (default Australia/Melbourne). API accepts timezone-aware datetimes but stores them as UTC-naive
 
 Testing targets: Engines ≥ 90% coverage; Playwright E2E for core flows
 

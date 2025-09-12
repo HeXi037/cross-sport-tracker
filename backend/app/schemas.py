@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Literal, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 import re
 from pydantic import BaseModel, Field, model_validator, field_validator
 
@@ -86,6 +86,12 @@ class MatchCreate(BaseModel):
     location: Optional[str] = None
     score: Optional[List[int]] = None
 
+    @field_validator("playedAt")
+    def _normalize_played_at(cls, v: datetime | None) -> datetime | None:
+        if v and v.tzinfo:
+            return v.astimezone(timezone.utc).replace(tzinfo=None)
+        return v
+
 class ParticipantByName(BaseModel):
     side: Literal["A", "B", "C", "D", "E", "F"]
     playerNames: List[str]
@@ -97,6 +103,12 @@ class MatchCreateByName(BaseModel):
     bestOf: Optional[int] = None
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
+
+    @field_validator("playedAt")
+    def _normalize_played_at(cls, v: datetime | None) -> datetime | None:
+        if v and v.tzinfo:
+            return v.astimezone(timezone.utc).replace(tzinfo=None)
+        return v
 
 class SetsIn(BaseModel):
     sets: List[Tuple[int, int]]

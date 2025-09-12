@@ -111,6 +111,56 @@ async def test_create_match_with_scores(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_create_match_normalizes_timezone(tmp_path):
+  os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
+  from fastapi import FastAPI
+  from fastapi.testclient import TestClient
+  from app import db
+  from app.models import Match, MatchParticipant, Sport, User
+  from app.routers import matches
+  from app.routers.auth import get_current_user
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+      db.Base.metadata.create_all,
+      tables=[Sport.__table__, Match.__table__, MatchParticipant.__table__],
+    )
+
+  async with db.AsyncSessionLocal() as session:
+    session.add(Sport(id="padel", name="Padel"))
+    await session.commit()
+
+  app = FastAPI()
+  app.include_router(matches.router)
+  app.dependency_overrides[get_current_user] = lambda: User(
+      id="u1", username="admin", password_hash="", is_admin=True
+  )
+
+  with TestClient(app) as client:
+    resp = client.post(
+      "/matches",
+      json={
+        "sport": "padel",
+        "participants": [
+          {"side": "A", "playerIds": ["p1"]},
+          {"side": "B", "playerIds": ["p2"]},
+        ],
+        "playedAt": "2025-09-12T02:30:00Z",
+      },
+    )
+    assert resp.status_code == 200
+    mid = resp.json()["id"]
+
+  async with db.AsyncSessionLocal() as session:
+    m = await session.get(Match, mid)
+    assert m.played_at.tzinfo is None
+    assert m.played_at == datetime(2025, 9, 12, 2, 30)
+
+
+@pytest.mark.anyio
 async def test_list_matches_returns_most_recent_first(tmp_path):
   os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from fastapi import FastAPI

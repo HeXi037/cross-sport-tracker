@@ -133,6 +133,8 @@ async def get_current_user(
   token = authorization.split(" ", 1)[1]
   try:
     payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALG])
+  except jwt.ExpiredSignatureError:
+    raise HTTPException(status_code=401, detail="token expired")
   except jwt.PyJWTError:
     raise HTTPException(status_code=401, detail="invalid token")
   uid = payload.get("sub")

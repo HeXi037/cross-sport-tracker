@@ -3,6 +3,8 @@ import sys
 import asyncio
 import uuid
 import secrets
+from datetime import datetime, timedelta
+import jwt
 import pytest
 from sqlalchemy import select
 
@@ -292,3 +294,31 @@ def test_me_endpoints():
             "/auth/login", json={"username": "meuser2", "password": "NewStr0ng!Pass!"}
         )
         assert good_login.status_code == 200
+
+
+def test_expired_token():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup", json={"username": "expired", "password": "Str0ng!Pass!"}
+        )
+        assert resp.status_code == 200
+        token = resp.json()["access_token"]
+        payload = jwt.decode(
+            token, auth.get_jwt_secret(), algorithms=[auth.JWT_ALG]
+        )
+        expired_token = jwt.encode(
+            {
+                "sub": payload["sub"],
+                "username": payload.get("username"),
+                "is_admin": payload.get("is_admin"),
+                "exp": datetime.utcnow() - timedelta(seconds=1),
+            },
+            auth.get_jwt_secret(),
+            algorithm=auth.JWT_ALG,
+        )
+        res = client.get(
+            "/auth/me", headers={"Authorization": f"Bearer {expired_token}"}
+        )
+        assert res.status_code == 401
+        assert res.json()["detail"] == "token expired"

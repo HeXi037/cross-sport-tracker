@@ -586,3 +586,51 @@ async def test_create_match_preserves_naive_date(tmp_path):
     match = await session.get(Match, mid)
     assert match is not None
     assert match.played_at.isoformat() == "2024-01-01T00:00:00"
+
+
+@pytest.mark.anyio
+async def test_user_with_multiple_player_records_can_modify_match(tmp_path):
+  os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
+  from app import db
+  from app.models import Match, MatchParticipant, Player, ScoreEvent, User
+  from app.schemas import EventIn
+  from app.routers import matches
+  from app.scoring import padel
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+        db.Base.metadata.create_all,
+        tables=[Match.__table__, MatchParticipant.__table__, ScoreEvent.__table__, Player.__table__],
+    )
+
+  async def dummy_broadcast(mid: str, message: dict) -> None:
+    return None
+
+  matches.broadcast = dummy_broadcast
+  matches.importlib.import_module = lambda *args, **kwargs: padel
+
+  async with db.AsyncSessionLocal() as session:
+    user = User(id="u1", username="user", password_hash="", is_admin=False)
+    session.add_all(
+        [
+            Player(id="p1", user_id="u1", name="P1"),
+            Player(id="p2", user_id="u1", name="P2"),
+            Match(id="m1", sport_id="padel"),
+            MatchParticipant(id="mp1", match_id="m1", side="A", player_ids=["p1"]),
+        ]
+    )
+    await session.commit()
+
+    await matches.append_event("m1", EventIn(type="POINT", by="A"), session=session, user=user)
+    events = (
+        await session.execute(select(ScoreEvent).where(ScoreEvent.match_id == "m1"))
+    ).scalars().all()
+    assert len(events) == 1
+    await matches.delete_match("m1", session=session, user=user)
+    deleted_at = (
+        await session.execute(select(Match.deleted_at).where(Match.id == "m1"))
+    ).scalar_one()
+    assert deleted_at is not None

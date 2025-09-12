@@ -22,6 +22,9 @@ import logging
 import os
 
 
+logger = logging.getLogger(__name__)
+
+
 ALLOWED_ORIGINS = [
     o.strip()
     for o in os.getenv("ALLOWED_ORIGINS", "*").split(",")
@@ -92,12 +95,8 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    logging.exception("Unhandled exception", exc_info=exc)
-    problem = ProblemDetail(
-        title="Internal Server Error",
-        status=500,
-        detail="An unexpected error occurred",
-    )
+    logger.error("Unhandled exception", exc_info=(type(exc), exc, exc.__traceback__))
+    problem = ProblemDetail(title="Internal Server Error", status=500, detail=str(exc))
     return JSONResponse(
         status_code=500,
         content=problem.model_dump(),

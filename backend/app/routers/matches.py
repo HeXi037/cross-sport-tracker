@@ -25,7 +25,6 @@ from .streams import broadcast
 from ..scoring import padel as padel_engine, tennis as tennis_engine
 from ..services.validation import validate_set_scores, ValidationError
 from ..services import update_ratings, update_player_metrics
-from .admin import require_admin
 from .auth import get_current_user
 
 # Resource-only prefix; versioning is added in main.py
@@ -214,11 +213,26 @@ async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
 async def delete_match(
     mid: str,
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(require_admin),
+    user: User = Depends(get_current_user),
 ):
     m = await session.get(Match, mid)
     if not m or m.deleted_at is not None:
         raise HTTPException(404, "match not found")
+
+    try:
+        parts = (
+            await session.execute(
+                select(MatchParticipant).where(MatchParticipant.match_id == mid)
+            )
+        ).scalars().all()
+    except Exception:
+        parts = []
+    if not user.is_admin:
+        player = (
+            await session.execute(select(Player).where(Player.user_id == user.id))
+        ).scalar_one_or_none()
+        if not player or not any(player.id in p.player_ids for p in parts):
+            raise HTTPException(status_code=403, detail="forbidden")
 
     sport_id = m.sport_id
     m.deleted_at = func.now()
@@ -285,11 +299,23 @@ async def append_event(
     mid: str,
     ev: EventIn,
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(require_admin),
+    user: User = Depends(get_current_user),
 ):
     m = (await session.execute(select(Match).where(Match.id == mid))).scalar_one_or_none()
     if not m:
         raise HTTPException(404, "match not found")
+
+    parts = (
+        await session.execute(
+            select(MatchParticipant).where(MatchParticipant.match_id == mid)
+        )
+    ).scalars().all()
+    if not user.is_admin:
+        player = (
+            await session.execute(select(Player).where(Player.user_id == user.id))
+        ).scalar_one_or_none()
+        if not player or not any(player.id in p.player_ids for p in parts):
+            raise HTTPException(status_code=403, detail="forbidden")
 
     try:
         engine = importlib.import_module(f"..scoring.{m.sport_id}", package="backend.app")
@@ -329,13 +355,28 @@ async def record_sets_endpoint(
     mid: str,
     body: SetsIn,
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(require_admin),
+    user: User = Depends(get_current_user),
 ):
     m = (await session.execute(select(Match).where(Match.id == mid))).scalar_one_or_none()
     if not m:
         raise HTTPException(404, "match not found")
     if m.sport_id not in ("padel", "tennis"):
         raise HTTPException(400, "set recording only supported for padel or tennis")
+
+    try:
+        parts = (
+            await session.execute(
+                select(MatchParticipant).where(MatchParticipant.match_id == mid)
+            )
+        ).scalars().all()
+    except Exception:
+        parts = []
+    if not user.is_admin:
+        player = (
+            await session.execute(select(Player).where(Player.user_id == user.id))
+        ).scalar_one_or_none()
+        if not player or not any(player.id in p.player_ids for p in parts):
+            raise HTTPException(status_code=403, detail="forbidden")
 
     # Validate set scores before applying them.
     # Normalize Pydantic models, dicts, or 2-item tuples into list[dict] for the validator.
@@ -374,14 +415,6 @@ async def record_sets_endpoint(
         session.add(e)
 
     m.details = engine.summary(state)
-    try:
-        parts = (
-            await session.execute(
-                select(MatchParticipant).where(MatchParticipant.match_id == mid)
-            )
-        ).scalars().all()
-    except Exception:
-        parts = []
     players_a = [pid for p in parts if p.side == "A" for pid in p.player_ids]
     players_b = [pid for p in parts if p.side == "B" for pid in p.player_ids]
     sets = m.details.get("sets") if m.details else None

@@ -84,9 +84,16 @@ export default function RecordPadelPage() {
       return;
     }
 
+    const sideA = [ids.a1, ids.a2].filter(Boolean);
+    const sideB = [ids.b1, ids.b2].filter(Boolean);
+    if (!sideA.length || !sideB.length) {
+      setError("Select at least one player for each side");
+      return;
+    }
+
     const participants = [
-      { side: "A", playerIds: [ids.a1, ids.a2].filter(Boolean) },
-      { side: "B", playerIds: [ids.b1, ids.b2].filter(Boolean) },
+      { side: "A", playerIds: sideA },
+      { side: "B", playerIds: sideB },
     ];
 
     try {

@@ -321,8 +321,16 @@ async def player_stats(
 
     a_sets = Match.details["sets"]["A"].as_integer()
     b_sets = Match.details["sets"]["B"].as_integer()
-    winner = case((a_sets > b_sets, literal("A")), (b_sets > a_sets, literal("B")), else_=literal(None))
-    is_win = case((winner == mp.side, 1), else_=0)
+    winner = case(
+        (a_sets > b_sets, literal("A")),
+        (b_sets > a_sets, literal("B")),
+        else_=literal(None),
+    )
+    is_win = case(
+        (winner == mp.side, 1),
+        (winner.is_(None), None),
+        else_=0,
+    )
 
     pm = (
         select(
@@ -340,6 +348,7 @@ async def player_stats(
         .join(self_ids, true())
         .where(self_ids.c.value == player_id)
         .where(Match.deleted_at.is_(None))
+        .where(winner.is_not(None))
     ).cte("pm")
 
     rows = (

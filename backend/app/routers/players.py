@@ -2,9 +2,10 @@ import uuid
 from pathlib import Path
 from collections import defaultdict
 from fastapi import APIRouter, Depends, Response, HTTPException, UploadFile, File, Query
-from sqlalchemy import select, func
+from sqlalchemy import select, func, case, literal, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import aliased
 
 from ..db import get_session
 from ..models import (
@@ -33,7 +34,6 @@ from ..schemas import (
 )
 from ..exceptions import ProblemDetail, PlayerAlreadyExists, PlayerNotFound
 from ..services import (
-    compute_sport_format_stats,
     compute_streaks,
     rolling_win_percentage,
 )
@@ -305,20 +305,6 @@ async def delete_player(
     await session.commit()
     return Response(status_code=204)
 
-def _winner_from_summary(summary: dict | None) -> str | None:
-    if not summary:
-        return None
-    for key in ("sets", "points", "games", "total", "score"):
-        val = summary.get(key)
-        if isinstance(val, dict):
-            a = val.get("A")
-            b = val.get("B")
-            if isinstance(a, (int, float)) and isinstance(b, (int, float)):
-                if a > b:
-                    return "A"
-                if b > a:
-                    return "B"
-    return None
 
 @router.get("/{player_id}/stats", response_model=PlayerStatsOut)
 async def player_stats(
@@ -330,60 +316,107 @@ async def player_stats(
     if not p:
         raise PlayerNotFound(player_id)
 
-    stmt = select(Match, MatchParticipant).join(MatchParticipant).where(
-        Match.deleted_at.is_(None)
-    )
-    rows = [
-        r
-        for r in (await session.execute(stmt)).all()
-        if player_id in r.MatchParticipant.player_ids
-    ]
-    rows.sort(key=lambda r: (r.Match.played_at, r.Match.id))
+    mp = aliased(MatchParticipant)
+    self_ids = func.json_each(mp.player_ids).table_valued("value").alias("self_ids")
+
+    a_sets = Match.details["sets"]["A"].as_integer()
+    b_sets = Match.details["sets"]["B"].as_integer()
+    winner = case((a_sets > b_sets, literal("A")), (b_sets > a_sets, literal("B")), else_=literal(None))
+    is_win = case((winner == mp.side, 1), else_=0)
+
+    pm = (
+        select(
+            Match.id.label("match_id"),
+            Match.sport_id,
+            Match.played_at,
+            mp.id.label("mp_id"),
+            mp.side,
+            mp.player_ids,
+            func.json_array_length(mp.player_ids).label("team_size"),
+            is_win.label("is_win"),
+        )
+        .select_from(mp)
+        .join(Match, Match.id == mp.match_id)
+        .join(self_ids, true())
+        .where(self_ids.c.value == player_id)
+        .where(Match.deleted_at.is_(None))
+    ).cte("pm")
+
+    rows = (
+        await session.execute(
+            select(pm).order_by(pm.c.played_at, pm.c.match_id)
+        )
+    ).all()
     if not rows:
         return PlayerStatsOut(playerId=player_id)
 
-    match_ids = [r.Match.id for r in rows]
-    parts = (
-        await session.execute(
-            select(MatchParticipant).where(
-                MatchParticipant.match_id.in_(match_ids)
+    results = [bool(r.is_win) for r in rows]
+
+    tm = func.json_each(pm.c.player_ids).table_valued("value").alias("tm")
+    team_stmt = (
+        select(
+            tm.c.value.label("pid"),
+            func.count().label("total"),
+            func.sum(pm.c.is_win).label("wins"),
+        )
+        .select_from(pm)
+        .join(tm, true())
+        .where(tm.c.value != player_id)
+        .group_by(tm.c.value)
+    )
+    opp_mp = aliased(MatchParticipant)
+    opp_ids = func.json_each(opp_mp.player_ids).table_valued("value").alias("opp_ids")
+    opp_stmt = (
+        select(
+            opp_ids.c.value.label("pid"),
+            func.count().label("total"),
+            func.sum(pm.c.is_win).label("wins"),
+        )
+        .select_from(pm)
+        .join(opp_mp, opp_mp.match_id == pm.c.match_id)
+        .join(opp_ids, true())
+        .where(opp_mp.id != pm.c.mp_id)
+        .group_by(opp_ids.c.value)
+    )
+
+    team_rows = (await session.execute(team_stmt)).all()
+    opp_rows = (await session.execute(opp_stmt)).all()
+
+    team_stats: dict[str, dict[str, int]] = {
+        row.pid: {"wins": row.wins or 0, "total": row.total}
+        for row in team_rows
+    }
+    opp_stats: dict[str, dict[str, int]] = {
+        row.pid: {"wins": row.wins or 0, "total": row.total}
+        for row in opp_rows
+    }
+
+    sf_stmt = (
+        select(
+            pm.c.sport_id,
+            pm.c.team_size,
+            func.count().label("total"),
+            func.sum(pm.c.is_win).label("wins"),
+        )
+        .select_from(pm)
+        .group_by(pm.c.sport_id, pm.c.team_size)
+    )
+    sf_rows = (await session.execute(sf_stmt)).all()
+    sf_stats = []
+    for row in sf_rows:
+        wins = row.wins or 0
+        total = row.total
+        losses = total - wins
+        win_pct = wins / total if total else 0.0
+        sf_stats.append(
+            SportFormatStats(
+                sport=row.sport_id,
+                format={1: "singles", 2: "doubles"}.get(row.team_size, f"{row.team_size}-player"),
+                wins=wins,
+                losses=losses,
+                winPct=win_pct,
             )
         )
-    ).scalars().all()
-    match_to_parts = defaultdict(list)
-    for part in parts:
-        match_to_parts[part.match_id].append(part)
-
-    opp_stats: dict[str, dict[str, int]] = defaultdict(
-        lambda: {"wins": 0, "total": 0}
-    )
-    team_stats: dict[str, dict[str, int]] = defaultdict(
-        lambda: {"wins": 0, "total": 0}
-    )
-    results: list[bool] = []
-    match_summary: list[tuple[str, int, bool]] = []
-
-    for row in rows:
-        match, mp = row.Match, row.MatchParticipant
-        winner = _winner_from_summary(match.details)
-        if winner is None:
-            continue
-        is_win = winner == mp.side
-        results.append(is_win)
-        match_summary.append((match.sport_id, len(mp.player_ids), is_win))
-
-        teammates = [pid for pid in mp.player_ids if pid != player_id]
-        for tid in teammates:
-            team_stats[tid]["total"] += 1
-            if is_win:
-                team_stats[tid]["wins"] += 1
-
-        others = [p for p in match_to_parts[match.id] if p.id != mp.id]
-        opp_ids = [pid for part in others for pid in part.player_ids]
-        for oid in opp_ids:
-            opp_stats[oid]["total"] += 1
-            if is_win:
-                opp_stats[oid]["wins"] += 1
 
     needed_ids = set(list(opp_stats.keys()) + list(team_stats.keys()))
     if needed_ids:
@@ -420,17 +453,6 @@ async def player_stats(
         with_records = records
     else:
         with_records = []
-
-    sf_stats = [
-        SportFormatStats(
-            sport=s,
-            format={1: "singles", 2: "doubles"}.get(t, f"{t}-player"),
-            wins=val["wins"],
-            losses=val["losses"],
-            winPct=val["winPct"],
-        )
-        for (s, t), val in compute_sport_format_stats(match_summary).items()
-    ]
 
     streak_info = compute_streaks(results)
     streaks = StreakSummary(**streak_info)

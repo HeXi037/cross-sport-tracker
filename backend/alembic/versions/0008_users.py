@@ -1,8 +1,8 @@
 from alembic import op
 import sqlalchemy as sa
 
-revision = '0005_users'
-down_revision = '0004_soft_delete_columns'
+revision = '0008_users'
+down_revision = '0007_master_rating'
 branch_labels = None
 depends_on = None
 

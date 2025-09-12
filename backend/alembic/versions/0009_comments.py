@@ -1,10 +1,10 @@
 from alembic import op
 import sqlalchemy as sa
 
-revision = '0005_comments'
-down_revision = '0004_soft_delete_columns'
+revision = '0009_comments'
+down_revision = '0008_users'
 branch_labels = None
-depends_on = ('0005_users',)
+depends_on = None
 
 
 def upgrade():

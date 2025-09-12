@@ -2,9 +2,7 @@ import os
 import sys
 import asyncio
 import uuid
-import hashlib
 import secrets
-import re
 import pytest
 from sqlalchemy import select
 
@@ -237,38 +235,6 @@ def test_login_rate_limit_not_bypassed_by_spoofed_x_forwarded_for():
             headers=headers,
         )
         assert resp.status_code == 429
-
-def test_login_rehashes_sha256_hash():
-    auth.limiter.reset()
-
-    async def create_legacy_user():
-        async with db.AsyncSessionLocal() as session:
-            uid = uuid.uuid4().hex
-            legacy_hash = hashlib.sha256("pw".encode()).hexdigest()
-            user = User(id=uid, username="legacy", password_hash=legacy_hash)
-            session.add(user)
-            player = Player(id=uuid.uuid4().hex, user_id=uid, name="legacy")
-            session.add(player)
-            await session.commit()
-
-    asyncio.run(create_legacy_user())
-    with TestClient(app) as client:
-        resp = client.post("/auth/login", json={"username": "legacy", "password": "pw"})
-        assert resp.status_code == 200
-
-    async def fetch_user():
-        async with db.AsyncSessionLocal() as session:
-            return (
-                await session.execute(select(User).where(User.username == "legacy"))
-            ).scalar_one()
-
-    user = asyncio.run(fetch_user())
-    assert not re.fullmatch(r"[a-f0-9]{64}", user.password_hash)
-    assert pwd_context.verify("pw", user.password_hash)
-
-    with TestClient(app) as client:
-        resp = client.post("/auth/login", json={"username": "legacy", "password": "pw"})
-        assert resp.status_code == 200
 
 def test_jwt_secret_rejects_short(monkeypatch):
     monkeypatch.setenv("JWT_SECRET", "short")

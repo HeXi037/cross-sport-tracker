@@ -36,7 +36,8 @@ def rolling_win_percentage(results: Sequence[bool], span: int) -> list[float]:
 def plot_rolling_win_percentage(results: Sequence[bool], span: int):
     """Create a matplotlib chart of the rolling win percentage.
 
-    Returns ``None`` if matplotlib is unavailable."""
+    Returns a ``matplotlib.figure.Figure`` that has already been closed with
+    ``plt.close``. Returns ``None`` if matplotlib is unavailable."""
     if plt is None:
         return None
     pcts = rolling_win_percentage(results, span)
@@ -45,6 +46,7 @@ def plot_rolling_win_percentage(results: Sequence[bool], span: int):
     ax.set_xlabel("Match")
     ax.set_ylabel(f"Win % (last {span})")
     ax.set_ylim(0, 1)
+    plt.close(fig)
     return fig
 
 

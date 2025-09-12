@@ -4,8 +4,6 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
 
-const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
-
 interface Player {
   id: string;
   name: string;
@@ -45,13 +43,18 @@ export default function RecordPadelPage() {
   useEffect(() => {
     async function loadPlayers() {
       try {
-        const res = await fetch(`${base}/v0/players`);
+        const res = await apiFetch(`/v0/players`);
         if (res.ok) {
           const data = (await res.json()) as { players: Player[] };
           setPlayers(data.players || []);
+        } else if (res.status === 401) {
+          setError("Failed to load players");
+          router.push("/login");
+        } else {
+          setError("Failed to load players");
         }
       } catch {
-        // ignore errors
+        setError("Failed to load players");
       }
     }
     loadPlayers();

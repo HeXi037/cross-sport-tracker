@@ -124,4 +124,18 @@ describe("RecordPadelPage", () => {
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("shows error on unauthorized players request", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({ ok: false, status: 401 });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordPadelPage />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        /failed to load players/i,
+      ),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

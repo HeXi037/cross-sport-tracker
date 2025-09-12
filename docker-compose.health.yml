@@ -14,12 +14,12 @@ services:
       start_period: 20s
 
   web:
-    # web is a Node image; use Node to probe /
+    # web is a Node image; probe both / and /record/padel
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "node -e \"require('http').get('http://127.0.0.1:3000/',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\"",
+          "node -e \"const http=require('http');const paths=['/','/record/padel'];let pending=paths.length,err=0;paths.forEach(p=>http.get('http://127.0.0.1:3000'+p,r=>{if(r.statusCode!==200)err=1;if(--pending===0)process.exit(err)}).on('error',()=>{err=1;if(--pending===0)process.exit(err)}));\"",
         ]
       interval: 15s
       timeout: 3s

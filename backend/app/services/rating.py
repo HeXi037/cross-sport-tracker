@@ -3,7 +3,7 @@ from typing import Sequence
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Rating, MatchParticipant, Match
+from ..models import Rating, MatchParticipant, Match, ScoreEvent
 
 K_FACTOR = 32.0
 
@@ -13,6 +13,7 @@ async def update_ratings(
     winners: Sequence[str],
     losers: Sequence[str],
     draws: Sequence[str] | None = None,
+    match_id: str | None = None,
     k: float = K_FACTOR,
 ) -> None:
     """Update player ratings using a basic MMR/Elo system.
@@ -70,3 +71,14 @@ async def update_ratings(
         rating_map[pid].value += k_map[pid] * (win_score - expected_win)
     for pid in losers:
         rating_map[pid].value += k_map[pid] * (lose_score - (1 - expected_win))
+
+    if match_id:
+        for pid in ids:
+            session.add(
+                ScoreEvent(
+                    id=uuid.uuid4().hex,
+                    match_id=match_id,
+                    type="RATING",
+                    payload={"playerId": pid, "rating": rating_map[pid].value},
+                )
+            )

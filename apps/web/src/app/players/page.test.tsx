@@ -43,15 +43,18 @@ describe("PlayersPage", () => {
   });
 
   it("filters players by search input", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        players: [
-          { id: "1", name: "Alice" },
-          { id: "2", name: "Bob" },
-        ],
-      }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          players: [
+            { id: "1", name: "Alice" },
+            { id: "2", name: "Bob" },
+          ],
+        }),
+      })
+      .mockResolvedValue({ ok: true, json: async () => [] });
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
@@ -70,15 +73,18 @@ describe("PlayersPage", () => {
   });
 
   it("filters out Albert accounts", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        players: [
-          { id: "1", name: "Albert" },
-          { id: "2", name: "Bob" },
-        ],
-      }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          players: [
+            { id: "1", name: "Albert" },
+            { id: "2", name: "Bob" },
+          ],
+        }),
+      })
+      .mockResolvedValue({ ok: true, json: async () => [] });
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
@@ -90,15 +96,18 @@ describe("PlayersPage", () => {
   });
 
   it("shows a message when no players match the search", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        players: [
-          { id: "1", name: "Alice" },
-          { id: "2", name: "Bob" },
-        ],
-      }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          players: [
+            { id: "1", name: "Alice" },
+            { id: "2", name: "Bob" },
+          ],
+        }),
+      })
+      .mockResolvedValue({ ok: true, json: async () => [] });
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
@@ -157,6 +166,7 @@ describe("PlayersPage", () => {
         ok: true,
         json: async () => ({ players: [{ id: "1", name: "Alice" }] }),
       })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
       .mockResolvedValueOnce({ ok: true })
       .mockResolvedValueOnce({
         ok: true,

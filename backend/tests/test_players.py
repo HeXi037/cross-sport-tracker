@@ -75,7 +75,12 @@ def admin_token(client: TestClient) -> str:
 def test_list_players_pagination() -> None:
     with TestClient(app) as client:
         token = admin_token(client)
-        base_total = client.get("/players").json().get("total", 0)
+        default_resp = client.get("/players")
+        assert default_resp.status_code == 200
+        default_data = default_resp.json()
+        base_total = default_data.get("total", 0)
+        assert default_data["limit"] == 50
+        assert default_data["offset"] == 0
         for i in range(5):
             resp = client.post(
                 "/players",

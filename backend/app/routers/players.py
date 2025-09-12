@@ -1,7 +1,7 @@
 import uuid
 from pathlib import Path
 from collections import defaultdict
-from fastapi import APIRouter, Depends, Response, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, Response, HTTPException, UploadFile, File, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
@@ -86,8 +86,8 @@ async def create_player(
 @router.get("", response_model=PlayerListOut)
 async def list_players(
     q: str = "",
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     session: AsyncSession = Depends(get_session),
 ):
     stmt = select(Player).where(Player.deleted_at.is_(None))

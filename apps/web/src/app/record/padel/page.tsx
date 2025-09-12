@@ -44,17 +44,13 @@ export default function RecordPadelPage() {
     async function loadPlayers() {
       try {
         const res = await apiFetch(`/v0/players`);
-        if (res.ok) {
-          const data = (await res.json()) as { players: Player[] };
-          setPlayers(data.players || []);
-        } else if (res.status === 401) {
-          setError("Failed to load players");
-          router.push("/login");
-        } else {
-          setError("Failed to load players");
-        }
-      } catch {
+        const data = (await res.json()) as { players: Player[] };
+        setPlayers(data.players || []);
+      } catch (err: any) {
         setError("Failed to load players");
+        if (err?.status === 401) {
+          router.push("/login");
+        }
       }
     }
     loadPlayers();
@@ -119,7 +115,6 @@ export default function RecordPadelPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) return;
       const data = (await res.json()) as { id: string };
       const setPayload = {
         sets: sets

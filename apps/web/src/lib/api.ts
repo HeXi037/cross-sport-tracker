@@ -20,7 +20,14 @@ export async function apiFetch(path: string, init?: RequestInit) {
     if (token) headers.set("Authorization", `Bearer ${token}`);
   }
   try {
-    return await fetch(apiUrl(path), { ...init, headers });
+    const res = await fetch(apiUrl(path), { ...init, headers });
+    if (!res.ok) {
+      const text = await res.text();
+      const err = new Error(`HTTP ${res.status}: ${text}`);
+      (err as any).status = res.status;
+      throw err;
+    }
+    return res;
   } catch (err) {
     console.error("API request failed", err);
     throw err;
@@ -77,7 +84,6 @@ export function isAdmin(): boolean {
 
 export async function fetchMe() {
   const res = await apiFetch("/v0/auth/me");
-  if (!res.ok) throw new Error("Failed to load profile");
   return res.json();
 }
 
@@ -90,6 +96,5 @@ export async function updateMe(data: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error("Failed to update profile");
   return res.json();
 }

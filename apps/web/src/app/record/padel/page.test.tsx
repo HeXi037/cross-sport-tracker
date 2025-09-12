@@ -126,7 +126,9 @@ describe("RecordPadelPage", () => {
   });
 
   it("shows error on unauthorized players request", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce({ ok: false, status: 401 });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 401, text: async () => "" });
     global.fetch = fetchMock as typeof fetch;
 
     render(<RecordPadelPage />);

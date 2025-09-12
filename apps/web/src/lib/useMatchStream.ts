@@ -47,9 +47,7 @@ export function useMatchStream(id: string) {
           const res = (await apiFetch(
             `/v0/matches/${encodeURIComponent(id)}`
           )) as Response;
-          if (res.ok) {
-            setEvent((await res.json()) as MatchEvent);
-          }
+          setEvent((await res.json()) as MatchEvent);
         } catch (err) {
           console.error("polling failed", err);
         }

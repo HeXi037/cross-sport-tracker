@@ -9,6 +9,7 @@ vi.mock("next/navigation", () => ({
 describe("RecordPadelPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    window.localStorage.clear();
   });
 
   it("creates match and records set scores", async () => {
@@ -123,6 +124,42 @@ describe("RecordPadelPage", () => {
       ),
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("includes auth token in API requests", async () => {
+    window.localStorage.setItem("token", "tkn");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          players: [
+            { id: "p1", name: "A" },
+            { id: "p2", name: "B" },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "m1" }) });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordPadelPage />);
+
+    await waitFor(() => screen.getByLabelText("Player A1"));
+
+    fireEvent.change(screen.getByLabelText("Player A1"), {
+      target: { value: "p1" },
+    });
+    fireEvent.change(screen.getByLabelText("Player B1"), {
+      target: { value: "p2" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    fetchMock.mock.calls.forEach(([_, init]) => {
+      const headers = init?.headers as Headers;
+      expect(headers.get("Authorization")).toBe("Bearer tkn");
+    });
   });
 
   it("shows error on unauthorized players request", async () => {

@@ -1,6 +1,4 @@
 import os
-import re
-import hashlib
 import uuid
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
@@ -120,14 +118,7 @@ async def login(
   ).scalar_one_or_none()
   if not user:
     raise HTTPException(status_code=401, detail="invalid credentials")
-  stored = user.password_hash
-  if re.fullmatch(r"[a-f0-9]{64}", stored):
-    if hashlib.sha256(body.password.encode()).hexdigest() != stored:
-      raise HTTPException(status_code=401, detail="invalid credentials")
-    user.password_hash = pwd_context.hash(body.password)
-    await session.commit()
-    stored = user.password_hash
-  if not pwd_context.verify(body.password, stored):
+  if not pwd_context.verify(body.password, user.password_hash):
     raise HTTPException(status_code=401, detail="invalid credentials")
   token = create_token(user)
   return TokenOut(access_token=token)

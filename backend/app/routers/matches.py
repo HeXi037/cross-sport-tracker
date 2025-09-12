@@ -280,12 +280,15 @@ async def delete_match(
                     players_a,
                     players_b,
                     draws=players_a + players_b,
+                    match_id=match.id,
                 )
             else:
                 winner_side = "A" if sets["A"] > sets["B"] else "B"
                 winners = players_a if winner_side == "A" else players_b
                 losers = players_b if winner_side == "A" else players_a
-                await update_ratings(session, match.sport_id, winners, losers)
+                await update_ratings(
+                    session, match.sport_id, winners, losers, match_id=match.id
+                )
         await session.commit()
     except Exception:
         # Ignore errors (e.g., rating tables may not exist in some tests)
@@ -428,6 +431,7 @@ async def record_sets_endpoint(
                     players_a,
                     players_b,
                     draws=draws,
+                    match_id=mid,
                 )
             except Exception:
                 pass
@@ -439,7 +443,9 @@ async def record_sets_endpoint(
             winners = players_a if winner_side == "A" else players_b
             losers = players_b if winner_side == "A" else players_a
             try:
-                await update_ratings(session, m.sport_id, winners, losers)
+                await update_ratings(
+                    session, m.sport_id, winners, losers, match_id=mid
+                )
             except Exception:
                 pass
             await update_player_metrics(

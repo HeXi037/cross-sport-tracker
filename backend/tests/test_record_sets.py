@@ -15,10 +15,11 @@ from sqlalchemy.pool import StaticPool
 from sqlalchemy import select
 
 from backend.app.db import Base, get_session
-from backend.app.models import Match, Sport, ScoreEvent
+from backend.app.models import Match, Sport, ScoreEvent, MatchParticipant, User
 from backend.app.routers import matches
 from backend.app.scoring import padel
 from backend.app.routers.admin import require_admin
+from backend.app.routers.auth import get_current_user
 
 
 @pytest.fixture()
@@ -37,6 +38,7 @@ def client_and_session():
         async with engine.begin() as conn:
             await conn.run_sync(Sport.__table__.create)
             await conn.run_sync(Match.__table__.create)
+            await conn.run_sync(MatchParticipant.__table__.create)
             await conn.run_sync(ScoreEvent.__table__.create)
 
     asyncio.run(init_models())
@@ -55,6 +57,9 @@ def client_and_session():
     app.include_router(matches.router)
     app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[require_admin] = lambda: None
+    app.dependency_overrides[get_current_user] = lambda: User(
+        id="u", username="u", password_hash="", is_admin=True
+    )
 
     with TestClient(app) as client:
         yield client, async_session_maker

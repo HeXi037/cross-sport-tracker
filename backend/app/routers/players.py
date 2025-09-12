@@ -317,7 +317,12 @@ async def player_stats(
         raise PlayerNotFound(player_id)
 
     mp = aliased(MatchParticipant)
-    self_ids = func.json_each(mp.player_ids).table_valued("value").alias("self_ids")
+    is_sqlite = session.bind.dialect.name == "sqlite"
+    json_each = func.json_each if is_sqlite else func.jsonb_each
+    json_array_length = (
+        func.json_array_length if is_sqlite else func.jsonb_array_length
+    )
+    self_ids = json_each(mp.player_ids).table_valued("value").alias("self_ids")
 
     a_sets = Match.details["sets"]["A"].as_integer()
     b_sets = Match.details["sets"]["B"].as_integer()
@@ -340,7 +345,7 @@ async def player_stats(
             mp.id.label("mp_id"),
             mp.side,
             mp.player_ids,
-            func.json_array_length(mp.player_ids).label("team_size"),
+            json_array_length(mp.player_ids).label("team_size"),
             is_win.label("is_win"),
         )
         .select_from(mp)
@@ -361,7 +366,7 @@ async def player_stats(
 
     results = [bool(r.is_win) for r in rows]
 
-    tm = func.json_each(pm.c.player_ids).table_valued("value").alias("tm")
+    tm = json_each(pm.c.player_ids).table_valued("value").alias("tm")
     team_stmt = (
         select(
             tm.c.value.label("pid"),
@@ -374,7 +379,7 @@ async def player_stats(
         .group_by(tm.c.value)
     )
     opp_mp = aliased(MatchParticipant)
-    opp_ids = func.json_each(opp_mp.player_ids).table_valued("value").alias("opp_ids")
+    opp_ids = json_each(opp_mp.player_ids).table_valued("value").alias("opp_ids")
     opp_stmt = (
         select(
             opp_ids.c.value.label("pid"),

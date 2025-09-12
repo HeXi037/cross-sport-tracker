@@ -318,11 +318,12 @@ async def player_stats(
 
     mp = aliased(MatchParticipant)
     is_sqlite = session.bind.dialect.name == "sqlite"
-    json_each = func.json_each if is_sqlite else func.jsonb_each
+    json_each = func.json_each if is_sqlite else func.jsonb_array_elements
     json_array_length = (
         func.json_array_length if is_sqlite else func.jsonb_array_length
     )
     self_ids = json_each(mp.player_ids).table_valued("value").alias("self_ids")
+    self_id_value = self_ids.c.value if is_sqlite else self_ids.c.value.astext
 
     a_sets = Match.details["sets"]["A"].as_integer()
     b_sets = Match.details["sets"]["B"].as_integer()
@@ -351,7 +352,7 @@ async def player_stats(
         .select_from(mp)
         .join(Match, Match.id == mp.match_id)
         .join(self_ids, true())
-        .where(self_ids.c.value == player_id)
+        .where(self_id_value == player_id)
         .where(Match.deleted_at.is_(None))
         .where(winner.is_not(None))
     ).cte("pm")
@@ -367,22 +368,24 @@ async def player_stats(
     results = [bool(r.is_win) for r in rows]
 
     tm = json_each(pm.c.player_ids).table_valued("value").alias("tm")
+    tm_pid = tm.c.value if is_sqlite else tm.c.value.astext
     team_stmt = (
         select(
-            tm.c.value.label("pid"),
+            tm_pid.label("pid"),
             func.count().label("total"),
             func.sum(pm.c.is_win).label("wins"),
         )
         .select_from(pm)
         .join(tm, true())
-        .where(tm.c.value != player_id)
-        .group_by(tm.c.value)
+        .where(tm_pid != player_id)
+        .group_by(tm_pid)
     )
     opp_mp = aliased(MatchParticipant)
     opp_ids = json_each(opp_mp.player_ids).table_valued("value").alias("opp_ids")
+    opp_pid = opp_ids.c.value if is_sqlite else opp_ids.c.value.astext
     opp_stmt = (
         select(
-            opp_ids.c.value.label("pid"),
+            opp_pid.label("pid"),
             func.count().label("total"),
             func.sum(pm.c.is_win).label("wins"),
         )
@@ -390,7 +393,7 @@ async def player_stats(
         .join(opp_mp, opp_mp.match_id == pm.c.match_id)
         .join(opp_ids, true())
         .where(opp_mp.id != pm.c.mp_id)
-        .group_by(opp_ids.c.value)
+        .group_by(opp_pid)
     )
 
     team_rows = (await session.execute(team_stmt)).all()

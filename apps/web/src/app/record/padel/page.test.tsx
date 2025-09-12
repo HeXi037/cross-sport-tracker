@@ -92,4 +92,36 @@ describe("RecordPadelPage", () => {
       ],
     });
   });
+
+  it("rejects submission with empty sides", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          players: [
+            { id: "p1", name: "A" },
+            { id: "p2", name: "B" },
+          ],
+        }),
+      });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordPadelPage />);
+
+    await waitFor(() => screen.getByLabelText("Player A1"));
+
+    fireEvent.change(screen.getByLabelText("Player A1"), {
+      target: { value: "p1" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        /select at least one player for each side/i,
+      ),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

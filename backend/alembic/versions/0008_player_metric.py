@@ -2,8 +2,8 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = '0008_player_metric'
-# Merge branch `0006_convert_player_ids_to_json` into main migration chain
-down_revision = ('0007_rehash_sha256_passwords', '0006_convert_player_ids_to_json')
+# Continue from the previous master_rating migration
+down_revision = '0007_master_rating'
 branch_labels = None
 depends_on = None
 

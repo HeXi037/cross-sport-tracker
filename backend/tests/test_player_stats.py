@@ -98,6 +98,61 @@ def seed(session_maker):
     asyncio.run(_seed())
 
 
+def seed_with_singles(session_maker):
+    async def _seed():
+        async with session_maker() as session:
+            session.add(Sport(id="padel", name="Padel"))
+            session.add_all(
+                [
+                    Player(id="p1", name="Alice"),
+                    Player(id="p2", name="Bob"),
+                    Player(id="p3", name="Cara"),
+                    Player(id="p4", name="Dan"),
+                ]
+            )
+            # Match 1: p1+p2 beat p3+p4
+            session.add(
+                Match(id="m1", sport_id="padel", details={"sets": {"A": 2, "B": 0}})
+            )
+            session.add(
+                MatchParticipant(
+                    id="mp1", match_id="m1", side="A", player_ids=["p1", "p2"]
+                )
+            )
+            session.add(
+                MatchParticipant(
+                    id="mp2", match_id="m1", side="B", player_ids=["p3", "p4"]
+                )
+            )
+            # Match 2: p1+p3 lose to p2+p4
+            session.add(
+                Match(id="m2", sport_id="padel", details={"sets": {"A": 0, "B": 2}})
+            )
+            session.add(
+                MatchParticipant(
+                    id="mp3", match_id="m2", side="A", player_ids=["p1", "p3"]
+                )
+            )
+            session.add(
+                MatchParticipant(
+                    id="mp4", match_id="m2", side="B", player_ids=["p2", "p4"]
+                )
+            )
+            # Match 3: singles p1 beats p3
+            session.add(
+                Match(id="m3", sport_id="padel", details={"sets": {"A": 2, "B": 1}})
+            )
+            session.add(
+                MatchParticipant(id="mp5", match_id="m3", side="A", player_ids=["p1"])
+            )
+            session.add(
+                MatchParticipant(id="mp6", match_id="m3", side="B", player_ids=["p3"])
+            )
+            await session.commit()
+
+    asyncio.run(_seed())
+
+
 def test_player_stats(client_and_session):
     client, session_maker = client_and_session
     seed(session_maker)
@@ -132,3 +187,18 @@ def test_player_stats(client_and_session):
     assert data["streaks"]["current"] == -1
     assert data["streaks"]["longestWin"] == 1
     assert data["streaks"]["longestLoss"] == 1
+
+
+def test_player_stats_with_singles(client_and_session):
+    client, session_maker = client_and_session
+    seed_with_singles(session_maker)
+
+    resp = client.get("/players/p1/stats")
+    assert resp.status_code == 200
+    data = resp.json()
+
+    sf = { (s["sport"], s["format"]): s for s in data["sportFormatStats"] }
+    assert sf[("padel", "doubles")]["wins"] == 1
+    assert sf[("padel", "doubles")]["losses"] == 1
+    assert sf[("padel", "singles")]["wins"] == 1
+    assert sf[("padel", "singles")]["losses"] == 0

@@ -19,7 +19,7 @@ Runtime: Python 3.12, Node 20, Postgres 16
 
 IDs & pagination: ULID strings, cursor-based pagination
 
-Auth: Credentials (username/password) for $0 email costs; magic-link later. JWT tokens require a high-entropy `JWT_SECRET` env var. Only bcrypt password hashes are supported; run migration `0007_rehash_sha256_passwords` and reset any flagged accounts before upgrading.
+Auth: Credentials (username/password) for $0 email costs; magic-link later. JWT tokens require a high-entropy `JWT_SECRET` env var. Only bcrypt password hashes are supported; run migration `0011_rehash_sha256_passwords` and reset any flagged accounts before upgrading.
 
 Multi-tenancy: Club-scoped (club_id on entities)
 

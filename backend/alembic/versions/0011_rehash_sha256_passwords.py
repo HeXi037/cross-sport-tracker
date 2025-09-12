@@ -2,8 +2,8 @@ from alembic import op
 import sqlalchemy as sa
 import re
 
-revision = '0007_rehash_sha256_passwords'
-down_revision = '0006_player_ids_to_json'
+revision = '0011_rehash_sha256_passwords'
+down_revision = '0010_convert_player_ids_to_json'
 branch_labels = None
 depends_on = None
 

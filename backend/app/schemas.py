@@ -42,7 +42,7 @@ class PlayerOut(BaseModel):
     ranking: Optional[int] = None
     metrics: Optional[Dict[str, Dict[str, int]]] = None
     milestones: Optional[Dict[str, List[str]]] = None
-    badges: List[BadgeOut] = []
+    badges: List[BadgeOut] = Field(default_factory=list)
 
 class PlayerNameOut(BaseModel):
     id: str
@@ -54,11 +54,6 @@ class PlayerListOut(BaseModel):
     total: int
     limit: int
     offset: int
-
-class PlayerNameOut(BaseModel):
-    id: str
-    name: str
-    photo_url: Optional[str] = None
 
 class LeaderboardEntryOut(BaseModel):
     rank: int
@@ -214,9 +209,9 @@ class PlayerStatsOut(BaseModel):
     worstAgainst: Optional[VersusRecord] = None
     bestWith: Optional[VersusRecord] = None
     worstWith: Optional[VersusRecord] = None
-    rollingWinPct: List[float] = []
-    sportFormatStats: List[SportFormatStats] = []
-    withRecords: List[VersusRecord] = []
+    rollingWinPct: List[float] = Field(default_factory=list)
+    sportFormatStats: List[SportFormatStats] = Field(default_factory=list)
+    withRecords: List[VersusRecord] = Field(default_factory=list)
     streaks: Optional[StreakSummary] = None
 
 
@@ -262,8 +257,8 @@ class MatchOut(BaseModel):
     bestOf: Optional[int] = None
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
-    participants: List[ParticipantOut] = []
-    events: List[ScoreEventOut] = []
+    participants: List[ParticipantOut] = Field(default_factory=list)
+    events: List[ScoreEventOut] = Field(default_factory=list)
     summary: Optional[Dict[str, Any]] = None
 
 

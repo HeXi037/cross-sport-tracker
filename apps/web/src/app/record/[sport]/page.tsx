@@ -38,9 +38,8 @@ export default function RecordSportPage() {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
-
-  // Padal is always doubles. Other sports default to singles unless specified.
   const [doubles, setDoubles] = useState(isPadel);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     async function loadPlayers() {
@@ -51,7 +50,7 @@ export default function RecordSportPage() {
           setPlayers(data.players || []);
         }
       } catch {
-        // ignore errors for this simple example
+        // ignore errors
       }
     }
     loadPlayers();
@@ -72,7 +71,6 @@ export default function RecordSportPage() {
   const handleToggle = (checked: boolean) => {
     setDoubles(checked);
     if (!checked) {
-      // Clear partner ids when switching to singles
       setIds((prev) => ({ ...prev, a2: "", b2: "" }));
     }
   };
@@ -80,6 +78,7 @@ export default function RecordSportPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (submitting) return;
 
     interface MatchParticipant {
       side: string;
@@ -88,6 +87,7 @@ export default function RecordSportPage() {
 
     let participants: MatchParticipant[] = [];
     let entries: { id: string; score: string }[] = [];
+
     if (isBowling) {
       entries = bowlingIds
         .map((id, idx) => ({ id, score: bowlingScores[idx] }))
@@ -129,42 +129,65 @@ export default function RecordSportPage() {
     }
 
     try {
-      interface MatchPayload {
-        sport: string;
-        participants: MatchParticipant[];
-        score?: number[];
-        playedAt?: string;
-        location?: string;
-      }
-      const score = isBowling
-        ? entries.map((e) => Number(e.score))
-        : [Number(scoreA), Number(scoreB)];
+      setSubmitting(true);
+      const playedAt = date
+        ? (time ? new Date(`${date}T${time}`).toISOString() : `${date}T00:00:00`)
+        : undefined;
 
-      const payload: MatchPayload = {
+      if (isBowling) {
+        // keep bowling IDs flow
+        const payload = {
+          sport,
+          participants,
+          score: entries.map((e) => Number(e.score)),
+          ...(playedAt ? { playedAt } : {}),
+          ...(location ? { location } : {}),
+        };
+        await apiFetch(`/v0/matches`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        router.push(`/matches`);
+        return;
+      }
+
+      // racket sports: switch to by-name
+      const byId = new Map(players.map((p) => [p.id, p.name]));
+      const teamA = [ids.a1, ids.a2].filter(Boolean).map((id) => byId.get(id) || "");
+      const teamB = [ids.b1, ids.b2].filter(Boolean).map((id) => byId.get(id) || "");
+
+      if (!teamA.length || !teamB.length) {
+        setError("Please select players for both sides.");
+        return;
+      }
+
+      const A = Number(scoreA);
+      const B = Number(scoreB);
+      const sets: [number, number][] =
+        Number.isFinite(A) && Number.isFinite(B) ? [[A, B]] : [];
+
+      const payload = {
         sport,
-        participants,
-        score,
+        createMissing: true,
+        teamA,
+        teamB,
+        sets,
+        ...(playedAt ? { playedAt } : {}),
+        ...(location ? { location } : {}),
       };
-      if (date) {
-        if (time) {
-          payload.playedAt = new Date(`${date}T${time}`).toISOString();
-        } else {
-          payload.playedAt = `${date}T00:00:00`;
-        }
-      }
-      if (location) {
-        payload.location = location;
-      }
-      const res = await apiFetch(`/v0/matches`, {
+
+      await apiFetch(`/v0/matches/by-name`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (res.ok) {
-        router.push(`/matches`);
-      }
-    } catch {
-      // ignore network errors in this simplified component
+      router.push(`/matches`);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to save. Please review players/scores and try again.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -330,9 +353,10 @@ export default function RecordSportPage() {
           </p>
         )}
 
-        <button type="submit">Save</button>
+        <button type="submit" disabled={submitting}>
+          {submitting ? "Saving..." : "Save"}
+        </button>
       </form>
     </main>
   );
 }
-

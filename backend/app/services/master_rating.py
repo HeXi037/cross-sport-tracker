@@ -62,3 +62,13 @@ async def update_master_ratings(session: AsyncSession) -> None:
                 MasterRating(id=uuid.uuid4().hex, player_id=pid, value=avg)
             )
 
+    await session.commit()
+
+    # Remove players that no longer have ratings
+    stale_ids = set(existing_map) - set(player_norms)
+    for pid in stale_ids:
+        await session.delete(existing_map[pid])
+
+    if stale_ids:
+        await session.commit()
+

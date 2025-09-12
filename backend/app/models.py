@@ -138,6 +138,14 @@ class User(Base):
     is_admin = Column(Boolean, nullable=False, default=False)
 
 
+class RefreshToken(Base):
+    __tablename__ = "refresh_token"
+    id = Column(String, primary_key=True)
+    user_id = Column(String, ForeignKey("user.id"), nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    revoked = Column(Boolean, nullable=False, default=False)
+
+
 class Comment(Base):
     __tablename__ = "comment"
     id = Column(String, primary_key=True)

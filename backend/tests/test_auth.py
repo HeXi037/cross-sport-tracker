@@ -19,7 +19,7 @@ from fastapi import FastAPI
 from slowapi.errors import RateLimitExceeded
 from fastapi.testclient import TestClient
 from app import db
-from app.models import User, Player, Club
+from app.models import User, Player, Club, RefreshToken
 from app.routers import auth, players
 from app.routers.auth import pwd_context
 
@@ -48,7 +48,12 @@ def setup_db():
         async with engine.begin() as conn:
             await conn.run_sync(
                 db.Base.metadata.create_all,
-                tables=[User.__table__, Player.__table__, Club.__table__],
+                tables=[
+                    User.__table__,
+                    Player.__table__,
+                    Club.__table__,
+                    RefreshToken.__table__,
+                ],
             )
     asyncio.run(init_models())
     yield
@@ -322,3 +327,35 @@ def test_expired_token():
         )
         assert res.status_code == 401
         assert res.json()["detail"] == "token expired"
+
+
+def test_refresh_and_revoke():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup", json={"username": "refresh", "password": "Str0ng!Pass!"}
+        )
+        assert resp.status_code == 200
+        tokens = resp.json()
+        refresh = tokens["refresh_token"]
+
+        resp = client.post("/auth/refresh", json={"refresh_token": refresh})
+        assert resp.status_code == 200
+        new_tokens = resp.json()
+        new_access = new_tokens["access_token"]
+        new_refresh = new_tokens["refresh_token"]
+
+        # old refresh token should no longer work
+        resp = client.post("/auth/refresh", json={"refresh_token": refresh})
+        assert resp.status_code == 401
+
+        # new access token allows access to protected endpoint
+        headers = {"Authorization": f"Bearer {new_access}"}
+        resp = client.get("/auth/me", headers=headers)
+        assert resp.status_code == 200
+
+        # revoke refresh token and ensure it cannot be used
+        resp = client.post("/auth/revoke", json={"refresh_token": new_refresh})
+        assert resp.status_code == 200
+        resp = client.post("/auth/refresh", json={"refresh_token": new_refresh})
+        assert resp.status_code == 401

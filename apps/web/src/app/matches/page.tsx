@@ -67,12 +67,33 @@ async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
     if (r.ok) {
       const players = (await r.json()) as {
         id: string;
-        name: string;
+        name?: string;
         photo_url?: string | null;
       }[];
+      const remaining = new Set(idList);
+      const missing: string[] = [];
       players.forEach((p) => {
-        if (p.id && p.name) idToPlayer.set(p.id, p);
+        if (p.id) {
+          remaining.delete(p.id);
+          if (p.name) {
+            idToPlayer.set(p.id, p as PlayerInfo);
+          } else {
+            missing.push(p.id);
+            idToPlayer.set(p.id, { id: p.id, name: "Unknown" });
+          }
+        }
       });
+      if (remaining.size) {
+        missing.push(...Array.from(remaining));
+        remaining.forEach((id) =>
+          idToPlayer.set(id, { id, name: "Unknown" })
+        );
+      }
+      if (missing.length) {
+        console.warn(
+          `Player names missing for ids: ${missing.join(", ")}`
+        );
+      }
     }
   }
 
@@ -80,7 +101,9 @@ async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
     const participants = detail.participants
       .slice()
       .sort((a, b) => a.side.localeCompare(b.side))
-      .map((p) => p.playerIds.map((id) => idToPlayer.get(id) ?? { id, name: id }));
+      .map((p) =>
+        p.playerIds.map((id) => idToPlayer.get(id) ?? { id, name: "Unknown" })
+      );
     return { ...row, participants, summary: detail.summary };
   });
 }

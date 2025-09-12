@@ -51,9 +51,30 @@ export async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> 
     );
     if (r.ok) {
       const players = (await r.json()) as PlayerInfo[];
+      const remaining = new Set(idList);
+      const missing: string[] = [];
       players.forEach((p) => {
-        if (p.id && p.name) idToPlayer.set(p.id, p);
+        if (p.id) {
+          remaining.delete(p.id);
+          if (p.name) {
+            idToPlayer.set(p.id, p);
+          } else {
+            missing.push(p.id);
+            idToPlayer.set(p.id, { id: p.id, name: 'Unknown' });
+          }
+        }
       });
+      if (remaining.size) {
+        missing.push(...Array.from(remaining));
+        remaining.forEach((id) =>
+          idToPlayer.set(id, { id, name: 'Unknown' })
+        );
+      }
+      if (missing.length) {
+        console.warn(
+          `Player names missing for ids: ${missing.join(', ')}`
+        );
+      }
     }
   }
 
@@ -61,7 +82,7 @@ export async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> 
     const players: Record<string, PlayerInfo[]> = {};
     for (const p of detail.participants) {
       players[p.side] = p.playerIds.map(
-        (id) => idToPlayer.get(id) ?? { id, name: id }
+        (id) => idToPlayer.get(id) ?? { id, name: 'Unknown' }
       );
     }
     return { ...row, players };

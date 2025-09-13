@@ -30,20 +30,20 @@ async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
     await conn.run_sync(Player.__table__.create)
 
   async with db.AsyncSessionLocal() as session:
-    session.add(Player(id="p1", name="Alice"))
+    session.add(Player(id="p1", name="alice"))
     await session.commit()
     body = MatchCreateByName(
         sport="padel",
         participants=[
             ParticipantByName(side="A", playerNames=["Alice"]),
-            ParticipantByName(side="B", playerNames=["Alice"]),
+            ParticipantByName(side="B", playerNames=["ALICE"]),
         ],
     )
     admin = User(id="u1", username="admin", password_hash="", is_admin=True)
     with pytest.raises(HTTPException) as exc:
       await create_match_by_name(body, session, user=admin)
     assert exc.value.status_code == 400
-    assert exc.value.detail == "duplicate players: Alice"
+    assert exc.value.detail == "duplicate players: alice"
 
 
 @pytest.mark.anyio
@@ -76,6 +76,44 @@ async def test_create_match_rejects_duplicate_players(tmp_path):
       await create_match(body, session, user=admin)
     assert exc.value.status_code == 400
     assert exc.value.detail == "duplicate players"
+
+
+@pytest.mark.anyio
+async def test_create_match_by_name_is_case_insensitive(tmp_path):
+  os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
+  from app import db
+  from app.models import Player, Sport, Match, MatchParticipant, User
+  from app.schemas import MatchCreateByName, ParticipantByName
+  from app.routers.matches import create_match_by_name
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+      db.Base.metadata.create_all,
+      tables=[Player.__table__, Sport.__table__, Match.__table__, MatchParticipant.__table__],
+    )
+
+  async with db.AsyncSessionLocal() as session:
+    session.add_all([
+      Player(id="p1", name="alice"),
+      Player(id="p2", name="bob"),
+      Sport(id="padel", name="Padel"),
+    ])
+    await session.commit()
+    body = MatchCreateByName(
+      sport="padel",
+      participants=[
+        ParticipantByName(side="A", playerNames=["Alice"]),
+        ParticipantByName(side="B", playerNames=["Bob"]),
+      ],
+    )
+    admin = User(id="u1", username="admin", password_hash="", is_admin=True)
+    resp = await create_match_by_name(body, session, user=admin)
+    assert resp.id
+    m = await session.get(Match, resp.id)
+    assert m is not None
 
 
 @pytest.mark.anyio

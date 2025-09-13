@@ -17,6 +17,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
           pip install pytest
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/crosssport_test
+          PYTHONPATH: ${{ github.workspace }}
+        run: alembic upgrade head
       - name: Run tests
         env:
           PYTHONPATH: ${{ github.workspace }}

@@ -18,6 +18,4 @@ jobs:
           pip install -r backend/requirements.txt
           pip install pytest
       - name: Run tests
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: pytest -q
+        run: PYTHONPATH=$PYTHONPATH:. pytest -q

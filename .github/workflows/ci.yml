@@ -17,6 +17,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
           pip install pytest
+      - name: Run migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: sqlite+aiosqlite:///./ci.db
+        run: alembic upgrade head
       - name: Run tests
         env:
           PYTHONPATH: ${{ github.workspace }}

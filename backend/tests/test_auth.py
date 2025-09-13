@@ -124,6 +124,7 @@ def test_signup_login_and_protected_access():
     ],
 )
 def test_signup_rejects_invalid_password(username, password):
+    auth.limiter.reset()
     with TestClient(app) as client:
         resp = client.post(
             "/auth/signup", json={"username": username, "password": password}
@@ -131,6 +132,7 @@ def test_signup_rejects_invalid_password(username, password):
         assert resp.status_code == 422
 
 def test_signup_links_orphan_player():
+    auth.limiter.reset()
     pid = asyncio.run(create_player("charlie"))
     with TestClient(app) as client:
         resp = client.post(
@@ -154,6 +156,7 @@ def test_signup_links_orphan_player():
     assert len(same_name_players) == 1
 
 def test_signup_rejects_attached_player():
+    auth.limiter.reset()
     asyncio.run(create_player("dave", user_id="attached"))
     with TestClient(app) as client:
         resp = client.post(

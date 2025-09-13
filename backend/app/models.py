@@ -9,6 +9,7 @@ from sqlalchemy import (
     Float,
     Boolean,
     Text,
+    Index,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
@@ -35,12 +36,16 @@ class Player(Base):
     __tablename__ = "player"
     id = Column(String, primary_key=True)
     user_id = Column(String, nullable=True)
-    name = Column(String, nullable=False, unique=True)
+    name = Column(String, nullable=False)
     club_id = Column(String, ForeignKey("club.id"), nullable=True)
     photo_url = Column(String, nullable=True)
     location = Column(String, nullable=True)
     ranking = Column(Integer, nullable=True)
     deleted_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("uq_player_name_lower", func.lower(name), unique=True),
+    )
 
 
 class Badge(Base):

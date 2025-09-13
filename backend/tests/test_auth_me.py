@@ -47,7 +47,7 @@ def setup_db():
 def test_get_and_update_me():
     auth.limiter.reset()
     with TestClient(app) as client:
-        resp = client.post("/auth/signup", json={"username": "alice", "password": "Str0ng!Pass!"})
+        resp = client.post("/auth/signup", json={"username": "Alice", "password": "Str0ng!Pass!"})
         assert resp.status_code == 200
         token = resp.json()["access_token"]
 
@@ -57,19 +57,19 @@ def test_get_and_update_me():
 
         resp = client.put(
             "/auth/me",
-            json={"username": "alice2", "password": "N3w!LongPass"},
+            json={"username": "Alice2", "password": "N3w!LongPass"},
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 200
         new_token = resp.json()["access_token"]
 
         bad_login = client.post(
-            "/auth/login", json={"username": "alice", "password": "Str0ng!Pass!"}
+            "/auth/login", json={"username": "Alice", "password": "Str0ng!Pass!"}
         )
         assert bad_login.status_code == 401
 
         good_login = client.post(
-            "/auth/login", json={"username": "alice2", "password": "N3w!LongPass"}
+            "/auth/login", json={"username": "Alice2", "password": "N3w!LongPass"}
         )
         assert good_login.status_code == 200
 

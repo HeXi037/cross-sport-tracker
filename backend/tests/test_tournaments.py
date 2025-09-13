@@ -16,7 +16,6 @@ def anyio_backend():
 
 @pytest.mark.anyio
 async def test_tournament_crud(tmp_path):
-    os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
     from app import db
     from app.models import Sport, Tournament, Stage
     from app.routers import tournaments
@@ -52,7 +51,6 @@ async def test_tournament_crud(tmp_path):
 
 @pytest.mark.anyio
 async def test_stage_crud(tmp_path):
-    os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
     from app import db
     from app.models import Sport, Tournament, Stage
     from app.routers import tournaments

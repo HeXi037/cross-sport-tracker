@@ -17,7 +17,6 @@ def anyio_backend():
 
 @pytest.mark.anyio
 async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
-  os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from app import db
   from app.models import Player, User
   from app.schemas import MatchCreateByName, ParticipantByName
@@ -48,7 +47,6 @@ async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
 
 @pytest.mark.anyio
 async def test_create_match_rejects_duplicate_players(tmp_path):
-  os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from app import db
   from app.models import Match, MatchParticipant, Sport, User
   from app.schemas import MatchCreate, Participant
@@ -80,7 +78,6 @@ async def test_create_match_rejects_duplicate_players(tmp_path):
 
 @pytest.mark.anyio
 async def test_create_match_by_name_is_case_insensitive(tmp_path):
-  os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from app import db
   from app.models import Player, Sport, Match, MatchParticipant, User
   from app.schemas import MatchCreateByName, ParticipantByName
@@ -118,7 +115,6 @@ async def test_create_match_by_name_is_case_insensitive(tmp_path):
 
 @pytest.mark.anyio
 async def test_create_match_with_scores(tmp_path):
-  os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from app import db
   from app.models import Match, MatchParticipant, Sport, User
   from app.schemas import MatchCreate, Participant
@@ -150,7 +146,6 @@ async def test_create_match_with_scores(tmp_path):
 
 @pytest.mark.anyio
 async def test_create_match_normalizes_timezone(tmp_path):
-  os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
   from app import db
@@ -200,7 +195,6 @@ async def test_create_match_normalizes_timezone(tmp_path):
 
 @pytest.mark.anyio
 async def test_list_matches_returns_most_recent_first(tmp_path):
-  os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
   from app import db
@@ -243,7 +237,6 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
 
 @pytest.mark.anyio
 async def test_list_matches_upcoming_filter(tmp_path):
-  os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
   from app import db
@@ -281,7 +274,6 @@ async def test_list_matches_upcoming_filter(tmp_path):
 
 @pytest.mark.skip(reason="SQLite lacks ARRAY support for MatchParticipant")
 def test_list_matches_filters_by_player(tmp_path):
-  os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
   from app import db
@@ -352,7 +344,6 @@ def test_list_matches_filters_by_player(tmp_path):
 
 @pytest.mark.anyio
 async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
-  os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   os.environ["ADMIN_SECRET"] = "admintest"
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
@@ -433,7 +424,6 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
 
 @pytest.mark.anyio
 async def test_delete_match_missing_returns_404(tmp_path):
-  os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   os.environ["ADMIN_SECRET"] = "admintest"
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
@@ -473,8 +463,6 @@ async def test_delete_match_missing_returns_404(tmp_path):
 
 @pytest.mark.anyio
 async def test_delete_match_updates_ratings_and_leaderboard(tmp_path):
-  prev_db = os.environ.get("DATABASE_URL")
-  os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from sqlalchemy.dialects.sqlite import JSON
   from app import db
   from app.models import (
@@ -578,15 +566,11 @@ async def test_delete_match_updates_ratings_and_leaderboard(tmp_path):
     assert ratings["p1"] == pytest.approx(1000.0)
     assert ratings["p2"] > ratings["p1"] > ratings["p3"]
 
-  if prev_db is None:
-    del os.environ["DATABASE_URL"]
-  else:
-    os.environ["DATABASE_URL"] = prev_db
+  # previous DB URL handling removed; no cleanup required
 
 
 @pytest.mark.anyio
 async def test_create_match_preserves_naive_date(tmp_path):
-  os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
   from app import db
@@ -630,7 +614,6 @@ async def test_create_match_preserves_naive_date(tmp_path):
 
 @pytest.mark.anyio
 async def test_user_with_multiple_player_records_can_modify_match(tmp_path):
-  os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from app import db
   from app.models import Match, MatchParticipant, Player, ScoreEvent, User
   from app.schemas import EventIn

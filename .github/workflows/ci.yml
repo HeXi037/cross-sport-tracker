@@ -7,6 +7,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: sqlite+aiosqlite:///./ci.db
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -17,7 +19,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
           pip install pytest
+      - name: Run migrations
+        if: ${{ !startsWith(env.DATABASE_URL, 'sqlite') }}
+        run: alembic upgrade head
       - name: Run tests
         env:
           PYTHONPATH: ${{ github.workspace }}
+          DATABASE_URL: ${{ env.DATABASE_URL }}
         run: pytest -q

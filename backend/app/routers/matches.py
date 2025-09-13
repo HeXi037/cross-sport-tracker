@@ -132,28 +132,34 @@ async def create_match_by_name(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    name_to_id = {}
-    names = [n for part in body.participants for n in part.playerNames]
-    if names:
+    name_to_id: dict[str, str] = {}
+    original_names = [n for part in body.participants for n in part.playerNames]
+    lookup_names = [n.lower() for n in original_names]
+    if lookup_names:
         rows = (
             await session.execute(
                 select(Player).where(
-                    Player.name.in_(names), Player.deleted_at.is_(None)
+                    Player.name.in_(lookup_names), Player.deleted_at.is_(None)
                 )
             )
         ).scalars().all()
+        # Player names are stored normalized (lowercase)
         name_to_id = {p.name: p.id for p in rows}
-    missing = [n for n in names if n not in name_to_id]
+    missing = [n for n in original_names if n.lower() not in name_to_id]
     if missing:
         raise HTTPException(400, f"unknown players: {', '.join(missing)}")
     id_to_name = {pid: name for name, pid in name_to_id.items()}
-    dup_ids = [pid for pid, cnt in Counter(name_to_id[n] for n in names).items() if cnt > 1]
+    dup_ids = [
+        pid
+        for pid, cnt in Counter(name_to_id[n.lower()] for n in original_names).items()
+        if cnt > 1
+    ]
     if dup_ids:
         dups = [id_to_name[pid] for pid in dup_ids]
         raise HTTPException(400, f"duplicate players: {', '.join(dups)}")
     parts = []
     for part in body.participants:
-        ids = [name_to_id[n] for n in part.playerNames]
+        ids = [name_to_id[n.lower()] for n in part.playerNames]
         parts.append(Participant(side=part.side, playerIds=ids))
     mc = MatchCreate(
         sport=body.sport,

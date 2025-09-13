@@ -159,7 +159,7 @@ describe("RecordPadelPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    fetchMock.mock.calls.forEach(([_, init]) => {
+    fetchMock.mock.calls.forEach(([, init]) => {
       const headers = init?.headers as Headers;
       expect(headers.get("Authorization")).toBe("Bearer tkn");
     });

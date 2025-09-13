@@ -26,8 +26,10 @@ export async function apiFetch(path: string, init?: RequestInit) {
       if (res.status === 401 && text.includes("token expired")) {
         logout();
       }
-      const err = new Error(`HTTP ${res.status}: ${text}`);
-      (err as any).status = res.status;
+      const err: Error & { status?: number } = new Error(
+        `HTTP ${res.status}: ${text}`
+      );
+      err.status = res.status;
       throw err;
     }
     return res;

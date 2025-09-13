@@ -48,15 +48,16 @@ export default function RecordPadelPage() {
         const res = await apiFetch(`/v0/players`);
         const data = (await res.json()) as { players: Player[] };
         setPlayers(data.players || []);
-      } catch (err: any) {
+      } catch (err: unknown) {
         setError("Failed to load players");
-        if (err?.status === 401) {
+        const status = (err as { status?: number }).status;
+        if (status === 401) {
           router.push("/login");
         }
       }
     }
     loadPlayers();
-  }, []);
+  }, [router]);
 
   const handleIdChange = (key: keyof IdMap, value: string) => {
     setIds((prev) => ({ ...prev, [key]: value }));

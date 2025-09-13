@@ -1,6 +1,7 @@
+---
 name: CI
 
-on:
+'on':
   push:
   pull_request:
 
@@ -22,7 +23,8 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/crosssport_dev
+      DATABASE_URL: >-
+        postgresql+asyncpg://postgres:postgres@localhost:5432/crosssport_dev
       PYTHONPATH: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v4

@@ -11,7 +11,7 @@ from sqlalchemy import select
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app import db
-from app.models import User, Player, RefreshToken
+from app.models import Player, RefreshToken, User
 from app.routers import auth
 
 app = FastAPI()
@@ -32,7 +32,11 @@ def setup_db():
         async with engine.begin() as conn:
             await conn.run_sync(
                 db.Base.metadata.create_all,
-                tables=[User.__table__, Player.__table__, RefreshToken.__table__],
+                tables=[
+                    User.__table__,
+                    Player.__table__,
+                    RefreshToken.__table__,
+                ],
             )
     asyncio.run(init_models())
     yield

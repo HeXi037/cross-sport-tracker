@@ -47,6 +47,7 @@ def setup_db():
                     ScoreEvent.__table__,
                 ],
             )
+            await conn.exec_driver_sql("DROP TABLE IF EXISTS match_participant")
             await conn.exec_driver_sql(
                 """
                 CREATE TABLE match_participant (

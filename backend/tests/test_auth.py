@@ -36,7 +36,7 @@ async def create_player(name: str, user_id: str | None = None) -> str:
         await session.commit()
         return pid
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(autouse=True)
 def setup_db():
     async def init_models():
         if os.path.exists("./test_auth.db"):

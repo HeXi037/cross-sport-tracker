@@ -34,7 +34,7 @@ app.include_router(auth.router)
 app.include_router(players.router)
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(autouse=True)
 def setup_db():
     async def init_models():
         if os.path.exists("./test_comments.db"):

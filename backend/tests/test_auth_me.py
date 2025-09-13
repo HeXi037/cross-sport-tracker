@@ -20,7 +20,7 @@ app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
 app.include_router(auth.router)
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(autouse=True)
 def setup_db():
     async def init_models():
         if os.path.exists("./test_auth_me.db"):

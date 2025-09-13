@@ -19,6 +19,10 @@ def _db(monkeypatch):
     db.engine = None
     db.AsyncSessionLocal = None
     yield
+    if db.engine is not None:
+        db.engine.sync_engine.dispose()
+    db.engine = None
+    db.AsyncSessionLocal = None
 
 
 @pytest.fixture(autouse=True)

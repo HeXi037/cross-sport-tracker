@@ -26,7 +26,7 @@ app = FastAPI()
 app.include_router(leaderboards.router)
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(autouse=True)
 def setup_db():
     async def init_models():
         if os.path.exists("./test_leaderboards.db"):

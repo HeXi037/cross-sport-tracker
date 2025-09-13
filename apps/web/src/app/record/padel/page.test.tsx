@@ -2,9 +2,8 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import RecordPadelPage from "./page";
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
-}));
+const router = { push: vi.fn() };
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
 describe("RecordPadelPage", () => {
   afterEach(() => {

@@ -108,9 +108,13 @@ def test_list_players_pagination() -> None:
 def test_delete_player_requires_token() -> None:
     with TestClient(app) as client:
         token = admin_token(client)
-        pid = client.post(
-            "/players", json={"name": "Alice"}, headers={"Authorization": f"Bearer {token}"}
-        ).json()["id"]
+        resp = client.post(
+            "/players",
+            json={"name": "Alice"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        pid = resp.json()["id"]
+        assert resp.json()["name"] == "alice"
         resp = client.delete(f"/players/{pid}")
         assert resp.status_code == 401
 
@@ -201,7 +205,19 @@ def test_players_by_ids_omits_deleted() -> None:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data == [{"id": active_id, "name": "Active", "photo_url": None}]
+        assert data == [{"id": active_id, "name": "active", "photo_url": None}]
+
+
+def test_create_player_normalizes_name() -> None:
+    with TestClient(app) as client:
+        token = admin_token(client)
+        resp = client.post(
+            "/players",
+            json={"name": "  NORM  "},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["name"] == "norm"
 
 def test_upload_player_photo_prefixed_url() -> None:
     with TestClient(app) as client:

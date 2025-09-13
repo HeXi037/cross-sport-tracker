@@ -83,14 +83,14 @@ def test_get_and_update_me():
 def test_update_me_conflicting_player_name():
     with TestClient(app) as client:
         resp = client.post(
-            "/auth/signup", json={"username": "bob", "password": "Str0ng!Pass!"}
+            "/auth/signup", json={"username": " Bob ", "password": "Str0ng!Pass!"}
         )
         assert resp.status_code == 200
         token = resp.json()["access_token"]
 
         async def create_player():
             async with db.AsyncSessionLocal() as session:
-                session.add(Player(id=uuid.uuid4().hex, name="taken"))
+                session.add(Player(id=uuid.uuid4().hex, name="Taken"))
                 await session.commit()
 
         asyncio.run(create_player())

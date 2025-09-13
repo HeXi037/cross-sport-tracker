@@ -90,7 +90,7 @@ async def main():
             x.id for x in (await s.execute(select(Player))).scalars().all()
         }
         players = [
-            Player(id="demo-player", name="Demo Player", club_id="demo-club"),
+            Player(id="demo-player", name="demo player", club_id="demo-club"),
         ]
         for p in players:
             if p.id not in existing_players:

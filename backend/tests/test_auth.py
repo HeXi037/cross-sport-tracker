@@ -63,7 +63,7 @@ def setup_db():
 def test_signup_login_and_protected_access():
     with TestClient(app) as client:
         resp = client.post(
-            "/auth/signup", json={"username": "alice", "password": "Str0ng!Pass!"}
+            "/auth/signup", json={"username": " Alice ", "password": "Str0ng!Pass!"}
         )
         assert resp.status_code == 200
         token = resp.json()["access_token"]
@@ -79,6 +79,7 @@ def test_signup_login_and_protected_access():
 
         user = asyncio.run(fetch_user())
         assert user.password_hash != "pw"
+        assert user.username == "alice"
         assert pwd_context.verify("Str0ng!Pass!", user.password_hash)
 
         resp = client.post(
@@ -134,7 +135,7 @@ def test_signup_links_orphan_player():
     pid = asyncio.run(create_player("charlie"))
     with TestClient(app) as client:
         resp = client.post(
-            "/auth/signup", json={"username": "charlie", "password": "Str0ng!Pass!"}
+            "/auth/signup", json={"username": "CHARLIE ", "password": "Str0ng!Pass!"}
         )
         assert resp.status_code == 200
 
@@ -151,10 +152,12 @@ def test_signup_links_orphan_player():
 
     player, user, same_name_players = asyncio.run(fetch())
     assert player.user_id == user.id
+    assert player.name == "charlie"
+    assert user.username == "charlie"
     assert len(same_name_players) == 1
 
 def test_signup_rejects_attached_player():
-    asyncio.run(create_player("dave", user_id="attached"))
+    asyncio.run(create_player("DAVE", user_id="attached"))
     with TestClient(app) as client:
         resp = client.post(
             "/auth/signup", json={"username": "dave", "password": "Str0ng!Pass!"}

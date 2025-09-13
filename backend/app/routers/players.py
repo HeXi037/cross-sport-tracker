@@ -1,4 +1,5 @@
 import uuid
+import imghdr
 from pathlib import Path
 from collections import defaultdict
 from fastapi import APIRouter, Depends, Response, HTTPException, UploadFile, File, Query
@@ -181,6 +182,7 @@ async def upload_player_photo(
     filename = f"{uuid.uuid4().hex}{suffix}"
     filepath = UPLOAD_DIR / filename
     size = 0
+    first_chunk = True
     with open(filepath, "wb") as f:
         while True:
             chunk = await file.read(CHUNK_SIZE)
@@ -192,6 +194,13 @@ async def upload_player_photo(
                 filepath.unlink(missing_ok=True)
                 raise HTTPException(status_code=413, detail="Uploaded file too large")
             f.write(chunk)
+            if first_chunk:
+                image_type = imghdr.what(None, h=chunk)
+                if image_type not in {"jpeg", "png"}:
+                    f.close()
+                    filepath.unlink(missing_ok=True)
+                    raise HTTPException(status_code=400, detail="Invalid image data")
+                first_chunk = False
 
     p.photo_url = f"{UPLOAD_URL_PREFIX}/{filename}"
     await session.commit()

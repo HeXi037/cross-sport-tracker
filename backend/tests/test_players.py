@@ -20,6 +20,12 @@ from app.models import (
 )
 from app.exceptions import DomainException, ProblemDetail
 
+PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc`\x00\x00"
+    b"\x00\x02\x00\x01\xe2!\xbc3\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
 app = FastAPI()
 
 @app.exception_handler(DomainException)
@@ -209,7 +215,7 @@ def test_upload_player_photo_prefixed_url() -> None:
         pid = client.post(
             "/players", json={"name": "Pic"}, headers={"Authorization": f"Bearer {token}"}
         ).json()["id"]
-        files = {"file": ("avatar.png", b"avatar", "image/png")}
+        files = {"file": ("avatar.png", PNG_BYTES, "image/png")}
         resp = client.post(
             f"/players/{pid}/photo",
             files=files,
@@ -230,7 +236,7 @@ def test_upload_player_photo_too_large() -> None:
         pid = client.post(
             "/players", json={"name": "BigPic"}, headers={"Authorization": f"Bearer {token}"}
         ).json()["id"]
-        big_file = b"x" * (players.MAX_PHOTO_SIZE + 1)
+        big_file = PNG_BYTES + b"x" * (players.MAX_PHOTO_SIZE + 1)
         files = {"file": ("big.png", big_file, "image/png")}
         resp = client.post(
             f"/players/{pid}/photo",
@@ -251,3 +257,19 @@ def test_upload_player_photo_invalid_mime_type() -> None:
             f"/players/{pid}/photo", files=files, headers={"Authorization": f"Bearer {token}"}
         )
         assert resp.status_code == 415
+
+
+def test_upload_player_photo_invalid_content() -> None:
+    with TestClient(app) as client:
+        token = admin_token(client)
+        pid = client.post(
+            "/players", json={"name": "BadData"}, headers={"Authorization": f"Bearer {token}"}
+        ).json()["id"]
+        files = {"file": ("avatar.jpg", b"not an image", "image/jpeg")}
+        before = set(players.UPLOAD_DIR.glob("*"))
+        resp = client.post(
+            f"/players/{pid}/photo", files=files, headers={"Authorization": f"Bearer {token}"}
+        )
+        after = set(players.UPLOAD_DIR.glob("*"))
+        assert resp.status_code == 400
+        assert before == after

@@ -203,10 +203,11 @@ export default function PlayersPage() {
       )}
       <input
         type="file"
-        accept="image/*"
+        accept="image/png,image/jpeg"
         onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
         className="input mt-2"
       />
+      <div className="text-sm mt-1">JPEG or PNG up to 5MB.</div>
       <button
         className="button"
         onClick={create}

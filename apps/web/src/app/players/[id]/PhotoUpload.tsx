@@ -41,7 +41,12 @@ export default function PhotoUpload({ playerId, initialUrl }: Props) {
           style={{ borderRadius: '50%', objectFit: 'cover', marginBottom: 8 }}
         />
       )}
-      <input type="file" accept="image/*" onChange={onChange} />
+      <input
+        type="file"
+        accept="image/png,image/jpeg"
+        onChange={onChange}
+      />
+      <div style={{ fontSize: 12 }}>JPEG or PNG up to 5MB.</div>
       {uploading && <span>Uploading…</span>}
     </div>
   );

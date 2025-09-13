@@ -128,6 +128,7 @@ GET  /api/v0/rulesets?sport=padel
 POST /api/v0/players
 GET  /api/v0/players?q=name
 DELETE /api/v0/players/{id}  # admin, soft delete
+POST /api/v0/players/{id}/photo  # JPEG or PNG player photo (max 5MB)
 POST /api/v0/matches
 POST /api/v0/matches/by-name
 GET  /api/v0/matches/{id}

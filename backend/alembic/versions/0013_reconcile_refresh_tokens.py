@@ -34,8 +34,8 @@ def upgrade() -> None:
                         "revoked", sa.Boolean(), nullable=False, server_default=sa.false()
                     )
                 )
-        # remove server default now that column is populated
-        op.alter_column("refresh_token", "revoked", server_default=None)
+            # remove server default now that column is populated
+            batch_op.alter_column("revoked", server_default=None)
 
 
 def downgrade() -> None:
@@ -45,6 +45,7 @@ def downgrade() -> None:
 
     with op.batch_alter_table("refresh_token") as batch_op:
         if "revoked" in columns:
+            batch_op.alter_column("revoked", server_default=sa.false())
             batch_op.drop_column("revoked")
         if "token" not in columns:
             batch_op.add_column(sa.Column("token", sa.String(), nullable=False))

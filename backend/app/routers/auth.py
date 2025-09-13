@@ -12,8 +12,15 @@ from passlib.context import CryptContext
 import jwt
 
 from ..db import get_session
-from ..models import User, Player
-from ..schemas import UserCreate, UserLogin, TokenOut, UserOut, UserUpdate
+from ..models import User, Player, RefreshToken
+from ..schemas import (
+    UserCreate,
+    UserLogin,
+    TokenOut,
+    UserOut,
+    UserUpdate,
+    RefreshRequest,
+)
 
 
 def get_jwt_secret() -> str:
@@ -29,6 +36,7 @@ def get_jwt_secret() -> str:
 
 JWT_ALG = "HS256"
 JWT_EXPIRE_SECONDS = 3600
+REFRESH_TOKEN_EXPIRE_DAYS = 30
 
 
 def _get_client_ip(request: Request) -> str:
@@ -53,14 +61,24 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
   return JSONResponse(status_code=429, content={"detail": "Too Many Requests"})
 
 
-def create_token(user: User) -> str:
+async def create_token(user: User, session: AsyncSession) -> tuple[str, str]:
   payload = {
       "sub": user.id,
       "username": user.username,
       "is_admin": user.is_admin,
       "exp": datetime.utcnow() + timedelta(seconds=JWT_EXPIRE_SECONDS),
   }
-  return jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALG)
+  access_token = jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALG)
+  refresh_token = uuid.uuid4().hex
+  session.add(
+      RefreshToken(
+          id=refresh_token,
+          user_id=user.id,
+          expires_at=datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+          revoked=False,
+      )
+  )
+  return access_token, refresh_token
 
 
 @router.post("/signup", response_model=TokenOut)
@@ -101,9 +119,9 @@ async def signup(
   else:
     player = Player(id=uuid.uuid4().hex, user_id=uid, name=body.username)
     session.add(player)
+  access_token, refresh_token = await create_token(user, session)
   await session.commit()
-  token = create_token(user)
-  return TokenOut(access_token=token)
+  return TokenOut(access_token=access_token, refresh_token=refresh_token)
 
 
 @router.post("/login", response_model=TokenOut)
@@ -120,8 +138,9 @@ async def login(
     raise HTTPException(status_code=401, detail="invalid credentials")
   if not pwd_context.verify(body.password, user.password_hash):
     raise HTTPException(status_code=401, detail="invalid credentials")
-  token = create_token(user)
-  return TokenOut(access_token=token)
+  access_token, refresh_token = await create_token(user, session)
+  await session.commit()
+  return TokenOut(access_token=access_token, refresh_token=refresh_token)
 
 
 async def get_current_user(
@@ -187,5 +206,37 @@ async def update_me(
     if "player" in str(e.orig):
       raise HTTPException(status_code=400, detail="player exists")
     raise HTTPException(status_code=400, detail="username exists")
-  token = create_token(current)
-  return TokenOut(access_token=token)
+  access_token, refresh_token = await create_token(current, session)
+  await session.commit()
+  return TokenOut(access_token=access_token, refresh_token=refresh_token)
+
+
+@router.post("/refresh", response_model=TokenOut)
+async def refresh_tokens(
+    body: RefreshRequest, session: AsyncSession = Depends(get_session)
+):
+  token = await session.get(RefreshToken, body.refresh_token)
+  if (
+      not token
+      or token.revoked
+      or token.expires_at < datetime.utcnow()
+  ):
+    raise HTTPException(status_code=401, detail="invalid refresh token")
+  user = await session.get(User, token.user_id)
+  if not user:
+    raise HTTPException(status_code=401, detail="user not found")
+  token.revoked = True
+  access_token, refresh_token = await create_token(user, session)
+  await session.commit()
+  return TokenOut(access_token=access_token, refresh_token=refresh_token)
+
+
+@router.post("/revoke")
+async def revoke_token(
+    body: RefreshRequest, session: AsyncSession = Depends(get_session)
+):
+  token = await session.get(RefreshToken, body.refresh_token)
+  if token:
+    token.revoked = True
+    await session.commit()
+  return {"status": "ok"}

@@ -58,15 +58,18 @@ async def create_player(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_admin),
 ):
+    normalized_name = body.name.strip().lower()
     exists = (
-        await session.execute(select(Player).where(Player.name == body.name))
+        await session.execute(
+            select(Player).where(func.lower(Player.name) == normalized_name)
+        )
     ).scalar_one_or_none()
     if exists:
         raise PlayerAlreadyExists(body.name)
     pid = uuid.uuid4().hex
     p = Player(
         id=pid,
-        name=body.name,
+        name=normalized_name,
         club_id=body.club_id,
         photo_url=body.photo_url,
         location=body.location,

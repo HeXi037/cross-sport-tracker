@@ -63,7 +63,7 @@ def setup_db():
 def test_signup_login_and_protected_access():
     with TestClient(app) as client:
         resp = client.post(
-            "/auth/signup", json={"username": "alice", "password": "Str0ng!Pass!"}
+            "/auth/signup", json={"username": "Alice", "password": "Str0ng!Pass!"}
         )
         assert resp.status_code == 200
         token = resp.json()["access_token"]
@@ -82,7 +82,7 @@ def test_signup_login_and_protected_access():
         assert pwd_context.verify("Str0ng!Pass!", user.password_hash)
 
         resp = client.post(
-            "/auth/login", json={"username": "alice", "password": "Str0ng!Pass!"}
+            "/auth/login", json={"username": "Alice", "password": "Str0ng!Pass!"}
         )
         assert resp.status_code == 200
         user_token = resp.json()["access_token"]

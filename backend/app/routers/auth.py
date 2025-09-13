@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from passlib.context import CryptContext
 import jwt
@@ -101,14 +101,19 @@ async def signup(
     session: AsyncSession = Depends(get_session),
     admin_secret: str | None = Header(default=None, alias="X-Admin-Secret"),
 ):
+  username = body.username.strip().lower()
   existing = (
-      await session.execute(select(User).where(User.username == body.username))
+      await session.execute(
+          select(User).where(func.lower(User.username) == username)
+      )
   ).scalar_one_or_none()
   if existing:
     raise HTTPException(status_code=400, detail="username exists")
 
   existing_player = (
-      await session.execute(select(Player).where(Player.name == body.username))
+      await session.execute(
+          select(Player).where(func.lower(Player.name) == username)
+      )
   ).scalar_one_or_none()
   if existing_player and existing_player.user_id is not None:
     raise HTTPException(status_code=400, detail="player exists")
@@ -123,7 +128,7 @@ async def signup(
   uid = uuid.uuid4().hex
   user = User(
       id=uid,
-      username=body.username,
+      username=username,
       password_hash=pwd_context.hash(body.password),
       is_admin=is_admin,
   )
@@ -131,7 +136,7 @@ async def signup(
   if existing_player:
     existing_player.user_id = uid
   else:
-    player = Player(id=uuid.uuid4().hex, user_id=uid, name=body.username)
+    player = Player(id=uuid.uuid4().hex, user_id=uid, name=username)
     session.add(player)
   access_token, refresh_token = await create_token(user, session)
   await session.commit()
@@ -145,8 +150,11 @@ async def login(
     body: UserLogin,
     session: AsyncSession = Depends(get_session),
 ):
+  username = body.username.strip().lower()
   user = (
-      await session.execute(select(User).where(User.username == body.username))
+      await session.execute(
+          select(User).where(func.lower(User.username) == username)
+      )
   ).scalar_one_or_none()
   if not user:
     raise HTTPException(status_code=401, detail="invalid credentials")
@@ -188,10 +196,11 @@ async def update_me(
     current: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-  if body.username and body.username != current.username:
+  if body.username and body.username.strip().lower() != current.username:
+    new_username = body.username.strip().lower()
     existing = (
         await session.execute(
-            select(User).where(User.username == body.username)
+            select(User).where(func.lower(User.username) == new_username)
         )
     ).scalar_one_or_none()
     if existing and existing.id != current.id:
@@ -199,18 +208,18 @@ async def update_me(
 
     existing_player = (
         await session.execute(
-            select(Player).where(Player.name == body.username)
+            select(Player).where(func.lower(Player.name) == new_username)
         )
     ).scalar_one_or_none()
     if existing_player:
       raise HTTPException(status_code=400, detail="player exists")
 
-    current.username = body.username
+    current.username = new_username
     player = (
         await session.execute(select(Player).where(Player.user_id == current.id))
     ).scalar_one_or_none()
     if player:
-      player.name = body.username
+      player.name = new_username
   if body.password:
     current.password_hash = pwd_context.hash(body.password)
   try:

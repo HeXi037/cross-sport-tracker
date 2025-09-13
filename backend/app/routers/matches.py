@@ -104,10 +104,10 @@ async def create_match(
             all_player_ids.append(pid)
 
     if not user.is_admin:
-        player = (
-            await session.execute(select(Player).where(Player.user_id == user.id))
-        ).scalar_one_or_none()
-        if not player or player.id not in all_player_ids:
+        player_ids = (
+            await session.execute(select(Player.id).where(Player.user_id == user.id))
+        ).scalars().all()
+        if not player_ids or not any(pid in all_player_ids for pid in player_ids):
             raise HTTPException(status_code=403, detail="forbidden")
 
     for part in body.participants:
@@ -228,10 +228,11 @@ async def delete_match(
     except Exception:
         parts = []
     if not user.is_admin:
-        player = (
-            await session.execute(select(Player).where(Player.user_id == user.id))
-        ).scalar_one_or_none()
-        if not player or not any(player.id in p.player_ids for p in parts):
+        user_player_ids = (
+            await session.execute(select(Player.id).where(Player.user_id == user.id))
+        ).scalars().all()
+        match_player_ids = {pid for p in parts for pid in (p.player_ids or [])}
+        if not user_player_ids or not set(user_player_ids) & match_player_ids:
             raise HTTPException(status_code=403, detail="forbidden")
 
     sport_id = m.sport_id
@@ -314,10 +315,11 @@ async def append_event(
         )
     ).scalars().all()
     if not user.is_admin:
-        player = (
-            await session.execute(select(Player).where(Player.user_id == user.id))
-        ).scalar_one_or_none()
-        if not player or not any(player.id in p.player_ids for p in parts):
+        user_player_ids = (
+            await session.execute(select(Player.id).where(Player.user_id == user.id))
+        ).scalars().all()
+        match_player_ids = {pid for p in parts for pid in (p.player_ids or [])}
+        if not user_player_ids or not set(user_player_ids) & match_player_ids:
             raise HTTPException(status_code=403, detail="forbidden")
 
     try:
@@ -375,10 +377,11 @@ async def record_sets_endpoint(
     except Exception:
         parts = []
     if not user.is_admin:
-        player = (
-            await session.execute(select(Player).where(Player.user_id == user.id))
-        ).scalar_one_or_none()
-        if not player or not any(player.id in p.player_ids for p in parts):
+        user_player_ids = (
+            await session.execute(select(Player.id).where(Player.user_id == user.id))
+        ).scalars().all()
+        match_player_ids = {pid for p in parts for pid in (p.player_ids or [])}
+        if not user_player_ids or not set(user_player_ids) & match_player_ids:
             raise HTTPException(status_code=403, detail="forbidden")
 
     # Validate set scores before applying them.

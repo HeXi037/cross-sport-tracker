@@ -6,6 +6,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import select
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -94,3 +95,31 @@ def test_update_me_conflicting_player_name():
         )
         assert resp.status_code == 400
         assert resp.json()["detail"] == "player exists"
+
+
+def test_me_missing_user():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup", json={"username": "ghost", "password": "Str0ng!Pass!"}
+        )
+        assert resp.status_code == 200
+        token = resp.json()["access_token"]
+
+        async def delete_user():
+            async with db.AsyncSessionLocal() as session:
+                user = (
+                    await session.execute(
+                        select(User).where(User.username == "ghost")
+                    )
+                ).scalar_one()
+                await session.delete(user)
+                await session.commit()
+
+        asyncio.run(delete_user())
+
+        resp = client.get(
+            "/auth/me", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert resp.status_code == 401
+        assert resp.json()["detail"] == "user not found"

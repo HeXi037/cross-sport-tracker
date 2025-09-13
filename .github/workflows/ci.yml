@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  migrate:
+  test:
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -25,11 +25,16 @@ jobs:
           python-version: '3.12'
       - name: Install dependencies
         run: |
-          cd backend
-          pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install pytest
       - name: Run migrations
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/crosssport_test
         run: |
           cd backend
           alembic upgrade head
+      - name: Run tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: pytest -q

@@ -45,6 +45,7 @@ UPLOAD_DIR = Path(__file__).resolve().parent.parent / "static" / "players"
 UPLOAD_URL_PREFIX = f"{API_PREFIX}/static/players"
 MAX_PHOTO_SIZE = 5 * 1024 * 1024  # 5MB limit on upload size
 CHUNK_SIZE = 1024 * 1024  # 1MB chunks for streaming uploads
+ALLOWED_PHOTO_TYPES = {"image/jpeg", "image/png"}
 router = APIRouter(
     prefix="/players",
     tags=["players"],
@@ -171,6 +172,9 @@ async def upload_player_photo(
     p = await session.get(Player, player_id)
     if not p or p.deleted_at is not None:
         raise PlayerNotFound(player_id)
+
+    if file.content_type not in ALLOWED_PHOTO_TYPES:
+        raise HTTPException(status_code=415, detail="Unsupported media type")
 
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     suffix = Path(file.filename).suffix

@@ -229,3 +229,16 @@ def test_upload_player_photo_too_large() -> None:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 413
+
+
+def test_upload_player_photo_invalid_mime_type() -> None:
+    with TestClient(app) as client:
+        token = admin_token(client)
+        pid = client.post(
+            "/players", json={"name": "BadPic"}, headers={"Authorization": f"Bearer {token}"}
+        ).json()["id"]
+        files = {"file": ("avatar.gif", b"gif", "image/gif")}
+        resp = client.post(
+            f"/players/{pid}/photo", files=files, headers={"Authorization": f"Bearer {token}"}
+        )
+        assert resp.status_code == 415

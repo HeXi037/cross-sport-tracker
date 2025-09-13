@@ -157,6 +157,7 @@ class UserLogin(BaseModel):
 class TokenOut(BaseModel):
     """Returned on successful authentication."""
     access_token: str
+    refresh_token: str
 
 
 class UserOut(BaseModel):
@@ -178,6 +179,11 @@ class UserUpdate(BaseModel):
         if not PASSWORD_REGEX.match(v):
             raise ValueError("Password must contain letters, numbers, and symbols")
         return v
+
+
+class RefreshRequest(BaseModel):
+    """Request body for refreshing or revoking tokens."""
+    refresh_token: str
 
 class CommentCreate(BaseModel):
     """Schema for creating a comment on a player."""

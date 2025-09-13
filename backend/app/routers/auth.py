@@ -1,5 +1,6 @@
 import os
 import uuid
+import hashlib
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from fastapi.responses import JSONResponse
@@ -70,9 +71,10 @@ async def create_token(user: User, session: AsyncSession) -> tuple[str, str]:
   }
   access_token = jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALG)
   refresh_token = uuid.uuid4().hex
+  token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
   session.add(
       RefreshToken(
-          id=refresh_token,
+          token_hash=token_hash,
           user_id=user.id,
           expires_at=datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
           revoked=False,
@@ -215,7 +217,8 @@ async def update_me(
 async def refresh_tokens(
     body: RefreshRequest, session: AsyncSession = Depends(get_session)
 ):
-  token = await session.get(RefreshToken, body.refresh_token)
+  token_hash = hashlib.sha256(body.refresh_token.encode()).hexdigest()
+  token = await session.get(RefreshToken, token_hash)
   if (
       not token
       or token.revoked
@@ -235,7 +238,8 @@ async def refresh_tokens(
 async def revoke_token(
     body: RefreshRequest, session: AsyncSession = Depends(get_session)
 ):
-  token = await session.get(RefreshToken, body.refresh_token)
+  token_hash = hashlib.sha256(body.refresh_token.encode()).hexdigest()
+  token = await session.get(RefreshToken, token_hash)
   if token:
     token.revoked = True
     await session.commit()

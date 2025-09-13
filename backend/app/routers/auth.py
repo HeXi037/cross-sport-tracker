@@ -54,6 +54,15 @@ def _get_client_ip(request: Request) -> str:
 limiter = Limiter(key_func=_get_client_ip)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+FLAGGED_IPS = {
+    ip.strip() for ip in os.getenv("FLAGGED_IPS", "").split(",") if ip.strip()
+}
+
+
+def signup_rate_limit(key: str) -> str:
+    return "1/hour" if key in FLAGGED_IPS else "5/minute"
+
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
@@ -82,7 +91,9 @@ async def create_token(user: User, session: AsyncSession) -> tuple[str, str]:
 
 
 @router.post("/signup", response_model=TokenOut)
+@limiter.limit(signup_rate_limit)
 async def signup(
+    request: Request,
     body: UserCreate,
     session: AsyncSession = Depends(get_session),
     admin_secret: str | None = Header(default=None, alias="X-Admin-Secret"),

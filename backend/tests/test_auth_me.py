@@ -81,6 +81,7 @@ def test_get_and_update_me():
 
 
 def test_update_me_conflicting_player_name():
+    auth.limiter.reset()
     with TestClient(app) as client:
         resp = client.post(
             "/auth/signup", json={"username": "bob", "password": "Str0ng!Pass!"}

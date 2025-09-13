@@ -74,6 +74,9 @@ describe("RecordPadelPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(/match recorded/i),
+    );
     const createPayload = JSON.parse(fetchMock.mock.calls[1][1].body);
     const setsPayload = JSON.parse(fetchMock.mock.calls[2][1].body);
 

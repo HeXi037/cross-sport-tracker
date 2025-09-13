@@ -39,6 +39,8 @@ export default function RecordPadelPage() {
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     async function loadPlayers() {
@@ -74,7 +76,9 @@ export default function RecordPadelPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     setError(null);
+    setSaving(true);
 
     const idValues = [ids.a1, ids.a2, ids.b1, ids.b2];
     const filtered = idValues.filter((v) => v);
@@ -128,8 +132,10 @@ export default function RecordPadelPage() {
           body: JSON.stringify(setPayload),
         });
       }
+      setSuccess(true);
       router.push(`/matches`);
     } catch {
+      setSaving(false);
       // ignore network errors
     }
   };
@@ -259,7 +265,14 @@ export default function RecordPadelPage() {
           </p>
         )}
 
-        <button type="submit">Save</button>
+        {success && (
+          <p role="status" className="success">
+            Match recorded!
+          </p>
+        )}
+        <button type="submit" disabled={saving}>
+          {saving ? "Saving..." : "Save"}
+        </button>
       </form>
     </main>
   );

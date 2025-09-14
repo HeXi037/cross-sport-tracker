@@ -149,6 +149,44 @@ async def test_create_match_with_sets(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_create_match_by_name_with_sets(tmp_path):
+  os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
+  from app import db
+  from app.models import Match, MatchParticipant, Player, Sport, User
+  from app.schemas import MatchCreateByName, ParticipantByName
+  from app.routers.matches import create_match_by_name
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+      db.Base.metadata.create_all,
+      tables=[Player.__table__, Sport.__table__, Match.__table__, MatchParticipant.__table__],
+    )
+
+  async with db.AsyncSessionLocal() as session:
+    session.add_all([
+      Player(id="p1", name="alice"),
+      Player(id="p2", name="bob"),
+      Sport(id="bowling", name="Bowling"),
+    ])
+    await session.commit()
+    body = MatchCreateByName(
+      sport="bowling",
+      participants=[
+        ParticipantByName(side="A", playerNames=["Alice"]),
+        ParticipantByName(side="B", playerNames=["Bob"]),
+      ],
+      sets=[(120, 100)],
+    )
+    admin = User(id="u1", username="admin", password_hash="", is_admin=True)
+    resp = await create_match_by_name(body, session, user=admin)
+    m = await session.get(Match, resp.id)
+    assert m.details == {"score": {"A": 120, "B": 100}}
+
+
+@pytest.mark.anyio
 async def test_create_match_normalizes_timezone(tmp_path):
   os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from fastapi import FastAPI

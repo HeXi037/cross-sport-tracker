@@ -10,7 +10,7 @@ vi.mock("next/navigation", () => ({
 
 describe("RecordSportPage", () => {
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
   it("rejects duplicate player selections", async () => {

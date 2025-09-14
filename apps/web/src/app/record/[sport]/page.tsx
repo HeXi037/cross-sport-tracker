@@ -142,7 +142,7 @@ export default function RecordSportPage() {
         const payload = {
           sport,
           participants,
-          score: entries.map((e) => Number(e.score)),
+          sets: entries.map((e) => [Number(e.score)]),
           ...(playedAt ? { playedAt } : {}),
           ...(location ? { location } : {}),
         };

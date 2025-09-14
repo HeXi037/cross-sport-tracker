@@ -164,6 +164,9 @@ async def create_match_by_name(
     for part in body.participants:
         ids = [name_to_id[n.lower()] for n in part.playerNames]
         parts.append(Participant(side=part.side, playerIds=ids))
+    sets = None
+    if body.sets:
+        sets = [list(scores) for scores in zip(*body.sets)]
     mc = MatchCreate(
         sport=body.sport,
         rulesetId=body.rulesetId,
@@ -171,7 +174,7 @@ async def create_match_by_name(
         bestOf=body.bestOf,
         playedAt=body.playedAt,
         location=body.location,
-        sets=body.sets,
+        sets=sets,
     )
     return await create_match(mc, session, user)
 

@@ -43,7 +43,6 @@ app.include_router(badges.router)
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():
     async def init_models():
-        os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_players.db"
         if os.path.exists("./test_players.db"):
             os.remove("./test_players.db")
         db.engine = None

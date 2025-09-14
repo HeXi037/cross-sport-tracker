@@ -57,7 +57,8 @@ export default function RecordPadelPage() {
       }
     }
     loadPlayers();
-  }, [router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleIdChange = (key: keyof IdMap, value: string) => {
     setIds((prev) => ({ ...prev, [key]: value }));

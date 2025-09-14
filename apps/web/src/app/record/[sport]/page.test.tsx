@@ -137,7 +137,7 @@ describe("RecordSportPage", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     const payload = JSON.parse(fetchMock.mock.calls[1][1].body);
-    expect(payload.score).toEqual([5, 7]);
+    expect(payload.sets).toEqual([[5, 7]]);
   });
 
   it("allows recording multiple bowling players", async () => {

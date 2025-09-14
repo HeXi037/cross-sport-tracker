@@ -85,6 +85,7 @@ class MatchCreate(BaseModel):
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
     score: Optional[List[int]] = None
+    sets: Optional[List[List[int]]] = None
 
     @field_validator("playedAt")
     def _normalize_played_at(cls, v: datetime | None) -> datetime | None:
@@ -103,6 +104,7 @@ class MatchCreateByName(BaseModel):
     bestOf: Optional[int] = None
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
+    sets: Optional[List[Tuple[int, int]]] = None
 
     @field_validator("playedAt")
     def _normalize_played_at(cls, v: datetime | None) -> datetime | None:

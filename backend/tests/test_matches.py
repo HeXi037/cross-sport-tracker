@@ -117,7 +117,7 @@ async def test_create_match_by_name_is_case_insensitive(tmp_path):
 
 
 @pytest.mark.anyio
-async def test_create_match_with_scores(tmp_path):
+async def test_create_match_with_sets(tmp_path):
   os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{tmp_path}/test.db"
   from app import db
   from app.models import Match, MatchParticipant, Sport, User
@@ -140,7 +140,7 @@ async def test_create_match_with_scores(tmp_path):
             Participant(side="A", playerIds=["p1"]),
             Participant(side="B", playerIds=["p2"]),
         ],
-        score=[120, 100],
+        sets=[[120], [100]],
     )
     admin = User(id="u1", username="admin", password_hash="", is_admin=True)
     resp = await create_match(body, session, user=admin)

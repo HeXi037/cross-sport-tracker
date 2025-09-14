@@ -20,6 +20,16 @@ def jwt_secret(monkeypatch):
     yield
 
 
+@pytest.fixture(autouse=True, scope="module")
+def reset_db_url():
+    """Ensure DATABASE_URL is set and clear global engine/session."""
+    if not os.getenv("DATABASE_URL"):
+        pytest.MonkeyPatch().setenv("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+    db.engine = None
+    db.AsyncSessionLocal = None
+    yield
+
+
 async def _create_schema(engine) -> None:
     """Create all database tables for the given engine."""
 
@@ -28,7 +38,7 @@ async def _create_schema(engine) -> None:
 
 
 @pytest.fixture(autouse=True, scope="module")
-def ensure_schema(request):
+def ensure_schema(request, reset_db_url):
     """Rebuild database schema if the engine/session have been reset.
 
     This fixture checks whether ``db.engine`` or ``db.AsyncSessionLocal`` have

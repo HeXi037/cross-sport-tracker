@@ -23,7 +23,6 @@ app.include_router(auth.router)
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():
     async def init_models():
-        os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_auth_me.db"
         if os.path.exists("./test_auth_me.db"):
             os.remove("./test_auth_me.db")
         db.engine = None

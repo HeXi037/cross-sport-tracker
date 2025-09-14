@@ -37,7 +37,6 @@ app.include_router(players.router)
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():
     async def init_models():
-        os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_comments.db"
         if os.path.exists("./test_comments.db"):
             os.remove("./test_comments.db")
         db.engine = None

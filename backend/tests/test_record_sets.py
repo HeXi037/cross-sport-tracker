@@ -1,10 +1,9 @@
 import os, sys, asyncio
 from typing import Tuple
 
-# Ensure the app package is importable and the DB URL is set for module import
+# Ensure the app package is importable
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 
 import pytest
 from fastapi import FastAPI

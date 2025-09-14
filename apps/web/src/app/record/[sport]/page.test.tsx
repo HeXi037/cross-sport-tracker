@@ -182,6 +182,6 @@ describe("RecordSportPage", () => {
       { side: "B", playerIds: ["2"] },
       { side: "C", playerIds: ["3"] },
     ]);
-    expect(payload.score).toEqual([100, 120, 90]);
+    expect(payload.sets).toEqual([[100], [120], [90]]);
   });
 });

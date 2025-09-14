@@ -126,6 +126,47 @@ describe("RecordPadelPage", () => {
       ),
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /save/i })).not.toBeDisabled(),
+    );
+  });
+
+  it("re-enables save button when duplicate players selected", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          players: [
+            { id: "p1", name: "A" },
+            { id: "p2", name: "B" },
+          ],
+        }),
+      });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordPadelPage />);
+
+    await waitFor(() => screen.getByLabelText("Player A1"));
+
+    fireEvent.change(screen.getByLabelText("Player A1"), {
+      target: { value: "p1" },
+    });
+    fireEvent.change(screen.getByLabelText("Player B1"), {
+      target: { value: "p1" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        /please select unique players/i,
+      ),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /save/i })).not.toBeDisabled(),
+    );
   });
 
   it("includes auth token in API requests", async () => {

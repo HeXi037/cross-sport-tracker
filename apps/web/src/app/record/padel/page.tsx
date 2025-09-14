@@ -85,6 +85,7 @@ export default function RecordPadelPage() {
     const filtered = idValues.filter((v) => v);
     if (new Set(filtered).size !== filtered.length) {
       setError("Please select unique players.");
+      setSaving(false);
       return;
     }
 
@@ -92,6 +93,7 @@ export default function RecordPadelPage() {
     const sideB = [ids.b1, ids.b2].filter(Boolean);
     if (!sideA.length || !sideB.length) {
       setError("Select at least one player for each side");
+      setSaving(false);
       return;
     }
 

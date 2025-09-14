@@ -92,6 +92,7 @@ describe("RecordSportPage", () => {
 
     // switch back to singles
     fireEvent.click(toggle);
+    await waitFor(() => expect(toggle).not.toBeChecked());
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 

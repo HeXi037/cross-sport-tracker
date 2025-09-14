@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { flushSync } from "react-dom";
 import { useRouter, useParams } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
 
@@ -69,10 +70,12 @@ export default function RecordSportPage() {
   };
 
   const handleToggle = (checked: boolean) => {
-    setDoubles(checked);
-    if (!checked) {
-      setIds((prev) => ({ ...prev, a2: "", b2: "" }));
-    }
+    flushSync(() => {
+      setDoubles(checked);
+      if (!checked) {
+        setIds((prev) => ({ ...prev, a2: "", b2: "" }));
+      }
+    });
   };
 
   const handleSubmit = async (e: FormEvent) => {

@@ -2,8 +2,34 @@
 FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
-RUN apt-get update && apt-get install -y build-essential && rm -rf /var/lib/apt/lists/*
+
+# OS deps (for building wheels etc.)
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python deps first (better layer caching)
 COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# Copy backend source into image
+# (Compose builds this Dockerfile from the backend/ directory as context.)
 COPY . /app
+
+# Ensure Alembic env + versions are present where Alembic expects them
+# and fail the build if critical revisions are missing.
+RUN test -f /app/alembic/env.py
+RUN ls -1 /app/alembic/versions | sed -n '1,999p'
+RUN test -f /app/alembic/versions/0011_rehash_sha256_passwords.py
+RUN test -f /app/alembic/versions/0012_refresh_token_table.py
+RUN test -f /app/alembic/versions/0013_reconcile_refresh_tokens.py
+RUN test -f /app/alembic/versions/0013_merge_heads.py
+
+# Provide a stable alembic.ini location in the container
+COPY alembic.ini /app/alembic.ini
+
+# Entrypoint: wait for DB, run migrations, then start Uvicorn
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 EXPOSE 8000
+ENTRYPOINT ["/entrypoint.sh"]

@@ -119,7 +119,10 @@ async def create_match(
         )
         session.add(mp)
 
-    if body.score:
+    if body.sets:
+        totals = [sum(s) for s in body.sets]
+        match.details = {"score": {chr(65 + i): t for i, t in enumerate(totals)}}
+    elif body.score:
         match.details = {"score": {chr(65 + i): s for i, s in enumerate(body.score)}}
 
     await session.commit()
@@ -161,6 +164,9 @@ async def create_match_by_name(
     for part in body.participants:
         ids = [name_to_id[n.lower()] for n in part.playerNames]
         parts.append(Participant(side=part.side, playerIds=ids))
+    sets = None
+    if body.sets:
+        sets = [list(scores) for scores in zip(*body.sets)]
     mc = MatchCreate(
         sport=body.sport,
         rulesetId=body.rulesetId,
@@ -168,6 +174,7 @@ async def create_match_by_name(
         bestOf=body.bestOf,
         playedAt=body.playedAt,
         location=body.location,
+        sets=sets,
     )
     return await create_match(mc, session, user)
 

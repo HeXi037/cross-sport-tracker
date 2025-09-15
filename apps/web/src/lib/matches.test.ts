@@ -23,7 +23,7 @@ describe('enrichMatches', () => {
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => detail })
       .mockResolvedValueOnce({ ok: true, json: async () => [{ id: '1', name: 'Alice' }, { id: '2' }] });
-    global.fetch = fetchMock as any;
+    global.fetch = fetchMock as unknown as typeof fetch;
 
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 

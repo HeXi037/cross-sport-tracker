@@ -3,14 +3,16 @@ import "@testing-library/jest-dom/vitest";
 import RecordSportPage from "./page";
 
 let sportParam = "padel";
+const router = { push: vi.fn() };
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => router,
   useParams: () => ({ sport: sportParam }),
 }));
 
 describe("RecordSportPage", () => {
   afterEach(() => {
-    vi.restoreAllMocks();
+    router.push.mockReset();
+    vi.clearAllMocks();
   });
 
   it("rejects duplicate player selections", async () => {
@@ -90,15 +92,14 @@ describe("RecordSportPage", () => {
 
     // switch back to singles
     fireEvent.click(toggle);
+    await waitFor(() => expect(toggle).not.toBeChecked());
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     const payload = JSON.parse(fetchMock.mock.calls[1][1].body);
-    expect(payload.participants).toEqual([
-      { side: "A", playerIds: ["1"] },
-      { side: "B", playerIds: ["3"] },
-    ]);
+    expect(payload.teamA).toEqual(["Alice"]);
+    expect(payload.teamB).toEqual(["Cara"]);
   });
 
   it("submits numeric scores", async () => {
@@ -137,7 +138,9 @@ describe("RecordSportPage", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     const payload = JSON.parse(fetchMock.mock.calls[1][1].body);
-    expect(payload.score).toEqual([5, 7]);
+    expect(payload.sets).toEqual([[5, 7]]);
+    expect(typeof payload.sets[0][0]).toBe("number");
+    expect(typeof payload.sets[0][1]).toBe("number");
   });
 
   it("allows recording multiple bowling players", async () => {
@@ -179,6 +182,6 @@ describe("RecordSportPage", () => {
       { side: "B", playerIds: ["2"] },
       { side: "C", playerIds: ["3"] },
     ]);
-    expect(payload.score).toEqual([100, 120, 90]);
+    expect(payload.sets).toEqual([[100], [120], [90]]);
   });
 });

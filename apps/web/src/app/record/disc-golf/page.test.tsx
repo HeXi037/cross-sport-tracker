@@ -6,9 +6,17 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams("mid=m1"),
 }));
 
+const originalFetch = global.fetch;
+
 describe("RecordDiscGolfPage", () => {
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
+    if (originalFetch) {
+      global.fetch = originalFetch;
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (global as any).fetch;
+    }
   });
 
   it("posts hole events", async () => {

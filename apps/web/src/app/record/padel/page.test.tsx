@@ -2,13 +2,20 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import RecordPadelPage from "./page";
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
-}));
+const router = { push: vi.fn() };
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
+
+const originalFetch = global.fetch;
 
 describe("RecordPadelPage", () => {
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
+    if (originalFetch) {
+      global.fetch = originalFetch;
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (global as any).fetch;
+    }
     window.localStorage.clear();
   });
 
@@ -212,7 +219,7 @@ describe("RecordPadelPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    fetchMock.mock.calls.forEach(([_, init]) => {
+    fetchMock.mock.calls.forEach(([, init]) => {
       const headers = init?.headers as Headers;
       expect(headers.get("Authorization")).toBe("Bearer tkn");
     });

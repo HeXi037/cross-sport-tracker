@@ -2,7 +2,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = '0008_player_metric'
-down_revision = '0011_rehash_sha256_passwords'
+down_revision = '0007_rehash_sha256_passwords'
 branch_labels = None
 depends_on = None
 

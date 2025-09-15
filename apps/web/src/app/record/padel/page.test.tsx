@@ -5,9 +5,17 @@ import RecordPadelPage from "./page";
 const router = { push: vi.fn() };
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
+const originalFetch = global.fetch;
+
 describe("RecordPadelPage", () => {
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
+    if (originalFetch) {
+      global.fetch = originalFetch;
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (global as any).fetch;
+    }
     window.localStorage.clear();
   });
 

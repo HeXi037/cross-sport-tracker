@@ -12,7 +12,8 @@ from app import db
 # A sufficiently long JWT secret for tests
 TEST_JWT_SECRET = "x" * 32
 os.environ.setdefault("JWT_SECRET", TEST_JWT_SECRET)
-os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+# Force tests to use an in-memory SQLite database
+os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 
 @pytest.fixture(autouse=True)
 def jwt_secret(monkeypatch):
@@ -23,16 +24,10 @@ def jwt_secret(monkeypatch):
 
 @pytest.fixture(autouse=True, scope="module")
 def ensure_database():
-    """Ensure a usable test database is configured.
-
-    If ``DATABASE_URL`` is unset, default to an in-memory SQLite database and
-    reset the global engine/session so each module starts with a clean slate.
-    """
+    """Ensure each test module starts with a clean in-memory database."""
 
     mp = pytest.MonkeyPatch()
-    if not os.getenv("DATABASE_URL"):
-        mp.setenv("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
-
+    mp.setenv("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
     db.engine = None
     db.AsyncSessionLocal = None
     yield

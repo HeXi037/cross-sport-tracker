@@ -3,7 +3,7 @@ import sqlalchemy as sa
 import re
 
 revision = '0011_rehash_sha256_passwords'
-down_revision = '0010_convert_player_ids_to_json'
+down_revision = ('0010_convert_player_ids_to_json', '0008_users')
 branch_labels = None
 depends_on = None
 

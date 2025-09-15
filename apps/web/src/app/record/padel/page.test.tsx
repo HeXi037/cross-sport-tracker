@@ -115,7 +115,8 @@ describe("RecordPadelPage", () => {
             { id: "p2", name: "B" },
           ],
         }),
-      });
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "m1" }) });
     global.fetch = fetchMock as typeof fetch;
 
     render(<RecordPadelPage />);
@@ -134,12 +135,17 @@ describe("RecordPadelPage", () => {
       ),
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: /save/i })).not.toBeDisabled(),
-    );
+    expect(screen.getByRole("button", { name: /save/i })).toBeEnabled();
+
+    fireEvent.change(screen.getByLabelText("Player B1"), {
+      target: { value: "p2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 
-  it("re-enables save button when duplicate players selected", async () => {
+  it("rejects duplicate player selections", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -150,7 +156,8 @@ describe("RecordPadelPage", () => {
             { id: "p2", name: "B" },
           ],
         }),
-      });
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "m1" }) });
     global.fetch = fetchMock as typeof fetch;
 
     render(<RecordPadelPage />);
@@ -172,9 +179,14 @@ describe("RecordPadelPage", () => {
       ),
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: /save/i })).not.toBeDisabled(),
-    );
+    expect(screen.getByRole("button", { name: /save/i })).toBeEnabled();
+
+    fireEvent.change(screen.getByLabelText("Player B1"), {
+      target: { value: "p2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 
   it("includes auth token in API requests", async () => {

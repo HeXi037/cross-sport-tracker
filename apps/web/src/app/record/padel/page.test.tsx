@@ -108,7 +108,8 @@ describe("RecordPadelPage", () => {
             { id: "p2", name: "B" },
           ],
         }),
-      });
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "m1" }) });
     global.fetch = fetchMock as typeof fetch;
 
     render(<RecordPadelPage />);
@@ -127,6 +128,58 @@ describe("RecordPadelPage", () => {
       ),
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: /save/i })).toBeEnabled();
+
+    fireEvent.change(screen.getByLabelText("Player B1"), {
+      target: { value: "p2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("rejects duplicate player selections", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          players: [
+            { id: "p1", name: "A" },
+            { id: "p2", name: "B" },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "m1" }) });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordPadelPage />);
+
+    await waitFor(() => screen.getByLabelText("Player A1"));
+
+    fireEvent.change(screen.getByLabelText("Player A1"), {
+      target: { value: "p1" },
+    });
+    fireEvent.change(screen.getByLabelText("Player B1"), {
+      target: { value: "p1" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        /please select unique players/i,
+      ),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: /save/i })).toBeEnabled();
+
+    fireEvent.change(screen.getByLabelText("Player B1"), {
+      target: { value: "p2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 
   it("includes auth token in API requests", async () => {

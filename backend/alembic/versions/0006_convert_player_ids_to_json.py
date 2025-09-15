@@ -2,7 +2,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = '0010_convert_player_ids_to_json'
+revision = '0006_convert_player_ids_to_json'
 down_revision = '0009_comments'
 branch_labels = None
 depends_on = None

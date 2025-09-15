@@ -3,7 +3,6 @@ from typing import Tuple
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 
 import pytest
 from fastapi import FastAPI

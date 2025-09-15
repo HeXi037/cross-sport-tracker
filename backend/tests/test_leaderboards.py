@@ -12,7 +12,6 @@ from sqlalchemy.dialects.sqlite import JSON
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Configure database for tests
-os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./test_leaderboards.db"
 
 from app import db  # noqa: E402
 from app.models import (

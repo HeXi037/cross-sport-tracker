@@ -17,6 +17,7 @@ async def update_player_metrics(
     all_players = set(winners + losers + draws)
     if not all_players:
         return
+    nested = await session.begin_nested()
     try:
         rows = (
             await session.execute(
@@ -26,29 +27,35 @@ async def update_player_metrics(
                 )
             )
         ).scalars().all()
+        existing = {pm.player_id: pm for pm in rows}
+        for pid in all_players:
+            pm = existing.get(pid)
+            if not pm:
+                pm = PlayerMetric(
+                    player_id=pid,
+                    sport_id=sport_id,
+                    metrics={},
+                    milestones=[],
+                )
+                session.add(pm)
+            metrics = dict(pm.metrics or {})
+            milestones = list(pm.milestones or [])
+            metrics["matches"] = metrics.get("matches", 0) + 1
+            if pid in winners:
+                metrics["wins"] = metrics.get("wins", 0) + 1
+                if metrics["wins"] == 1 and "firstWin" not in milestones:
+                    milestones.append("firstWin")
+            elif pid in losers:
+                metrics["losses"] = metrics.get("losses", 0) + 1
+            pm.metrics = metrics
+            pm.milestones = milestones
     except SQLAlchemyError as exc:
+        await nested.rollback()
         if is_missing_table_error(exc, PlayerMetric.__tablename__):
             return
         raise
-    existing = {pm.player_id: pm for pm in rows}
-    for pid in all_players:
-        pm = existing.get(pid)
-        if not pm:
-            pm = PlayerMetric(
-                player_id=pid,
-                sport_id=sport_id,
-                metrics={},
-                milestones=[],
-            )
-            session.add(pm)
-        metrics = dict(pm.metrics or {})
-        milestones = list(pm.milestones or [])
-        metrics["matches"] = metrics.get("matches", 0) + 1
-        if pid in winners:
-            metrics["wins"] = metrics.get("wins", 0) + 1
-            if metrics["wins"] == 1 and "firstWin" not in milestones:
-                milestones.append("firstWin")
-        elif pid in losers:
-            metrics["losses"] = metrics.get("losses", 0) + 1
-        pm.metrics = metrics
-        pm.milestones = milestones
+    except Exception:
+        await nested.rollback()
+        raise
+    else:
+        await nested.commit()

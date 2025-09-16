@@ -40,16 +40,29 @@ async def _create_player_metric_table() -> None:
 def test_update_player_metrics_handles_missing_table() -> None:
     asyncio.run(_drop_player_metric_table())
     try:
+        new_player_id = uuid.uuid4().hex
+        new_player_name = f"player-{new_player_id}"
+
         async def run_update() -> None:
             async with db.AsyncSessionLocal() as session:
+                session.add(Player(id=new_player_id, name=new_player_name))
                 await update_player_metrics(
                     session,
                     sport_id="padel",
                     winners=["winner"],
                     losers=["loser"],
                 )
+                await session.commit()
 
         asyncio.run(run_update())
+
+        async def fetch_player() -> None:
+            async with db.AsyncSessionLocal() as session:
+                player = await session.get(Player, new_player_id)
+                assert player is not None
+                assert player.name == new_player_name
+
+        asyncio.run(fetch_player())
     finally:
         asyncio.run(_create_player_metric_table())
 

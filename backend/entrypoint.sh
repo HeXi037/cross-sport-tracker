@@ -17,5 +17,5 @@ done
 # Run Alembic migrations to heads using container-stable ini path
 alembic -c /app/alembic.ini upgrade heads
 
-# Start API
-exec uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+# Start API (module path is app.main, since /app is the backend dir)
+exec uvicorn app.main:app --host 0.0.0.0 --port 8000

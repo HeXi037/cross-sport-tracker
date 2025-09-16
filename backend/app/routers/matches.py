@@ -409,6 +409,7 @@ async def record_sets_endpoint(
             else:
                 normalized_sets.append({"A": getattr(s, "A", None), "B": getattr(s, "B", None)})
         validate_set_scores(normalized_sets)
+        set_tuples = [(int(s["A"]), int(s["B"])) for s in normalized_sets]
     except ValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
@@ -422,7 +423,7 @@ async def record_sets_endpoint(
     for old in existing:
         state = engine.apply(old.payload, state)
 
-    new_events, state = engine.record_sets(body.sets, state)
+    new_events, state = engine.record_sets(set_tuples, state)
 
     for ev in new_events:
         e = ScoreEvent(

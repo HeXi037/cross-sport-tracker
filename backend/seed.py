@@ -91,6 +91,36 @@ async def main():
         }
         players = [
             Player(id="demo-player", name="demo player", club_id="demo-club"),
+            Player(
+                id="padel-alex-ruiz",
+                name="Alex Ruiz",
+                club_id="demo-club",
+            ),
+            Player(
+                id="padel-bella-fernandez",
+                name="Bella Fernandez",
+                club_id="demo-club",
+            ),
+            Player(
+                id="padel-carlos-mendez",
+                name="Carlos Mendez",
+                club_id="demo-club",
+            ),
+            Player(
+                id="padel-diana-soto",
+                name="Diana Soto",
+                club_id="demo-club",
+            ),
+            Player(
+                id="padel-eli-vasquez",
+                name="Eli Vasquez",
+                club_id="demo-club",
+            ),
+            Player(
+                id="padel-fiona-castro",
+                name="Fiona Castro",
+                club_id="demo-club",
+            ),
         ]
         for p in players:
             if p.id not in existing_players:

@@ -184,7 +184,7 @@ cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 alembic upgrade head
-python seed.py  # adds default sports, rulesets, demo club/player
+python seed.py  # adds default sports, rulesets, demo club & test players
 
 ### Web
 cd ../apps/web

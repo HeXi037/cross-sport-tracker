@@ -1,7 +1,9 @@
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import PlayerMetric
+from ..db_errors import is_missing_table_error
 
 async def update_player_metrics(
     session: AsyncSession,
@@ -15,14 +17,19 @@ async def update_player_metrics(
     all_players = set(winners + losers + draws)
     if not all_players:
         return
-    rows = (
-        await session.execute(
-            select(PlayerMetric).where(
-                PlayerMetric.player_id.in_(all_players),
-                PlayerMetric.sport_id == sport_id,
+    try:
+        rows = (
+            await session.execute(
+                select(PlayerMetric).where(
+                    PlayerMetric.player_id.in_(all_players),
+                    PlayerMetric.sport_id == sport_id,
+                )
             )
-        )
-    ).scalars().all()
+        ).scalars().all()
+    except SQLAlchemyError as exc:
+        if is_missing_table_error(exc, PlayerMetric.__tablename__):
+            return
+        raise
     existing = {pm.player_id: pm for pm in rows}
     for pid in all_players:
         pm = existing.get(pid)

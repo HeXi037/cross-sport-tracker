@@ -8,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import aliased
 
 from ..db import get_session
+from ..db_errors import is_missing_table_error
 from ..models import (
     Player,
     Match,
@@ -137,11 +138,17 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
     p = await session.get(Player, player_id)
     if not p or p.deleted_at is not None:
         raise PlayerNotFound(player_id)
-    rows = (
-        await session.execute(
-            select(PlayerMetric).where(PlayerMetric.player_id == player_id)
-        )
-    ).scalars().all()
+    try:
+        rows = (
+            await session.execute(
+                select(PlayerMetric).where(PlayerMetric.player_id == player_id)
+            )
+        ).scalars().all()
+    except SQLAlchemyError as exc:
+        if is_missing_table_error(exc, PlayerMetric.__tablename__):
+            rows = []
+        else:
+            raise
     metrics = {r.sport_id: r.metrics for r in rows}
     milestones = {r.sport_id: r.milestones for r in rows}
     try:

@@ -112,8 +112,24 @@ class MatchCreateByName(BaseModel):
             return v.astimezone(timezone.utc).replace(tzinfo=None)
         return v
 
+class SetScore(BaseModel):
+    A: int
+    B: int
+
+    @model_validator(mode="before")
+    def _coerce(cls, value: Any) -> Dict[str, int]:
+        """Allow incoming set scores to be provided as tuples or objects."""
+        if isinstance(value, dict):
+            return value
+        if isinstance(value, (list, tuple)) and len(value) == 2:
+            return {"A": value[0], "B": value[1]}
+        if hasattr(value, "A") or hasattr(value, "B"):
+            return {"A": getattr(value, "A", None), "B": getattr(value, "B", None)}
+        raise TypeError("Set scores must be a mapping or 2-item tuple/list.")
+
+
 class SetsIn(BaseModel):
-    sets: List[Tuple[int, int]]
+    sets: List[SetScore]
 
 class EventIn(BaseModel):
     type: Literal["POINT", "ROLL", "UNDO", "HOLE"]

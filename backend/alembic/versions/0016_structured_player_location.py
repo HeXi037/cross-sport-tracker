@@ -38,12 +38,15 @@ def upgrade() -> None:
             and region_code is None
         ):
             continue
-        values = {
-            "country_code": country_code,
-            "region_code": region_code,
-        }
+        values = {}
         if normalized_location != location:
             values["location"] = normalized_location
+        if country_code is not None:
+            values["country_code"] = country_code
+        if region_code is not None:
+            values["region_code"] = region_code
+        if not values:
+            continue
         connection.execute(
             player_table.update()
             .where(player_table.c.id == player_id)

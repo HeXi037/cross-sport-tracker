@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from typing import Optional, Tuple
 
+from .location_data import ISO3166_ALPHA2_CODES
+
 COUNTRY_CODE_RE = re.compile(r"^[A-Z]{2}$")
 REGION_CODE_RE = re.compile(r"^[A-Z0-9]{1,3}$")
 STRUCTURED_LOCATION_RE = re.compile(
@@ -25,10 +27,10 @@ def normalize_country_code(
     normalized = value.strip().upper()
     if not normalized:
         return None
-    if COUNTRY_CODE_RE.fullmatch(normalized):
+    if COUNTRY_CODE_RE.fullmatch(normalized) and normalized in ISO3166_ALPHA2_CODES:
         return normalized
     if raise_on_invalid:
-        raise ValueError("country_code must be a 2-letter ISO-3166 alpha-2 code")
+        raise ValueError("country_code must be a valid ISO-3166 alpha-2 code")
     return None
 
 
@@ -120,7 +122,7 @@ def normalize_location_fields(
 
     if normalized_location:
         loc_country, loc_region = parse_location_string(normalized_location)
-        if loc_country:
+        if loc_country and loc_country in ISO3166_ALPHA2_CODES:
             if normalized_country is None:
                 normalized_country = loc_country
             if normalized_region is None:
@@ -129,6 +131,9 @@ def normalize_location_fields(
                 normalized_country,
                 normalized_region if normalized_region is not None else loc_region,
             )
+        else:
+            loc_country = None
+            loc_region = None
 
     if not normalized_location and normalized_country:
         normalized_location = compose_location_string(

@@ -159,6 +159,30 @@ POST /api/v0/matches
   "location": "Local Club"
 }
 
+### Player location data hygiene
+
+The legacy `player.location` column accepts arbitrary free-form text. To assess
+the existing values before running the structured location migration, use the
+helper script to dump the distinct strings and their frequencies:
+
+```bash
+DATABASE_URL=postgresql://... \
+  python backend/scripts/survey_player_locations.py
+```
+
+After the migration, an administrator can backfill or correct individual rows
+with normalized ISO country codes and optional subdivision codes using:
+
+```bash
+DATABASE_URL=postgresql://... \
+  python backend/scripts/set_player_location.py <player-id> \
+    --country-code US --region-code CA --location "US-CA"
+```
+
+Run with `--dry-run` to preview the changes before committing them. Leaving a
+flag empty (for example `--region-code ''`) clears that field while keeping the
+three columns synchronized via the shared normalization helpers.
+
 Append events
 
 POST /api/v0/matches/m_123/events

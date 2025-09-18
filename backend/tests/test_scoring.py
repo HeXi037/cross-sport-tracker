@@ -88,6 +88,14 @@ def test_record_sets():
     assert len(events) == (6 + 4 + 6 + 2) * 4
 
 
+def test_padel_record_sets_tiebreak():
+    events, state = padel.record_sets([(7, 6)])
+    summary = padel.summary(state)
+    assert summary["sets"] == {"A": 1, "B": 0}
+    tiebreak_to = summary["config"].get("tiebreakTo", 7)
+    assert len(events) == (12 * 4) + tiebreak_to
+
+
 def test_tennis_record_sets_tiebreak():
     events, state = tennis.record_sets([(7, 6)])
     assert state["sets"] == {"A": 1, "B": 0}

@@ -14,7 +14,15 @@ from sqlalchemy.pool import StaticPool
 from sqlalchemy import select
 
 from backend.app.db import Base, get_session
-from backend.app.models import Match, Sport, ScoreEvent, MatchParticipant, User
+from backend.app.models import (
+    Match,
+    Sport,
+    ScoreEvent,
+    MatchParticipant,
+    Player,
+    Rating,
+    User,
+)
 from backend.app.routers import matches
 from backend.app.scoring import padel
 from backend.app.routers.admin import require_admin
@@ -39,6 +47,8 @@ def client_and_session():
             await conn.run_sync(Match.__table__.create)
             await conn.run_sync(MatchParticipant.__table__.create)
             await conn.run_sync(ScoreEvent.__table__.create)
+            await conn.run_sync(Player.__table__.create)
+            await conn.run_sync(Rating.__table__.create)
 
     asyncio.run(init_models())
 
@@ -92,6 +102,52 @@ def test_record_sets_success(client_and_session):
 
     summary = asyncio.run(fetch_summary())
     assert summary["sets"] == {"A": 2, "B": 0}
+
+
+def test_record_sets_tiebreak_updates_summary_and_ratings(client_and_session):
+    client, session_maker = client_and_session
+    mid = "m_tb"
+    seed_match(session_maker, mid)
+
+    async def seed_players_and_participants():
+        async with session_maker() as session:
+            session.add_all(
+                [
+                    Player(id="pa", name="Player A"),
+                    Player(id="pb", name="Player B"),
+                    MatchParticipant(
+                        id="mpa", match_id=mid, side="A", player_ids=["pa"]
+                    ),
+                    MatchParticipant(
+                        id="mpb", match_id=mid, side="B", player_ids=["pb"]
+                    ),
+                ]
+            )
+            await session.commit()
+
+    asyncio.run(seed_players_and_participants())
+
+    resp = client.post(f"/matches/{mid}/sets", json={"sets": [[7, 6]]})
+    assert resp.status_code == 200
+    expected = len(padel.record_sets([(7, 6)])[0])
+    assert resp.json() == {"ok": True, "added": expected}
+
+    async def fetch_summary_and_ratings():
+        async with session_maker() as session:
+            match = await session.get(Match, mid)
+            ratings = (
+                await session.execute(
+                    select(Rating).where(Rating.player_id.in_(["pa", "pb"]))
+                )
+            ).scalars().all()
+            return match.details, {r.player_id: r.value for r in ratings}
+
+    summary, rating_map = asyncio.run(fetch_summary_and_ratings())
+    assert summary["sets"] == {"A": 1, "B": 0}
+    assert set(rating_map) == {"pa", "pb"}
+    assert rating_map["pa"] > rating_map["pb"]
+    assert rating_map["pa"] > 1000
+    assert rating_map["pb"] < 1000
 
 
 def test_record_sets_invalid(client_and_session):

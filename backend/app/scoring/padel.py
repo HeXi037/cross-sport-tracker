@@ -96,33 +96,43 @@ def record_sets(set_scores, state=None):
     events = []
 
     for ga, gb in set_scores:
-        # Determine winner/loser for this set.
         if ga == gb:
             raise ValueError("sets cannot be tied")
         winner = "A" if ga > gb else "B"
-        loser = "B" if winner == "A" else "A"
+        loser = _other(winner)
         win_games = ga if winner == "A" else gb
         lose_games = gb if winner == "A" else ga
+        min_games = min(win_games, lose_games)
 
-        # Winner captures all but the final game first, then the loser wins
-        # their games, and finally the winner secures the set with the last
-        # game.  This yields a deterministic sequence that respects the final
-        # game totals.
-        for _ in range(win_games - 1):
+        # Alternate games so the scoreboard reaches the desired totals
+        # without ending the set prematurely.  Each game is represented as
+        # four consecutive points which is sufficient for the simplified padel
+        # scoring model.
+        for _ in range(min_games):
             for _ in range(4):
                 ev = {"type": "POINT", "by": winner}
                 events.append(ev)
                 state = apply(ev, state)
-
-        for _ in range(lose_games):
             for _ in range(4):
                 ev = {"type": "POINT", "by": loser}
                 events.append(ev)
                 state = apply(ev, state)
 
-        for _ in range(4):
-            ev = {"type": "POINT", "by": winner}
-            events.append(ev)
-            state = apply(ev, state)
+        if win_games == 7 and lose_games == 6:
+            # Sets tied at 6–6 are resolved via a tiebreak.  Mirror the
+            # tennis implementation by pushing the required number of points
+            # for the eventual winner so the state reflects the completed set
+            # before returning.
+            tiebreak_to = state["config"].get("tiebreakTo", 7)
+            for _ in range(tiebreak_to):
+                ev = {"type": "POINT", "by": winner}
+                events.append(ev)
+                state = apply(ev, state)
+        else:
+            for _ in range(win_games - min_games):
+                for _ in range(4):
+                    ev = {"type": "POINT", "by": winner}
+                    events.append(ev)
+                    state = apply(ev, state)
 
     return events, state

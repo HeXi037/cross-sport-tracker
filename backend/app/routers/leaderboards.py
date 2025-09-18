@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Optional
+from typing import Optional, Annotated
 
 from fastapi import APIRouter, Query, Depends
 from sqlalchemy import select, func
@@ -27,12 +27,12 @@ async def leaderboard(
     sport: str = Query(..., description="Sport id, e.g. 'padel' or 'bowling'"),
     limit: int = 50,
     offset: int = 0,
-    country: Optional[str] = Query(
-        None, description="Optional country/location filter for players"
-    ),
-    club_id: Optional[str] = Query(
-        None, alias="clubId", description="Optional club filter for players"
-    ),
+    country: Annotated[
+        Optional[str], Query(description="Optional country/location filter for players")
+    ] = None,
+    club_id: Annotated[
+        Optional[str], Query(alias="clubId", description="Optional club filter for players")
+    ] = None,
     session: AsyncSession = Depends(get_session),
 ):
     stmt = select(Rating, Player).join(Player, Player.id == Rating.player_id)

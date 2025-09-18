@@ -14,13 +14,22 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-from dataclasses import dataclass, asdict
+import sys
+from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Optional
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
-from app.location_utils import parse_location_string, normalize_location_string
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from backend.app.location_utils import (
+    parse_location_string,
+    normalize_location_string,
+)
 
 
 @dataclass

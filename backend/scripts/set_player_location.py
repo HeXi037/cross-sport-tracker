@@ -7,14 +7,20 @@ import argparse
 import asyncio
 import json
 import os
+import sys
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.location_utils import normalize_location_fields
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from backend.app.location_utils import normalize_location_fields
 
 
 @dataclass

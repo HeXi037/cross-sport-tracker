@@ -1,4 +1,5 @@
 from collections import defaultdict
+from typing import Optional, Annotated
 
 from fastapi import APIRouter, Query, Depends
 from sqlalchemy import select, func
@@ -26,14 +27,21 @@ async def leaderboard(
     sport: str = Query(..., description="Sport id, e.g. 'padel' or 'bowling'"),
     limit: int = 50,
     offset: int = 0,
+    country: Annotated[
+        Optional[str], Query(description="Optional country/location filter for players")
+    ] = None,
+    club_id: Annotated[
+        Optional[str], Query(alias="clubId", description="Optional club filter for players")
+    ] = None,
     session: AsyncSession = Depends(get_session),
 ):
-    stmt = (
-        select(Rating, Player)
-        .join(Player, Player.id == Rating.player_id)
-        .where(Rating.sport_id == sport, Player.deleted_at.is_(None))
-        .order_by(Rating.value.desc())
-    )
+    stmt = select(Rating, Player).join(Player, Player.id == Rating.player_id)
+    conditions = [Rating.sport_id == sport, Player.deleted_at.is_(None)]
+    if country:
+        conditions.append(Player.location == country)
+    if club_id:
+        conditions.append(Player.club_id == club_id)
+    stmt = stmt.where(*conditions).order_by(Rating.value.desc())
     # Fetch all rows so we can compute ranks and previous ranks.
     all_rows = (await session.execute(stmt)).all()
     total = len(all_rows)

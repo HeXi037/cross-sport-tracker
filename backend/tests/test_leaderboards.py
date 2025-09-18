@@ -15,6 +15,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app import db  # noqa: E402
 from app.models import (
+    Club,
     Player,
     Rating,
     Sport,
@@ -43,6 +44,7 @@ def setup_db():
                 db.Base.metadata.create_all,
                 tables=[
                     Sport.__table__,
+                    Club.__table__,
                     Player.__table__,
                     Rating.__table__,
                     Match.__table__,
@@ -63,13 +65,23 @@ def setup_db():
         async with db.AsyncSessionLocal() as session:
             sport = Sport(id="padel", name="Padel")
             session.add(sport)
-            p1 = Player(id="p1", name="P1")
-            p2 = Player(id="p2", name="P2")
-            session.add_all([p1, p2])
+            session.add_all(
+                [
+                    Club(id="club-a", name="Club A"),
+                    Club(id="club-b", name="Club B"),
+                ]
+            )
+            p1 = Player(id="p1", name="P1", location="SE", club_id="club-a")
+            p2 = Player(id="p2", name="P2", location="SE", club_id="club-b")
+            p3 = Player(id="p3", name="P3", location="NO", club_id="club-a")
+            p4 = Player(id="p4", name="P4", location="US")
+            session.add_all([p1, p2, p3, p4])
             session.add_all(
                 [
                     Rating(id="r1", player_id="p1", sport_id="padel", value=1005),
                     Rating(id="r2", player_id="p2", sport_id="padel", value=1001),
+                    Rating(id="r3", player_id="p3", sport_id="padel", value=990),
+                    Rating(id="r4", player_id="p4", sport_id="padel", value=980),
                 ]
             )
             base = datetime(2024, 1, 1)
@@ -130,3 +142,29 @@ def test_leaderboard_rank_and_sets():
         assert p2["rankChange"] == -1
         assert p2["setsWon"] == 1
         assert p2["setsLost"] == 2
+
+
+def test_leaderboard_filter_by_country():
+    with TestClient(app) as client:
+        resp = client.get(
+            "/leaderboards", params={"sport": "padel", "country": "SE"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 2
+        leaders = data["leaders"]
+        assert [entry["playerId"] for entry in leaders] == ["p1", "p2"]
+        assert [entry["rank"] for entry in leaders] == [1, 2]
+
+
+def test_leaderboard_filter_by_club():
+    with TestClient(app) as client:
+        resp = client.get(
+            "/leaderboards", params={"sport": "padel", "clubId": "club-a"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 2
+        leaders = data["leaders"]
+        assert [entry["playerId"] for entry in leaders] == ["p1", "p3"]
+        assert [entry["rank"] for entry in leaders] == [1, 2]

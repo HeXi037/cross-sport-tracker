@@ -74,6 +74,8 @@ async def create_player(
         club_id=body.club_id,
         photo_url=body.photo_url,
         location=body.location,
+        country_code=body.country_code,
+        region_code=body.region_code,
         ranking=body.ranking,
     )
     session.add(p)
@@ -84,6 +86,8 @@ async def create_player(
         club_id=p.club_id,
         photo_url=p.photo_url,
         location=p.location,
+        country_code=p.country_code,
+        region_code=p.region_code,
         ranking=p.ranking,
         badges=[],
     )
@@ -112,6 +116,8 @@ async def list_players(
             club_id=p.club_id,
             photo_url=p.photo_url,
             location=p.location,
+            country_code=p.country_code,
+            region_code=p.region_code,
             ranking=p.ranking,
             badges=[],
         )
@@ -165,6 +171,8 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
         club_id=p.club_id,
         photo_url=p.photo_url,
         location=p.location,
+        country_code=p.country_code,
+        region_code=p.region_code,
         ranking=p.ranking,
         metrics=metrics or None,
         milestones=milestones or None,

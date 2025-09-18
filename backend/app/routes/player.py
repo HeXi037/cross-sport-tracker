@@ -31,6 +31,8 @@ async def player_profile(
         club_id=player.club_id,
         photo_url=player.photo_url,
         location=player.location,
+        country_code=player.country_code,
+        region_code=player.region_code,
         ranking=player.ranking,
     )
     return templates.TemplateResponse(

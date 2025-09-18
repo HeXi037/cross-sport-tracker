@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 import re
 from pydantic import BaseModel, Field, model_validator, field_validator
 
+from .location_utils import normalize_location_fields
+
 PASSWORD_REGEX = re.compile(r"^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$")
 
 class SportOut(BaseModel):
@@ -32,6 +34,22 @@ class PlayerCreate(BaseModel):
     photo_url: Optional[str] = None
     location: Optional[str] = None
     ranking: Optional[int] = None
+    country_code: Optional[str] = None
+    region_code: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _normalize_location(cls, model: "PlayerCreate") -> "PlayerCreate":
+        (
+            model.location,
+            model.country_code,
+            model.region_code,
+        ) = normalize_location_fields(
+            model.location,
+            model.country_code,
+            model.region_code,
+            raise_on_invalid=True,
+        )
+        return model
 
 class PlayerOut(BaseModel):
     id: str
@@ -40,9 +58,24 @@ class PlayerOut(BaseModel):
     photo_url: Optional[str] = None
     location: Optional[str] = None
     ranking: Optional[int] = None
+    country_code: Optional[str] = None
+    region_code: Optional[str] = None
     metrics: Optional[Dict[str, Dict[str, int]]] = None
     milestones: Optional[Dict[str, List[str]]] = None
     badges: List[BadgeOut] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _sync_location_fields(cls, model: "PlayerOut") -> "PlayerOut":
+        (
+            model.location,
+            model.country_code,
+            model.region_code,
+        ) = normalize_location_fields(
+            model.location,
+            model.country_code,
+            model.region_code,
+        )
+        return model
 
 class PlayerNameOut(BaseModel):
     id: str

@@ -67,11 +67,13 @@ export default function ChunkErrorReload() {
       }
     };
 
-    window.addEventListener("error", handleError);
+    const captureOptions = { capture: true } as const;
+
+    window.addEventListener("error", handleError, captureOptions);
     window.addEventListener("unhandledrejection", handleRejection);
 
     return () => {
-      window.removeEventListener("error", handleError);
+      window.removeEventListener("error", handleError, captureOptions);
       window.removeEventListener("unhandledrejection", handleRejection);
     };
   }, []);

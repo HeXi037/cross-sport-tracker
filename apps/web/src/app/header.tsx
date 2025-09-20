@@ -8,10 +8,14 @@ import { currentUsername, isAdmin, logout } from '../lib/api';
 export default function Header() {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<string | null>(null);
+  const [admin, setAdmin] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    const update = () => setUser(currentUsername());
+    const update = () => {
+      setUser(currentUsername());
+      setAdmin(isAdmin());
+    };
     update();
     window.addEventListener('storage', update);
     return () => window.removeEventListener('storage', update);
@@ -20,6 +24,7 @@ export default function Header() {
   const handleLogout = () => {
     logout();
     setUser(null);
+    setAdmin(false);
     setOpen(false);
     router.push('/');
   };
@@ -67,7 +72,7 @@ export default function Header() {
               All Sports
             </Link>
           </li>
-          {isAdmin() && (
+          {admin && (
             <li>
               <Link href="/admin/matches" onClick={() => setOpen(false)}>
                 Admin

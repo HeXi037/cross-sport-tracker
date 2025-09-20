@@ -1,6 +1,7 @@
 import { render, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import Leaderboard from "./leaderboard";
+import { apiUrl } from "../../lib/api";
 
 const replaceMock = vi.fn();
 let mockPathname = "/leaderboard";
@@ -32,7 +33,7 @@ describe("Leaderboard", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
     const urls = fetchMock.mock.calls.map((c) => c[0]);
-    expect(urls).toContain("/api/v0/leaderboards?sport=disc_golf");
+    expect(urls).toContain(apiUrl("/v0/leaderboards?sport=disc_golf"));
   });
 
   it("includes the country filter when provided", async () => {
@@ -46,7 +47,7 @@ describe("Leaderboard", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/v0/leaderboards?sport=padel&country=SE"
+      apiUrl("/v0/leaderboards?sport=padel&country=SE")
     );
   });
 
@@ -61,7 +62,7 @@ describe("Leaderboard", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/v0/leaderboards?sport=padel&clubId=club-a"
+      apiUrl("/v0/leaderboards?sport=padel&clubId=club-a")
     );
   });
 
@@ -76,7 +77,7 @@ describe("Leaderboard", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
     const urls = fetchMock.mock.calls.map((c) => c[0]);
     expect(urls).toContain(
-      "/api/v0/leaderboards?sport=disc_golf&country=SE&clubId=club-a"
+      apiUrl("/v0/leaderboards?sport=disc_golf&country=SE&clubId=club-a")
     );
   });
 });

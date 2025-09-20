@@ -1,4 +1,3 @@
-import imghdr
 import uuid
 from pathlib import Path
 from collections import defaultdict
@@ -7,6 +6,8 @@ from sqlalchemy import select, func, case, literal, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import aliased
+
+from PIL import Image, UnidentifiedImageError
 
 from ..db import get_session
 from ..db_errors import is_missing_table_error
@@ -219,8 +220,15 @@ async def upload_player_photo(
                 raise HTTPException(status_code=413, detail="Uploaded file too large")
             f.write(chunk)
 
-    detected_format = imghdr.what(filepath)
-    detected_mime = PHOTO_TYPE_MAP.get(detected_format or "")
+    try:
+        with Image.open(filepath) as img:
+            detected_format = (img.format or "").lower()
+            img.verify()
+    except (UnidentifiedImageError, OSError):
+        filepath.unlink(missing_ok=True)
+        raise HTTPException(status_code=415, detail="Unsupported media type")
+
+    detected_mime = PHOTO_TYPE_MAP.get(detected_format)
     if detected_mime not in ALLOWED_PHOTO_TYPES:
         filepath.unlink(missing_ok=True)
         raise HTTPException(status_code=415, detail="Unsupported media type")

@@ -1,4 +1,4 @@
-import os, sys, asyncio, pytest
+import os, sys, asyncio, base64, pytest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -20,12 +20,8 @@ from app.models import (
 )
 from app.exceptions import DomainException, ProblemDetail
 
-VALID_PNG_BYTES = (
-    b"\x89PNG\r\n\x1a\n"
-    b"\x00\x00\x00\rIHDR"
-    b"\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde"
-    b"\x00\x00\x00\x0cIDAT\x08\xd7c```\x00\x00\x00\x04\x00\x01\x0b\xe7\x1d\x17"
-    b"\x00\x00\x00\x00IEND\xaeB`\x82"
+VALID_PNG_BYTES = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
 )
 
 app = FastAPI()

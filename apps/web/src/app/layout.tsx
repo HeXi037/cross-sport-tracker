@@ -1,6 +1,7 @@
 // apps/web/src/app/layout.tsx
 import './globals.css';
 import Header from './header';
+import ChunkErrorReload from '../components/ChunkErrorReload';
 
 export const metadata = {
   title: 'cross-sport-tracker',
@@ -15,6 +16,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        <ChunkErrorReload />
         <Header />
         {children}
       </body>

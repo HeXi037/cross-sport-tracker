@@ -20,6 +20,14 @@ from app.models import (
 )
 from app.exceptions import DomainException, ProblemDetail
 
+VALID_PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n"
+    b"\x00\x00\x00\rIHDR"
+    b"\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde"
+    b"\x00\x00\x00\x0cIDAT\x08\xd7c```\x00\x00\x00\x04\x00\x01\x0b\xe7\x1d\x17"
+    b"\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
 app = FastAPI()
 
 @app.exception_handler(DomainException)
@@ -208,7 +216,7 @@ def test_upload_player_photo_prefixed_url() -> None:
         pid = client.post(
             "/players", json={"name": "Pic"}, headers={"Authorization": f"Bearer {token}"}
         ).json()["id"]
-        files = {"file": ("avatar.png", b"avatar", "image/png")}
+        files = {"file": ("avatar.png", VALID_PNG_BYTES, "image/png")}
         resp = client.post(
             f"/players/{pid}/photo",
             files=files,
@@ -246,6 +254,24 @@ def test_upload_player_photo_invalid_mime_type() -> None:
             "/players", json={"name": "BadPic"}, headers={"Authorization": f"Bearer {token}"}
         ).json()["id"]
         files = {"file": ("avatar.gif", b"gif", "image/gif")}
+        resp = client.post(
+            f"/players/{pid}/photo", files=files, headers={"Authorization": f"Bearer {token}"}
+        )
+        assert resp.status_code == 415
+
+
+@pytest.mark.parametrize(
+    ("filename", "mime_type"),
+    [("avatar.jpg", "image/jpeg"), ("avatar.png", "image/png")],
+)
+def test_upload_player_photo_rejects_invalid_bytes(filename: str, mime_type: str) -> None:
+    with TestClient(app) as client:
+        token = admin_token(client)
+        player_name = f"FakePic-{mime_type.split('/')[-1]}"
+        pid = client.post(
+            "/players", json={"name": player_name}, headers={"Authorization": f"Bearer {token}"}
+        ).json()["id"]
+        files = {"file": (filename, b"not an image", mime_type)}
         resp = client.post(
             f"/players/{pid}/photo", files=files, headers={"Authorization": f"Bearer {token}"}
         )

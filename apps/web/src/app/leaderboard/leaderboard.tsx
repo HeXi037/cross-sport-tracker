@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { apiUrl } from "../../lib/api";
 
 // Identifier type for players
 export type ID = string | number;
@@ -83,7 +84,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     const params = new URLSearchParams({ sport: sportId });
     if (appliedCountry) params.set("country", appliedCountry);
     if (appliedClubId) params.set("clubId", appliedClubId);
-    return `/api/v0/leaderboards?${params.toString()}`;
+    return apiUrl(`/v0/leaderboards?${params.toString()}`);
   };
 
   const supportsFilters = sport !== "master";
@@ -167,7 +168,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             .map((l, i) => ({ ...l, rank: i + 1 }));
           if (!cancelled) setLeaders(combined);
         } else if (sport === "master") {
-          const res = await fetch(`/api/v0/leaderboards/master`);
+          const res = await fetch(apiUrl(`/v0/leaderboards/master`));
           if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
           const data = await res.json();
           const arr = Array.isArray(data) ? data : data.leaders ?? [];

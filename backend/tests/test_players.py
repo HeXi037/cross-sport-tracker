@@ -1,4 +1,4 @@
-import os, sys, asyncio, pytest
+import os, sys, asyncio, base64, pytest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -19,6 +19,10 @@ from app.models import (
     RefreshToken,
 )
 from app.exceptions import DomainException, ProblemDetail
+
+VALID_PNG_BYTES = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
+)
 
 app = FastAPI()
 
@@ -208,7 +212,7 @@ def test_upload_player_photo_prefixed_url() -> None:
         pid = client.post(
             "/players", json={"name": "Pic"}, headers={"Authorization": f"Bearer {token}"}
         ).json()["id"]
-        files = {"file": ("avatar.png", b"avatar", "image/png")}
+        files = {"file": ("avatar.png", VALID_PNG_BYTES, "image/png")}
         resp = client.post(
             f"/players/{pid}/photo",
             files=files,
@@ -246,6 +250,24 @@ def test_upload_player_photo_invalid_mime_type() -> None:
             "/players", json={"name": "BadPic"}, headers={"Authorization": f"Bearer {token}"}
         ).json()["id"]
         files = {"file": ("avatar.gif", b"gif", "image/gif")}
+        resp = client.post(
+            f"/players/{pid}/photo", files=files, headers={"Authorization": f"Bearer {token}"}
+        )
+        assert resp.status_code == 415
+
+
+@pytest.mark.parametrize(
+    ("filename", "mime_type"),
+    [("avatar.jpg", "image/jpeg"), ("avatar.png", "image/png")],
+)
+def test_upload_player_photo_rejects_invalid_bytes(filename: str, mime_type: str) -> None:
+    with TestClient(app) as client:
+        token = admin_token(client)
+        player_name = f"FakePic-{mime_type.split('/')[-1]}"
+        pid = client.post(
+            "/players", json={"name": player_name}, headers={"Authorization": f"Bearer {token}"}
+        ).json()["id"]
+        files = {"file": (filename, b"not an image", mime_type)}
         resp = client.post(
             f"/players/{pid}/photo", files=files, headers={"Authorization": f"Bearer {token}"}
         )

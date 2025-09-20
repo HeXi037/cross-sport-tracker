@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import aliased
 
+from PIL import Image, UnidentifiedImageError
+
 from ..db import get_session
 from ..db_errors import is_missing_table_error
 from ..models import (
@@ -46,7 +48,14 @@ UPLOAD_DIR = Path(__file__).resolve().parent.parent / "static" / "players"
 UPLOAD_URL_PREFIX = f"{API_PREFIX}/static/players"
 MAX_PHOTO_SIZE = 5 * 1024 * 1024  # 5MB limit on upload size
 CHUNK_SIZE = 1024 * 1024  # 1MB chunks for streaming uploads
-ALLOWED_PHOTO_TYPES = {"image/jpeg", "image/png"}
+# Canonical mapping of detected image formats to the MIME types we allow for
+# player photo uploads. ``ALLOWED_PHOTO_TYPES`` is derived from this mapping so
+# the accepted MIME types stay in sync with the validation logic below.
+PHOTO_TYPE_MAP = {
+    "jpeg": "image/jpeg",
+    "png": "image/png",
+}
+ALLOWED_PHOTO_TYPES = frozenset(PHOTO_TYPE_MAP.values())
 router = APIRouter(
     prefix="/players",
     tags=["players"],
@@ -210,6 +219,19 @@ async def upload_player_photo(
                 filepath.unlink(missing_ok=True)
                 raise HTTPException(status_code=413, detail="Uploaded file too large")
             f.write(chunk)
+
+    try:
+        with Image.open(filepath) as img:
+            detected_format = (img.format or "").lower()
+            img.verify()
+    except (UnidentifiedImageError, OSError):
+        filepath.unlink(missing_ok=True)
+        raise HTTPException(status_code=415, detail="Unsupported media type")
+
+    detected_mime = PHOTO_TYPE_MAP.get(detected_format)
+    if detected_mime not in ALLOWED_PHOTO_TYPES:
+        filepath.unlink(missing_ok=True)
+        raise HTTPException(status_code=415, detail="Unsupported media type")
 
     p.photo_url = f"{UPLOAD_URL_PREFIX}/{filename}"
     await session.commit()

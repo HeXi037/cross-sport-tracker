@@ -7,6 +7,7 @@ os.environ["ADMIN_SECRET"] = "admintest"
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from fastapi.responses import JSONResponse
+from httpx import ASGITransport, AsyncClient
 from app import db
 from app.routers import players, auth, badges
 from app.models import (
@@ -44,6 +45,20 @@ app.include_router(auth.router)
 app.include_router(players.router)
 app.include_router(badges.router)
 
+
+@pytest.fixture
+def async_client():
+    loop = asyncio.new_event_loop()
+    transport = ASGITransport(app=app)
+    client = AsyncClient(transport=transport, base_url="http://testserver")
+    loop.run_until_complete(client.__aenter__())
+    try:
+        yield client, loop
+    finally:
+        loop.run_until_complete(client.__aexit__(None, None, None))
+        loop.close()
+
+
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():
     async def init_models():
@@ -80,6 +95,20 @@ def admin_token(client: TestClient) -> str:
     )
     if resp.status_code != 200:
         resp = client.post(
+            "/auth/login", json={"username": "admin", "password": "Str0ng!Pass!"}
+        )
+    return resp.json()["access_token"]
+
+
+async def async_admin_token(client: AsyncClient) -> str:
+    auth.limiter.reset()
+    resp = await client.post(
+        "/auth/signup",
+        json={"username": "admin", "password": "Str0ng!Pass!", "is_admin": True},
+        headers={"X-Admin-Secret": "admintest"},
+    )
+    if resp.status_code != 200:
+        resp = await client.post(
             "/auth/login", json={"username": "admin", "password": "Str0ng!Pass!"}
         )
     return resp.json()["access_token"]
@@ -223,6 +252,38 @@ def test_upload_player_photo_prefixed_url() -> None:
         assert data["photo_url"].startswith("/api/static/players/")
         filename = data["photo_url"].split("/")[-1]
         filepath = players.UPLOAD_DIR / filename
+        if filepath.exists():
+            filepath.unlink()
+
+
+def test_upload_player_photo_streams_chunks(async_client, monkeypatch) -> None:
+    client, loop = async_client
+    monkeypatch.setattr(players, "CHUNK_SIZE", 8)
+    token = loop.run_until_complete(async_admin_token(client))
+    resp = loop.run_until_complete(
+        client.post(
+            "/players",
+            json={"name": "AsyncPic"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    )
+    assert resp.status_code == 200
+    pid = resp.json()["id"]
+    files = {"file": ("avatar.png", VALID_PNG_BYTES, "image/png")}
+    resp = loop.run_until_complete(
+        client.post(
+            f"/players/{pid}/photo",
+            files=files,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    )
+    assert resp.status_code == 200
+    filename = resp.json()["photo_url"].split("/")[-1]
+    filepath = players.UPLOAD_DIR / filename
+    try:
+        assert filepath.exists()
+        assert filepath.read_bytes() == VALID_PNG_BYTES
+    finally:
         if filepath.exists():
             filepath.unlink()
 

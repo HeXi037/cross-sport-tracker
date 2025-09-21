@@ -1,6 +1,8 @@
 import uuid
 from pathlib import Path
 from collections import defaultdict
+
+import aiofiles
 from fastapi import APIRouter, Depends, Response, HTTPException, UploadFile, File, Query
 from sqlalchemy import select, func, case, literal, true
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -208,17 +210,19 @@ async def upload_player_photo(
     filename = f"{uuid.uuid4().hex}{suffix}"
     filepath = UPLOAD_DIR / filename
     size = 0
-    with open(filepath, "wb") as f:
-        while True:
-            chunk = await file.read(CHUNK_SIZE)
-            if not chunk:
-                break
-            size += len(chunk)
-            if size > MAX_PHOTO_SIZE:
-                f.close()
-                filepath.unlink(missing_ok=True)
-                raise HTTPException(status_code=413, detail="Uploaded file too large")
-            f.write(chunk)
+    try:
+        async with aiofiles.open(filepath, "wb") as f:
+            while True:
+                chunk = await file.read(CHUNK_SIZE)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > MAX_PHOTO_SIZE:
+                    raise HTTPException(status_code=413, detail="Uploaded file too large")
+                await f.write(chunk)
+    except Exception:
+        filepath.unlink(missing_ok=True)
+        raise
 
     try:
         with Image.open(filepath) as img:

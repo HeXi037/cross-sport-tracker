@@ -256,7 +256,7 @@ export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/crosssport
 export JWT_SECRET=local-dev-secret-local-dev-secret
 export ALLOWED_ORIGINS=http://localhost:3000
 
-uvicorn backend.app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000
 ```
 
 **Terminal 2 - Web**

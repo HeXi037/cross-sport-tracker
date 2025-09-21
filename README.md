@@ -204,18 +204,46 @@ Prereqs: Node 20, Python 3.12, Docker
 docker compose up -d postgres
 
 ### Backend
+```bash
 cd backend
-python -m venv .venv && source .venv/bin/activate
+python -m venv .venv
+source .venv/bin/activate
+
+# Configure required environment variables (set these in every terminal
+# that runs backend commands).
+export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/crosssport
+export JWT_SECRET=local-dev-secret-local-dev-secret
+export ALLOWED_ORIGINS=http://localhost:3000
+
 pip install -r requirements.txt
 alembic upgrade head
 python seed.py  # adds default sports, rulesets, demo club & test players
+```
 
 ### Web
+```bash
 cd ../apps/web
 npm install
+```
 
 ### Run backend & frontend together
 Start the API and UI in separate terminals:
 
 **Terminal 1 - Backend**
+```bash
+cd backend
+source .venv/bin/activate
+# If this is a fresh shell, repeat the environment exports from above:
+export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/crosssport
+export JWT_SECRET=local-dev-secret-local-dev-secret
+export ALLOWED_ORIGINS=http://localhost:3000
+
+uvicorn backend.app.main:app --reload --port 8000
+```
+
+**Terminal 2 - Web**
+```bash
+cd apps/web
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api npm run dev
+```
 

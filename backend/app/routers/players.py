@@ -4,7 +4,7 @@ from collections import defaultdict
 
 import aiofiles
 from fastapi import APIRouter, Depends, Response, HTTPException, UploadFile, File, Query
-from sqlalchemy import select, func, case, literal, true
+from sqlalchemy import select, func, case, literal, true, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import aliased
@@ -246,6 +246,7 @@ async def add_badge_to_player(
     player_id: str,
     badge_id: str,
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_admin),
 ):
     p = await session.get(Player, player_id)
     b = await session.get(Badge, badge_id)
@@ -255,6 +256,31 @@ async def add_badge_to_player(
         raise ProblemDetail(status_code=404, detail="badge not found")
     pb = PlayerBadge(id=uuid.uuid4().hex, player_id=player_id, badge_id=badge_id)
     session.add(pb)
+    await session.commit()
+    return Response(status_code=204)
+
+
+@router.delete("/{player_id}/badges/{badge_id}", status_code=204)
+async def remove_badge_from_player(
+    player_id: str,
+    badge_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_admin),
+):
+    existing = (
+        await session.execute(
+            select(PlayerBadge.id)
+            .where(PlayerBadge.player_id == player_id, PlayerBadge.badge_id == badge_id)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if not existing:
+        raise HTTPException(status_code=404, detail="player badge not found")
+    await session.execute(
+        delete(PlayerBadge).where(
+            PlayerBadge.player_id == player_id, PlayerBadge.badge_id == badge_id
+        )
+    )
     await session.commit()
     return Response(status_code=204)
 

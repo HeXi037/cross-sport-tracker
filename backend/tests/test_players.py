@@ -210,10 +210,50 @@ def test_player_badges() -> None:
             "/players", json={"name": "Dana"}, headers={"Authorization": f"Bearer {token}"}
         ).json()["id"]
         bid = client.post("/badges", json={"name": "MVP"}).json()["id"]
-        resp = client.post(f"/players/{pid}/badges/{bid}")
+        resp = client.post(
+            f"/players/{pid}/badges/{bid}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
         assert resp.status_code == 204
         data = client.get(f"/players/{pid}").json()
         assert data["badges"] == [{"id": bid, "name": "MVP", "icon": None}]
+
+
+def test_remove_player_badge() -> None:
+    with TestClient(app) as client:
+        token = admin_token(client)
+        pid = client.post(
+            "/players", json={"name": "Eddie"}, headers={"Authorization": f"Bearer {token}"}
+        ).json()["id"]
+        bid = client.post("/badges", json={"name": "Champion"}).json()["id"]
+        add_resp = client.post(
+            f"/players/{pid}/badges/{bid}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert add_resp.status_code == 204
+
+        resp = client.delete(
+            f"/players/{pid}/badges/{bid}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 204
+        data = client.get(f"/players/{pid}").json()
+        assert data["badges"] == []
+
+
+def test_remove_player_badge_missing() -> None:
+    with TestClient(app) as client:
+        token = admin_token(client)
+        pid = client.post(
+            "/players", json={"name": "Frank"}, headers={"Authorization": f"Bearer {token}"}
+        ).json()["id"]
+        resp = client.delete(
+            f"/players/{pid}/badges/missing",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404
+        body = resp.json()
+        assert body["detail"] == "player badge not found"
 
 
 def test_players_by_ids_omits_deleted() -> None:

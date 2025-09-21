@@ -5,6 +5,22 @@ MVP scope: Padel + Bowling + Pickleball.
 Stack: Next.js (UI) + FastAPI (Python 3.12 API) + PostgreSQL.
 Hosting: Cheap, self-hosted on a single VPS via Docker Compose + nginx.
 
+Environment Variables
+
+| Variable | Required | Description | Example |
+| --- | --- | --- | --- |
+| `JWT_SECRET` | Yes | High-entropy secret used to sign access tokens. Must be at least 32 random characters; never commit it to source control. | `JWT_SECRET=wJ9s3qYB0e1rT6pV9mX2zC5uA8fL4dH` |
+| `ADMIN_SECRET` | When creating admins | Shared secret that must match the `X-Admin-Secret` header to create administrator accounts. Treat as sensitive and rotate if exposed. | `ADMIN_SECRET=admin-signup-secret-9f36` |
+| `FLAGGED_IPS` | No | Comma-separated list of IPs that should receive a stricter signup rate limit (`1/hour` instead of `5/minute`). Leave blank to use the default rate limits. | `FLAGGED_IPS=203.0.113.42,198.51.100.7` |
+| `ALLOWED_ORIGINS` | Yes when `ALLOW_CREDENTIALS=true` | Comma-separated CORS allowlist for trusted frontends. Using `*` while credentials are enabled will abort startup. | `ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com` |
+| `ALLOW_CREDENTIALS` | No (defaults to `true`) | Enables credentialed CORS requests. Set to `false` if you need a wildcard origin. | `ALLOW_CREDENTIALS=true` |
+| `DATABASE_URL` | Yes | SQLAlchemy database URL for Postgres (async driver recommended). Contains database credentials—handle securely. | `DATABASE_URL=postgresql+asyncpg://postgres:supersecret@db:5432/crosssport` |
+| `REDIS_URL` | No (defaults to `redis://localhost:6379`) | Connection string for the Redis instance that backs WebSocket fan-out. Include credentials if your Redis deployment requires them. | `REDIS_URL=redis://cache:6379/0` |
+| `API_PREFIX` | No (defaults to `/api`) | Base path mounted by the FastAPI application. Update if reverse-proxying the API under a different prefix. | `API_PREFIX=/api` |
+
+> !!!Secrets such as `JWT_SECRET`, `ADMIN_SECRET`, and database credentials in `DATABASE_URL` should be stored in a secure secrets manager or environment configuration outside of version control!!!
+
+
 Status & Scope
 
 Monorepo: apps/web (Next.js) + backend (FastAPI) + packages/* (shared)

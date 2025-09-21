@@ -241,6 +241,31 @@ def test_remove_player_badge() -> None:
         assert data["badges"] == []
 
 
+def test_remove_player_badge_with_duplicates() -> None:
+    with TestClient(app) as client:
+        token = admin_token(client)
+        pid = client.post(
+            "/players", json={"name": "Gabe"}, headers={"Authorization": f"Bearer {token}"}
+        ).json()["id"]
+        bid = client.post("/badges", json={"name": "Legend"}).json()["id"]
+
+        for _ in range(2):
+            add_resp = client.post(
+                f"/players/{pid}/badges/{bid}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            assert add_resp.status_code == 204
+
+        resp = client.delete(
+            f"/players/{pid}/badges/{bid}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 204
+
+        data = client.get(f"/players/{pid}").json()
+        assert data["badges"] == []
+
+
 def test_remove_player_badge_missing() -> None:
     with TestClient(app) as client:
         token = admin_token(client)

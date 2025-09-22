@@ -127,3 +127,38 @@ export async function updateMe(data: {
   });
   return res.json();
 }
+
+export interface PlayerMe {
+  id: string;
+  name: string;
+  location: string | null;
+  country_code: string | null;
+  region_code: string | null;
+  photo_url?: string | null;
+}
+
+export type PlayerLocationPayload = {
+  location?: string | null;
+  country_code?: string | null;
+  region_code?: string | null;
+};
+
+export async function fetchMyPlayer(): Promise<PlayerMe> {
+  const res = await apiFetch("/v0/players/me");
+  return res.json();
+}
+
+export async function updateMyPlayerLocation(
+  data: PlayerLocationPayload
+): Promise<PlayerMe> {
+  const payloadEntries = Object.entries(data).filter(
+    (entry): entry is [string, string | null] => entry[1] !== undefined
+  );
+  const body = Object.fromEntries(payloadEntries);
+  const res = await apiFetch("/v0/players/me/location", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}

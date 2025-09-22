@@ -209,7 +209,11 @@ def test_player_badges() -> None:
         pid = client.post(
             "/players", json={"name": "Dana"}, headers={"Authorization": f"Bearer {token}"}
         ).json()["id"]
-        bid = client.post("/badges", json={"name": "MVP"}).json()["id"]
+        bid = client.post(
+            "/badges",
+            json={"name": "MVP"},
+            headers={"Authorization": f"Bearer {token}"},
+        ).json()["id"]
         resp = client.post(
             f"/players/{pid}/badges/{bid}",
             headers={"Authorization": f"Bearer {token}"},
@@ -225,7 +229,11 @@ def test_remove_player_badge() -> None:
         pid = client.post(
             "/players", json={"name": "Eddie"}, headers={"Authorization": f"Bearer {token}"}
         ).json()["id"]
-        bid = client.post("/badges", json={"name": "Champion"}).json()["id"]
+        bid = client.post(
+            "/badges",
+            json={"name": "Champion"},
+            headers={"Authorization": f"Bearer {token}"},
+        ).json()["id"]
         add_resp = client.post(
             f"/players/{pid}/badges/{bid}",
             headers={"Authorization": f"Bearer {token}"},
@@ -247,7 +255,11 @@ def test_add_duplicate_player_badge_returns_conflict() -> None:
         pid = client.post(
             "/players", json={"name": "Gabe"}, headers={"Authorization": f"Bearer {token}"}
         ).json()["id"]
-        bid = client.post("/badges", json={"name": "Legend"}).json()["id"]
+        bid = client.post(
+            "/badges",
+            json={"name": "Legend"},
+            headers={"Authorization": f"Bearer {token}"},
+        ).json()["id"]
 
         add_resp = client.post(
             f"/players/{pid}/badges/{bid}",

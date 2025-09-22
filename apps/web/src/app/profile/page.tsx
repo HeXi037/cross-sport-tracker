@@ -19,6 +19,22 @@ function normalizeCodeInput(value: string): string {
   return value.replace(/\s+/g, "").toUpperCase();
 }
 
+function extractErrorMessage(err: unknown): string | null {
+  if (!err) return null;
+  if (typeof err === "string") {
+    const trimmed = err.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (err instanceof Error) {
+    const trimmed = err.message.trim();
+    if (!trimmed) return null;
+    const match = /^HTTP \d+:\s*(.*)$/.exec(trimmed);
+    const message = (match ? match[1] : trimmed).trim();
+    return message.length > 0 ? message : null;
+  }
+  return null;
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -166,20 +182,31 @@ export default function ProfilePage() {
     setSaving(true);
     try {
       if (locationChanged) {
-        const updatedPlayer = await updateMyPlayerLocation({
-          location: trimmedLocation ? trimmedLocation : null,
-          country_code: normalizedCountry ? normalizedCountry : null,
-          region_code: normalizedRegion ? normalizedRegion : null,
-        });
-        const nextLocation = updatedPlayer.location ?? "";
-        const nextCountry = updatedPlayer.country_code ?? "";
-        const nextRegion = updatedPlayer.region_code ?? "";
-        setLocation(nextLocation);
-        setCountryCode(nextCountry);
-        setRegionCode(nextRegion);
-        setInitialLocation(nextLocation);
-        setInitialCountryCode(nextCountry);
-        setInitialRegionCode(nextRegion);
+        try {
+          const updatedPlayer = await updateMyPlayerLocation({
+            location: trimmedLocation ? trimmedLocation : null,
+            country_code: normalizedCountry ? normalizedCountry : null,
+            region_code: normalizedRegion ? normalizedRegion : null,
+          });
+          const nextLocation = updatedPlayer.location ?? "";
+          const nextCountry = updatedPlayer.country_code ?? "";
+          const nextRegion = updatedPlayer.region_code ?? "";
+          setLocation(nextLocation);
+          setCountryCode(nextCountry);
+          setRegionCode(nextRegion);
+          setInitialLocation(nextLocation);
+          setInitialCountryCode(nextCountry);
+          setInitialRegionCode(nextRegion);
+        } catch (err) {
+          const status = (err as Error & { status?: number }).status;
+          if (status === 422) {
+            setError("Invalid location. Please check the country or region codes.");
+          } else {
+            const message = extractErrorMessage(err);
+            setError(message ?? "Failed to update location");
+          }
+          return;
+        }
       } else {
         setInitialLocation(trimmedLocation);
         setInitialCountryCode(normalizedCountry);
@@ -190,21 +217,27 @@ export default function ProfilePage() {
         username: trimmedUsername,
       };
       if (password) body.password = password;
-      const res = await updateMe(body);
-      if (res.access_token) {
-        window.localStorage.setItem("token", res.access_token);
-        window.dispatchEvent(new Event("storage"));
+
+      try {
+        const res = await updateMe(body);
+        if (res.access_token) {
+          window.localStorage.setItem("token", res.access_token);
+          window.dispatchEvent(new Event("storage"));
+        }
+      } catch (err) {
+        const status = (err as Error & { status?: number }).status;
+        const message = extractErrorMessage(err);
+        if (status === 422 && message) {
+          setError(message);
+        } else {
+          setError(message ?? "Update failed");
+        }
+        return;
       }
+
       setPassword("");
       setError(null);
       setMessage("Profile updated");
-    } catch (err) {
-      const status = (err as Error & { status?: number }).status;
-      if (status === 422) {
-        setError("Invalid location. Please check the country or region codes.");
-      } else {
-        setError("Update failed");
-      }
     } finally {
       setSaving(false);
     }

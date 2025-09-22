@@ -47,8 +47,10 @@ def client_and_session():
     app.include_router(players.router)
     app.dependency_overrides[get_session] = override_get_session
 
+    asyncio.run(players.player_stats_cache.clear())
     with TestClient(app) as client:
         yield client, async_session_maker
+    asyncio.run(players.player_stats_cache.clear())
 
 
 def seed(session_maker):
@@ -274,3 +276,63 @@ def test_player_stats_ignores_matches_without_winner(client_and_session):
     assert sf["wins"] == 1 and sf["losses"] == 1
     records = {r["playerId"]: r for r in data["withRecords"]}
     assert "p4" not in records
+
+
+def test_player_stats_caches_results(client_and_session, monkeypatch):
+    client, session_maker = client_and_session
+    seed(session_maker)
+
+    call_count = 0
+    original = players._compute_player_stats
+
+    async def counting_compute(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return await original(*args, **kwargs)
+
+    monkeypatch.setattr(players, "_compute_player_stats", counting_compute)
+
+    resp = client.get("/players/p1/stats")
+    assert resp.status_code == 200
+    assert call_count == 1
+
+    resp = client.get("/players/p1/stats")
+    assert resp.status_code == 200
+    assert call_count == 1
+
+
+def test_player_stats_cache_invalidation(client_and_session, monkeypatch):
+    client, session_maker = client_and_session
+    seed(session_maker)
+
+    call_count = 0
+    original = players._compute_player_stats
+
+    async def counting_compute(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return await original(*args, **kwargs)
+
+    monkeypatch.setattr(players, "_compute_player_stats", counting_compute)
+
+    resp = client.get("/players/p1/stats")
+    assert resp.status_code == 200
+    assert call_count == 1
+
+    resp = client.get("/players/p1/stats")
+    assert resp.status_code == 200
+    assert call_count == 1
+
+    async def flip_result():
+        async with session_maker() as session:
+            match = await session.get(Match, "m1")
+            match.details = {"sets": {"A": 0, "B": 2}}
+            await session.commit()
+
+    asyncio.run(flip_result())
+    asyncio.run(players.player_stats_cache.invalidate_players(["p1"]))
+
+    resp = client.get("/players/p1/stats")
+    assert resp.status_code == 200
+    assert call_count == 2
+    assert resp.json()["rollingWinPct"] == [0.0, 0.0]

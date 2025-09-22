@@ -254,6 +254,22 @@ async def add_badge_to_player(
         raise PlayerNotFound(player_id)
     if not b:
         raise ProblemDetail(status_code=404, detail="badge not found")
+    existing = (
+        await session.execute(
+            select(PlayerBadge.id)
+            .where(
+                PlayerBadge.player_id == player_id,
+                PlayerBadge.badge_id == badge_id,
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail="player already has this badge",
+        )
+
     pb = PlayerBadge(id=uuid.uuid4().hex, player_id=player_id, badge_id=badge_id)
     session.add(pb)
     await session.commit()

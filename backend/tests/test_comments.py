@@ -1,4 +1,9 @@
-import os, sys, asyncio, pytest
+import asyncio
+import os
+import sys
+import uuid
+
+import pytest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -33,6 +38,42 @@ async def domain_exception_handler(request, exc):
 app.include_router(auth.router)
 app.include_router(players.router)
 
+TEST_PASSWORD = "Str0ng!Pass!"
+
+
+def signup_user(client: TestClient, *, is_admin: bool = False) -> tuple[str, str]:
+    username_prefix = "admin" if is_admin else "user"
+    username = f"{username_prefix}_{uuid.uuid4().hex[:8]}"
+    payload = {"username": username, "password": TEST_PASSWORD}
+    headers = {}
+    if is_admin:
+        payload["is_admin"] = True
+        headers["X-Admin-Secret"] = os.environ["ADMIN_SECRET"]
+    resp = client.post("/auth/signup", json=payload, headers=headers)
+    assert resp.status_code == 200
+    return resp.json()["access_token"], username
+
+
+def create_player(client: TestClient, admin_token: str) -> str:
+    name = f"Player{uuid.uuid4().hex[:8]}"
+    resp = client.post(
+        "/players",
+        json={"name": name},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    return resp.json()["id"]
+
+
+def post_comment(client: TestClient, player_id: str, token: str, content: str) -> dict:
+    resp = client.post(
+        f"/players/{player_id}/comments",
+        json={"content": content},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    return resp.json()
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():
@@ -62,33 +103,25 @@ def setup_db():
 def test_comment_crud():
     auth.limiter.reset()
     with TestClient(app) as client:
-        resp = client.post(
-            "/auth/signup", json={"username": "bob", "password": "Str0ng!Pass!"}
+        token, username = signup_user(client)
+        admin_token, _ = signup_user(client, is_admin=True)
+        pid = create_player(client, admin_token)
+        comment = post_comment(
+            client,
+            pid,
+            token,
+            "Great!",
         )
-        assert resp.status_code == 200
-        token = resp.json()["access_token"]
-        admin_token = client.post(
-            "/auth/signup",
-            json={"username": "admin", "password": "Str0ng!Pass!", "is_admin": True},
-            headers={"X-Admin-Secret": "admintest"},
-        ).json()["access_token"]
-        pid = client.post(
-            "/players", json={"name": "Player1"},
-            headers={"Authorization": f"Bearer {admin_token}"},
-        ).json()["id"]
-        resp = client.post(
-            f"/players/{pid}/comments",
-            json={"content": "Great!"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert resp.status_code == 200
-        cid = resp.json()["id"]
+        cid = comment["id"]
         resp = client.get(f"/players/{pid}/comments")
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 1
-        assert data[0]["content"] == "Great!"
-        assert data[0]["username"] == "bob"
+        assert data["total"] == 1
+        assert data["limit"] == 50
+        assert data["offset"] == 0
+        assert len(data["items"]) == 1
+        assert data["items"][0]["content"] == "Great!"
+        assert data["items"][0]["username"] == username
         resp = client.delete(
             f"/players/{pid}/comments/{cid}",
             headers={"Authorization": f"Bearer {token}"},
@@ -96,4 +129,43 @@ def test_comment_crud():
         assert resp.status_code == 204
         resp = client.get(f"/players/{pid}/comments")
         assert resp.status_code == 200
-        assert resp.json() == []
+        data = resp.json()
+        assert data["items"] == []
+        assert data["total"] == 0
+        assert data["limit"] == 50
+        assert data["offset"] == 0
+
+
+def test_comment_list_custom_pagination():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        token, username = signup_user(client)
+        admin_token, _ = signup_user(client, is_admin=True)
+        pid = create_player(client, admin_token)
+        for idx in range(3):
+            post_comment(client, pid, token, f"Comment {idx}")
+        resp = client.get(
+            f"/players/{pid}/comments",
+            params={"limit": 2, "offset": 1},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 3
+        assert data["limit"] == 2
+        assert data["offset"] == 1
+        assert [item["content"] for item in data["items"]] == [
+            "Comment 1",
+            "Comment 2",
+        ]
+        assert all(item["username"] == username for item in data["items"])
+
+
+def test_comment_list_validation():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        admin_token, _ = signup_user(client, is_admin=True)
+        pid = create_player(client, admin_token)
+        url = f"/players/{pid}/comments"
+        assert client.get(url, params={"limit": 0}).status_code == 422
+        assert client.get(url, params={"limit": 101}).status_code == 422
+        assert client.get(url, params={"offset": -1}).status_code == 422

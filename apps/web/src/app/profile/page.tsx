@@ -2,9 +2,22 @@
 
 import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-import { fetchMe, updateMe, isLoggedIn, apiFetch } from "../../lib/api";
+import {
+  fetchMe,
+  updateMe,
+  isLoggedIn,
+  apiFetch,
+  fetchMyPlayer,
+  updateMyPlayerLocation,
+} from "../../lib/api";
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
+const COUNTRY_CODE_REGEX = /^[A-Z]{2}$/;
+const REGION_CODE_REGEX = /^[A-Z0-9]{1,3}$/;
+
+function normalizeCodeInput(value: string): string {
+  return value.replace(/\s+/g, "").toUpperCase();
+}
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -15,19 +28,71 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [location, setLocation] = useState("");
+  const [countryCode, setCountryCode] = useState("");
+  const [regionCode, setRegionCode] = useState("");
+  const [initialLocation, setInitialLocation] = useState("");
+  const [initialCountryCode, setInitialCountryCode] = useState("");
+  const [initialRegionCode, setInitialRegionCode] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!isLoggedIn()) {
       router.push("/login");
       return;
     }
-    fetchMe()
-      .then((data) => {
-        setUsername(data.username);
-        setPhotoUrl(data.photo_url ?? null);
-        setLoading(false);
-      })
-      .catch(() => router.push("/login"));
+    let active = true;
+    (async () => {
+      try {
+        const me = await fetchMe();
+        if (!active) return;
+        setUsername(me.username);
+        setPhotoUrl(me.photo_url ?? null);
+        try {
+          const player = await fetchMyPlayer();
+          if (!active) return;
+          const nextLocation = player.location ?? "";
+          const nextCountry = player.country_code ?? "";
+          const nextRegion = player.region_code ?? "";
+          setLocation(nextLocation);
+          setCountryCode(nextCountry);
+          setRegionCode(nextRegion);
+          setInitialLocation(nextLocation);
+          setInitialCountryCode(nextCountry);
+          setInitialRegionCode(nextRegion);
+        } catch (playerErr) {
+          if (!active) return;
+          const status = (playerErr as Error & { status?: number }).status;
+          if (status === 401) {
+            router.push("/login");
+            return;
+          }
+          if (status === 404) {
+            setLocation("");
+            setCountryCode("");
+            setRegionCode("");
+            setInitialLocation("");
+            setInitialCountryCode("");
+            setInitialRegionCode("");
+          } else {
+            console.error("Failed to load player profile", playerErr);
+            setError("Failed to load profile");
+            setMessage(null);
+          }
+        }
+      } catch (err) {
+        if (!active) return;
+        router.push("/login");
+        return;
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, [router]);
 
   const handlePhotoChange = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -58,8 +123,8 @@ export default function ProfilePage() {
     e.preventDefault();
     setError(null);
     setMessage(null);
-    const trimmed = username.trim();
-    if (trimmed.length < 3) {
+    const trimmedUsername = username.trim();
+    if (trimmedUsername.length < 3) {
       setError("Username must be at least 3 characters");
       return;
     }
@@ -69,8 +134,61 @@ export default function ProfilePage() {
       );
       return;
     }
+    const normalizedCountry = normalizeCodeInput(countryCode);
+    const normalizedRegion = normalizeCodeInput(regionCode);
+    const trimmedLocation = location.trim();
+
+    if (normalizedCountry && !COUNTRY_CODE_REGEX.test(normalizedCountry)) {
+      setError("Country code must be exactly 2 letters");
+      return;
+    }
+
+    if (normalizedRegion && !REGION_CODE_REGEX.test(normalizedRegion)) {
+      setError("Region code must be 1-3 letters or numbers");
+      return;
+    }
+
+    if (normalizedRegion && !normalizedCountry) {
+      setError("Country code is required when setting a region");
+      return;
+    }
+
+    setUsername(trimmedUsername);
+    setLocation(trimmedLocation);
+    setCountryCode(normalizedCountry);
+    setRegionCode(normalizedRegion);
+
+    const locationChanged =
+      trimmedLocation !== initialLocation ||
+      normalizedCountry !== initialCountryCode ||
+      normalizedRegion !== initialRegionCode;
+
+    setSaving(true);
     try {
-      const body: { username: string; password?: string } = { username: trimmed };
+      if (locationChanged) {
+        const updatedPlayer = await updateMyPlayerLocation({
+          location: trimmedLocation ? trimmedLocation : null,
+          country_code: normalizedCountry ? normalizedCountry : null,
+          region_code: normalizedRegion ? normalizedRegion : null,
+        });
+        const nextLocation = updatedPlayer.location ?? "";
+        const nextCountry = updatedPlayer.country_code ?? "";
+        const nextRegion = updatedPlayer.region_code ?? "";
+        setLocation(nextLocation);
+        setCountryCode(nextCountry);
+        setRegionCode(nextRegion);
+        setInitialLocation(nextLocation);
+        setInitialCountryCode(nextCountry);
+        setInitialRegionCode(nextRegion);
+      } else {
+        setInitialLocation(trimmedLocation);
+        setInitialCountryCode(normalizedCountry);
+        setInitialRegionCode(normalizedRegion);
+      }
+
+      const body: { username: string; password?: string } = {
+        username: trimmedUsername,
+      };
       if (password) body.password = password;
       const res = await updateMe(body);
       if (res.access_token) {
@@ -78,9 +196,17 @@ export default function ProfilePage() {
         window.dispatchEvent(new Event("storage"));
       }
       setPassword("");
+      setError(null);
       setMessage("Profile updated");
-    } catch {
-      setError("Update failed");
+    } catch (err) {
+      const status = (err as Error & { status?: number }).status;
+      if (status === 422) {
+        setError("Invalid location. Please check the country or region codes.");
+      } else {
+        setError("Update failed");
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -128,7 +254,30 @@ export default function ProfilePage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        <button type="submit">Save</button>
+        <input
+          type="text"
+          aria-label="Location"
+          placeholder="Location"
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+        />
+        <input
+          type="text"
+          aria-label="Country code"
+          placeholder="Country code"
+          value={countryCode}
+          onChange={(e) => setCountryCode(normalizeCodeInput(e.target.value))}
+        />
+        <input
+          type="text"
+          aria-label="Region code"
+          placeholder="Region code"
+          value={regionCode}
+          onChange={(e) => setRegionCode(normalizeCodeInput(e.target.value))}
+        />
+        <button type="submit" disabled={saving}>
+          Save
+        </button>
       </form>
       {message && (
         <p role="status" className="success">

@@ -20,6 +20,7 @@ from ..models import (
     PlayerMetric,
     Badge,
     PlayerBadge,
+    Club,
 )
 from ..config import API_PREFIX
 from ..schemas import (
@@ -51,7 +52,7 @@ from ..services.photo_uploads import (
 )
 from .admin import require_admin
 from .auth import get_current_user
-from ..location_utils import normalize_location_fields
+from ..location_utils import normalize_location_fields, continent_for_country
 
 
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "static" / "players"
@@ -195,36 +196,51 @@ async def update_my_location(
     location_value = player.location
     country_value = player.country_code
     region_value = player.region_code
+    club_value = player.club_id
 
     if "location" in fields_set:
         location_value = body.location
-        if "country_code" not in fields_set:
-            country_value = None
-        if "region_code" not in fields_set:
-            region_value = None
 
     if "country_code" in fields_set:
         country_value = body.country_code
         if body.country_code is None:
             region_value = None
-            if "location" not in fields_set:
-                location_value = None
-
-    if "region_code" in fields_set:
-        region_value = body.region_code
-        if body.region_code is None and "location" not in fields_set:
             location_value = None
 
-    (
-        player.location,
-        player.country_code,
-        player.region_code,
-    ) = normalize_location_fields(
+    if "region_code" in fields_set and "country_code" not in fields_set:
+        region_value = body.region_code
+
+    if "club_id" in fields_set:
+        club_value = body.club_id
+        if club_value is not None:
+            exists = (
+                await session.execute(
+                    select(Club.id).where(Club.id == club_value).limit(1)
+                )
+            ).scalar_one_or_none()
+            if exists is None:
+                raise HTTPException(status_code=422, detail="unknown club id")
+
+    location_value, country_value, region_value = normalize_location_fields(
         location_value,
         country_value,
         region_value,
         raise_on_invalid=True,
     )
+
+    if country_value:
+        location_value = country_value
+        region_value = continent_for_country(country_value)
+    else:
+        location_value = None
+        region_value = None
+
+    player.location = location_value
+    player.country_code = country_value
+    player.region_code = region_value
+
+    if "club_id" in fields_set:
+        player.club_id = club_value
 
     await session.commit()
     return await get_player(player.id, session)

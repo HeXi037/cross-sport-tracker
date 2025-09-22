@@ -459,20 +459,20 @@ def test_update_players_me_location_success() -> None:
 
         resp = client.put(
             "/players/me/location",
-            json={"location": "us-ca"},
+            json={"country_code": "us"},
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["location"] == "US-CA"
+        assert data["location"] == "US"
         assert data["country_code"] == "US"
-        assert data["region_code"] == "CA"
+        assert data["region_code"] == "NA"
 
         me = client.get(
             "/players/me", headers={"Authorization": f"Bearer {token}"}
         )
         assert me.status_code == 200
-        assert me.json()["location"] == "US-CA"
+        assert me.json()["location"] == "US"
 
 
 @pytest.mark.parametrize(
@@ -512,12 +512,13 @@ def test_update_players_me_location_allows_clearing_values() -> None:
 
         resp = client.put(
             "/players/me/location",
-            json={"country_code": "us", "region_code": "ny"},
+            json={"country_code": "us"},
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["location"] == "US-NY"
+        assert data["location"] == "US"
+        assert data["region_code"] == "NA"
 
         cleared = client.patch(
             "/players/me/location",
@@ -533,6 +534,41 @@ def test_update_players_me_location_allows_clearing_values() -> None:
         assert cleared_data["location"] is None
         assert cleared_data["country_code"] is None
         assert cleared_data["region_code"] is None
+
+
+def test_update_players_me_location_updates_club() -> None:
+    with TestClient(app) as client:
+        auth.limiter.reset()
+        signup = client.post(
+            "/auth/signup",
+            json={"username": "loc-club", "password": "Str0ng!Pass!"},
+        )
+        assert signup.status_code == 200
+        token = signup.json()["access_token"]
+
+        async def insert_club():
+            async with db.AsyncSessionLocal() as session:
+                session.add(Club(id="club-update", name="Club Update"))
+                await session.commit()
+
+        asyncio.run(insert_club())
+
+        resp = client.patch(
+            "/players/me/location",
+            json={"club_id": "club-update"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["club_id"] == "club-update"
+
+        cleared = client.patch(
+            "/players/me/location",
+            json={"club_id": ""},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert cleared.status_code == 200
+        assert cleared.json()["club_id"] is None
 
 
 def test_players_me_endpoints_return_404_when_player_missing() -> None:

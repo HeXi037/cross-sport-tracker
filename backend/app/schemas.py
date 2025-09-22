@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import re
 from pydantic import BaseModel, Field, model_validator, field_validator
 
-from .location_utils import normalize_location_fields
+from .location_utils import normalize_location_fields, continent_for_country
 
 PASSWORD_REGEX = re.compile(r"^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$")
 
@@ -54,6 +54,12 @@ class PlayerCreate(BaseModel):
             model.region_code,
             raise_on_invalid=True,
         )
+        if model.country_code:
+            model.location = model.country_code
+            model.region_code = continent_for_country(model.country_code)
+        else:
+            model.location = None
+            model.region_code = None
         return model
 
 
@@ -61,6 +67,17 @@ class PlayerLocationUpdate(BaseModel):
     location: Optional[str] = None
     country_code: Optional[str] = None
     region_code: Optional[str] = None
+    club_id: Optional[str] = None
+
+    @field_validator("club_id", mode="after")
+    @classmethod
+    def _normalize_club_id(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            trimmed = value.strip()
+            return trimmed or None
+        raise TypeError("club_id must be a string")
 
     @model_validator(mode="after")
     def _normalize_location(
@@ -76,6 +93,12 @@ class PlayerLocationUpdate(BaseModel):
             model.region_code,
             raise_on_invalid=True,
         )
+        if model.country_code:
+            model.location = model.country_code
+            model.region_code = continent_for_country(model.country_code)
+        else:
+            model.location = None
+            model.region_code = None
         return model
 
 
@@ -103,6 +126,12 @@ class PlayerOut(BaseModel):
             model.country_code,
             model.region_code,
         )
+        if model.country_code:
+            model.location = model.country_code
+            model.region_code = continent_for_country(model.country_code)
+        else:
+            model.location = None
+            model.region_code = None
         return model
 
 class PlayerNameOut(BaseModel):

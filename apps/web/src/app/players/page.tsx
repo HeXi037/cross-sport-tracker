@@ -1,12 +1,16 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { apiFetch, isAdmin } from "../../lib/api";
+import { apiFetch, isAdmin, updatePlayerLocation } from "../../lib/api";
+import { COUNTRY_OPTIONS } from "../../lib/countries";
 import PlayerName, { PlayerInfo } from "../../components/PlayerName";
 
 const NAME_REGEX = /^[A-Za-z0-9 '-]{1,50}$/;
 
 interface Player extends PlayerInfo {
+  location?: string | null;
+  country_code?: string | null;
+  region_code?: string | null;
   club_id?: string | null;
   badges?: { id: string; name: string; icon?: string | null }[];
 }
@@ -23,6 +27,7 @@ export default function PlayersPage() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [updatingLocation, setUpdatingLocation] = useState<string | null>(null);
   const admin = isAdmin();
 
   const trimmedName = name.trim();
@@ -147,6 +152,37 @@ export default function PlayersPage() {
     }
   }
 
+  async function handleCountryChange(player: Player, nextValue: string) {
+    const normalizedValue = nextValue === "" ? null : nextValue;
+    if ((player.country_code ?? null) === normalizedValue) {
+      return;
+    }
+    setUpdatingLocation(player.id);
+    setError(null);
+    try {
+      const updated = await updatePlayerLocation(player.id, {
+        country_code: normalizedValue,
+      });
+      setPlayers((prev) =>
+        prev.map((p) =>
+          p.id === player.id
+            ? {
+                ...p,
+                country_code: updated.country_code,
+                location: updated.location,
+                region_code: updated.region_code,
+                club_id: updated.club_id,
+              }
+            : p
+        )
+      );
+    } catch {
+      setError("Failed to update player location.");
+    } finally {
+      setUpdatingLocation(null);
+    }
+  }
+
   return (
     <main className="container">
       <h1 className="heading">Players</h1>
@@ -176,12 +212,33 @@ export default function PlayersPage() {
                     <PlayerName player={p} />
                   </Link>
                   {admin && (
-                    <button
-                      style={{ marginLeft: 8 }}
-                      onClick={() => handleDelete(p.id)}
-                    >
-                      Delete
-                    </button>
+                    <div style={{ marginTop: 8 }}>
+                      <label className="mr-2" htmlFor={`country-${p.id}`}>
+                        Country:
+                      </label>
+                      <select
+                        id={`country-${p.id}`}
+                        aria-label={`Country for ${p.name}`}
+                        value={p.country_code ?? ""}
+                        onChange={(e) => handleCountryChange(p, e.target.value)}
+                        disabled={updatingLocation === p.id}
+                        className="input"
+                        style={{ maxWidth: 220, display: "inline-block", marginRight: 8 }}
+                      >
+                        <option value="">Unspecified</option>
+                        {COUNTRY_OPTIONS.map((option) => (
+                          <option key={option.code} value={option.code}>
+                            {option.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        style={{ marginLeft: 8 }}
+                        onClick={() => handleDelete(p.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   )}
                 </li>
               ))}

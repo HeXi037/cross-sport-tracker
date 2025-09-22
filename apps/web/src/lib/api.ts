@@ -164,3 +164,19 @@ export async function updateMyPlayerLocation(
   });
   return res.json();
 }
+
+export async function updatePlayerLocation(
+  playerId: string,
+  data: PlayerLocationPayload
+): Promise<PlayerMe> {
+  const payloadEntries = Object.entries(data).filter(
+    (entry): entry is [string, string | null] => entry[1] !== undefined
+  );
+  const body = Object.fromEntries(payloadEntries);
+  const res = await apiFetch(`/v0/players/${playerId}/location`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}

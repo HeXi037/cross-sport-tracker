@@ -571,6 +571,72 @@ def test_update_players_me_location_updates_club() -> None:
         assert cleared.json()["club_id"] is None
 
 
+def test_admin_update_player_location_success() -> None:
+    with TestClient(app) as client:
+        token = admin_token(client)
+        pid = client.post(
+            "/players",
+            json={"name": "admin-loc"},
+            headers={"Authorization": f"Bearer {token}"},
+        ).json()["id"]
+
+        resp = client.patch(
+            f"/players/{pid}/location",
+            json={"country_code": "us"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["country_code"] == "US"
+        assert data["region_code"] == "NA"
+
+        fetched = client.get(f"/players/{pid}")
+        assert fetched.status_code == 200
+        assert fetched.json()["country_code"] == "US"
+
+
+def test_admin_update_player_location_validation_error() -> None:
+    with TestClient(app) as client:
+        token = admin_token(client)
+        pid = client.post(
+            "/players",
+            json={"name": "admin-loc-invalid"},
+            headers={"Authorization": f"Bearer {token}"},
+        ).json()["id"]
+
+        resp = client.patch(
+            f"/players/{pid}/location",
+            json={"country_code": "USA"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 422
+
+
+def test_admin_update_player_location_requires_admin() -> None:
+    with TestClient(app) as client:
+        admin = admin_token(client)
+        pid = client.post(
+            "/players",
+            json={"name": "admin-loc-forbidden"},
+            headers={"Authorization": f"Bearer {admin}"},
+        ).json()["id"]
+
+        auth.limiter.reset()
+        signup = client.post(
+            "/auth/signup",
+            json={"username": "regular-loc", "password": "Str0ng!Pass!"},
+        )
+        assert signup.status_code == 200
+        token = signup.json()["access_token"]
+
+        resp = client.patch(
+            f"/players/{pid}/location",
+            json={"country_code": "US"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403
+
+
 def test_players_me_endpoints_return_404_when_player_missing() -> None:
     with TestClient(app) as client:
         auth.limiter.reset()

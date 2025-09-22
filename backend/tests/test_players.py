@@ -241,7 +241,7 @@ def test_remove_player_badge() -> None:
         assert data["badges"] == []
 
 
-def test_remove_player_badge_with_duplicates() -> None:
+def test_add_duplicate_player_badge_returns_conflict() -> None:
     with TestClient(app) as client:
         token = admin_token(client)
         pid = client.post(
@@ -249,12 +249,18 @@ def test_remove_player_badge_with_duplicates() -> None:
         ).json()["id"]
         bid = client.post("/badges", json={"name": "Legend"}).json()["id"]
 
-        for _ in range(2):
-            add_resp = client.post(
-                f"/players/{pid}/badges/{bid}",
-                headers={"Authorization": f"Bearer {token}"},
-            )
-            assert add_resp.status_code == 204
+        add_resp = client.post(
+            f"/players/{pid}/badges/{bid}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert add_resp.status_code == 204
+
+        duplicate_resp = client.post(
+            f"/players/{pid}/badges/{bid}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert duplicate_resp.status_code == 409
+        assert duplicate_resp.json() == {"detail": "player already has this badge"}
 
         resp = client.delete(
             f"/players/{pid}/badges/{bid}",

@@ -10,6 +10,7 @@ from sqlalchemy import (
     Boolean,
     Text,
     Index,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
@@ -62,6 +63,14 @@ class PlayerBadge(Base):
     id = Column(String, primary_key=True)
     player_id = Column(String, ForeignKey("player.id"), nullable=False)
     badge_id = Column(String, ForeignKey("badge.id"), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "player_id",
+            "badge_id",
+            name="uq_player_badge_player_id_badge_id",
+        ),
+    )
 
 class Team(Base):
     __tablename__ = "team"

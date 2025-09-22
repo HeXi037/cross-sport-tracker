@@ -83,11 +83,13 @@ async def update_ratings(
     loses fewer for losing against a stronger player. Ratings are created
     on the fly for new players with a default value of 1000.
     """
-    if not winners and not losers:
+    draws = list(draws or [])
+    if not winners and not losers and not draws:
         return
 
-    draws = list(draws or [])
     ids = set(winners) | set(losers) | set(draws)
+    if not ids:
+        return
     rows = (
         await session.execute(
             select(Rating).where(Rating.player_id.in_(ids), Rating.sport_id == sport_id)
@@ -132,37 +134,38 @@ async def update_ratings(
                 session.add(glicko)
                 glicko_map[pid] = glicko
 
-    avg_win = sum(rating_map[pid].value for pid in winners) / len(winners)
-    avg_lose = sum(rating_map[pid].value for pid in losers) / len(losers)
-
-    expected_win = 1 / (1 + 10 ** ((avg_lose - avg_win) / 400))
-
     win_score = 0.5 if draws else 1.0
     lose_score = 0.5 if draws else 0.0
 
-    # Determine K for each player based on number of matches played
-    rows = (
-        await session.execute(
-            select(MatchParticipant.player_ids)
-            .join(Match, MatchParticipant.match_id == Match.id)
-            .where(Match.sport_id == sport_id, Match.deleted_at.is_(None))
-        )
-    ).scalars().all()
+    if winners and losers:
+        avg_win = sum(rating_map[pid].value for pid in winners) / len(winners)
+        avg_lose = sum(rating_map[pid].value for pid in losers) / len(losers)
 
-    match_counts = {pid: 0 for pid in ids}
-    for player_ids in rows:
+        expected_win = 1 / (1 + 10 ** ((avg_lose - avg_win) / 400))
+
+        # Determine K for each player based on number of matches played
+        rows = (
+            await session.execute(
+                select(MatchParticipant.player_ids)
+                .join(Match, MatchParticipant.match_id == Match.id)
+                .where(Match.sport_id == sport_id, Match.deleted_at.is_(None))
+            )
+        ).scalars().all()
+
+        match_counts = {pid: 0 for pid in ids}
+        for player_ids in rows:
+            for pid in ids:
+                if pid in player_ids:
+                    match_counts[pid] += 1
+
+        k_map: dict[str, float] = {}
         for pid in ids:
-            if pid in player_ids:
-                match_counts[pid] += 1
+            k_map[pid] = k / 2 if match_counts[pid] > 30 else k
 
-    k_map: dict[str, float] = {}
-    for pid in ids:
-        k_map[pid] = k / 2 if match_counts[pid] > 30 else k
-
-    for pid in winners:
-        rating_map[pid].value += k_map[pid] * (win_score - expected_win)
-    for pid in losers:
-        rating_map[pid].value += k_map[pid] * (lose_score - (1 - expected_win))
+        for pid in winners:
+            rating_map[pid].value += k_map[pid] * (win_score - expected_win)
+        for pid in losers:
+            rating_map[pid].value += k_map[pid] * (lose_score - (1 - expected_win))
 
     glicko_payload: dict[str, tuple[float, float]] = {}
     if not glicko_disabled:

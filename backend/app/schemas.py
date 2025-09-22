@@ -56,6 +56,29 @@ class PlayerCreate(BaseModel):
         )
         return model
 
+
+class PlayerLocationUpdate(BaseModel):
+    location: Optional[str] = None
+    country_code: Optional[str] = None
+    region_code: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _normalize_location(
+        cls, model: "PlayerLocationUpdate"
+    ) -> "PlayerLocationUpdate":
+        (
+            model.location,
+            model.country_code,
+            model.region_code,
+        ) = normalize_location_fields(
+            model.location,
+            model.country_code,
+            model.region_code,
+            raise_on_invalid=True,
+        )
+        return model
+
+
 class PlayerOut(BaseModel):
     id: str
     name: str

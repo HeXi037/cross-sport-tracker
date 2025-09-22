@@ -193,4 +193,71 @@ describe("PlayersPage", () => {
     ).toBe(true);
     window.localStorage.removeItem("token");
   });
+
+  it("shows country selector for admins", async () => {
+    window.localStorage.setItem("token", "x.eyJpc19hZG1pbiI6dHJ1ZX0.y");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ players: [{ id: "1", name: "Alice" }] }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      render(<PlayersPage />);
+    });
+
+    const select = await screen.findByLabelText("Country for Alice");
+    expect(select).toBeTruthy();
+    window.localStorage.removeItem("token");
+  });
+
+  it("updates player country via API", async () => {
+    window.localStorage.setItem("token", "x.eyJpc19hZG1pbiI6dHJ1ZX0.y");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          players: [{ id: "1", name: "Alice", country_code: null }],
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: "1",
+          name: "Alice",
+          country_code: "US",
+          location: "US",
+          region_code: "NA",
+          club_id: null,
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      render(<PlayersPage />);
+    });
+
+    const select = await screen.findByLabelText("Country for Alice");
+    await act(async () => {
+      fireEvent.change(select, { target: { value: "US" } });
+      await Promise.resolve();
+    });
+
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) =>
+          typeof url === "string" &&
+          url.endsWith("/v0/players/1/location") &&
+          (init as RequestInit | undefined)?.method === "PATCH" &&
+          (init as RequestInit | undefined)?.body === JSON.stringify({ country_code: "US" })
+      )
+    ).toBe(true);
+    window.localStorage.removeItem("token");
+  });
 });

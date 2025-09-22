@@ -181,26 +181,12 @@ async def get_my_player(
     return await get_player(player.id, session)
 
 
-@router.put("/me/location", response_model=PlayerOut)
-@router.patch("/me/location", response_model=PlayerOut)
-async def update_my_location(
-    body: PlayerLocationUpdate,
-    current: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
-):
-    player = (
-        await session.execute(
-            select(Player).where(
-                Player.user_id == current.id, Player.deleted_at.is_(None)
-            )
-        )
-    ).scalar_one_or_none()
-    if not player:
-        raise HTTPException(status_code=404, detail="player not found")
-
+async def _apply_player_location_update(
+    session: AsyncSession, player: Player, body: PlayerLocationUpdate
+) -> bool:
     fields_set = set(body.model_fields_set)
     if not fields_set:
-        return await get_player(player.id, session)
+        return False
 
     location_value = player.location
     country_value = player.country_code
@@ -252,6 +238,43 @@ async def update_my_location(
         player.club_id = club_value
 
     await session.commit()
+    return True
+
+
+@router.put("/me/location", response_model=PlayerOut)
+@router.patch("/me/location", response_model=PlayerOut)
+async def update_my_location(
+    body: PlayerLocationUpdate,
+    current: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    player = (
+        await session.execute(
+            select(Player).where(
+                Player.user_id == current.id, Player.deleted_at.is_(None)
+            )
+        )
+    ).scalar_one_or_none()
+    if not player:
+        raise HTTPException(status_code=404, detail="player not found")
+
+    await _apply_player_location_update(session, player, body)
+    return await get_player(player.id, session)
+
+
+@router.put("/{player_id}/location", response_model=PlayerOut)
+@router.patch("/{player_id}/location", response_model=PlayerOut)
+async def update_player_location(
+    player_id: str,
+    body: PlayerLocationUpdate,
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
+):
+    player = await session.get(Player, player_id)
+    if not player or player.deleted_at is not None:
+        raise PlayerNotFound(player_id)
+
+    await _apply_player_location_update(session, player, body)
     return await get_player(player.id, session)
 
 @router.get("/{player_id}", response_model=PlayerOut)

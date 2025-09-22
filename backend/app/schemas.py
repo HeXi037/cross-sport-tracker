@@ -22,6 +22,10 @@ class BadgeCreate(BaseModel):
     name: str
     icon: Optional[str] = None
 
+class BadgeUpdate(BaseModel):
+    name: Optional[str] = None
+    icon: Optional[str] = None
+
 class BadgeOut(BaseModel):
     id: str
     name: str

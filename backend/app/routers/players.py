@@ -2,14 +2,11 @@ import uuid
 from pathlib import Path
 from collections import defaultdict
 
-import aiofiles
 from fastapi import APIRouter, Depends, Response, HTTPException, UploadFile, File, Query
 from sqlalchemy import select, func, case, literal, true, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import aliased
-
-from PIL import Image, UnidentifiedImageError
 
 from ..db import get_session
 from ..db_errors import is_missing_table_error
@@ -44,22 +41,23 @@ from ..services import (
     compute_streaks,
     rolling_win_percentage,
 )
+from ..services.photo_uploads import (
+    ALLOWED_PHOTO_TYPES as DEFAULT_ALLOWED_PHOTO_TYPES,
+    CHUNK_SIZE as DEFAULT_CHUNK_SIZE,
+    MAX_PHOTO_SIZE as DEFAULT_MAX_PHOTO_SIZE,
+    PHOTO_TYPE_MAP as DEFAULT_PHOTO_TYPE_MAP,
+    save_photo_upload,
+)
 from .admin import require_admin
 from .auth import get_current_user
 
 
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "static" / "players"
 UPLOAD_URL_PREFIX = f"{API_PREFIX}/static/players"
-MAX_PHOTO_SIZE = 5 * 1024 * 1024  # 5MB limit on upload size
-CHUNK_SIZE = 1024 * 1024  # 1MB chunks for streaming uploads
-# Canonical mapping of detected image formats to the MIME types we allow for
-# player photo uploads. ``ALLOWED_PHOTO_TYPES`` is derived from this mapping so
-# the accepted MIME types stay in sync with the validation logic below.
-PHOTO_TYPE_MAP = {
-    "jpeg": "image/jpeg",
-    "png": "image/png",
-}
-ALLOWED_PHOTO_TYPES = frozenset(PHOTO_TYPE_MAP.values())
+MAX_PHOTO_SIZE = DEFAULT_MAX_PHOTO_SIZE
+CHUNK_SIZE = DEFAULT_CHUNK_SIZE
+PHOTO_TYPE_MAP = DEFAULT_PHOTO_TYPE_MAP
+ALLOWED_PHOTO_TYPES = DEFAULT_ALLOWED_PHOTO_TYPES
 router = APIRouter(
     prefix="/players",
     tags=["players"],
@@ -205,40 +203,14 @@ async def upload_player_photo(
     if not p or p.deleted_at is not None:
         raise PlayerNotFound(player_id)
 
-    if file.content_type not in ALLOWED_PHOTO_TYPES:
-        raise HTTPException(status_code=415, detail="Unsupported media type")
-
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    suffix = Path(file.filename).suffix
-    filename = f"{uuid.uuid4().hex}{suffix}"
-    filepath = UPLOAD_DIR / filename
-    size = 0
-    try:
-        async with aiofiles.open(filepath, "wb") as f:
-            while True:
-                chunk = await file.read(CHUNK_SIZE)
-                if not chunk:
-                    break
-                size += len(chunk)
-                if size > MAX_PHOTO_SIZE:
-                    raise HTTPException(status_code=413, detail="Uploaded file too large")
-                await f.write(chunk)
-    except Exception:
-        filepath.unlink(missing_ok=True)
-        raise
-
-    try:
-        with Image.open(filepath) as img:
-            detected_format = (img.format or "").lower()
-            img.verify()
-    except (UnidentifiedImageError, OSError):
-        filepath.unlink(missing_ok=True)
-        raise HTTPException(status_code=415, detail="Unsupported media type")
-
-    detected_mime = PHOTO_TYPE_MAP.get(detected_format)
-    if detected_mime not in ALLOWED_PHOTO_TYPES:
-        filepath.unlink(missing_ok=True)
-        raise HTTPException(status_code=415, detail="Unsupported media type")
+    filename = await save_photo_upload(
+        file,
+        UPLOAD_DIR,
+        chunk_size=CHUNK_SIZE,
+        max_size=MAX_PHOTO_SIZE,
+        allowed_content_types=ALLOWED_PHOTO_TYPES,
+        photo_type_map=PHOTO_TYPE_MAP,
+    )
 
     p.photo_url = f"{UPLOAD_URL_PREFIX}/{filename}"
     await session.commit()

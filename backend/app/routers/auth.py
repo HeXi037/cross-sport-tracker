@@ -2,8 +2,9 @@ import os
 import uuid
 import secrets
 import hashlib
+from pathlib import Path
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Header, Request
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, UploadFile, File
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
@@ -13,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from passlib.context import CryptContext
 import jwt
 
+from ..config import API_PREFIX
 from ..db import get_session
 from ..models import User, Player, RefreshToken
 from ..schemas import (
@@ -23,6 +25,7 @@ from ..schemas import (
     UserUpdate,
     RefreshRequest,
 )
+from ..services.photo_uploads import save_photo_upload
 
 
 def get_jwt_secret() -> str:
@@ -59,6 +62,9 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 FLAGGED_IPS = {
     ip.strip() for ip in os.getenv("FLAGGED_IPS", "").split(",") if ip.strip()
 }
+
+USER_UPLOAD_DIR = Path(__file__).resolve().parent.parent / "static" / "users"
+USER_UPLOAD_URL_PREFIX = f"{API_PREFIX}/static/users"
 
 
 def signup_rate_limit(key: str) -> str:
@@ -187,7 +193,36 @@ async def get_current_user(
 
 @router.get("/me", response_model=UserOut)
 async def read_me(current: User = Depends(get_current_user)):
-  return UserOut(id=current.id, username=current.username, is_admin=current.is_admin)
+  return UserOut(
+      id=current.id,
+      username=current.username,
+      is_admin=current.is_admin,
+      photo_url=current.photo_url,
+  )
+
+
+@router.post("/me/photo", response_model=UserOut)
+async def update_my_photo(
+    file: UploadFile = File(...),
+    current: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+  filename = await save_photo_upload(file, USER_UPLOAD_DIR)
+  current.photo_url = f"{USER_UPLOAD_URL_PREFIX}/{filename}"
+
+  player = (
+      await session.execute(select(Player).where(Player.user_id == current.id))
+  ).scalar_one_or_none()
+  if player:
+    player.photo_url = current.photo_url
+
+  await session.commit()
+  return UserOut(
+      id=current.id,
+      username=current.username,
+      is_admin=current.is_admin,
+      photo_url=current.photo_url,
+  )
 
 
 @router.put("/me", response_model=TokenOut)

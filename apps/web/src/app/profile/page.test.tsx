@@ -36,14 +36,15 @@ describe("ProfilePage", () => {
     window.localStorage.clear();
   });
 
-  it("loads and displays existing player location data", async () => {
+  it("loads and displays existing player details", async () => {
     apiMocks.fetchMe.mockResolvedValue({ username: "existing", photo_url: "photo.png" });
     apiMocks.fetchMyPlayer.mockResolvedValue({
       id: "player-1",
       name: "Existing Player",
-      location: "US-CA",
+      location: "US",
       country_code: "US",
-      region_code: "CA",
+      region_code: "NA",
+      club_id: "club-old",
     });
 
     await act(async () => {
@@ -51,58 +52,31 @@ describe("ProfilePage", () => {
     });
 
     expect(await screen.findByDisplayValue("existing")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("US-CA")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("US")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("CA")).toBeInTheDocument();
+    const countrySelect = screen.getByLabelText("Country") as HTMLSelectElement;
+    expect(countrySelect.value).toBe("US");
+    expect(screen.getByText(/Continent:/i)).toHaveTextContent("North America");
+    expect(
+      screen.getByLabelText("Favorite club") as HTMLInputElement
+    ).toHaveValue("club-old");
   });
 
-  it("validates country and region codes before submitting", async () => {
+  it("submits updated country and favorite club when saving", async () => {
     apiMocks.fetchMe.mockResolvedValue({ username: "existing" });
     apiMocks.fetchMyPlayer.mockResolvedValue({
       id: "player-1",
       name: "Existing Player",
-      location: null,
-      country_code: null,
-      region_code: null,
-    });
-
-    await act(async () => {
-      render(<ProfilePage />);
-    });
-
-    await screen.findByDisplayValue("existing");
-
-    const countryInput = screen.getByLabelText("Country code") as HTMLInputElement;
-    fireEvent.change(countryInput, { target: { value: "USA" } });
-
-    const saveButton = screen.getByRole("button", { name: /save/i });
-
-    await act(async () => {
-      fireEvent.click(saveButton);
-    });
-
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Country code must be exactly 2 letters",
-    );
-    expect(apiMocks.updateMyPlayerLocation).not.toHaveBeenCalled();
-    expect(apiMocks.updateMe).not.toHaveBeenCalled();
-  });
-
-  it("submits structured location data when saving", async () => {
-    apiMocks.fetchMe.mockResolvedValue({ username: "existing" });
-    apiMocks.fetchMyPlayer.mockResolvedValue({
-      id: "player-1",
-      name: "Existing Player",
-      location: "US-CA",
+      location: "US",
       country_code: "US",
-      region_code: "CA",
+      region_code: "NA",
+      club_id: "club-old",
     });
     apiMocks.updateMyPlayerLocation.mockResolvedValue({
       id: "player-1",
       name: "Existing Player",
       location: "US",
-      country_code: "US",
-      region_code: null,
+      country_code: "SE",
+      region_code: "EU",
+      club_id: "club-new",
     });
     apiMocks.updateMe.mockResolvedValue({ access_token: "new.token.value" });
 
@@ -110,18 +84,11 @@ describe("ProfilePage", () => {
       render(<ProfilePage />);
     });
 
-    await screen.findByDisplayValue("US-CA");
+    const countrySelect = screen.getByLabelText("Country") as HTMLSelectElement;
+    const clubInput = screen.getByLabelText("Favorite club") as HTMLInputElement;
 
-    const locationInput = screen.getByLabelText("Location") as HTMLInputElement;
-    const countryInput = screen.getByLabelText("Country code") as HTMLInputElement;
-    const regionInput = screen.getByLabelText("Region code") as HTMLInputElement;
-
-    fireEvent.change(locationInput, { target: { value: " Austin " } });
-    fireEvent.change(countryInput, { target: { value: " us " } });
-    fireEvent.change(regionInput, { target: { value: "   " } });
-
-    expect(countryInput.value).toBe("US");
-    expect(regionInput.value).toBe("");
+    fireEvent.change(countrySelect, { target: { value: "SE" } });
+    fireEvent.change(clubInput, { target: { value: " club-new " } });
 
     const saveButton = screen.getByRole("button", { name: /save/i });
 
@@ -132,12 +99,59 @@ describe("ProfilePage", () => {
     const statusMessage = await screen.findByRole("status");
 
     expect(apiMocks.updateMyPlayerLocation).toHaveBeenCalledWith({
-      location: "Austin",
-      country_code: "US",
-      region_code: null,
+      location: "SE",
+      country_code: "SE",
+      region_code: "EU",
+      club_id: "club-new",
     });
     expect(apiMocks.updateMe).toHaveBeenCalledWith({ username: "existing" });
     expect(statusMessage).toHaveTextContent(/profile updated/i);
     expect(window.localStorage.getItem("token")).toBe("new.token.value");
+  });
+
+  it("allows clearing country and club", async () => {
+    apiMocks.fetchMe.mockResolvedValue({ username: "existing" });
+    apiMocks.fetchMyPlayer.mockResolvedValue({
+      id: "player-1",
+      name: "Existing Player",
+      location: "US",
+      country_code: "US",
+      region_code: "NA",
+      club_id: "club-old",
+    });
+    apiMocks.updateMyPlayerLocation.mockResolvedValue({
+      id: "player-1",
+      name: "Existing Player",
+      location: null,
+      country_code: null,
+      region_code: null,
+      club_id: null,
+    });
+    apiMocks.updateMe.mockResolvedValue({});
+
+    await act(async () => {
+      render(<ProfilePage />);
+    });
+
+    await screen.findByDisplayValue("existing");
+
+    const countrySelect = screen.getByLabelText("Country") as HTMLSelectElement;
+    const clubInput = screen.getByLabelText("Favorite club") as HTMLInputElement;
+
+    fireEvent.change(countrySelect, { target: { value: "" } });
+    fireEvent.change(clubInput, { target: { value: " " } });
+
+    const saveButton = screen.getByRole("button", { name: /save/i });
+
+    await act(async () => {
+      fireEvent.click(saveButton);
+    });
+
+    expect(apiMocks.updateMyPlayerLocation).toHaveBeenCalledWith({
+      location: null,
+      country_code: null,
+      region_code: null,
+      club_id: null,
+    });
   });
 });

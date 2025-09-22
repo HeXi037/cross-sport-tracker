@@ -5,13 +5,21 @@ from __future__ import annotations
 import re
 from typing import Optional, Tuple
 
-from .location_data import ISO3166_ALPHA2_CODES
+from .location_data import ISO3166_ALPHA2_CODES, COUNTRY_TO_CONTINENT
 
 COUNTRY_CODE_RE = re.compile(r"^[A-Z]{2}$")
 REGION_CODE_RE = re.compile(r"^[A-Z0-9]{1,3}$")
 STRUCTURED_LOCATION_RE = re.compile(
     r"^(?P<country>[A-Z]{2})(?:[-_/:](?P<region>[A-Z0-9]{1,3}))?$"
 )
+
+
+def continent_for_country(country_code: Optional[str]) -> Optional[str]:
+    """Return the continent code for a given ISO-3166 alpha-2 country."""
+
+    if not country_code:
+        return None
+    return COUNTRY_TO_CONTINENT.get(country_code)
 
 
 def normalize_country_code(
@@ -148,6 +156,7 @@ def normalize_location_fields(
 
 __all__ = [
     "compose_location_string",
+    "continent_for_country",
     "normalize_country_code",
     "normalize_location_fields",
     "normalize_location_string",

@@ -10,14 +10,14 @@ import {
   fetchMyPlayer,
   updateMyPlayerLocation,
 } from "../../lib/api";
+import type { PlayerLocationPayload } from "../../lib/api";
+import {
+  COUNTRY_OPTIONS,
+  getContinentForCountry,
+  CONTINENT_LABELS,
+} from "../../lib/countries";
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
-const COUNTRY_CODE_REGEX = /^[A-Z]{2}$/;
-const REGION_CODE_REGEX = /^[A-Z0-9]{1,3}$/;
-
-function normalizeCodeInput(value: string): string {
-  return value.replace(/\s+/g, "").toUpperCase();
-}
 
 function extractErrorMessage(err: unknown): string | null {
   if (!err) return null;
@@ -44,12 +44,10 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [location, setLocation] = useState("");
   const [countryCode, setCountryCode] = useState("");
-  const [regionCode, setRegionCode] = useState("");
-  const [initialLocation, setInitialLocation] = useState("");
+  const [clubId, setClubId] = useState("");
   const [initialCountryCode, setInitialCountryCode] = useState("");
-  const [initialRegionCode, setInitialRegionCode] = useState("");
+  const [initialClubId, setInitialClubId] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -67,15 +65,12 @@ export default function ProfilePage() {
         try {
           const player = await fetchMyPlayer();
           if (!active) return;
-          const nextLocation = player.location ?? "";
           const nextCountry = player.country_code ?? "";
-          const nextRegion = player.region_code ?? "";
-          setLocation(nextLocation);
+          const nextClub = player.club_id ?? "";
           setCountryCode(nextCountry);
-          setRegionCode(nextRegion);
-          setInitialLocation(nextLocation);
+          setClubId(nextClub);
           setInitialCountryCode(nextCountry);
-          setInitialRegionCode(nextRegion);
+          setInitialClubId(nextClub);
         } catch (playerErr) {
           if (!active) return;
           const status = (playerErr as Error & { status?: number }).status;
@@ -84,12 +79,10 @@ export default function ProfilePage() {
             return;
           }
           if (status === 404) {
-            setLocation("");
             setCountryCode("");
-            setRegionCode("");
-            setInitialLocation("");
             setInitialCountryCode("");
-            setInitialRegionCode("");
+            setClubId("");
+            setInitialClubId("");
           } else {
             console.error("Failed to load player profile", playerErr);
             setError("Failed to load profile");
@@ -150,67 +143,66 @@ export default function ProfilePage() {
       );
       return;
     }
-    const normalizedCountry = normalizeCodeInput(countryCode);
-    const normalizedRegion = normalizeCodeInput(regionCode);
-    const trimmedLocation = location.trim();
+    const normalizedCountry = countryCode.trim().toUpperCase();
+    const trimmedClubId = clubId.trim();
 
-    if (normalizedCountry && !COUNTRY_CODE_REGEX.test(normalizedCountry)) {
-      setError("Country code must be exactly 2 letters");
+    const hasValidCountry =
+      !normalizedCountry ||
+      COUNTRY_OPTIONS.some((option) => option.code === normalizedCountry);
+    if (!hasValidCountry) {
+      setError("Please select a valid country");
       return;
     }
 
-    if (normalizedRegion && !REGION_CODE_REGEX.test(normalizedRegion)) {
-      setError("Region code must be 1-3 letters or numbers");
-      return;
-    }
-
-    if (normalizedRegion && !normalizedCountry) {
-      setError("Country code is required when setting a region");
-      return;
-    }
+    const continentCode = normalizedCountry
+      ? getContinentForCountry(normalizedCountry)
+      : undefined;
 
     setUsername(trimmedUsername);
-    setLocation(trimmedLocation);
     setCountryCode(normalizedCountry);
-    setRegionCode(normalizedRegion);
+    setClubId(trimmedClubId);
 
-    const locationChanged =
-      trimmedLocation !== initialLocation ||
-      normalizedCountry !== initialCountryCode ||
-      normalizedRegion !== initialRegionCode;
+    const countryChanged = normalizedCountry !== initialCountryCode;
+    const clubChanged = trimmedClubId !== initialClubId;
+
+    const payload: PlayerLocationPayload = {};
+
+    if (countryChanged) {
+      payload.country_code = normalizedCountry ? normalizedCountry : null;
+      payload.location = normalizedCountry ? normalizedCountry : null;
+      payload.region_code = normalizedCountry
+        ? continentCode ?? null
+        : null;
+    }
+
+    if (clubChanged) {
+      payload.club_id = trimmedClubId ? trimmedClubId : null;
+    }
 
     setSaving(true);
     try {
-      if (locationChanged) {
+      if (Object.keys(payload).length > 0) {
         try {
-          const updatedPlayer = await updateMyPlayerLocation({
-            location: trimmedLocation ? trimmedLocation : null,
-            country_code: normalizedCountry ? normalizedCountry : null,
-            region_code: normalizedRegion ? normalizedRegion : null,
-          });
-          const nextLocation = updatedPlayer.location ?? "";
+          const updatedPlayer = await updateMyPlayerLocation(payload);
           const nextCountry = updatedPlayer.country_code ?? "";
-          const nextRegion = updatedPlayer.region_code ?? "";
-          setLocation(nextLocation);
+          const nextClub = updatedPlayer.club_id ?? "";
           setCountryCode(nextCountry);
-          setRegionCode(nextRegion);
-          setInitialLocation(nextLocation);
+          setClubId(nextClub);
           setInitialCountryCode(nextCountry);
-          setInitialRegionCode(nextRegion);
+          setInitialClubId(nextClub);
         } catch (err) {
           const status = (err as Error & { status?: number }).status;
           if (status === 422) {
-            setError("Invalid location. Please check the country or region codes.");
+            setError("Invalid location. Please choose a different country or club.");
           } else {
             const message = extractErrorMessage(err);
-            setError(message ?? "Failed to update location");
+            setError(message ?? "Failed to update location settings");
           }
           return;
         }
       } else {
-        setInitialLocation(trimmedLocation);
         setInitialCountryCode(normalizedCountry);
-        setInitialRegionCode(normalizedRegion);
+        setInitialClubId(trimmedClubId);
       }
 
       const body: { username: string; password?: string } = {
@@ -242,6 +234,9 @@ export default function ProfilePage() {
       setSaving(false);
     }
   };
+
+  const continentCode = getContinentForCountry(countryCode);
+  const continentLabel = continentCode ? CONTINENT_LABELS[continentCode] : null;
 
   if (loading) {
     return (
@@ -287,26 +282,27 @@ export default function ProfilePage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        <input
-          type="text"
-          aria-label="Location"
-          placeholder="Location"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-        />
-        <input
-          type="text"
-          aria-label="Country code"
-          placeholder="Country code"
+        <select
+          aria-label="Country"
           value={countryCode}
-          onChange={(e) => setCountryCode(normalizeCodeInput(e.target.value))}
-        />
+          onChange={(e) => setCountryCode(e.target.value)}
+        >
+          <option value="">Select a country</option>
+          {COUNTRY_OPTIONS.map((option) => (
+            <option key={option.code} value={option.code}>
+              {option.name}
+            </option>
+          ))}
+        </select>
+        <div style={{ fontSize: "0.9rem", color: "#555" }}>
+          Continent: {continentLabel ?? "—"}
+        </div>
         <input
           type="text"
-          aria-label="Region code"
-          placeholder="Region code"
-          value={regionCode}
-          onChange={(e) => setRegionCode(normalizeCodeInput(e.target.value))}
+          aria-label="Favorite club"
+          placeholder="Favorite club"
+          value={clubId}
+          onChange={(e) => setClubId(e.target.value)}
         />
         <button type="submit" disabled={saving}>
           Save

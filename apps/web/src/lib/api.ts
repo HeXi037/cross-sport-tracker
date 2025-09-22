@@ -22,12 +22,36 @@ export async function apiFetch(path: string, init?: RequestInit) {
   try {
     const res = await fetch(apiUrl(path), { ...init, headers });
     if (!res.ok) {
-      const text = await res.text();
-      if (res.status === 401 && text.includes("token expired")) {
+      let problemMessage: string | undefined;
+      try {
+        const data = await res.clone().json();
+        if (data && typeof data === "object") {
+          const detail = (data as Record<string, unknown>).detail;
+          const title = (data as Record<string, unknown>).title;
+          if (typeof detail === "string" && detail.length > 0) {
+            problemMessage = detail;
+          } else if (typeof title === "string" && title.length > 0) {
+            problemMessage = title;
+          }
+        }
+      } catch {
+        // Ignore JSON parsing issues and fall back to reading the text body.
+      }
+
+      let text: string | undefined;
+      if (!problemMessage || res.status === 401) {
+        text = await res.text();
+      }
+
+      const message = problemMessage ?? text ?? res.statusText ?? "Unknown error";
+      const logoutSource = problemMessage ?? text ?? "";
+
+      if (res.status === 401 && logoutSource.includes("token expired")) {
         logout();
       }
+
       const err: Error & { status?: number } = new Error(
-        `HTTP ${res.status}: ${text}`
+        `HTTP ${res.status}: ${message}`
       );
       err.status = res.status;
       throw err;

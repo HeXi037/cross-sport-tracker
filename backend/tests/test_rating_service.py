@@ -1,5 +1,7 @@
 import asyncio
 
+import pytest
+
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -14,6 +16,11 @@ from backend.app.models import (
     ScoreEvent,
 )
 from backend.app.services import update_ratings
+
+
+@pytest.fixture(scope="module")
+def anyio_backend():
+    return "asyncio"
 
 
 def test_update_ratings():
@@ -106,6 +113,72 @@ def test_update_ratings_draw():
     assert r1 < 1200  # higher-rated player loses points on draw
     assert r2 > 1000  # lower-rated player gains points on draw
     assert len(glicko_vals) == 2
+
+
+@pytest.mark.anyio("asyncio")
+async def test_update_ratings_draw_only_creates_entries_and_events():
+    engine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    async_session_maker = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Player.__table__.create)
+        await conn.run_sync(Rating.__table__.create)
+        await conn.run_sync(GlickoRating.__table__.create)
+        await conn.run_sync(Match.__table__.create)
+        await conn.run_sync(MatchParticipant.__table__.create)
+        await conn.run_sync(ScoreEvent.__table__.create)
+
+    async with async_session_maker() as session:
+        session.add_all(
+            [
+                Player(id="p1", name="A"),
+                Player(id="p2", name="B"),
+                Match(id="m_draw", sport_id="padel"),
+                MatchParticipant(
+                    id="mp_draw_1", match_id="m_draw", side="A", player_ids=["p1"]
+                ),
+                MatchParticipant(
+                    id="mp_draw_2", match_id="m_draw", side="B", player_ids=["p2"]
+                ),
+            ]
+        )
+        await session.commit()
+
+        await update_ratings(
+            session,
+            "padel",
+            [],
+            [],
+            draws=["p1", "p2"],
+            match_id="m_draw",
+        )
+        await session.commit()
+
+        ratings = (
+            await session.execute(select(Rating).order_by(Rating.player_id))
+        ).scalars().all()
+        glicko_rows = (
+            await session.execute(
+                select(GlickoRating).order_by(GlickoRating.player_id)
+            )
+        ).scalars().all()
+        events = (await session.execute(select(ScoreEvent))).scalars().all()
+
+    assert {r.player_id for r in ratings} == {"p1", "p2"}
+    assert all(r.value == 1000 for r in ratings)
+    assert {g.player_id for g in glicko_rows} == {"p1", "p2"}
+    assert len(events) == 2
+    payloads = {event.payload["playerId"]: event.payload for event in events}
+    assert payloads.keys() == {"p1", "p2"}
+    for payload in payloads.values():
+        assert payload["systems"]["elo"]["rating"] == payload["rating"]
+        assert "glicko" in payload["systems"]
+        assert "rating" in payload["systems"]["glicko"]
+        assert "rd" in payload["systems"]["glicko"]
 
 
 def test_update_ratings_variable_k():

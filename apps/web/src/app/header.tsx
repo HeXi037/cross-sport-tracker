@@ -73,11 +73,18 @@ export default function Header() {
             </Link>
           </li>
           {admin && (
-            <li>
-              <Link href="/admin/matches" onClick={() => setOpen(false)}>
-                Admin
-              </Link>
-            </li>
+            <>
+              <li>
+                <Link href="/admin/matches" onClick={() => setOpen(false)}>
+                  Admin Matches
+                </Link>
+              </li>
+              <li>
+                <Link href="/admin/badges" onClick={() => setOpen(false)}>
+                  Admin Badges
+                </Link>
+              </li>
+            </>
           )}
           {user ? (
             <>

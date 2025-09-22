@@ -78,8 +78,8 @@ def test_create_and_append_event_hole(client_and_session):
         json={
             "sport": "disc_golf",
             "participants": [
-                {"side": "A", "playerIds": []},
-                {"side": "B", "playerIds": []},
+                {"side": "A", "playerIds": ["p1"]},
+                {"side": "B", "playerIds": ["p2"]},
             ],
         },
     )

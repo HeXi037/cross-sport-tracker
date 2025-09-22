@@ -34,6 +34,7 @@ from ..schemas import (
     VersusRecord,
     BadgeOut,
     CommentCreate,
+    CommentListOut,
     CommentOut,
     SportFormatStats,
     StreakSummary,
@@ -302,21 +303,32 @@ async def remove_badge_from_player(
     await session.commit()
     return Response(status_code=204)
 
-@router.get("/{player_id}/comments", response_model=list[CommentOut])
+@router.get("/{player_id}/comments", response_model=CommentListOut)
 async def list_comments(
-    player_id: str, session: AsyncSession = Depends(get_session)
+    player_id: str,
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    session: AsyncSession = Depends(get_session),
 ):
     p = await session.get(Player, player_id)
     if not p or p.deleted_at is not None:
         raise PlayerNotFound(player_id)
+    filters = (Comment.player_id == player_id, Comment.deleted_at.is_(None))
+    total = (
+        await session.execute(
+            select(func.count()).select_from(Comment).where(*filters)
+        )
+    ).scalar_one()
     stmt = (
         select(Comment, User.username)
         .join(User, Comment.user_id == User.id)
-        .where(Comment.player_id == player_id, Comment.deleted_at.is_(None))
+        .where(*filters)
         .order_by(Comment.created_at)
+        .limit(limit)
+        .offset(offset)
     )
     rows = await session.execute(stmt)
-    return [
+    items = [
         CommentOut(
             id=c.id,
             playerId=c.player_id,
@@ -327,6 +339,7 @@ async def list_comments(
         )
         for c, u in rows.all()
     ]
+    return CommentListOut(items=items, total=total, limit=limit, offset=offset)
 
 @router.post("/{player_id}/comments", response_model=CommentOut)
 async def add_comment(

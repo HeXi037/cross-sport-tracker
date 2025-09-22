@@ -313,6 +313,15 @@ class CommentOut(BaseModel):
     content: str
     createdAt: datetime
 
+
+class CommentListOut(BaseModel):
+    """Paginated list of comments returned from the comments endpoint."""
+
+    items: List[CommentOut]
+    total: int
+    limit: int
+    offset: int
+
 class VersusRecord(BaseModel):
     """Win/loss record versus or with another player."""
     playerId: str

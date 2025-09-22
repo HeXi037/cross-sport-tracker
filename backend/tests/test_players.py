@@ -416,3 +416,154 @@ def test_upload_player_photo_rejects_invalid_bytes(filename: str, mime_type: str
             f"/players/{pid}/photo", files=files, headers={"Authorization": f"Bearer {token}"}
         )
         assert resp.status_code == 415
+
+
+def test_players_me_endpoints_require_authentication() -> None:
+    with TestClient(app) as client:
+        resp = client.get("/players/me")
+        assert resp.status_code == 401
+
+        resp = client.patch("/players/me/location", json={})
+        assert resp.status_code == 401
+
+
+def test_get_players_me_returns_current_player() -> None:
+    with TestClient(app) as client:
+        auth.limiter.reset()
+        signup = client.post(
+            "/auth/signup",
+            json={"username": "selfie", "password": "Str0ng!Pass!"},
+        )
+        assert signup.status_code == 200
+        token = signup.json()["access_token"]
+
+        resp = client.get(
+            "/players/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["name"] == "selfie"
+        assert data["id"]
+
+
+def test_update_players_me_location_success() -> None:
+    with TestClient(app) as client:
+        auth.limiter.reset()
+        signup = client.post(
+            "/auth/signup",
+            json={"username": "loc-success", "password": "Str0ng!Pass!"},
+        )
+        assert signup.status_code == 200
+        token = signup.json()["access_token"]
+
+        resp = client.put(
+            "/players/me/location",
+            json={"location": "us-ca"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["location"] == "US-CA"
+        assert data["country_code"] == "US"
+        assert data["region_code"] == "CA"
+
+        me = client.get(
+            "/players/me", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert me.status_code == 200
+        assert me.json()["location"] == "US-CA"
+
+
+@pytest.mark.parametrize(
+    ("payload", "username"),
+    [
+        ({"country_code": "USA"}, "loc-validate-0"),
+        ({"region_code": "CA"}, "loc-validate-1"),
+    ],
+)
+def test_update_players_me_location_validation_errors(payload, username) -> None:
+    with TestClient(app) as client:
+        auth.limiter.reset()
+        signup = client.post(
+            "/auth/signup",
+            json={"username": username, "password": "Str0ng!Pass!"},
+        )
+        assert signup.status_code == 200
+        token = signup.json()["access_token"]
+
+        resp = client.patch(
+            "/players/me/location",
+            json=payload,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 422
+
+
+def test_update_players_me_location_allows_clearing_values() -> None:
+    with TestClient(app) as client:
+        auth.limiter.reset()
+        signup = client.post(
+            "/auth/signup",
+            json={"username": "loc-clear", "password": "Str0ng!Pass!"},
+        )
+        assert signup.status_code == 200
+        token = signup.json()["access_token"]
+
+        resp = client.put(
+            "/players/me/location",
+            json={"country_code": "us", "region_code": "ny"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["location"] == "US-NY"
+
+        cleared = client.patch(
+            "/players/me/location",
+            json={
+                "location": "",
+                "country_code": "",
+                "region_code": "",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert cleared.status_code == 200
+        cleared_data = cleared.json()
+        assert cleared_data["location"] is None
+        assert cleared_data["country_code"] is None
+        assert cleared_data["region_code"] is None
+
+
+def test_players_me_endpoints_return_404_when_player_missing() -> None:
+    with TestClient(app) as client:
+        auth.limiter.reset()
+        signup = client.post(
+            "/auth/signup",
+            json={"username": "ghosted", "password": "Str0ng!Pass!"},
+        )
+        assert signup.status_code == 200
+        token = signup.json()["access_token"]
+
+        listing = client.get("/players", params={"q": "ghosted"})
+        assert listing.status_code == 200
+        player_id = listing.json()["players"][0]["id"]
+
+        admin = admin_token(client)
+        delete_resp = client.delete(
+            f"/players/{player_id}",
+            headers={"Authorization": f"Bearer {admin}"},
+        )
+        assert delete_resp.status_code == 204
+
+        resp = client.get(
+            "/players/me", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert resp.status_code == 404
+
+        resp = client.patch(
+            "/players/me/location",
+            json={"country_code": "US"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 404

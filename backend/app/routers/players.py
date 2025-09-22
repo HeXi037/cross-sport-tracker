@@ -26,6 +26,7 @@ from ..schemas import (
     PlayerCreate,
     PlayerOut,
     PlayerListOut,
+    PlayerLocationUpdate,
     PlayerNameOut,
     PlayerStatsOut,
     VersusRecord,
@@ -50,6 +51,7 @@ from ..services.photo_uploads import (
 )
 from .admin import require_admin
 from .auth import get_current_user
+from ..location_utils import normalize_location_fields
 
 
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "static" / "players"
@@ -150,6 +152,82 @@ async def players_by_ids(ids: str = "", session: AsyncSession = Depends(get_sess
         )
     ).scalars().all()
     return [PlayerNameOut(id=p.id, name=p.name, photo_url=p.photo_url) for p in rows]
+
+
+@router.get("/me", response_model=PlayerOut)
+async def get_my_player(
+    current: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    player = (
+        await session.execute(
+            select(Player).where(
+                Player.user_id == current.id, Player.deleted_at.is_(None)
+            )
+        )
+    ).scalar_one_or_none()
+    if not player:
+        raise HTTPException(status_code=404, detail="player not found")
+    return await get_player(player.id, session)
+
+
+@router.put("/me/location", response_model=PlayerOut)
+@router.patch("/me/location", response_model=PlayerOut)
+async def update_my_location(
+    body: PlayerLocationUpdate,
+    current: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    player = (
+        await session.execute(
+            select(Player).where(
+                Player.user_id == current.id, Player.deleted_at.is_(None)
+            )
+        )
+    ).scalar_one_or_none()
+    if not player:
+        raise HTTPException(status_code=404, detail="player not found")
+
+    fields_set = set(body.model_fields_set)
+    if not fields_set:
+        return await get_player(player.id, session)
+
+    location_value = player.location
+    country_value = player.country_code
+    region_value = player.region_code
+
+    if "location" in fields_set:
+        location_value = body.location
+        if "country_code" not in fields_set:
+            country_value = None
+        if "region_code" not in fields_set:
+            region_value = None
+
+    if "country_code" in fields_set:
+        country_value = body.country_code
+        if body.country_code is None:
+            region_value = None
+            if "location" not in fields_set:
+                location_value = None
+
+    if "region_code" in fields_set:
+        region_value = body.region_code
+        if body.region_code is None and "location" not in fields_set:
+            location_value = None
+
+    (
+        player.location,
+        player.country_code,
+        player.region_code,
+    ) = normalize_location_fields(
+        location_value,
+        country_value,
+        region_value,
+        raise_on_invalid=True,
+    )
+
+    await session.commit()
+    return await get_player(player.id, session)
 
 @router.get("/{player_id}", response_model=PlayerOut)
 async def get_player(player_id: str, session: AsyncSession = Depends(get_session)):

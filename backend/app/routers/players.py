@@ -13,6 +13,7 @@ from PIL import Image, UnidentifiedImageError
 
 from ..db import get_session
 from ..db_errors import is_missing_table_error
+from ..cache import player_stats_cache
 from ..models import (
     Player,
     Match,
@@ -91,6 +92,7 @@ async def create_player(
     )
     session.add(p)
     await session.commit()
+    await player_stats_cache.invalidate_players([pid])
     return PlayerOut(
         id=pid,
         name=p.name,
@@ -377,19 +379,15 @@ async def delete_player(
         p.deleted_at = func.now()
 
     await session.commit()
+    await player_stats_cache.invalidate_players([player_id])
     return Response(status_code=204)
 
 
-@router.get("/{player_id}/stats", response_model=PlayerStatsOut)
-async def player_stats(
+async def _compute_player_stats(
+    session: AsyncSession,
     player_id: str,
-    span: int = 10,
-    session: AsyncSession = Depends(get_session),
-):
-    p = await session.get(Player, player_id)
-    if not p:
-        raise PlayerNotFound(player_id)
-
+    span: int,
+) -> PlayerStatsOut:
     mp = aliased(MatchParticipant)
     is_sqlite = session.bind.dialect.name == "sqlite"
     json_each = func.json_each if is_sqlite else func.jsonb_array_elements
@@ -561,3 +559,25 @@ async def player_stats(
         withRecords=with_records,
         streaks=streaks,
     )
+
+
+@router.get("/{player_id}/stats", response_model=PlayerStatsOut)
+async def player_stats(
+    player_id: str,
+    span: int = 10,
+    session: AsyncSession = Depends(get_session),
+):
+    player = await session.get(Player, player_id)
+    if not player:
+        raise PlayerNotFound(player_id)
+
+    cache_key = (player_id, span)
+    cached = await player_stats_cache.get(cache_key)
+    if cached is not None:
+        if isinstance(cached, PlayerStatsOut):
+            return cached.model_copy(deep=True)
+        return cached
+
+    result = await _compute_player_stats(session, player_id, span)
+    await player_stats_cache.set(cache_key, result.model_copy(deep=True))
+    return result

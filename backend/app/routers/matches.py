@@ -8,6 +8,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
+from ..cache import player_stats_cache
 from ..models import Match, MatchParticipant, Player, ScoreEvent, User, Rating
 from ..schemas import (
     MatchCreate,
@@ -126,6 +127,7 @@ async def create_match(
         match.details = {"score": {chr(65 + i): s for i, s in enumerate(body.score)}}
 
     await session.commit()
+    await player_stats_cache.invalidate_players(all_player_ids)
     return MatchIdOut(id=mid)
 
 
@@ -240,11 +242,11 @@ async def delete_match(
         ).scalars().all()
     except Exception:
         parts = []
+    match_player_ids = {pid for p in parts for pid in (p.player_ids or [])}
     if not user.is_admin:
         user_player_ids = (
             await session.execute(select(Player.id).where(Player.user_id == user.id))
         ).scalars().all()
-        match_player_ids = {pid for p in parts for pid in (p.player_ids or [])}
         if not user_player_ids or not set(user_player_ids) & match_player_ids:
             raise HTTPException(status_code=403, detail="forbidden")
 
@@ -308,6 +310,7 @@ async def delete_match(
         # Ignore errors (e.g., rating tables may not exist in some tests)
         pass
 
+    await player_stats_cache.invalidate_players(match_player_ids)
     return Response(status_code=204)
 
 # POST /api/v0/matches/{mid}/events
@@ -327,11 +330,11 @@ async def append_event(
             select(MatchParticipant).where(MatchParticipant.match_id == mid)
         )
     ).scalars().all()
+    match_player_ids = {pid for p in parts for pid in (p.player_ids or [])}
     if not user.is_admin:
         user_player_ids = (
             await session.execute(select(Player.id).where(Player.user_id == user.id))
         ).scalars().all()
-        match_player_ids = {pid for p in parts for pid in (p.player_ids or [])}
         if not user_player_ids or not set(user_player_ids) & match_player_ids:
             raise HTTPException(status_code=403, detail="forbidden")
 
@@ -364,6 +367,7 @@ async def append_event(
     session.add(e)
     m.details = engine.summary(state)
     await session.commit()
+    await player_stats_cache.invalidate_players(match_player_ids)
     await broadcast(mid, {"event": e.payload, "summary": m.details})
     return {"ok": True, "eventId": e.id}
 
@@ -470,5 +474,6 @@ async def record_sets_endpoint(
             )
 
     await session.commit()
+    await player_stats_cache.invalidate_players(players_a + players_b)
     await broadcast(mid, {"summary": m.details})
     return {"ok": True, "added": len(new_events)}

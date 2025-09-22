@@ -5,6 +5,7 @@ import asyncio
 from datetime import datetime
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import select, text
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
@@ -13,6 +14,92 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 @pytest.fixture
 def anyio_backend():
   return "asyncio"
+
+
+def test_match_create_normalizes_sides_and_requires_players():
+  from app.schemas import MatchCreate
+
+  body = MatchCreate(
+    sport="padel",
+    participants=[
+      {"side": "a", "playerIds": ["p1"]},
+      {"side": "B", "playerIds": ["p2"]},
+    ],
+  )
+
+  assert [p.side for p in body.participants] == ["A", "B"]
+
+
+def test_match_create_rejects_duplicate_sides():
+  from app.schemas import MatchCreate
+
+  with pytest.raises(ValidationError) as exc:
+    MatchCreate(
+      sport="padel",
+      participants=[
+        {"side": "A", "playerIds": ["p1"]},
+        {"side": "a", "playerIds": ["p2"]},
+      ],
+    )
+
+  assert "unique sides" in str(exc.value)
+
+
+def test_match_create_rejects_empty_player_ids():
+  from app.schemas import MatchCreate
+
+  with pytest.raises(ValidationError) as exc:
+    MatchCreate(
+      sport="padel",
+      participants=[
+        {"side": "A", "playerIds": []},
+      ],
+    )
+
+  assert "include at least one player" in str(exc.value)
+
+
+def test_match_create_by_name_normalizes_sides():
+  from app.schemas import MatchCreateByName
+
+  body = MatchCreateByName(
+    sport="padel",
+    participants=[
+      {"side": "a", "playerNames": ["Alice"]},
+      {"side": "B", "playerNames": ["Bob"]},
+    ],
+  )
+
+  assert [p.side for p in body.participants] == ["A", "B"]
+
+
+def test_match_create_by_name_rejects_duplicate_sides():
+  from app.schemas import MatchCreateByName
+
+  with pytest.raises(ValidationError) as exc:
+    MatchCreateByName(
+      sport="padel",
+      participants=[
+        {"side": "A", "playerNames": ["Alice"]},
+        {"side": "a", "playerNames": ["Bob"]},
+      ],
+    )
+
+  assert "unique sides" in str(exc.value)
+
+
+def test_match_create_by_name_rejects_empty_player_names():
+  from app.schemas import MatchCreateByName
+
+  with pytest.raises(ValidationError) as exc:
+    MatchCreateByName(
+      sport="padel",
+      participants=[
+        {"side": "A", "playerNames": []},
+      ],
+    )
+
+  assert "include at least one player" in str(exc.value)
 
 
 @pytest.mark.anyio

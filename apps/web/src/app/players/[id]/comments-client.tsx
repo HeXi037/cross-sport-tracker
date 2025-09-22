@@ -12,6 +12,13 @@ interface Comment {
   createdAt: string;
 }
 
+interface PaginatedComments {
+  items: Comment[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export default function PlayerComments({ playerId }: { playerId: string }) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [content, setContent] = useState("");
@@ -21,7 +28,8 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
   const load = useCallback(async () => {
     const resp = await apiFetch(`/v0/players/${playerId}/comments`);
     if (resp.ok) {
-      setComments((await resp.json()) as Comment[]);
+      const data = (await resp.json()) as PaginatedComments;
+      setComments(data.items ?? []);
     }
   }, [playerId]);
 

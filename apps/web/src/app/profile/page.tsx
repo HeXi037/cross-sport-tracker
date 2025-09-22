@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-import { fetchMe, updateMe, isLoggedIn } from "../../lib/api";
+import { fetchMe, updateMe, isLoggedIn, apiFetch } from "../../lib/api";
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
 
@@ -13,6 +13,8 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (!isLoggedIn()) {
@@ -22,10 +24,35 @@ export default function ProfilePage() {
     fetchMe()
       .then((data) => {
         setUsername(data.username);
+        setPhotoUrl(data.photo_url ?? null);
         setLoading(false);
       })
       .catch(() => router.push("/login"));
   }, [router]);
+
+  const handlePhotoChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    setMessage(null);
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await apiFetch("/v0/auth/me/photo", {
+        method: "POST",
+        body: form,
+      });
+      const data = (await res.json()) as { photo_url?: string };
+      setPhotoUrl(data.photo_url ?? null);
+      setMessage("Profile photo updated");
+    } catch {
+      setError("Photo upload failed");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -68,6 +95,27 @@ export default function ProfilePage() {
   return (
     <main className="container">
       <h1 className="heading">Profile</h1>
+      <div className="auth-form">
+        {photoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={photoUrl}
+            alt={username ? `${username} profile photo` : "Profile photo"}
+            width={120}
+            height={120}
+            style={{ borderRadius: "50%", objectFit: "cover", marginBottom: 8 }}
+          />
+        )}
+        <label>
+          Profile photo
+          <input
+            type="file"
+            accept="image/png,image/jpeg"
+            onChange={handlePhotoChange}
+          />
+        </label>
+        {uploading && <span>Uploading…</span>}
+      </div>
       <form onSubmit={handleSubmit} className="auth-form">
         <input
           type="text"

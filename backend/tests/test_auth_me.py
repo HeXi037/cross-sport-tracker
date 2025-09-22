@@ -1,6 +1,7 @@
 import os
 import sys
 import asyncio
+import base64
 import uuid
 import pytest
 from fastapi import FastAPI
@@ -18,6 +19,10 @@ app = FastAPI()
 app.state.limiter = auth.limiter
 app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
 app.include_router(auth.router)
+
+VALID_PNG_BYTES = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
+)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -53,6 +58,7 @@ def test_get_and_update_me():
         me = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
         assert me.status_code == 200
         assert me.json()["username"] == "alice"
+        assert me.json()["photo_url"] is None
 
         resp = client.put(
             "/auth/me",
@@ -77,6 +83,7 @@ def test_get_and_update_me():
         )
         assert me2.status_code == 200
         assert me2.json()["username"] == "alice2"
+        assert me2.json()["photo_url"] is None
 
 
 def test_update_me_conflicting_player_name():
@@ -102,6 +109,52 @@ def test_update_me_conflicting_player_name():
         )
         assert resp.status_code == 400
         assert resp.json()["detail"] == "player exists"
+
+
+def test_upload_my_photo():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup", json={"username": "picuser", "password": "Str0ng!Pass!"}
+        )
+        assert resp.status_code == 200
+        token = resp.json()["access_token"]
+
+        files = {"file": ("avatar.png", VALID_PNG_BYTES, "image/png")}
+        resp = client.post(
+            "/auth/me/photo",
+            files=files,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["photo_url"].startswith("/api/static/users/")
+        filename = data["photo_url"].split("/")[-1]
+        filepath = auth.USER_UPLOAD_DIR / filename
+        try:
+            assert filepath.exists()
+            assert filepath.read_bytes() == VALID_PNG_BYTES
+        finally:
+            if filepath.exists():
+                filepath.unlink()
+
+        async def fetch_user_and_player_photo():
+            async with db.AsyncSessionLocal() as session:
+                user = (
+                    await session.execute(
+                        select(User).where(User.username == "picuser")
+                    )
+                ).scalar_one()
+                player = (
+                    await session.execute(
+                        select(Player).where(Player.user_id == user.id)
+                    )
+                ).scalar_one()
+                return user.photo_url, player.photo_url
+
+        user_photo, player_photo = asyncio.run(fetch_user_and_player_photo())
+        assert user_photo == data["photo_url"]
+        assert player_photo == data["photo_url"]
 
 
 def test_me_missing_user():

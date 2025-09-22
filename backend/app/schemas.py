@@ -280,6 +280,7 @@ class UserOut(BaseModel):
     id: str
     username: str
     is_admin: bool
+    photo_url: Optional[str] = None
 
 
 class UserUpdate(BaseModel):

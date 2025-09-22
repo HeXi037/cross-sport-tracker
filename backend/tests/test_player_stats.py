@@ -227,11 +227,29 @@ def test_player_stats(client_and_session):
     assert data["worstAgainst"]["losses"] == 1
     assert data["worstWith"]["losses"] == 1
 
+    assert data["matchSummary"] == {
+        "total": 2,
+        "wins": 1,
+        "losses": 1,
+        "draws": 0,
+        "winPct": pytest.approx(0.5),
+    }
+    assert data["setSummary"] == {
+        "won": 2,
+        "lost": 2,
+        "differential": 0,
+    }
+    assert data["recentForm"] == {"lastFive": ["W", "L"], "currentStreak": "L1"}
+
     records = {r["playerId"]: r for r in data["withRecords"]}
     assert records["p2"]["wins"] == 1
     assert records["p2"]["losses"] == 0
+    assert records["p2"]["total"] == 1
+    assert records["p2"]["chemistry"] == pytest.approx(1.0)
     assert records["p3"]["wins"] == 0
     assert records["p3"]["losses"] == 1
+    assert records["p3"]["total"] == 1
+    assert records["p3"]["chemistry"] == pytest.approx(0.0)
 
     # Rolling win percentage for the two matches
     assert data["rollingWinPct"] == [1.0, 0.5]
@@ -245,6 +263,14 @@ def test_player_stats(client_and_session):
     assert data["streaks"]["current"] == -1
     assert data["streaks"]["longestWin"] == 1
     assert data["streaks"]["longestLoss"] == 1
+    assert data["topPartners"][0]["playerId"] == "p2"
+    assert data["topPartners"][1]["playerId"] == "p3"
+
+    h2h = {r["playerId"]: r for r in data["headToHeadRecords"]}
+    assert h2h["p3"]["wins"] == 1 and h2h["p3"]["losses"] == 0
+    assert h2h["p4"]["wins"] == 1 and h2h["p4"]["losses"] == 1
+    assert h2h["p2"]["wins"] == 0 and h2h["p2"]["losses"] == 1
+    assert data["ratings"] == []
 
 
 def test_player_stats_with_singles(client_and_session):

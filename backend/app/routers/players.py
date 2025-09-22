@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timedelta
 from pathlib import Path
 from collections import defaultdict
 
@@ -21,6 +22,9 @@ from ..models import (
     Badge,
     PlayerBadge,
     Club,
+    ScoreEvent,
+    Rating,
+    GlickoRating,
 )
 from ..config import API_PREFIX
 from ..schemas import (
@@ -37,6 +41,11 @@ from ..schemas import (
     CommentOut,
     SportFormatStats,
     StreakSummary,
+    MatchSummary,
+    SetSummary,
+    RecentFormSummary,
+    SportRatingSummary,
+    RatingSystemSnapshot,
 )
 from ..exceptions import ProblemDetail, PlayerAlreadyExists, PlayerNotFound
 from ..services import (
@@ -510,6 +519,7 @@ async def _compute_player_stats(
             Match.id.label("match_id"),
             Match.sport_id,
             Match.played_at,
+            Match.details.label("details"),
             mp.id.label("mp_id"),
             mp.side,
             mp.player_ids,
@@ -532,7 +542,63 @@ async def _compute_player_stats(
     if not rows:
         return PlayerStatsOut(playerId=player_id)
 
-    results = [bool(r.is_win) for r in rows]
+    match_ids: list[str] = []
+    match_sport: dict[str, str] = {}
+    results: list[bool | None] = []
+    sets_won = 0
+    sets_lost = 0
+
+    for row in rows:
+        if row.match_id not in match_sport:
+            match_ids.append(row.match_id)
+        match_sport[row.match_id] = row.sport_id
+
+        result_value: bool | None = None
+        if row.is_win is not None:
+            result_value = bool(row.is_win)
+        results.append(result_value)
+
+        details = row.details if isinstance(row.details, dict) else None
+        sets = details.get("sets") if isinstance(details, dict) else None
+        if isinstance(sets, dict):
+            side_sets = sets.get(row.side)
+            if isinstance(side_sets, (int, float)):
+                sets_won += int(side_sets)
+            opponent_total = 0
+            for key, value in sets.items():
+                if key == row.side:
+                    continue
+                if isinstance(value, (int, float)):
+                    opponent_total += int(value)
+            sets_lost += opponent_total
+
+    wins = sum(1 for r in results if r is True)
+    losses = sum(1 for r in results if r is False)
+    total_matches = len(results)
+    draws = total_matches - wins - losses
+    win_pct = wins / total_matches if total_matches else 0.0
+
+    match_summary = MatchSummary(
+        total=total_matches,
+        wins=wins,
+        losses=losses,
+        draws=draws,
+        winPct=win_pct,
+    )
+    set_summary = SetSummary(
+        won=sets_won,
+        lost=sets_lost,
+        differential=sets_won - sets_lost,
+    )
+
+    def format_result(value: bool | None) -> str:
+        if value is True:
+            return "W"
+        if value is False:
+            return "L"
+        return "D"
+
+    recent_results = [format_result(r) for r in results[-5:]]
 
     tm = json_each(pm.c.player_ids).table_valued("value").alias("tm")
     tm_pid = tm.c.value if is_sqlite else tm.c.value.astext
@@ -540,7 +606,8 @@ async def _compute_player_stats(
         select(
             tm_pid.label("pid"),
             func.count().label("total"),
-            func.sum(pm.c.is_win).label("wins"),
+            func.sum(case((pm.c.is_win == 1, 1), else_=0)).label("wins"),
+            func.sum(case((pm.c.is_win == 0, 1), else_=0)).label("losses"),
         )
         .select_from(pm)
         .join(tm, true())
@@ -554,7 +621,8 @@ async def _compute_player_stats(
         select(
             opp_pid.label("pid"),
             func.count().label("total"),
-            func.sum(pm.c.is_win).label("wins"),
+            func.sum(case((pm.c.is_win == 1, 1), else_=0)).label("wins"),
+            func.sum(case((pm.c.is_win == 0, 1), else_=0)).label("losses"),
         )
         .select_from(pm)
         .join(opp_mp, opp_mp.match_id == pm.c.match_id)
@@ -567,11 +635,19 @@ async def _compute_player_stats(
     opp_rows = (await session.execute(opp_stmt)).all()
 
     team_stats: dict[str, dict[str, int]] = {
-        row.pid: {"wins": row.wins or 0, "total": row.total}
+        row.pid: {
+            "wins": row.wins or 0,
+            "losses": row.losses or 0,
+            "total": row.total,
+        }
         for row in team_rows
     }
     opp_stats: dict[str, dict[str, int]] = {
-        row.pid: {"wins": row.wins or 0, "total": row.total}
+        row.pid: {
+            "wins": row.wins or 0,
+            "losses": row.losses or 0,
+            "total": row.total,
+        }
         for row in opp_rows
     }
 
@@ -580,7 +656,8 @@ async def _compute_player_stats(
             pm.c.sport_id,
             pm.c.team_size,
             func.count().label("total"),
-            func.sum(pm.c.is_win).label("wins"),
+            func.sum(case((pm.c.is_win == 1, 1), else_=0)).label("wins"),
+            func.sum(case((pm.c.is_win == 0, 1), else_=0)).label("losses"),
         )
         .select_from(pm)
         .group_by(pm.c.sport_id, pm.c.team_size)
@@ -589,8 +666,9 @@ async def _compute_player_stats(
     sf_stats = []
     for row in sf_rows:
         wins = row.wins or 0
+        losses_count = row.losses or 0
         total = row.total
-        losses = total - wins
+        losses = losses_count
         win_pct = wins / total if total else 0.0
         sf_stats.append(
             SportFormatStats(
@@ -611,37 +689,252 @@ async def _compute_player_stats(
     else:
         id_to_name = {}
 
-    def to_record(pid: str, stats: dict[str, int]) -> VersusRecord:
-        wins = stats["wins"]
-        total = stats["total"]
-        losses = total - wins
-        win_pct = wins / total if total else 0.0
+    def to_record(pid: str, stats: dict[str, int], *, is_partner: bool) -> VersusRecord:
+        total = stats.get("total", 0)
+        wins_val = stats.get("wins", 0)
+        losses_val = stats.get("losses", max(total - wins_val, 0))
+        win_pct = wins_val / total if total else 0.0
         return VersusRecord(
             playerId=pid,
             playerName=id_to_name.get(pid, ""),
-            wins=wins,
-            losses=losses,
+            wins=wins_val,
+            losses=losses_val,
             winPct=win_pct,
+            total=total,
+            chemistry=win_pct if is_partner else None,
         )
 
-    best_against = worst_against = best_with = worst_with = None
-    if opp_stats:
-        records = [to_record(pid, s) for pid, s in opp_stats.items()]
-        best_against = max(records, key=lambda r: r.winPct)
-        worst_against = min(records, key=lambda r: r.winPct)
+    opponent_records = [
+        to_record(pid, stats, is_partner=False) for pid, stats in opp_stats.items()
+    ]
+    partner_records = [
+        to_record(pid, stats, is_partner=True) for pid, stats in team_stats.items()
+    ]
 
-    if team_stats:
-        records = [to_record(pid, s) for pid, s in team_stats.items()]
-        best_with = max(records, key=lambda r: r.winPct)
-        worst_with = min(records, key=lambda r: r.winPct)
-        with_records = records
-    else:
-        with_records = []
+    head_records = sorted(
+        opponent_records,
+        key=lambda r: ((r.total or 0), r.winPct),
+        reverse=True,
+    )
+    partner_records.sort(key=lambda r: ((r.total or 0), r.winPct), reverse=True)
+
+    best_against = max(head_records, key=lambda r: r.winPct) if head_records else None
+    worst_against = min(head_records, key=lambda r: r.winPct) if head_records else None
+
+    best_with = max(partner_records, key=lambda r: r.winPct) if partner_records else None
+    worst_with = min(partner_records, key=lambda r: r.winPct) if partner_records else None
+
+    with_records = partner_records
+    top_partners = partner_records[:3]
 
     streak_info = compute_streaks(results)
     streaks = StreakSummary(**streak_info)
 
-    rolling = rolling_win_percentage(results, span) if results else []
+    current_streak_label = ""
+    if results:
+        last_result = results[-1]
+        if last_result is True:
+            current_streak_label = f"W{streaks.current if streaks.current > 0 else 1}"
+        elif last_result is False:
+            current_streak_label = f"L{abs(streaks.current) if streaks.current < 0 else 1}"
+        else:
+            current_streak_label = "D1"
+
+    recent_form = RecentFormSummary(
+        lastFive=recent_results,
+        currentStreak=current_streak_label,
+    )
+
+    binary_results = [r is True for r in results]
+    rolling = rolling_win_percentage(binary_results, span) if binary_results else []
+
+    now = datetime.utcnow()
+
+    def downsample(values: list[float], max_points: int = 20) -> list[float]:
+        if not values:
+            return []
+        if len(values) <= max_points:
+            return values
+        step = (len(values) - 1) / (max_points - 1)
+        return [values[round(i * step)] for i in range(max_points)]
+
+    def summarize_history(
+        history: list[tuple[datetime | None, float]],
+        current_value: float | None,
+    ) -> tuple[float | None, float, list[float], datetime | None]:
+        ordered = [
+            (ts if isinstance(ts, datetime) else None, val)
+            for ts, val in history
+            if val is not None
+        ]
+        ordered.sort(key=lambda item: item[0] or datetime.min)
+        value = current_value if current_value is not None else (
+            ordered[-1][1] if ordered else None
+        )
+        last_updated = ordered[-1][0] if ordered else None
+        cutoff = now - timedelta(days=30)
+        baseline = value if value is not None else 0.0
+        for ts, val in ordered:
+            if ts is None:
+                baseline = val
+            elif ts <= cutoff:
+                baseline = val
+            else:
+                break
+        delta = (value - baseline) if value is not None else 0.0
+        spark_values = [val for _, val in ordered]
+        sparkline = downsample(spark_values) if spark_values else ([value] if value is not None else [])
+        return value, delta, sparkline, last_updated
+
+    sports = sorted({row.sport_id for row in rows if row.sport_id})
+    rating_history: defaultdict[str, list[tuple[datetime | None, float]]] = defaultdict(list)
+    glicko_history: defaultdict[
+        str, list[tuple[datetime | None, float, float | None]]
+    ] = defaultdict(list)
+
+    rating_events: list[ScoreEvent] = []
+    if match_ids:
+        try:
+            rating_events = (
+                await session.execute(
+                    select(ScoreEvent)
+                    .where(
+                        ScoreEvent.match_id.in_(match_ids),
+                        ScoreEvent.type == "RATING",
+                    )
+                    .order_by(ScoreEvent.created_at)
+                )
+            ).scalars().all()
+        except SQLAlchemyError as exc:  # pragma: no cover - optional history
+            if not is_missing_table_error(exc, ScoreEvent.__tablename__):
+                raise
+            rating_events = []
+
+    for event in rating_events:
+        payload = event.payload or {}
+        if payload.get("playerId") != player_id:
+            continue
+        sport = match_sport.get(event.match_id)
+        if not sport:
+            continue
+        ts = event.created_at
+        systems = payload.get("systems") if isinstance(payload, dict) else None
+        rating_val = payload.get("rating") if isinstance(payload, dict) else None
+        if rating_val is None and isinstance(systems, dict):
+            elo_info = systems.get("elo")
+            if isinstance(elo_info, dict):
+                rating_val = elo_info.get("rating")
+        if rating_val is not None:
+            rating_history[sport].append((ts, float(rating_val)))
+        glicko_info = None
+        if isinstance(systems, dict):
+            glicko_info = systems.get("glicko")
+        if glicko_info is None and isinstance(payload, dict):
+            glicko_info = payload.get("glicko")
+        if isinstance(glicko_info, dict):
+            g_rating = glicko_info.get("rating")
+            g_rd = glicko_info.get("rd")
+            if g_rating is not None:
+                glicko_history[sport].append(
+                    (ts, float(g_rating), float(g_rd) if g_rd is not None else None)
+                )
+
+    rating_current: dict[str, float] = {}
+    if sports:
+        try:
+            rating_rows = (
+                await session.execute(
+                    select(Rating).where(
+                        Rating.player_id == player_id,
+                        Rating.sport_id.in_(sports),
+                    )
+                )
+            ).scalars().all()
+            rating_current = {row.sport_id: row.value for row in rating_rows}
+        except SQLAlchemyError as exc:  # pragma: no cover - optional table
+            if not is_missing_table_error(exc, Rating.__tablename__):
+                raise
+            rating_current = {}
+
+    glicko_current: dict[str, tuple[float, float, datetime | None]] = {}
+    if sports:
+        try:
+            glicko_rows = (
+                await session.execute(
+                    select(GlickoRating).where(
+                        GlickoRating.player_id == player_id,
+                        GlickoRating.sport_id.in_(sports),
+                    )
+                )
+            ).scalars().all()
+            glicko_current = {
+                row.sport_id: (row.rating, row.rd, row.last_updated)
+                for row in glicko_rows
+            }
+        except SQLAlchemyError as exc:  # pragma: no cover - optional table
+            if not is_missing_table_error(exc, GlickoRating.__tablename__):
+                raise
+            glicko_current = {}
+
+    ratings_output: list[SportRatingSummary] = []
+    for sport in sports:
+        elo_history = rating_history.get(sport, [])
+        elo_current = rating_current.get(sport)
+        elo_value, elo_delta, elo_spark, elo_updated = summarize_history(
+            elo_history, elo_current
+        )
+        elo_snapshot = None
+        if (
+            elo_value is not None
+            or elo_delta
+            or elo_spark
+        ):
+            elo_snapshot = RatingSystemSnapshot(
+                value=elo_value,
+                delta30=elo_delta,
+                sparkline=elo_spark,
+                lastUpdated=elo_updated,
+            )
+
+        g_history = glicko_history.get(sport, [])
+        g_current = glicko_current.get(sport)
+        g_value_input = g_current[0] if g_current else None
+        g_value, g_delta, g_spark, g_updated = summarize_history(
+            [(ts, val) for ts, val, _ in g_history],
+            g_value_input,
+        )
+        g_deviation = None
+        if g_current:
+            g_deviation = g_current[1]
+            g_updated = g_updated or g_current[2]
+        elif g_history:
+            last_entry = next((entry for entry in reversed(g_history) if entry[2] is not None), None)
+            if last_entry:
+                g_deviation = last_entry[2]
+                g_updated = g_updated or last_entry[0]
+        glicko_snapshot = None
+        if (
+            g_value is not None
+            or g_delta
+            or g_spark
+            or g_deviation is not None
+        ):
+            glicko_snapshot = RatingSystemSnapshot(
+                value=g_value,
+                delta30=g_delta,
+                sparkline=g_spark,
+                deviation=g_deviation,
+                lastUpdated=g_updated,
+            )
+
+        if elo_snapshot or glicko_snapshot:
+            ratings_output.append(
+                SportRatingSummary(
+                    sport=sport,
+                    elo=elo_snapshot,
+                    glicko=glicko_snapshot,
+                )
+            )
 
     return PlayerStatsOut(
         playerId=player_id,
@@ -653,6 +946,12 @@ async def _compute_player_stats(
         sportFormatStats=sf_stats,
         withRecords=with_records,
         streaks=streaks,
+        matchSummary=match_summary,
+        setSummary=set_summary,
+        recentForm=recent_form,
+        topPartners=top_partners,
+        headToHeadRecords=head_records,
+        ratings=ratings_output,
     )
 
 

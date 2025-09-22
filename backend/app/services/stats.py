@@ -50,29 +50,49 @@ def plot_rolling_win_percentage(results: Sequence[bool], span: int):
     return fig
 
 
-def compute_streaks(results: Sequence[bool]) -> Dict[str, int]:
-    """Compute current, longest win, and longest loss streaks."""
+def compute_streaks(results: Sequence[bool | None]) -> Dict[str, int]:
+    """Compute current, longest win, and longest loss streaks.
+
+    Draws (``None`` values) reset the active streak but do not count as a win
+    or a loss."""
+
     longest_win = longest_loss = 0
     curr_win = curr_loss = 0
     for r in results:
-        if r:
+        if r is True:
             curr_win += 1
             curr_loss = 0
             longest_win = max(longest_win, curr_win)
-        else:
+        elif r is False:
             curr_loss += 1
             curr_win = 0
             longest_loss = max(longest_loss, curr_loss)
+        else:
+            curr_win = 0
+            curr_loss = 0
+
     current = 0
-    if results:
-        last = results[-1]
-        count = 0
-        for r in reversed(results):
-            if r == last:
-                count += 1
-            else:
-                break
-        current = count if last else -count
+    last_result: bool | None = None
+    streak_length = 0
+    for r in reversed(results):
+        if r is None:
+            if streak_length == 0:
+                continue
+            break
+        if last_result is None:
+            last_result = r
+        if r == last_result:
+            streak_length += 1
+        else:
+            break
+
+    if last_result is True:
+        current = streak_length
+    elif last_result is False:
+        current = -streak_length
+    else:
+        current = 0
+
     return {
         "current": current,
         "longestWin": longest_win,

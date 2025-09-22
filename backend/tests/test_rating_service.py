@@ -5,7 +5,14 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from sqlalchemy import select
 
-from backend.app.models import Player, Rating, Match, MatchParticipant, ScoreEvent
+from backend.app.models import (
+    Player,
+    Rating,
+    GlickoRating,
+    Match,
+    MatchParticipant,
+    ScoreEvent,
+)
 from backend.app.services import update_ratings
 
 
@@ -21,6 +28,7 @@ def test_update_ratings():
         async with engine.begin() as conn:
             await conn.run_sync(Player.__table__.create)
             await conn.run_sync(Rating.__table__.create)
+            await conn.run_sync(GlickoRating.__table__.create)
             await conn.run_sync(Match.__table__.create)
             await conn.run_sync(MatchParticipant.__table__.create)
 
@@ -37,11 +45,18 @@ def test_update_ratings():
             rows = (
                 await session.execute(select(Rating).order_by(Rating.player_id))
             ).scalars().all()
-            return [r.value for r in rows]
+            g_rows = (
+                await session.execute(
+                    select(GlickoRating).order_by(GlickoRating.player_id)
+                )
+            ).scalars().all()
+            return [r.value for r in rows], [(gr.rating, gr.rd) for gr in g_rows]
 
-    r1, r2 = asyncio.run(run_test())
+    (r1, r2), glicko_vals = asyncio.run(run_test())
     assert r1 > 1000
     assert r2 < 1000
+    assert glicko_vals[0][0] > 1500
+    assert glicko_vals[1][0] < 1500
 
 
 def test_update_ratings_draw():
@@ -56,6 +71,7 @@ def test_update_ratings_draw():
         async with engine.begin() as conn:
             await conn.run_sync(Player.__table__.create)
             await conn.run_sync(Rating.__table__.create)
+            await conn.run_sync(GlickoRating.__table__.create)
             await conn.run_sync(Match.__table__.create)
             await conn.run_sync(MatchParticipant.__table__.create)
 
@@ -79,11 +95,17 @@ def test_update_ratings_draw():
             rows = (
                 await session.execute(select(Rating).order_by(Rating.player_id))
             ).scalars().all()
-            return [r.value for r in rows]
+            g_rows = (
+                await session.execute(
+                    select(GlickoRating).order_by(GlickoRating.player_id)
+                )
+            ).scalars().all()
+            return [r.value for r in rows], [(gr.rating, gr.rd) for gr in g_rows]
 
-    r1, r2 = asyncio.run(run_test())
+    (r1, r2), glicko_vals = asyncio.run(run_test())
     assert r1 < 1200  # higher-rated player loses points on draw
     assert r2 > 1000  # lower-rated player gains points on draw
+    assert len(glicko_vals) == 2
 
 
 def test_update_ratings_variable_k():
@@ -98,6 +120,7 @@ def test_update_ratings_variable_k():
         async with engine.begin() as conn:
             await conn.run_sync(Player.__table__.create)
             await conn.run_sync(Rating.__table__.create)
+            await conn.run_sync(GlickoRating.__table__.create)
             await conn.run_sync(Match.__table__.create)
             await conn.run_sync(MatchParticipant.__table__.create)
 
@@ -132,13 +155,19 @@ def test_update_ratings_variable_k():
             rows = (
                 await session.execute(select(Rating).order_by(Rating.player_id))
             ).scalars().all()
-            return [r.value for r in rows]
+            g_rows = (
+                await session.execute(
+                    select(GlickoRating).order_by(GlickoRating.player_id)
+                )
+            ).scalars().all()
+            return [r.value for r in rows], [(gr.rating, gr.rd) for gr in g_rows]
 
-    r1, r2 = asyncio.run(run_test())
+    (r1, r2), glicko_vals = asyncio.run(run_test())
     # p1 K-factor should be halved; expected change = 8 points
     assert abs(r1 - 1008) < 1e-6
     # p2 still uses default K-factor 32; expected change = -16 points
     assert abs(r2 - 984) < 1e-6
+    assert len(glicko_vals) == 2
 
 
 def test_update_ratings_creates_score_events():
@@ -153,6 +182,7 @@ def test_update_ratings_creates_score_events():
         async with engine.begin() as conn:
             await conn.run_sync(Player.__table__.create)
             await conn.run_sync(Rating.__table__.create)
+            await conn.run_sync(GlickoRating.__table__.create)
             await conn.run_sync(Match.__table__.create)
             await conn.run_sync(MatchParticipant.__table__.create)
             await conn.run_sync(ScoreEvent.__table__.create)
@@ -177,3 +207,9 @@ def test_update_ratings_creates_score_events():
 
     payloads = asyncio.run(run_test())
     assert {p["playerId"] for p in payloads} == {"p1", "p2"}
+    for payload in payloads:
+        assert "systems" in payload
+        systems = payload["systems"]
+        assert systems.get("elo", {}).get("rating") == payload["rating"]
+        assert "glicko" in systems
+        assert "rating" in systems["glicko"]

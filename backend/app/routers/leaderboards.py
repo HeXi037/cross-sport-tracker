@@ -92,6 +92,11 @@ async def leaderboard(
         payload = ev.payload or {}
         pid = payload.get("playerId")
         rating = payload.get("rating")
+        systems = payload.get("systems") if isinstance(payload, dict) else None
+        if rating is None and isinstance(systems, dict):
+            elo_info = systems.get("elo")
+            if isinstance(elo_info, dict):
+                rating = elo_info.get("rating")
         if pid is not None and rating is not None:
             histories[pid].append(rating)
 

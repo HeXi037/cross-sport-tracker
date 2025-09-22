@@ -129,6 +129,25 @@ class Rating(Base):
     value = Column(Float, nullable=False, default=1000)
 
 
+class GlickoRating(Base):
+    """Current Glicko rating snapshot for a player in a given sport."""
+
+    __tablename__ = "glicko_rating"
+
+    id = Column(String, primary_key=True)
+    player_id = Column(String, ForeignKey("player.id"), nullable=False)
+    sport_id = Column(String, ForeignKey("sport.id"), nullable=False)
+    rating = Column(Float, nullable=False, default=1500.0)
+    rd = Column(Float, nullable=False, default=350.0)
+    last_updated = Column(DateTime, nullable=True, server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint(
+            "player_id", "sport_id", name="uq_glicko_rating_player_id_sport_id"
+        ),
+    )
+
+
 class MasterRating(Base):
     """Aggregated rating across all sports for a player."""
 

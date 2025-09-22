@@ -21,6 +21,7 @@ from backend.app.models import (
     MatchParticipant,
     Player,
     Rating,
+    GlickoRating,
     User,
 )
 from backend.app.routers import matches
@@ -49,6 +50,7 @@ def client_and_session():
             await conn.run_sync(ScoreEvent.__table__.create)
             await conn.run_sync(Player.__table__.create)
             await conn.run_sync(Rating.__table__.create)
+            await conn.run_sync(GlickoRating.__table__.create)
 
     asyncio.run(init_models())
 

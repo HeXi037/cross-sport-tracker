@@ -592,6 +592,7 @@ async def test_delete_match_updates_ratings_and_leaderboard(tmp_path):
   from app.models import (
       Player,
       Rating,
+      GlickoRating,
       Sport,
       Match,
       MatchParticipant,
@@ -617,6 +618,7 @@ async def test_delete_match_updates_ratings_and_leaderboard(tmp_path):
             Sport.__table__,
             Player.__table__,
             Rating.__table__,
+            GlickoRating.__table__,
             Match.__table__,
             ScoreEvent.__table__,
         ],

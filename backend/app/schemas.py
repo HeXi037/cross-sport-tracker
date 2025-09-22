@@ -386,6 +386,8 @@ class VersusRecord(BaseModel):
     wins: int
     losses: int
     winPct: float
+    total: Optional[int] = None
+    chemistry: Optional[float] = None
 
 class SportFormatStats(BaseModel):
     """Aggregated stats for a particular sport and team size."""
@@ -401,6 +403,50 @@ class StreakSummary(BaseModel):
     longestWin: int
     longestLoss: int
 
+
+class RatingSystemSnapshot(BaseModel):
+    """Rating information for a specific rating system."""
+
+    value: Optional[float] = None
+    delta30: float = 0.0
+    sparkline: List[float] = Field(default_factory=list)
+    deviation: Optional[float] = None
+    lastUpdated: Optional[datetime] = None
+
+
+class SportRatingSummary(BaseModel):
+    """Ratings for a player within a given sport."""
+
+    sport: str
+    elo: Optional[RatingSystemSnapshot] = None
+    glicko: Optional[RatingSystemSnapshot] = None
+
+
+class MatchSummary(BaseModel):
+    """Aggregate match record for a player."""
+
+    total: int = 0
+    wins: int = 0
+    losses: int = 0
+    draws: int = 0
+    winPct: float = 0.0
+
+
+class SetSummary(BaseModel):
+    """Aggregate set performance for a player."""
+
+    won: int = 0
+    lost: int = 0
+    differential: int = 0
+
+
+class RecentFormSummary(BaseModel):
+    """Recent form indicators for a player."""
+
+    lastFive: List[str] = Field(default_factory=list)
+    currentStreak: str = ""
+
+
 class PlayerStatsOut(BaseModel):
     """Statistics summary returned by the player stats endpoint."""
     playerId: str
@@ -412,6 +458,12 @@ class PlayerStatsOut(BaseModel):
     sportFormatStats: List[SportFormatStats] = Field(default_factory=list)
     withRecords: List[VersusRecord] = Field(default_factory=list)
     streaks: Optional[StreakSummary] = None
+    matchSummary: MatchSummary = Field(default_factory=MatchSummary)
+    setSummary: SetSummary = Field(default_factory=SetSummary)
+    recentForm: RecentFormSummary = Field(default_factory=RecentFormSummary)
+    topPartners: List[VersusRecord] = Field(default_factory=list)
+    headToHeadRecords: List[VersusRecord] = Field(default_factory=list)
+    ratings: List[SportRatingSummary] = Field(default_factory=list)
 
 
 class MatchIdOut(BaseModel):

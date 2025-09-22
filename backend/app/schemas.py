@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Literal, Optional, Tuple
+from collections.abc import Sequence
 from datetime import datetime, timezone
 import re
 from pydantic import BaseModel, Field, model_validator, field_validator
@@ -110,6 +111,61 @@ class Participant(BaseModel):
     side: Literal["A", "B", "C", "D", "E", "F"]
     playerIds: List[str]
 
+
+def _normalize_participants_payload(
+    data: Any, player_field: Literal["playerIds", "playerNames"]
+) -> Any:
+    if not isinstance(data, dict) or "participants" not in data:
+        return data
+
+    raw_parts = data["participants"]
+    if raw_parts is None:
+        return data
+
+    if not isinstance(raw_parts, list):
+        raw_parts = list(raw_parts)
+
+    seen_sides: set[str] = set()
+    normalized_parts: list[dict[str, Any]] = []
+
+    for part in raw_parts:
+        if isinstance(part, BaseModel):
+            part_data = part.model_dump()
+        elif isinstance(part, dict):
+            part_data = dict(part)
+        else:
+            raise TypeError(
+                "participants must be provided as mappings or Pydantic models"
+            )
+
+        side = part_data.get("side")
+        normalized_side = side.upper() if isinstance(side, str) else side
+        side_key = normalized_side if isinstance(normalized_side, str) else str(normalized_side)
+
+        if side_key in seen_sides:
+            raise ValueError("participants must have unique sides")
+        seen_sides.add(side_key)
+
+        players = part_data.get(player_field)
+        if isinstance(players, list):
+            player_list = players
+        elif isinstance(players, Sequence) and not isinstance(players, (str, bytes)):
+            player_list = list(players)
+        elif players is None:
+            player_list = []
+        else:
+            player_list = players  # allow Pydantic to flag incorrect types
+
+        if not player_list:
+            raise ValueError("participants must include at least one player")
+
+        part_data["side"] = normalized_side
+        part_data[player_field] = player_list
+        normalized_parts.append(part_data)
+
+    return {**data, "participants": normalized_parts}
+
+
 class MatchCreate(BaseModel):
     sport: str
     rulesetId: Optional[str] = None
@@ -125,6 +181,10 @@ class MatchCreate(BaseModel):
         if v and v.tzinfo:
             return v.astimezone(timezone.utc).replace(tzinfo=None)
         return v
+
+    @model_validator(mode="before")
+    def _validate_participants(cls, data: Any) -> Any:
+        return _normalize_participants_payload(data, "playerIds")
 
 class ParticipantByName(BaseModel):
     side: Literal["A", "B", "C", "D", "E", "F"]
@@ -144,6 +204,10 @@ class MatchCreateByName(BaseModel):
         if v and v.tzinfo:
             return v.astimezone(timezone.utc).replace(tzinfo=None)
         return v
+
+    @model_validator(mode="before")
+    def _validate_participants(cls, data: Any) -> Any:
+        return _normalize_participants_payload(data, "playerNames")
 
 class SetScore(BaseModel):
     A: int

@@ -193,12 +193,16 @@ async function getUpcomingMatches(playerId: string): Promise<EnrichedMatch[]> {
 }
 
 async function getStats(playerId: string): Promise<PlayerStats | null> {
-  const r = await apiFetch(
-    `/v0/players/${encodeURIComponent(playerId)}/stats`,
-    { cache: "no-store" } as RequestInit
-  );
-  if (!r.ok) return null;
-  return (await r.json()) as PlayerStats;
+  try {
+    const r = await apiFetch(
+      `/v0/players/${encodeURIComponent(playerId)}/stats`,
+      { cache: "no-store" } as RequestInit
+    );
+    if (!r.ok) return null;
+    return (await r.json()) as PlayerStats;
+  } catch {
+    return null;
+  }
 }
 
 function formatMatchSummary(summary: MatchSummary): string {

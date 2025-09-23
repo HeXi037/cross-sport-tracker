@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 
 interface Player extends PlayerInfo {
   club_id?: string | null;
+  bio?: string | null;
   badges: Badge[];
   social_links?: PlayerSocialLink[];
 }
@@ -359,8 +360,28 @@ export default async function PlayerPage({
           <h1 className="heading">
             <PlayerName player={player} />
           </h1>
+          {player.bio ? (
+            <p
+              style={{
+                marginTop: "0.75rem",
+                marginBottom: player.club_id ? "0.5rem" : "1rem",
+                whiteSpace: "pre-wrap",
+                color: "#444",
+                lineHeight: 1.5,
+              }}
+            >
+              {player.bio}
+            </p>
+          ) : null}
           {player.club_id ? (
-            <p>Club: {clubName ?? player.club_id}</p>
+            <p
+              style={{
+                marginTop: player.bio ? "0" : "0.75rem",
+                marginBottom: "0.75rem",
+              }}
+            >
+              Club: {clubName ?? player.club_id}
+            </p>
           ) : null}
           {player.social_links && player.social_links.length ? (
             <div

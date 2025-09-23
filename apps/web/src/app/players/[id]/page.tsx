@@ -63,8 +63,17 @@ interface VersusRecord {
   winPct: number;
 }
 
+type MatchSummary = {
+  wins: number;
+  losses: number;
+  draws: number;
+  total: number;
+  winPct: number;
+};
+
 interface PlayerStats {
   playerId: string;
+  matchSummary?: MatchSummary | null;
   bestAgainst?: VersusRecord | null;
   worstAgainst?: VersusRecord | null;
   bestWith?: VersusRecord | null;
@@ -190,6 +199,14 @@ async function getStats(playerId: string): Promise<PlayerStats | null> {
   );
   if (!r.ok) return null;
   return (await r.json()) as PlayerStats;
+}
+
+function formatMatchSummary(summary: MatchSummary): string {
+  const { wins, losses, draws, winPct } = summary;
+  const parts = [wins, losses];
+  if (draws) parts.push(draws);
+  const pct = Number.isFinite(winPct) ? Math.round(winPct * 100) : 0;
+  return `${parts.join("-")} (${pct}%)`;
 }
 
 function iconForSocialLink(link: PlayerSocialLink): string {
@@ -353,6 +370,8 @@ export default async function PlayerPage({
       result: string;
     }[];
 
+    const matchSummary = stats?.matchSummary ?? null;
+
     return (
       <main className="container md:flex">
         <section className="flex-1 md:mr-4">
@@ -360,6 +379,13 @@ export default async function PlayerPage({
           <h1 className="heading">
             <PlayerName player={player} />
           </h1>
+          {stats === null ? (
+            <p className="mt-2 text-sm text-gray-600">Stats unavailable.</p>
+          ) : matchSummary ? (
+            <p className="mt-2 text-sm text-gray-600">
+              Record: {formatMatchSummary(matchSummary)}
+            </p>
+          ) : null}
           {player.bio ? (
             <p
               style={{

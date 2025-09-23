@@ -361,3 +361,34 @@ def test_refresh_and_revoke():
         assert resp.status_code == 200
         resp = client.post("/auth/refresh", json={"refresh_token": new_refresh})
         assert resp.status_code == 401
+
+
+def test_create_token_flushes_before_refresh_token():
+    class TrackingSession:
+        def __init__(self):
+            self.flush_called = False
+            self.added = []
+
+        async def flush(self):
+            self.flush_called = True
+
+        def add(self, obj):
+            if isinstance(obj, RefreshToken) and not self.flush_called:
+                raise AssertionError("expected flush before creating refresh token")
+            self.added.append(obj)
+
+    session = TrackingSession()
+    user = User(
+        id="user-token-test",
+        username="tokenflush",
+        password_hash="hash",
+        is_admin=False,
+    )
+    session.add(user)
+
+    access, refresh = asyncio.run(auth.create_token(user, session))
+
+    assert session.flush_called
+    assert any(isinstance(obj, RefreshToken) for obj in session.added)
+    assert access
+    assert refresh

@@ -79,6 +79,7 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 
 async def create_token(user: User, session: AsyncSession) -> tuple[str, str]:
+  await session.flush()
   payload = {
       "sub": user.id,
       "username": user.username,

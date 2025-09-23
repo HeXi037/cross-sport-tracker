@@ -2,11 +2,13 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 from collections.abc import Sequence
 from datetime import datetime, timezone
 import re
+from urllib.parse import urlparse
 from pydantic import BaseModel, Field, model_validator, field_validator
 
 from .location_utils import normalize_location_fields, continent_for_country
 
 PASSWORD_REGEX = re.compile(r"^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$")
+SOCIAL_URL_SCHEMES = {"http", "https"}
 
 class SportOut(BaseModel):
     id: str
@@ -102,6 +104,75 @@ class PlayerLocationUpdate(BaseModel):
         return model
 
 
+class PlayerSocialLinkBase(BaseModel):
+    label: str = Field(..., min_length=1, max_length=100)
+    url: str
+    position: Optional[int] = Field(None, ge=0)
+
+    @field_validator("label")
+    @classmethod
+    def _normalize_label(cls, value: str) -> str:
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("label must not be blank")
+        return trimmed
+
+    @field_validator("url")
+    @classmethod
+    def _validate_url(cls, value: str) -> str:
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("url must not be blank")
+        parsed = urlparse(trimmed)
+        if parsed.scheme.lower() not in SOCIAL_URL_SCHEMES:
+            raise ValueError("url must start with http:// or https://")
+        if not parsed.netloc:
+            raise ValueError("url must include a hostname")
+        return trimmed
+
+
+class PlayerSocialLinkCreate(PlayerSocialLinkBase):
+    pass
+
+
+class PlayerSocialLinkUpdate(BaseModel):
+    label: Optional[str] = Field(None, min_length=1, max_length=100)
+    url: Optional[str] = None
+    position: Optional[int] = Field(None, ge=0)
+
+    @field_validator("label")
+    @classmethod
+    def _normalize_label(
+        cls, value: Optional[str]
+    ) -> Optional[str]:
+        if value is None:
+            return value
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("label must not be blank")
+        return trimmed
+
+    @field_validator("url")
+    @classmethod
+    def _validate_url(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("url must not be blank")
+        parsed = urlparse(trimmed)
+        if parsed.scheme.lower() not in SOCIAL_URL_SCHEMES:
+            raise ValueError("url must start with http:// or https://")
+        if not parsed.netloc:
+            raise ValueError("url must include a hostname")
+        return trimmed
+
+
+class PlayerSocialLinkOut(PlayerSocialLinkBase):
+    id: str
+    position: int
+
+
 class PlayerOut(BaseModel):
     id: str
     name: str
@@ -114,6 +185,7 @@ class PlayerOut(BaseModel):
     metrics: Optional[Dict[str, Dict[str, int]]] = None
     milestones: Optional[Dict[str, List[str]]] = None
     badges: List[BadgeOut] = Field(default_factory=list)
+    social_links: List[PlayerSocialLinkOut] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _sync_location_fields(cls, model: "PlayerOut") -> "PlayerOut":

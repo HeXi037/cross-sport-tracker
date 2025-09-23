@@ -21,6 +21,7 @@ from ..models import (
     PlayerMetric,
     Badge,
     PlayerBadge,
+    PlayerSocialLink,
     Club,
     ScoreEvent,
     Rating,
@@ -46,6 +47,9 @@ from ..schemas import (
     RecentFormSummary,
     SportRatingSummary,
     RatingSystemSnapshot,
+    PlayerSocialLinkOut,
+    PlayerSocialLinkCreate,
+    PlayerSocialLinkUpdate,
 )
 from ..exceptions import ProblemDetail, PlayerAlreadyExists, PlayerNotFound
 from ..services import (
@@ -75,6 +79,50 @@ router = APIRouter(
     tags=["players"],
     responses={400: {"model": ProblemDetail}, 404: {"model": ProblemDetail}},
 )
+
+
+async def _get_player_for_user(
+    session: AsyncSession, user_id: str
+) -> Player | None:
+    return (
+        await session.execute(
+            select(Player).where(
+                Player.user_id == user_id,
+                Player.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+
+
+async def _load_social_links(
+    session: AsyncSession, player_ids: list[str]
+) -> dict[str, list[PlayerSocialLinkOut]]:
+    if not player_ids:
+        return {}
+    rows = (
+        await session.execute(
+            select(PlayerSocialLink)
+            .where(PlayerSocialLink.player_id.in_(player_ids))
+            .order_by(
+                PlayerSocialLink.player_id,
+                PlayerSocialLink.position,
+                PlayerSocialLink.created_at,
+                PlayerSocialLink.id,
+            )
+        )
+    ).scalars().all()
+    links: dict[str, list[PlayerSocialLinkOut]] = defaultdict(list)
+    for link in rows:
+        links[link.player_id].append(
+            PlayerSocialLinkOut(
+                id=link.id,
+                label=link.label,
+                url=link.url,
+                position=link.position,
+            )
+        )
+    return links
+
 
 @router.post("", response_model=PlayerOut)
 async def create_player(
@@ -114,6 +162,7 @@ async def create_player(
         region_code=p.region_code,
         ranking=p.ranking,
         badges=[],
+        social_links=[],
     )
 
 @router.get("", response_model=PlayerListOut)
@@ -133,6 +182,8 @@ async def list_players(
     total = (await session.execute(count_stmt)).scalar()
     stmt = stmt.limit(limit).offset(offset)
     rows = (await session.execute(stmt)).scalars().all()
+    player_ids = [p.id for p in rows]
+    social_links_by_player = await _load_social_links(session, player_ids)
     players = [
         PlayerOut(
             id=p.id,
@@ -144,6 +195,7 @@ async def list_players(
             region_code=p.region_code,
             ranking=p.ranking,
             badges=[],
+            social_links=social_links_by_player.get(p.id, []),
         )
         for p in rows
     ]
@@ -169,16 +221,130 @@ async def get_my_player(
     current: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    player = (
-        await session.execute(
-            select(Player).where(
-                Player.user_id == current.id, Player.deleted_at.is_(None)
-            )
-        )
-    ).scalar_one_or_none()
+    player = await _get_player_for_user(session, current.id)
     if not player:
         raise HTTPException(status_code=404, detail="player not found")
     return await get_player(player.id, session)
+
+
+@router.get("/me/social-links", response_model=list[PlayerSocialLinkOut])
+async def list_my_social_links(
+    current: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    player = await _get_player_for_user(session, current.id)
+    if not player:
+        raise HTTPException(status_code=404, detail="player not found")
+    links = await _load_social_links(session, [player.id])
+    return links.get(player.id, [])
+
+
+@router.post("/me/social-links", response_model=PlayerSocialLinkOut)
+async def create_my_social_link(
+    body: PlayerSocialLinkCreate,
+    current: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    player = await _get_player_for_user(session, current.id)
+    if not player:
+        raise HTTPException(status_code=404, detail="player not found")
+
+    position = body.position
+    if position is None:
+        max_position = (
+            await session.execute(
+                select(func.max(PlayerSocialLink.position)).where(
+                    PlayerSocialLink.player_id == player.id
+                )
+            )
+        ).scalar()
+        if max_position is None:
+            position = 0
+        else:
+            position = max_position + 1
+
+    link = PlayerSocialLink(
+        id=uuid.uuid4().hex,
+        player_id=player.id,
+        label=body.label,
+        url=body.url,
+        position=position,
+    )
+    session.add(link)
+    await session.commit()
+    await session.refresh(link)
+    return PlayerSocialLinkOut(
+        id=link.id,
+        label=link.label,
+        url=link.url,
+        position=link.position,
+    )
+
+
+@router.put("/me/social-links/{link_id}", response_model=PlayerSocialLinkOut)
+@router.patch("/me/social-links/{link_id}", response_model=PlayerSocialLinkOut)
+async def update_my_social_link(
+    link_id: str,
+    body: PlayerSocialLinkUpdate,
+    current: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    player = await _get_player_for_user(session, current.id)
+    if not player:
+        raise HTTPException(status_code=404, detail="player not found")
+
+    link = (
+        await session.execute(
+            select(PlayerSocialLink)
+            .where(
+                PlayerSocialLink.id == link_id,
+                PlayerSocialLink.player_id == player.id,
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if not link:
+        raise HTTPException(status_code=404, detail="social link not found")
+
+    fields_set = set(body.model_fields_set)
+    if "label" in fields_set and body.label is not None:
+        link.label = body.label
+    if "url" in fields_set and body.url is not None:
+        link.url = body.url
+    if "position" in fields_set and body.position is not None:
+        link.position = body.position
+
+    await session.commit()
+    await session.refresh(link)
+    return PlayerSocialLinkOut(
+        id=link.id,
+        label=link.label,
+        url=link.url,
+        position=link.position,
+    )
+
+
+@router.delete("/me/social-links/{link_id}", status_code=204)
+async def delete_my_social_link(
+    link_id: str,
+    current: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    player = await _get_player_for_user(session, current.id)
+    if not player:
+        raise HTTPException(status_code=404, detail="player not found")
+
+    result = await session.execute(
+        delete(PlayerSocialLink).where(
+            PlayerSocialLink.id == link_id,
+            PlayerSocialLink.player_id == player.id,
+        )
+    )
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="social link not found")
+
+    await session.commit()
+    return Response(status_code=204)
 
 
 async def _apply_player_location_update(
@@ -303,6 +469,7 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
         ).scalars().all()
     except SQLAlchemyError:
         badges = []
+    social_links_map = await _load_social_links(session, [p.id])
     return PlayerOut(
         id=p.id,
         name=p.name,
@@ -315,6 +482,7 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
         metrics=metrics or None,
         milestones=milestones or None,
         badges=[BadgeOut(id=b.id, name=b.name, icon=b.icon) for b in badges],
+        social_links=social_links_map.get(p.id, []),
     )
 
 

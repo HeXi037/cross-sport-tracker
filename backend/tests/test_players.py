@@ -18,6 +18,7 @@ from app.models import (
     PlayerBadge,
     PlayerMetric,
     RefreshToken,
+    PlayerSocialLink,
 )
 from app.exceptions import DomainException, ProblemDetail
 
@@ -78,6 +79,7 @@ def setup_db():
                     PlayerBadge.__table__,
                     PlayerMetric.__table__,
                     RefreshToken.__table__,
+                    PlayerSocialLink.__table__,
                 ],
             )
     asyncio.run(init_models())
@@ -221,6 +223,7 @@ def test_player_badges() -> None:
         assert resp.status_code == 204
         data = client.get(f"/players/{pid}").json()
         assert data["badges"] == [{"id": bid, "name": "MVP", "icon": None}]
+        assert data["social_links"] == []
 
 
 def test_remove_player_badge() -> None:
@@ -247,6 +250,7 @@ def test_remove_player_badge() -> None:
         assert resp.status_code == 204
         data = client.get(f"/players/{pid}").json()
         assert data["badges"] == []
+        assert data["social_links"] == []
 
 
 def test_add_duplicate_player_badge_returns_conflict() -> None:
@@ -282,6 +286,7 @@ def test_add_duplicate_player_badge_returns_conflict() -> None:
 
         data = client.get(f"/players/{pid}").json()
         assert data["badges"] == []
+        assert data["social_links"] == []
 
 
 def test_remove_player_badge_missing() -> None:
@@ -445,6 +450,7 @@ def test_get_players_me_returns_current_player() -> None:
         data = resp.json()
         assert data["name"] == "selfie"
         assert data["id"]
+        assert data["social_links"] == []
 
 
 def test_update_players_me_location_success() -> None:
@@ -467,6 +473,7 @@ def test_update_players_me_location_success() -> None:
         assert data["location"] == "US"
         assert data["country_code"] == "US"
         assert data["region_code"] == "NA"
+        assert data["social_links"] == []
 
         me = client.get(
             "/players/me", headers={"Authorization": f"Bearer {token}"}
@@ -519,6 +526,7 @@ def test_update_players_me_location_allows_clearing_values() -> None:
         data = resp.json()
         assert data["location"] == "US"
         assert data["region_code"] == "NA"
+        assert data["social_links"] == []
 
         cleared = client.patch(
             "/players/me/location",
@@ -534,6 +542,7 @@ def test_update_players_me_location_allows_clearing_values() -> None:
         assert cleared_data["location"] is None
         assert cleared_data["country_code"] is None
         assert cleared_data["region_code"] is None
+        assert cleared_data["social_links"] == []
 
 
 def test_update_players_me_location_updates_club() -> None:
@@ -561,6 +570,7 @@ def test_update_players_me_location_updates_club() -> None:
         assert resp.status_code == 200
         data = resp.json()
         assert data["club_id"] == "club-update"
+        assert data["social_links"] == []
 
         cleared = client.patch(
             "/players/me/location",
@@ -568,7 +578,72 @@ def test_update_players_me_location_updates_club() -> None:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert cleared.status_code == 200
-        assert cleared.json()["club_id"] is None
+        cleared_body = cleared.json()
+        assert cleared_body["club_id"] is None
+        assert cleared_body["social_links"] == []
+
+
+def test_player_social_links_crud() -> None:
+    with TestClient(app) as client:
+        auth.limiter.reset()
+        signup = client.post(
+            "/auth/signup",
+            json={"username": "social-user", "password": "Str0ng!Pass!"},
+        )
+        assert signup.status_code == 200
+        token = signup.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        list_resp = client.get("/players/me/social-links", headers=headers)
+        assert list_resp.status_code == 200
+        assert list_resp.json() == []
+
+        create_resp = client.post(
+            "/players/me/social-links",
+            headers=headers,
+            json={"label": "Twitter", "url": "https://twitter.com/example"},
+        )
+        assert create_resp.status_code == 200
+        created = create_resp.json()
+        assert created["label"] == "Twitter"
+        assert created["url"] == "https://twitter.com/example"
+        assert isinstance(created["position"], int)
+        link_id = created["id"]
+
+        list_after = client.get("/players/me/social-links", headers=headers)
+        assert list_after.status_code == 200
+        after_items = list_after.json()
+        assert len(after_items) == 1
+        assert after_items[0]["id"] == link_id
+
+        update_resp = client.patch(
+            f"/players/me/social-links/{link_id}",
+            headers=headers,
+            json={"label": "Website", "url": "https://example.com"},
+        )
+        assert update_resp.status_code == 200
+        updated = update_resp.json()
+        assert updated["label"] == "Website"
+        assert updated["url"] == "https://example.com"
+
+        me = client.get("/players/me", headers=headers)
+        assert me.status_code == 200
+        me_links = me.json()["social_links"]
+        assert len(me_links) == 1 and me_links[0]["label"] == "Website"
+
+        delete_resp = client.delete(
+            f"/players/me/social-links/{link_id}",
+            headers=headers,
+        )
+        assert delete_resp.status_code == 204
+
+        final_list = client.get("/players/me/social-links", headers=headers)
+        assert final_list.status_code == 200
+        assert final_list.json() == []
+
+        final_me = client.get("/players/me", headers=headers)
+        assert final_me.status_code == 200
+        assert final_me.json()["social_links"] == []
 
 
 def test_admin_update_player_location_success() -> None:
@@ -589,10 +664,13 @@ def test_admin_update_player_location_success() -> None:
         data = resp.json()
         assert data["country_code"] == "US"
         assert data["region_code"] == "NA"
+        assert data["social_links"] == []
 
         fetched = client.get(f"/players/{pid}")
         assert fetched.status_code == 200
-        assert fetched.json()["country_code"] == "US"
+        fetched_body = fetched.json()
+        assert fetched_body["country_code"] == "US"
+        assert fetched_body["social_links"] == []
 
 
 def test_admin_update_player_location_validation_error() -> None:

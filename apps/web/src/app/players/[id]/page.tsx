@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { apiFetch } from "../../../lib/api";
+import type { PlayerSocialLink } from "../../../lib/api";
 import PlayerCharts from "./PlayerCharts";
 import PlayerComments from "./comments-client";
 import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
@@ -10,12 +11,37 @@ export const dynamic = "force-dynamic";
 interface Player extends PlayerInfo {
   club_id?: string | null;
   badges: Badge[];
+  social_links?: PlayerSocialLink[];
 }
 
 interface Badge {
   id: string;
   name: string;
   icon?: string | null;
+}
+
+const SOCIAL_ICON_PATTERNS: { pattern: RegExp; icon: string }[] = [
+  { pattern: /twitter|\bx\b/, icon: "🐦" },
+  { pattern: /instagram/, icon: "📸" },
+  { pattern: /facebook/, icon: "📘" },
+  { pattern: /youtube/, icon: "▶️" },
+  { pattern: /tiktok/, icon: "🎵" },
+  { pattern: /twitch/, icon: "🎮" },
+  { pattern: /linkedin/, icon: "💼" },
+  { pattern: /github/, icon: "🐙" },
+  { pattern: /discord/, icon: "💬" },
+  { pattern: /threads/, icon: "🧵" },
+  { pattern: /website|site|blog/, icon: "🌐" },
+];
+
+function iconForSocialLabel(label: string): string {
+  const normalized = label.toLowerCase();
+  for (const entry of SOCIAL_ICON_PATTERNS) {
+    if (entry.pattern.test(normalized)) {
+      return entry.icon;
+    }
+  }
+  return "🔗";
 }
 
 type MatchRow = {
@@ -304,6 +330,12 @@ export default async function PlayerPage({
       result: string;
     }[];
 
+    const socialLinks = (player.social_links ?? []).slice().sort((a, b) => {
+      const diff = a.position - b.position;
+      if (diff !== 0) return diff;
+      return a.label.localeCompare(b.label);
+    });
+
     return (
       <main className="container md:flex">
         <section className="flex-1 md:mr-4">
@@ -311,6 +343,24 @@ export default async function PlayerPage({
           <h1 className="heading">
             <PlayerName player={player} />
           </h1>
+          {socialLinks.length ? (
+            <ul className="mt-2 flex flex-wrap gap-3">
+              {socialLinks.map((link) => (
+                <li key={link.id}>
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-blue-600 hover:underline"
+                    title={link.url}
+                  >
+                    <span aria-hidden="true">{iconForSocialLabel(link.label)}</span>
+                    <span>{link.label}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           {player.club_id && <p>Club: {player.club_id}</p>}
 
           <nav className="mt-4 mb-4 space-x-4">

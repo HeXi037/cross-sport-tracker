@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { apiUrl } from "../../lib/api";
 
 // Identifier type for players
@@ -80,12 +80,15 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const appliedCountry = filters.country;
   const appliedClubId = filters.clubId;
 
-  const buildUrl = (sportId: string) => {
-    const params = new URLSearchParams({ sport: sportId });
-    if (appliedCountry) params.set("country", appliedCountry);
-    if (appliedClubId) params.set("clubId", appliedClubId);
-    return apiUrl(`/v0/leaderboards?${params.toString()}`);
-  };
+  const buildUrl = useCallback(
+    (sportId: string) => {
+      const params = new URLSearchParams({ sport: sportId });
+      if (appliedCountry) params.set("country", appliedCountry);
+      if (appliedClubId) params.set("clubId", appliedClubId);
+      return apiUrl(`/v0/leaderboards?${params.toString()}`);
+    },
+    [appliedCountry, appliedClubId]
+  );
 
   const supportsFilters = sport !== "master";
 
@@ -197,7 +200,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [sport, appliedCountry, appliedClubId]);
+  }, [sport, appliedCountry, appliedClubId, buildUrl]);
 
   const TableHeader = () => (
     <thead>

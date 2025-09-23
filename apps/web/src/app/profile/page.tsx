@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  type FormEvent,
+  type ChangeEvent,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   fetchMe,
@@ -9,8 +15,11 @@ import {
   apiFetch,
   fetchMyPlayer,
   updateMyPlayerLocation,
+  createMySocialLink,
+  updateMySocialLink,
+  deleteMySocialLink,
 } from "../../lib/api";
-import type { PlayerLocationPayload } from "../../lib/api";
+import type { PlayerLocationPayload, PlayerSocialLink } from "../../lib/api";
 import {
   COUNTRY_OPTIONS,
   getContinentForCountry,
@@ -18,6 +27,7 @@ import {
 } from "../../lib/countries";
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
+const HTTP_URL_PATTERN = /^https?:\/\//i;
 
 function extractErrorMessage(err: unknown): string | null {
   if (!err) return null;
@@ -49,6 +59,170 @@ export default function ProfilePage() {
   const [initialCountryCode, setInitialCountryCode] = useState("");
   const [initialClubId, setInitialClubId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [socialLinks, setSocialLinks] = useState<PlayerSocialLink[]>([]);
+  const [linkDrafts, setLinkDrafts] = useState<
+    Record<string, { label: string; url: string }>
+  >({});
+  const [newLinkLabel, setNewLinkLabel] = useState("");
+  const [newLinkUrl, setNewLinkUrl] = useState("");
+  const [addingLink, setAddingLink] = useState(false);
+  const [linkSavingId, setLinkSavingId] = useState<string | null>(null);
+  const [linkDeletingId, setLinkDeletingId] = useState<string | null>(null);
+
+  const sortSocialLinks = useCallback((links: PlayerSocialLink[]) => {
+    return [...links].sort((a, b) => {
+      const positionDiff = a.position - b.position;
+      if (positionDiff !== 0) return positionDiff;
+      return a.label.localeCompare(b.label);
+    });
+  }, []);
+
+  const initializeSocialLinks = useCallback(
+    (links: PlayerSocialLink[]) => {
+      const sorted = sortSocialLinks(links);
+      setSocialLinks(sorted);
+      const drafts: Record<string, { label: string; url: string }> = {};
+      for (const link of sorted) {
+        drafts[link.id] = { label: link.label, url: link.url };
+      }
+      setLinkDrafts(drafts);
+    },
+    [sortSocialLinks]
+  );
+
+  const handleDraftChange = useCallback(
+    (id: string, field: "label" | "url", value: string) => {
+      setLinkDrafts((prev) => ({
+        ...prev,
+        [id]: {
+          ...(prev[id] ?? { label: "", url: "" }),
+          [field]: value,
+        },
+      }));
+    },
+    []
+  );
+
+  const handleNewLinkChange = useCallback(
+    (field: "label" | "url", value: string) => {
+      if (field === "label") {
+        setNewLinkLabel(value);
+      } else {
+        setNewLinkUrl(value);
+      }
+    },
+    []
+  );
+
+  const handleAddSocialLink = useCallback(async () => {
+    const trimmedLabel = newLinkLabel.trim();
+    const trimmedUrl = newLinkUrl.trim();
+    setError(null);
+    setMessage(null);
+    if (!trimmedLabel) {
+      setError("Link label is required");
+      return;
+    }
+    if (!trimmedUrl) {
+      setError("Link URL is required");
+      return;
+    }
+    if (!HTTP_URL_PATTERN.test(trimmedUrl)) {
+      setError("Links must start with http:// or https://");
+      return;
+    }
+    setAddingLink(true);
+    try {
+      const created = await createMySocialLink({
+        label: trimmedLabel,
+        url: trimmedUrl,
+      });
+      setSocialLinks((prev) => sortSocialLinks([...prev, created]));
+      setLinkDrafts((prev) => ({
+        ...prev,
+        [created.id]: { label: created.label, url: created.url },
+      }));
+      setNewLinkLabel("");
+      setNewLinkUrl("");
+      setMessage("Social link added");
+    } catch (err) {
+      const message = extractErrorMessage(err);
+      setError(message ?? "Failed to add social link");
+    } finally {
+      setAddingLink(false);
+    }
+  }, [newLinkLabel, newLinkUrl, sortSocialLinks]);
+
+  const handleSaveSocialLink = useCallback(
+    async (id: string) => {
+      const draft = linkDrafts[id];
+      if (!draft) return;
+      const trimmedLabel = draft.label.trim();
+      const trimmedUrl = draft.url.trim();
+      setError(null);
+      setMessage(null);
+      if (!trimmedLabel) {
+        setError("Link label is required");
+        return;
+      }
+      if (!trimmedUrl) {
+        setError("Link URL is required");
+        return;
+      }
+      if (!HTTP_URL_PATTERN.test(trimmedUrl)) {
+        setError("Links must start with http:// or https://");
+        return;
+      }
+      setLinkSavingId(id);
+      try {
+        const current = socialLinks.find((link) => link.id === id);
+        const payload = {
+          label: trimmedLabel,
+          url: trimmedUrl,
+          position: current?.position,
+        };
+        const updated = await updateMySocialLink(id, payload);
+        setSocialLinks((prev) =>
+          sortSocialLinks(prev.map((link) => (link.id === id ? updated : link)))
+        );
+        setLinkDrafts((prev) => ({
+          ...prev,
+          [id]: { label: updated.label, url: updated.url },
+        }));
+        setMessage("Social link updated");
+      } catch (err) {
+        const message = extractErrorMessage(err);
+        setError(message ?? "Failed to update social link");
+      } finally {
+        setLinkSavingId(null);
+      }
+    },
+    [linkDrafts, socialLinks, sortSocialLinks]
+  );
+
+  const handleDeleteSocialLink = useCallback(
+    async (id: string) => {
+      setError(null);
+      setMessage(null);
+      setLinkDeletingId(id);
+      try {
+        await deleteMySocialLink(id);
+        setSocialLinks((prev) => prev.filter((link) => link.id !== id));
+        setLinkDrafts((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+        setMessage("Social link removed");
+      } catch (err) {
+        const message = extractErrorMessage(err);
+        setError(message ?? "Failed to remove social link");
+      } finally {
+        setLinkDeletingId(null);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     if (!isLoggedIn()) {
@@ -71,6 +245,9 @@ export default function ProfilePage() {
           setClubId(nextClub);
           setInitialCountryCode(nextCountry);
           setInitialClubId(nextClub);
+          initializeSocialLinks(player.social_links ?? []);
+          setNewLinkLabel("");
+          setNewLinkUrl("");
         } catch (playerErr) {
           if (!active) return;
           const status = (playerErr as Error & { status?: number }).status;
@@ -83,13 +260,16 @@ export default function ProfilePage() {
             setInitialCountryCode("");
             setClubId("");
             setInitialClubId("");
+            initializeSocialLinks([]);
+            setNewLinkLabel("");
+            setNewLinkUrl("");
           } else {
             console.error("Failed to load player profile", playerErr);
             setError("Failed to load profile");
             setMessage(null);
           }
         }
-      } catch (err) {
+      } catch {
         if (!active) return;
         router.push("/login");
         return;
@@ -102,7 +282,7 @@ export default function ProfilePage() {
     return () => {
       active = false;
     };
-  }, [router]);
+  }, [initializeSocialLinks, router]);
 
   const handlePhotoChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -308,6 +488,98 @@ export default function ProfilePage() {
           Save
         </button>
       </form>
+      <section className="auth-form" aria-labelledby="social-links-heading">
+        <h2 id="social-links-heading" className="heading">
+          Social links
+        </h2>
+        {socialLinks.length ? (
+          <ul style={{ listStyle: "none", padding: 0, margin: 0, width: "100%" }}>
+            {socialLinks.map((link) => {
+              const draft = linkDrafts[link.id] ?? { label: "", url: "" };
+              const savingLink = linkSavingId === link.id;
+              const deletingLink = linkDeletingId === link.id;
+              return (
+                <li key={link.id} style={{ marginBottom: 12 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      alignItems: "center",
+                    }}
+                  >
+                    <input
+                      type="text"
+                      placeholder="Label"
+                      value={draft.label}
+                      onChange={(e) =>
+                        handleDraftChange(link.id, "label", e.target.value)
+                      }
+                    />
+                    <input
+                      type="url"
+                      placeholder="https://example.com"
+                      value={draft.url}
+                      onChange={(e) =>
+                        handleDraftChange(link.id, "url", e.target.value)
+                      }
+                    />
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => handleSaveSocialLink(link.id)}
+                        disabled={savingLink || deletingLink}
+                      >
+                        {savingLink ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSocialLink(link.id)}
+                        disabled={savingLink || deletingLink}
+                      >
+                        {deletingLink ? "Removing…" : "Remove"}
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p>No social links yet.</p>
+        )}
+        <div style={{ marginTop: 12 }}>
+          <h3 style={{ fontSize: "1rem", marginBottom: 8 }}>Add new link</h3>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              alignItems: "center",
+            }}
+          >
+            <input
+              type="text"
+              placeholder="Label"
+              value={newLinkLabel}
+              onChange={(e) => handleNewLinkChange("label", e.target.value)}
+            />
+            <input
+              type="url"
+              placeholder="https://example.com"
+              value={newLinkUrl}
+              onChange={(e) => handleNewLinkChange("url", e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={handleAddSocialLink}
+              disabled={addingLink}
+            >
+              {addingLink ? "Adding…" : "Add link"}
+            </button>
+          </div>
+        </div>
+      </section>
       {message && (
         <p role="status" className="success">
           {message}

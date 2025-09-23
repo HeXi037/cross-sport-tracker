@@ -46,6 +46,13 @@ class Player(Base):
     ranking = Column(Integer, nullable=True)
     deleted_at = Column(DateTime, nullable=True)
 
+    social_links = relationship(
+        "PlayerSocialLink",
+        order_by="PlayerSocialLink.position",
+        cascade="all, delete-orphan",
+        back_populates="player",
+    )
+
     __table_args__ = (
         Index("uq_player_name_lower", func.lower(name), unique=True),
     )
@@ -71,6 +78,23 @@ class PlayerBadge(Base):
             name="uq_player_badge_player_id_badge_id",
         ),
     )
+
+
+class PlayerSocialLink(Base):
+    __tablename__ = "player_social_link"
+
+    id = Column(String, primary_key=True)
+    player_id = Column(
+        String,
+        ForeignKey("player.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    label = Column(String, nullable=False)
+    url = Column(String, nullable=False)
+    position = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    player = relationship("Player", back_populates="social_links")
 
 class Team(Base):
     __tablename__ = "team"

@@ -136,6 +136,7 @@ export interface PlayerMe {
   region_code: string | null;
   club_id?: string | null;
   photo_url?: string | null;
+  social_links?: PlayerSocialLink[];
 }
 
 export type PlayerLocationPayload = {
@@ -143,6 +144,25 @@ export type PlayerLocationPayload = {
   country_code?: string | null;
   region_code?: string | null;
   club_id?: string | null;
+};
+
+export type PlayerSocialLink = {
+  id: string;
+  label: string;
+  url: string;
+  position: number;
+};
+
+export type PlayerSocialLinkPayload = {
+  label: string;
+  url: string;
+  position?: number;
+};
+
+export type PlayerSocialLinkUpdatePayload = {
+  label?: string;
+  url?: string;
+  position?: number;
 };
 
 export async function fetchMyPlayer(): Promise<PlayerMe> {
@@ -179,4 +199,38 @@ export async function updatePlayerLocation(
     body: JSON.stringify(body),
   });
   return res.json();
+}
+
+export async function createMySocialLink(
+  data: PlayerSocialLinkPayload
+): Promise<PlayerSocialLink> {
+  const res = await apiFetch("/v0/players/me/social-links", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+export async function updateMySocialLink(
+  id: string,
+  data: PlayerSocialLinkUpdatePayload
+): Promise<PlayerSocialLink> {
+  const payloadEntries = Object.entries(data).filter(
+    (entry): entry is [string, PlayerSocialLinkUpdatePayload[keyof PlayerSocialLinkUpdatePayload]] =>
+      entry[1] !== undefined
+  );
+  const body = Object.fromEntries(payloadEntries);
+  const res = await apiFetch(`/v0/players/me/social-links/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
+export async function deleteMySocialLink(id: string): Promise<void> {
+  await apiFetch(`/v0/players/me/social-links/${id}`, {
+    method: "DELETE",
+  });
 }

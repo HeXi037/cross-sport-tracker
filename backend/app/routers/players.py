@@ -210,6 +210,7 @@ async def _load_social_links(
         ).scalars().all()
     except SQLAlchemyError as exc:
         if is_missing_table_error(exc, PlayerSocialLink.__tablename__):
+            await session.rollback()
             return []
         raise
     return [
@@ -429,6 +430,17 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
     p = await session.get(Player, player_id)
     if not p or p.deleted_at is not None:
         raise PlayerNotFound(player_id)
+    player_details = {
+        "id": p.id,
+        "name": p.name,
+        "club_id": p.club_id,
+        "photo_url": p.photo_url,
+        "bio": p.bio,
+        "location": p.location,
+        "country_code": p.country_code,
+        "region_code": p.region_code,
+        "ranking": p.ranking,
+    }
     try:
         rows = (
             await session.execute(
@@ -437,6 +449,7 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
         ).scalars().all()
     except SQLAlchemyError as exc:
         if is_missing_table_error(exc, PlayerMetric.__tablename__):
+            await session.rollback()
             rows = []
         else:
             raise
@@ -449,18 +462,11 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
             )
         ).scalars().all()
     except SQLAlchemyError:
+        await session.rollback()
         badges = []
     social_links = await _load_social_links(session, player_id)
     return PlayerOut(
-        id=p.id,
-        name=p.name,
-        club_id=p.club_id,
-        photo_url=p.photo_url,
-        bio=p.bio,
-        location=p.location,
-        country_code=p.country_code,
-        region_code=p.region_code,
-        ranking=p.ranking,
+        **player_details,
         metrics=metrics or None,
         milestones=milestones or None,
         badges=[BadgeOut(id=b.id, name=b.name, icon=b.icon) for b in badges],

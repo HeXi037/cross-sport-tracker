@@ -1,10 +1,10 @@
 import os
 import sys
 import uuid
-import asyncio
 
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
+import pytest
+from httpx import ASGITransport, AsyncClient
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -15,6 +15,11 @@ from app.services.metrics import update_player_metrics
 
 app = FastAPI()
 app.include_router(players.router)
+
+
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"
 
 
 async def _drop_player_metric_table() -> None:
@@ -37,56 +42,53 @@ async def _create_player_metric_table() -> None:
         )
 
 
-def test_update_player_metrics_handles_missing_table() -> None:
-    asyncio.run(_drop_player_metric_table())
+@pytest.mark.anyio
+async def test_update_player_metrics_handles_missing_table() -> None:
+    await _drop_player_metric_table()
     try:
         new_player_id = uuid.uuid4().hex
         new_player_name = f"player-{new_player_id}"
 
-        async def run_update() -> None:
-            async with db.AsyncSessionLocal() as session:
-                session.add(Player(id=new_player_id, name=new_player_name))
-                await update_player_metrics(
-                    session,
-                    sport_id="padel",
-                    winners=["winner"],
-                    losers=["loser"],
-                )
-                await session.commit()
+        async with db.AsyncSessionLocal() as session:
+            session.add(Player(id=new_player_id, name=new_player_name))
+            await update_player_metrics(
+                session,
+                sport_id="padel",
+                winners=["winner"],
+                losers=["loser"],
+            )
+            await session.commit()
 
-        asyncio.run(run_update())
-
-        async def fetch_player() -> None:
-            async with db.AsyncSessionLocal() as session:
-                player = await session.get(Player, new_player_id)
-                assert player is not None
-                assert player.name == new_player_name
-
-        asyncio.run(fetch_player())
+        async with db.AsyncSessionLocal() as session:
+            player = await session.get(Player, new_player_id)
+            assert player is not None
+            assert player.name == new_player_name
     finally:
-        asyncio.run(_create_player_metric_table())
+        await _create_player_metric_table()
 
 
-def test_get_player_handles_missing_metrics_table() -> None:
+@pytest.mark.anyio
+async def test_get_player_handles_missing_metrics_table() -> None:
     player_id = uuid.uuid4().hex
     player_name = f"player-{player_id}"
 
-    async def insert_player() -> None:
-        async with db.AsyncSessionLocal() as session:
-            session.add(Player(id=player_id, name=player_name))
-            await session.commit()
+    async with db.AsyncSessionLocal() as session:
+        session.add(Player(id=player_id, name=player_name))
+        await session.commit()
 
-    asyncio.run(insert_player())
-    asyncio.run(_drop_player_metric_table())
+    await _drop_player_metric_table()
 
     try:
-        with TestClient(app, raise_server_exceptions=False) as client:
-            resp = client.get(f"/players/{player_id}")
-            assert resp.status_code == 200
-            body = resp.json()
-            assert body["id"] == player_id
-            assert body["name"] == player_name
-            assert body["metrics"] is None
-            assert body["milestones"] is None
+        transport = ASGITransport(app=app)
+        async with AsyncClient(
+            transport=transport, base_url="http://testserver", follow_redirects=True
+        ) as client:
+            resp = await client.get(f"/players/{player_id}")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["id"] == player_id
+        assert body["name"] == player_name
+        assert body["metrics"] is None
+        assert body["milestones"] is None
     finally:
-        asyncio.run(_create_player_metric_table())
+        await _create_player_metric_table()

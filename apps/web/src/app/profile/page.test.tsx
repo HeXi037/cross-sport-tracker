@@ -11,8 +11,10 @@ const apiMocks = vi.hoisted(() => ({
   updateMyPlayerLocation: vi.fn(),
 }));
 
+const routerMock = vi.hoisted(() => ({ push: pushMock }));
+
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock }),
+  useRouter: () => routerMock,
 }));
 
 vi.mock("../../lib/api", () => apiMocks);
@@ -29,6 +31,17 @@ describe("ProfilePage", () => {
     apiMocks.fetchMyPlayer.mockReset();
     apiMocks.updateMyPlayerLocation.mockReset();
     apiMocks.isLoggedIn.mockReturnValue(true);
+    apiMocks.fetchMe.mockResolvedValue({ username: "default-user", photo_url: null });
+    apiMocks.fetchMyPlayer.mockResolvedValue({
+      id: "default-player",
+      name: "Default Player",
+      location: null,
+      country_code: null,
+      region_code: null,
+      club_id: null,
+      bio: "",
+      social_links: [],
+    });
     window.localStorage.clear();
   });
 
@@ -55,9 +68,9 @@ describe("ProfilePage", () => {
     const countrySelect = screen.getByLabelText("Country") as HTMLSelectElement;
     expect(countrySelect.value).toBe("US");
     expect(screen.getByText(/Continent:/i)).toHaveTextContent("North America");
-    expect(
-      screen.getByLabelText("Favorite club") as HTMLInputElement
-    ).toHaveValue("club-old");
+    const favoriteClubFields = screen.getAllByLabelText("Favorite club");
+    const clubSearchInput = favoriteClubFields[0] as HTMLInputElement;
+    expect(clubSearchInput).toHaveValue("club-old");
   });
 
   it("submits updated country and favorite club when saving", async () => {
@@ -84,13 +97,23 @@ describe("ProfilePage", () => {
       render(<ProfilePage />);
     });
 
+    await screen.findByDisplayValue("existing");
+
     const countrySelect = screen.getByLabelText("Country") as HTMLSelectElement;
-    const clubInput = screen.getByLabelText("Favorite club") as HTMLInputElement;
+    const favoriteClubFields = screen.getAllByLabelText("Favorite club");
+    const clubSearchInput = favoriteClubFields[0] as HTMLInputElement;
+    const clubSelect = favoriteClubFields[1] as HTMLSelectElement;
 
     fireEvent.change(countrySelect, { target: { value: "SE" } });
-    fireEvent.change(clubInput, { target: { value: " club-new " } });
+    fireEvent.change(clubSearchInput, { target: { value: " club-new " } });
+    const newClubOption = document.createElement("option");
+    newClubOption.value = "club-new";
+    newClubOption.textContent = "club-new";
+    clubSelect.appendChild(newClubOption);
+    fireEvent.change(clubSelect, { target: { value: "club-new" } });
+    expect(clubSelect).toHaveValue("club-new");
 
-    const saveButton = screen.getByRole("button", { name: /save/i });
+    const saveButton = await screen.findByRole("button", { name: /save/i });
 
     await act(async () => {
       fireEvent.click(saveButton);
@@ -136,12 +159,16 @@ describe("ProfilePage", () => {
     await screen.findByDisplayValue("existing");
 
     const countrySelect = screen.getByLabelText("Country") as HTMLSelectElement;
-    const clubInput = screen.getByLabelText("Favorite club") as HTMLInputElement;
+    const favoriteClubFields = screen.getAllByLabelText("Favorite club");
+    const clubSearchInput = favoriteClubFields[0] as HTMLInputElement;
+    const clubSelect = favoriteClubFields[1] as HTMLSelectElement;
 
     fireEvent.change(countrySelect, { target: { value: "" } });
-    fireEvent.change(clubInput, { target: { value: " " } });
+    fireEvent.change(clubSearchInput, { target: { value: " " } });
+    fireEvent.change(clubSelect, { target: { value: "" } });
+    expect(clubSelect).toHaveValue("");
 
-    const saveButton = screen.getByRole("button", { name: /save/i });
+    const saveButton = await screen.findByRole("button", { name: /save/i });
 
     await act(async () => {
       fireEvent.click(saveButton);

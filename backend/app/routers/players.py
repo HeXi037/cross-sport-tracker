@@ -461,9 +461,14 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
                 select(Badge).join(PlayerBadge).where(PlayerBadge.player_id == player_id)
             )
         ).scalars().all()
-    except SQLAlchemyError:
-        await session.rollback()
-        badges = []
+    except SQLAlchemyError as exc:
+        if is_missing_table_error(exc, Badge.__tablename__) or is_missing_table_error(
+            exc, PlayerBadge.__tablename__
+        ):
+            await session.rollback()
+            badges = []
+        else:
+            raise
     social_links = await _load_social_links(session, player_id)
     return PlayerOut(
         **player_details,

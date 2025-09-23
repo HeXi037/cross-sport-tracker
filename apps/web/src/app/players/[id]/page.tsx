@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { apiFetch } from "../../../lib/api";
+import { apiFetch, fetchClubs } from "../../../lib/api";
 import PlayerCharts from "./PlayerCharts";
 import PlayerComments from "./comments-client";
 import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
@@ -268,6 +268,16 @@ export default async function PlayerPage({
       getStats(params.id),
       getUpcomingMatches(params.id),
     ]);
+    let clubName: string | null = null;
+    if (player.club_id) {
+      try {
+        const clubs = await fetchClubs({ cache: "no-store" });
+        const match = clubs.find((club) => club.id === player.club_id);
+        clubName = match?.name ?? null;
+      } catch (err) {
+        console.warn("Failed to resolve club name", err);
+      }
+    }
     const matches = allMatches.filter(
       (m) => m.playedAt && new Date(m.playedAt) <= new Date()
     );
@@ -311,7 +321,9 @@ export default async function PlayerPage({
           <h1 className="heading">
             <PlayerName player={player} />
           </h1>
-          {player.club_id && <p>Club: {player.club_id}</p>}
+          {player.club_id ? (
+            <p>Club: {clubName ?? player.club_id}</p>
+          ) : null}
 
           <nav className="mt-4 mb-4 space-x-4">
             <Link

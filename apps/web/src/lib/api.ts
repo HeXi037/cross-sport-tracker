@@ -128,6 +128,18 @@ export async function updateMe(data: {
   return res.json();
 }
 
+export interface ClubSummary {
+  id: string;
+  name: string;
+}
+
+export async function fetchClubs(
+  init?: RequestInit
+): Promise<ClubSummary[]> {
+  const res = await apiFetch("/v0/clubs", init);
+  return res.json();
+}
+
 export interface PlayerMe {
   id: string;
   name: string;

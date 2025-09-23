@@ -18,6 +18,11 @@ class RuleSetOut(BaseModel):
     name: str
     config: dict
 
+
+class ClubOut(BaseModel):
+    id: str
+    name: str
+
 class BadgeCreate(BaseModel):
     name: str
     icon: Optional[str] = None

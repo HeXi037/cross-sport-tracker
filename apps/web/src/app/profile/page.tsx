@@ -11,6 +11,7 @@ import {
   updateMyPlayerLocation,
 } from "../../lib/api";
 import type { PlayerLocationPayload } from "../../lib/api";
+import ClubSelect from "../../components/ClubSelect";
 import {
   COUNTRY_OPTIONS,
   getContinentForCountry,
@@ -89,7 +90,7 @@ export default function ProfilePage() {
             setMessage(null);
           }
         }
-      } catch (err) {
+      } catch {
         if (!active) return;
         router.push("/login");
         return;
@@ -297,12 +298,12 @@ export default function ProfilePage() {
         <div style={{ fontSize: "0.9rem", color: "#555" }}>
           Continent: {continentLabel ?? "—"}
         </div>
-        <input
-          type="text"
-          aria-label="Favorite club"
-          placeholder="Favorite club"
+        <ClubSelect
           value={clubId}
-          onChange={(e) => setClubId(e.target.value)}
+          onChange={setClubId}
+          placeholder="Favorite club"
+          ariaLabel="Favorite club"
+          name="club_id"
         />
         <button type="submit" disabled={saving}>
           Save

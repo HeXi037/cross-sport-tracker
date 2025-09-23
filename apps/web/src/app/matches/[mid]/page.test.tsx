@@ -13,6 +13,9 @@ import { apiFetch } from "../../../lib/api";
 
 const apiFetchMock = apiFetch as unknown as ReturnType<typeof vi.fn>;
 
+const createResponse = <T,>(data: T) =>
+  ({ ok: true, json: async () => data } as Response);
+
 describe("MatchDetailPage", () => {
   afterEach(() => {
     vi.clearAllMocks();
@@ -22,13 +25,20 @@ describe("MatchDetailPage", () => {
     const match = {
       id: "m1",
       sport: "padel",
-      ruleset: "",
+      rulesetId: null,
       status: "",
       playedAt: "2024-01-01T00:00:00",
       participants: [],
       summary: {},
     };
-    apiFetchMock.mockResolvedValueOnce({ ok: true, json: async () => match });
+    apiFetchMock.mockImplementation(async (path: string) => {
+      if (path === "/v0/matches/m1") return createResponse(match);
+      if (path === "/v0/sports")
+        return createResponse([{ id: "padel", name: "Padel" }]);
+      if (path === "/v0/rulesets?sport=padel")
+        return createResponse([{ id: "padel-world", name: "World Tour" }]);
+      throw new Error(`Unexpected apiFetch call: ${path}`);
+    });
 
     render(await MatchDetailPage({ params: { mid: "m1" } }));
 
@@ -47,8 +57,8 @@ describe("MatchDetailPage", () => {
     const match = {
       id: "m2",
       sport: "bowling",
-      ruleset: "",
-      status: "",
+      rulesetId: "world-tour",
+      status: "Final",
       playedAt: null,
       participants: [
         { side: "A", playerIds: ["p1"] },
@@ -58,21 +68,30 @@ describe("MatchDetailPage", () => {
       summary: {},
     };
 
-    apiFetchMock
-      .mockResolvedValueOnce({ ok: true, json: async () => match })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => [
+    apiFetchMock.mockImplementation(async (path: string) => {
+      if (path === "/v0/matches/m2") return createResponse(match);
+      if (path.startsWith("/v0/players/by-ids"))
+        return createResponse([
           { id: "p1", name: "Ann" },
           { id: "p2", name: "Ben" },
           { id: "p3", name: "Cam" },
-        ],
-      });
+        ]);
+      if (path === "/v0/sports")
+        return createResponse([{ id: "bowling", name: "Bowling" }]);
+      if (path === "/v0/rulesets?sport=bowling")
+        return createResponse([
+          { id: "world-tour", name: "World Tour" },
+        ]);
+      throw new Error(`Unexpected apiFetch call: ${path}`);
+    });
 
     render(await MatchDetailPage({ params: { mid: "m2" } }));
 
     expect(
       screen.getByRole("heading", { level: 1, name: "Ann vs Ben vs Cam" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Bowling · World Tour · Final")
     ).toBeInTheDocument();
   });
 });

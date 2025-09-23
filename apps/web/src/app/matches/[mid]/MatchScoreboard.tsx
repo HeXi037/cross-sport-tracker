@@ -28,14 +28,22 @@ function renderRacketSummary(summary: SummaryData) {
   const sets = "sets" in summary ? (summary as Record<string, unknown>).sets : undefined;
   const games = "games" in summary ? (summary as Record<string, unknown>).games : undefined;
   const points = "points" in summary ? (summary as Record<string, unknown>).points : undefined;
+  const setScoresRaw =
+    "set_scores" in summary
+      ? (summary as Record<string, unknown>).set_scores
+      : undefined;
+  const setScores = Array.isArray(setScoresRaw)
+    ? (setScoresRaw as Array<Record<string, unknown>>)
+    : [];
 
-  if (!sets && !games && !points) return null;
+  if (!sets && !games && !points && setScores.length === 0) return null;
 
   const sides = Array.from(
     new Set([
       ...Object.keys((sets as Record<string, number>) ?? {}),
       ...Object.keys((games as Record<string, number>) ?? {}),
       ...Object.keys((points as Record<string, number>) ?? {}),
+      ...setScores.flatMap((set) => Object.keys((set as Record<string, number>) ?? {})),
     ])
   ).sort();
 
@@ -44,6 +52,9 @@ function renderRacketSummary(summary: SummaryData) {
       <thead>
         <tr>
           <th scope="col">Side</th>
+          {setScores.map((_, idx) => (
+            <th scope="col" key={`set-${idx}`}>{`Set ${idx + 1}`}</th>
+          ))}
           {sets ? <th scope="col">Sets</th> : null}
           {games ? <th scope="col">Games</th> : null}
           {points ? <th scope="col">Points</th> : null}
@@ -53,6 +64,9 @@ function renderRacketSummary(summary: SummaryData) {
         {sides.map((side) => (
           <tr key={side}>
             <th scope="row">{side}</th>
+            {setScores.map((set, idx) => (
+              <td key={`set-${idx}`}>{formatValue((set as Record<string, unknown>)[side])}</td>
+            ))}
             {sets ? <td>{formatValue((sets as Record<string, unknown>)[side])}</td> : null}
             {games ? <td>{formatValue((games as Record<string, unknown>)[side])}</td> : null}
             {points ? <td>{formatValue((points as Record<string, unknown>)[side])}</td> : null}

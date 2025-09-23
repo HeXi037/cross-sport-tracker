@@ -32,7 +32,13 @@ describe("MatchesPage", () => {
         { side: "A" as const, playerIds: ["1"] },
         { side: "B" as const, playerIds: ["2"] },
       ],
-      summary: { points: { A: 11, B: 7 } },
+      summary: {
+        set_scores: [
+          { A: 6, B: 4 },
+          { A: 7, B: 5 },
+        ],
+        points: { A: 11, B: 7 },
+      },
     };
     const players = [
       { id: "1", name: "Alice" },
@@ -54,6 +60,9 @@ describe("MatchesPage", () => {
     render(page);
 
     await screen.findByText((_, el) => el?.textContent === "Alice vs Bob");
+    expect(
+      screen.getByText((text) => text.includes("6-4, 7-5"))
+    ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(3);
     const listUrl = fetchMock.mock.calls[0][0] as string;
     expect(listUrl).toContain("/v0/matches?limit=25&offset=0");

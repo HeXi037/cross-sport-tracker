@@ -22,12 +22,20 @@ def init_state(config: Dict) -> Dict:
         "points": {"A": 0, "B": 0},
         "games": {"A": 0, "B": 0},
         "sets": {"A": 0, "B": 0},
+        "set_scores": [],
         "tiebreak": False,
     }
 
 
 def _other(side: str) -> str:
     return "B" if side == "A" else "A"
+
+
+def _record_set_score(state: Dict, winner: str, *, tiebreak: bool = False) -> None:
+    scores = dict(state.get("games", {}))
+    if tiebreak:
+        scores[winner] = scores.get(winner, 0) + 1
+    state.setdefault("set_scores", []).append(scores)
 
 
 def apply(event: Dict, state: Dict) -> Dict:
@@ -54,6 +62,7 @@ def apply(event: Dict, state: Dict) -> Dict:
     if state.get("tiebreak"):
         if ps >= tiebreak_to and ps - po >= 2:
             state["sets"][side] += 1
+            _record_set_score(state, side, tiebreak=True)
             state["points"]["A"] = state["points"]["B"] = 0
             state["games"]["A"] = state["games"]["B"] = 0
             state["tiebreak"] = False
@@ -71,6 +80,7 @@ def apply(event: Dict, state: Dict) -> Dict:
             state["tiebreak"] = True
         elif gs >= 6 and gs - go >= 2:
             state["sets"][side] += 1
+            _record_set_score(state, side)
             state["games"]["A"] = state["games"]["B"] = 0
     return state
 
@@ -80,6 +90,7 @@ def summary(state: Dict) -> Dict:
         "points": state["points"],
         "games": state["games"],
         "sets": state["sets"],
+        "set_scores": [dict(scores) for scores in state.get("set_scores", [])],
         "config": state["config"],
     }
 

@@ -15,10 +15,22 @@ interface Player extends PlayerInfo {
   badges?: { id: string; name: string; icon?: string | null }[];
 }
 
+interface PlayerStats {
+  playerId: string;
+  matchSummary: {
+    wins: number;
+    losses: number;
+    draws: number;
+    total: number;
+    winPct: number;
+  };
+}
+
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
-  const [recentMatches, setRecentMatches] =
-    useState<Record<string, string | null>>({});
+  const [playerStats, setPlayerStats] = useState<
+    Record<string, PlayerStats | null>
+  >({});
   const [name, setName] = useState("");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -71,28 +83,34 @@ export default function PlayersPage() {
   }, [players, debouncedSearch]);
 
   useEffect(() => {
-    if (!players.length) return;
-    async function loadMatches() {
+    if (!players.length) {
+      setPlayerStats({});
+      return;
+    }
+    let cancelled = false;
+    async function loadStats() {
       const entries = await Promise.all(
         players.map(async (p) => {
           try {
-            const r = await apiFetch(
-              `/v0/matches?playerId=${encodeURIComponent(p.id)}`,
+            const res = await apiFetch(
+              `/v0/players/${encodeURIComponent(p.id)}/stats`,
               { cache: "no-store" }
             );
-            if (r.ok) {
-              const data = (await r.json()) as { id: string }[];
-              return [p.id, data[0]?.id ?? null] as const;
-            }
+            const data = (await res.json()) as PlayerStats;
+            return [p.id, data] as const;
           } catch {
-            /* ignore */
+            return [p.id, null] as const;
           }
-          return [p.id, null] as const;
         })
       );
-      setRecentMatches(Object.fromEntries(entries));
+      if (!cancelled) {
+        setPlayerStats(Object.fromEntries(entries));
+      }
     }
-    loadMatches();
+    loadStats();
+    return () => {
+      cancelled = true;
+    };
   }, [players]);
 
   async function create() {
@@ -202,15 +220,25 @@ export default function PlayersPage() {
             <ul>
               {filteredPlayers.map((p) => (
                 <li key={p.id}>
-                  <Link
-                    href={
-                      recentMatches[p.id]
-                        ? `/matches/${recentMatches[p.id]}`
-                        : `/players/${p.id}`
-                    }
-                  >
+                  <Link href={`/players/${p.id}`}>
                     <PlayerName player={p} />
                   </Link>
+                  <div className="text-sm text-gray-600">
+                    {(() => {
+                      const stats = playerStats[p.id];
+                      if (stats === undefined) return "Loading stats…";
+                      if (!stats || !stats.matchSummary)
+                        return "Stats unavailable";
+                      const { wins, losses, draws, winPct } =
+                        stats.matchSummary;
+                      const parts = [wins, losses];
+                      if (draws) parts.push(draws);
+                      const pct = Number.isFinite(winPct)
+                        ? Math.round(winPct * 100)
+                        : 0;
+                      return `${parts.join("-")} (${pct}%)`;
+                    })()}
+                  </div>
                   {admin && (
                     <div style={{ marginTop: 8 }}>
                       <label className="mr-2" htmlFor={`country-${p.id}`}>

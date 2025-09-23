@@ -24,7 +24,6 @@ async def player_profile(
     if not player or player.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Player not found")
 
-    stats = await player_stats(player_id, session=session)
     player_out = PlayerOut(
         id=player.id,
         name=player.name,
@@ -35,6 +34,8 @@ async def player_profile(
         region_code=player.region_code,
         ranking=player.ranking,
     )
+
+    stats = await player_stats(player_id, session=session)
     return templates.TemplateResponse(
         "player/profile.html",
         {"request": request, "player": player_out, "stats": stats},

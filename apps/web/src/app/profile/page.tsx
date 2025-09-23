@@ -9,6 +9,10 @@ import {
   apiFetch,
   fetchMyPlayer,
   updateMyPlayerLocation,
+  createMySocialLink,
+  updateMySocialLink,
+  deleteMySocialLink,
+  type PlayerSocialLink,
 } from "../../lib/api";
 import type { PlayerLocationPayload } from "../../lib/api";
 import ClubSelect from "../../components/ClubSelect";
@@ -50,6 +54,24 @@ export default function ProfilePage() {
   const [initialCountryCode, setInitialCountryCode] = useState("");
   const [initialClubId, setInitialClubId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [socialLinks, setSocialLinks] = useState<PlayerSocialLink[]>([]);
+  const [linkDrafts, setLinkDrafts] = useState<
+    Record<string, { label: string; url: string }>
+  >({});
+  const [newLinkLabel, setNewLinkLabel] = useState("");
+  const [newLinkUrl, setNewLinkUrl] = useState("");
+  const [linkSavingId, setLinkSavingId] = useState<string | null>(null);
+  const [linkDeletingId, setLinkDeletingId] = useState<string | null>(null);
+  const [linkSubmitting, setLinkSubmitting] = useState(false);
+
+  const resetSocialLinkState = (links: PlayerSocialLink[]) => {
+    setSocialLinks(links);
+    setLinkDrafts(
+      Object.fromEntries(
+        links.map((link) => [link.id, { label: link.label, url: link.url }])
+      ) as Record<string, { label: string; url: string }>
+    );
+  };
 
   useEffect(() => {
     if (!isLoggedIn()) {
@@ -68,10 +90,12 @@ export default function ProfilePage() {
           if (!active) return;
           const nextCountry = player.country_code ?? "";
           const nextClub = player.club_id ?? "";
+          const nextLinks = player.social_links ?? [];
           setCountryCode(nextCountry);
           setClubId(nextClub);
           setInitialCountryCode(nextCountry);
           setInitialClubId(nextClub);
+          resetSocialLinkState(nextLinks);
         } catch (playerErr) {
           if (!active) return;
           const status = (playerErr as Error & { status?: number }).status;
@@ -84,6 +108,7 @@ export default function ProfilePage() {
             setInitialCountryCode("");
             setClubId("");
             setInitialClubId("");
+            resetSocialLinkState([]);
           } else {
             console.error("Failed to load player profile", playerErr);
             setError("Failed to load profile");
@@ -191,6 +216,7 @@ export default function ProfilePage() {
           setClubId(nextClub);
           setInitialCountryCode(nextCountry);
           setInitialClubId(nextClub);
+          resetSocialLinkState(updatedPlayer.social_links ?? []);
         } catch (err) {
           const status = (err as Error & { status?: number }).status;
           if (status === 422) {
@@ -319,6 +345,175 @@ export default function ProfilePage() {
           {error}
         </p>
       )}
+      <section className="auth-form" aria-labelledby="social-links-heading">
+        <h2 id="social-links-heading" className="heading" style={{ fontSize: "1.25rem" }}>
+          Social links
+        </h2>
+        {socialLinks.length ? (
+          socialLinks.map((link) => {
+            const draft = linkDrafts[link.id] ?? { label: "", url: "" };
+            const trimmedLabel = draft.label.trim();
+            const trimmedUrl = draft.url.trim();
+            const unchanged =
+              trimmedLabel === link.label && trimmedUrl === link.url;
+            const busy =
+              linkSavingId === link.id || linkDeletingId === link.id || linkSubmitting;
+            return (
+              <div
+                key={link.id}
+                style={{
+                  display: "grid",
+                  gap: "0.5rem",
+                  marginBottom: "1rem",
+                }}
+              >
+                <input
+                  type="text"
+                  value={draft.label}
+                  onChange={(e) =>
+                    setLinkDrafts((prev) => ({
+                      ...prev,
+                      [link.id]: { label: e.target.value, url: draft.url },
+                    }))
+                  }
+                  placeholder="Label"
+                />
+                <input
+                  type="url"
+                  value={draft.url}
+                  onChange={(e) =>
+                    setLinkDrafts((prev) => ({
+                      ...prev,
+                      [link.id]: { label: draft.label, url: e.target.value },
+                    }))
+                  }
+                  placeholder="https://example.com"
+                />
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button
+                    type="button"
+                    disabled={busy || unchanged}
+                    onClick={async () => {
+                      const nextLabel = trimmedLabel;
+                      const nextUrl = trimmedUrl;
+                      if (!nextLabel) {
+                        setError("Link label is required");
+                        setMessage(null);
+                        return;
+                      }
+                      if (!/^https?:\/\//i.test(nextUrl)) {
+                        setError(
+                          "Social link URL must start with http:// or https://"
+                        );
+                        setMessage(null);
+                        return;
+                      }
+                      setError(null);
+                      setMessage(null);
+                      setLinkSavingId(link.id);
+                      try {
+                        const updated = await updateMySocialLink(link.id, {
+                          label: nextLabel,
+                          url: nextUrl,
+                        });
+                        const nextLinks = socialLinks.map((existing) =>
+                          existing.id === link.id ? updated : existing
+                        );
+                        resetSocialLinkState(nextLinks);
+                        setMessage("Social link updated");
+                      } catch (err) {
+                        const message = extractErrorMessage(err);
+                        setError(message ?? "Failed to update social link");
+                      } finally {
+                        setLinkSavingId(null);
+                      }
+                    }}
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={async () => {
+                      setError(null);
+                      setMessage(null);
+                      setLinkDeletingId(link.id);
+                      try {
+                        await deleteMySocialLink(link.id);
+                        const nextLinks = socialLinks.filter(
+                          (existing) => existing.id !== link.id
+                        );
+                        resetSocialLinkState(nextLinks);
+                        setMessage("Social link removed");
+                      } catch (err) {
+                        const message = extractErrorMessage(err);
+                        setError(message ?? "Failed to remove social link");
+                      } finally {
+                        setLinkDeletingId(null);
+                      }
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <p style={{ marginBottom: "1rem" }}>No social links yet.</p>
+        )}
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setError(null);
+            setMessage(null);
+            const label = newLinkLabel.trim();
+            const url = newLinkUrl.trim();
+            if (!label) {
+              setError("Link label is required");
+              return;
+            }
+            if (!/^https?:\/\//i.test(url)) {
+              setError("Social link URL must start with http:// or https://");
+              return;
+            }
+            setLinkSubmitting(true);
+            try {
+              const created = await createMySocialLink({ label, url });
+              const nextLinks = [...socialLinks, created];
+              resetSocialLinkState(nextLinks);
+              setNewLinkLabel("");
+              setNewLinkUrl("");
+              setMessage("Social link added");
+            } catch (err) {
+              const message = extractErrorMessage(err);
+              setError(message ?? "Failed to add social link");
+            } finally {
+              setLinkSubmitting(false);
+            }
+          }}
+          style={{ display: "grid", gap: "0.5rem" }}
+        >
+          <input
+            type="text"
+            value={newLinkLabel}
+            onChange={(e) => setNewLinkLabel(e.target.value)}
+            placeholder="Label"
+          />
+          <input
+            type="url"
+            value={newLinkUrl}
+            onChange={(e) => setNewLinkUrl(e.target.value)}
+            placeholder="https://example.com"
+          />
+          <button type="submit" disabled={linkSubmitting}>
+            Add link
+          </button>
+        </form>
+        <p style={{ fontSize: "0.85rem", color: "#555" }}>
+          URLs must start with http:// or https://.
+        </p>
+      </section>
     </main>
   );
 }

@@ -24,7 +24,7 @@ async def player_profile(
     if not player or player.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Player not found")
 
-    stats = await player_stats(player_id, session)
+    stats = await player_stats(player_id, session=session)
     player_out = PlayerOut(
         id=player.id,
         name=player.name,

@@ -22,15 +22,32 @@ describe("MatchDetailPage", () => {
     const match = {
       id: "m1",
       sport: "padel",
-      ruleset: "",
-      status: "",
+      rulesetId: "padel_standard",
+      status: "Completed",
       playedAt: "2024-01-01T00:00:00",
       participants: [],
       summary: {},
     };
-    apiFetchMock.mockResolvedValueOnce({ ok: true, json: async () => match });
+    apiFetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => match })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: "padel", name: "Padel" }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: "padel_standard", name: "World Padel Tour" },
+        ],
+      });
 
     render(await MatchDetailPage({ params: { mid: "m1" } }));
+
+    expect(
+      screen.getByText((text) =>
+        text.startsWith("Padel · World Padel Tour · Completed")
+      )
+    ).toBeInTheDocument();
 
     const displayed = new Date(match.playedAt).toLocaleDateString();
     expect(screen.getByText((t) => t.includes(displayed))).toBeInTheDocument();
@@ -47,7 +64,7 @@ describe("MatchDetailPage", () => {
     const match = {
       id: "m2",
       sport: "bowling",
-      ruleset: "",
+      rulesetId: null,
       status: "",
       playedAt: null,
       participants: [
@@ -67,7 +84,12 @@ describe("MatchDetailPage", () => {
           { id: "p2", name: "Ben" },
           { id: "p3", name: "Cam" },
         ],
-      });
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: "bowling", name: "Bowling" }],
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] });
 
     render(await MatchDetailPage({ params: { mid: "m2" } }));
 
@@ -80,7 +102,7 @@ describe("MatchDetailPage", () => {
     const match = {
       id: "m3",
       sport: "tennis",
-      ruleset: "",
+      rulesetId: "tennis_best_of_three",
       status: "",
       playedAt: null,
       participants: [
@@ -101,6 +123,16 @@ describe("MatchDetailPage", () => {
         json: async () => [
           { id: "p1", name: "Serena" },
           { id: "p2", name: "Venus" },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: "tennis", name: "Tennis" }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: "tennis_best_of_three", name: "Best of 3" },
         ],
       });
 
@@ -124,7 +156,7 @@ describe("MatchDetailPage", () => {
     const match = {
       id: "m4",
       sport: "disc_golf",
-      ruleset: "",
+      rulesetId: "disc_golf_standard",
       status: "",
       playedAt: null,
       participants: [
@@ -147,6 +179,16 @@ describe("MatchDetailPage", () => {
         json: async () => [
           { id: "p1", name: "Eagle" },
           { id: "p2", name: "Faldo" },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: "disc_golf", name: "Disc Golf" }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: "disc_golf_standard", name: "Stroke Play" },
         ],
       });
 

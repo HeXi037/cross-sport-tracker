@@ -217,3 +217,83 @@ a {
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
   animation: skeleton-shimmer 1.5s infinite;
 }
+
+.live-summary-card {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.live-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 600;
+}
+
+.live-summary-overall {
+  font-size: 1rem;
+}
+
+.scoreboard-wrapper {
+  overflow-x: auto;
+}
+
+.scoreboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.scoreboard-table th,
+.scoreboard-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(10, 31, 68, 0.08);
+}
+
+.scoreboard-table thead th {
+  font-weight: 600;
+  background: rgba(10, 31, 68, 0.05);
+}
+
+.scoreboard-table th:first-child,
+.scoreboard-table td:first-child {
+  text-align: left;
+}
+
+.scoreboard-table th:not(:first-child),
+.scoreboard-table td:not(:first-child) {
+  text-align: center;
+}
+
+.scoreboard-table tbody tr:nth-child(even) th,
+.scoreboard-table tbody tr:nth-child(even) td {
+  background: rgba(10, 31, 68, 0.02);
+}
+
+.scoreboard-table tbody tr:last-child th,
+.scoreboard-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.scoreboard-par-row th,
+.scoreboard-par-row td {
+  background: rgba(186, 12, 47, 0.06);
+  font-weight: 600;
+}
+
+.scoreboard-empty {
+  margin: 0;
+  color: #555;
+}
+
+.scoreboard-fallback {
+  margin: 0;
+  padding: 12px;
+  background: rgba(10, 31, 68, 0.04);
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.85rem;
+}

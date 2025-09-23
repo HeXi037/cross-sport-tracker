@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { apiFetch } from "../../../lib/api";
-import LiveSummary from "./live-summary";
+import LiveSummary, { type SummaryData } from "./live-summary";
 import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
 
 export const dynamic = "force-dynamic";
@@ -10,12 +10,6 @@ type ID = string;
 // "side" can be any identifier (A, B, C, ...), so keep it loose
 type Participant = { side: string; playerIds: string[] };
 
-type Summary = {
-  sets?: Record<string, number>;
-  games?: Record<string, number>;
-  points?: Record<string, number>;
-};
-
 type MatchDetail = {
   id: ID;
   sport?: string | null;
@@ -24,7 +18,7 @@ type MatchDetail = {
   playedAt?: string | null;
   location?: string | null;
   participants?: Participant[] | null;
-  summary?: Summary | null;
+  summary?: SummaryData | null;
 };
 
 async function fetchMatch(mid: string): Promise<MatchDetail> {
@@ -99,6 +93,11 @@ export default async function MatchDetailPage({
       : playedAtDate.toLocaleDateString()
     : "";
 
+  const summaryConfig =
+    match.summary && typeof match.summary === "object" && "config" in match.summary
+      ? (match.summary as { config?: unknown }).config
+      : undefined;
+
   return (
     <main className="container">
       <div className="text-sm">
@@ -128,7 +127,12 @@ export default async function MatchDetailPage({
           {match.location ? ` · ${match.location}` : ""}
         </p>
       </header>
-      <LiveSummary mid={params.mid} initialSummary={match.summary} />
+      <LiveSummary
+        mid={params.mid}
+        sport={match.sport}
+        initialSummary={match.summary}
+        initialConfig={summaryConfig}
+      />
     </main>
   );
 }

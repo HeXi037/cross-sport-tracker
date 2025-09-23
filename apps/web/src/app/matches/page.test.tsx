@@ -95,4 +95,20 @@ describe("MatchesPage", () => {
     expect(prev).toBeDisabled();
     expect(next).toBeDisabled();
   });
+
+  it("renders an empty state when there are no matches", async () => {
+    const fetchMock = vi
+      .fn()
+      // list matches
+      .mockResolvedValueOnce({ ok: true, json: async () => [] });
+
+    global.fetch = fetchMock as typeof fetch;
+
+    const page = await MatchesPage({ searchParams: {} });
+    render(page);
+
+    expect(await screen.findByText("No matches yet.")).toBeInTheDocument();
+    expect(screen.queryByText("Next")).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

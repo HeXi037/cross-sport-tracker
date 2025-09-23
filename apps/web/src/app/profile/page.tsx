@@ -51,8 +51,10 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [countryCode, setCountryCode] = useState("");
   const [clubId, setClubId] = useState("");
+  const [bio, setBio] = useState("");
   const [initialCountryCode, setInitialCountryCode] = useState("");
   const [initialClubId, setInitialClubId] = useState("");
+  const [initialBio, setInitialBio] = useState("");
   const [saving, setSaving] = useState(false);
   const [socialLinks, setSocialLinks] = useState<PlayerSocialLink[]>([]);
   const [linkDrafts, setLinkDrafts] = useState<
@@ -90,11 +92,14 @@ export default function ProfilePage() {
           if (!active) return;
           const nextCountry = player.country_code ?? "";
           const nextClub = player.club_id ?? "";
+          const nextBio = player.bio ?? "";
           const nextLinks = player.social_links ?? [];
           setCountryCode(nextCountry);
           setClubId(nextClub);
+          setBio(nextBio);
           setInitialCountryCode(nextCountry);
           setInitialClubId(nextClub);
+          setInitialBio(nextBio);
           resetSocialLinkState(nextLinks);
         } catch (playerErr) {
           if (!active) return;
@@ -108,6 +113,8 @@ export default function ProfilePage() {
             setInitialCountryCode("");
             setClubId("");
             setInitialClubId("");
+            setBio("");
+            setInitialBio("");
             resetSocialLinkState([]);
           } else {
             console.error("Failed to load player profile", playerErr);
@@ -183,6 +190,8 @@ export default function ProfilePage() {
     const continentCode = normalizedCountry
       ? getContinentForCountry(normalizedCountry)
       : undefined;
+    const trimmedBio = bio.trim();
+    const initialBioTrimmed = initialBio.trim();
 
     setUsername(trimmedUsername);
     setCountryCode(normalizedCountry);
@@ -190,6 +199,7 @@ export default function ProfilePage() {
 
     const countryChanged = normalizedCountry !== initialCountryCode;
     const clubChanged = trimmedClubId !== initialClubId;
+    const bioChanged = trimmedBio !== initialBioTrimmed;
 
     const payload: PlayerLocationPayload = {};
 
@@ -205,6 +215,10 @@ export default function ProfilePage() {
       payload.club_id = trimmedClubId ? trimmedClubId : null;
     }
 
+    if (bioChanged) {
+      payload.bio = trimmedBio ? trimmedBio : null;
+    }
+
     setSaving(true);
     try {
       if (Object.keys(payload).length > 0) {
@@ -212,10 +226,13 @@ export default function ProfilePage() {
           const updatedPlayer = await updateMyPlayerLocation(payload);
           const nextCountry = updatedPlayer.country_code ?? "";
           const nextClub = updatedPlayer.club_id ?? "";
+          const nextBioValue = updatedPlayer.bio ?? "";
           setCountryCode(nextCountry);
           setClubId(nextClub);
+          setBio(nextBioValue);
           setInitialCountryCode(nextCountry);
           setInitialClubId(nextClub);
+          setInitialBio(nextBioValue);
           resetSocialLinkState(updatedPlayer.social_links ?? []);
         } catch (err) {
           const status = (err as Error & { status?: number }).status;
@@ -230,6 +247,8 @@ export default function ProfilePage() {
       } else {
         setInitialCountryCode(normalizedCountry);
         setInitialClubId(trimmedClubId);
+        setBio(trimmedBio);
+        setInitialBio(trimmedBio);
       }
 
       const body: { username: string; password?: string } = {
@@ -331,6 +350,29 @@ export default function ProfilePage() {
           ariaLabel="Favorite club"
           name="club_id"
         />
+        <label
+          style={{ display: "grid", gap: "0.5rem", width: "100%" }}
+          htmlFor="profile-bio"
+        >
+          <span>Biography</span>
+          <textarea
+            id="profile-bio"
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            rows={4}
+            maxLength={2000}
+            placeholder="Tell other players about yourself"
+            style={{
+              width: "100%",
+              minHeight: "6rem",
+              padding: "0.5rem",
+              fontFamily: "inherit",
+              fontSize: "1rem",
+              lineHeight: 1.4,
+              resize: "vertical",
+            }}
+          />
+        </label>
         <button type="submit" disabled={saving}>
           Save
         </button>

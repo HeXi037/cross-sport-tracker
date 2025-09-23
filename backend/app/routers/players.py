@@ -4,7 +4,7 @@ from pathlib import Path
 from collections import defaultdict
 
 from fastapi import APIRouter, Depends, Response, HTTPException, UploadFile, File, Query
-from sqlalchemy import select, func, case, literal, true, delete
+from sqlalchemy import select, func, case, literal, true, delete, Text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import aliased
@@ -698,7 +698,7 @@ async def _compute_player_stats(
         func.json_array_length if is_sqlite else func.jsonb_array_length
     )
     self_ids = json_each(mp.player_ids).table_valued("value").alias("self_ids")
-    self_id_value = self_ids.c.value if is_sqlite else self_ids.c.value.astext
+    self_id_value = self_ids.c.value if is_sqlite else self_ids.c.value.cast(Text)
 
     a_sets = Match.details["sets"]["A"].as_integer()
     b_sets = Match.details["sets"]["B"].as_integer()
@@ -800,7 +800,7 @@ async def _compute_player_stats(
     recent_results = [format_result(r) for r in results[-5:]]
 
     tm = json_each(pm.c.player_ids).table_valued("value").alias("tm")
-    tm_pid = tm.c.value if is_sqlite else tm.c.value.astext
+    tm_pid = tm.c.value if is_sqlite else tm.c.value.cast(Text)
     team_stmt = (
         select(
             tm_pid.label("pid"),
@@ -815,7 +815,7 @@ async def _compute_player_stats(
     )
     opp_mp = aliased(MatchParticipant)
     opp_ids = json_each(opp_mp.player_ids).table_valued("value").alias("opp_ids")
-    opp_pid = opp_ids.c.value if is_sqlite else opp_ids.c.value.astext
+    opp_pid = opp_ids.c.value if is_sqlite else opp_ids.c.value.cast(Text)
     opp_stmt = (
         select(
             opp_pid.label("pid"),

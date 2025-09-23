@@ -47,8 +47,10 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [countryCode, setCountryCode] = useState("");
   const [clubId, setClubId] = useState("");
+  const [bio, setBio] = useState("");
   const [initialCountryCode, setInitialCountryCode] = useState("");
   const [initialClubId, setInitialClubId] = useState("");
+  const [initialBio, setInitialBio] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -68,10 +70,13 @@ export default function ProfilePage() {
           if (!active) return;
           const nextCountry = player.country_code ?? "";
           const nextClub = player.club_id ?? "";
+          const nextBio = player.bio ?? "";
           setCountryCode(nextCountry);
           setClubId(nextClub);
+          setBio(nextBio);
           setInitialCountryCode(nextCountry);
           setInitialClubId(nextClub);
+          setInitialBio(nextBio);
         } catch (playerErr) {
           if (!active) return;
           const status = (playerErr as Error & { status?: number }).status;
@@ -84,6 +89,8 @@ export default function ProfilePage() {
             setInitialCountryCode("");
             setClubId("");
             setInitialClubId("");
+            setBio("");
+            setInitialBio("");
           } else {
             console.error("Failed to load player profile", playerErr);
             setError("Failed to load profile");
@@ -165,6 +172,9 @@ export default function ProfilePage() {
 
     const countryChanged = normalizedCountry !== initialCountryCode;
     const clubChanged = trimmedClubId !== initialClubId;
+    const trimmedBio = bio.trim();
+    const normalizedBio = trimmedBio.length > 0 ? trimmedBio : null;
+    const bioChanged = bio !== initialBio;
 
     const payload: PlayerLocationPayload = {};
 
@@ -180,6 +190,10 @@ export default function ProfilePage() {
       payload.club_id = trimmedClubId ? trimmedClubId : null;
     }
 
+    if (bioChanged) {
+      payload.bio = normalizedBio;
+    }
+
     setSaving(true);
     try {
       if (Object.keys(payload).length > 0) {
@@ -187,10 +201,13 @@ export default function ProfilePage() {
           const updatedPlayer = await updateMyPlayerLocation(payload);
           const nextCountry = updatedPlayer.country_code ?? "";
           const nextClub = updatedPlayer.club_id ?? "";
+          const nextBio = updatedPlayer.bio ?? "";
           setCountryCode(nextCountry);
           setClubId(nextClub);
+          setBio(nextBio);
           setInitialCountryCode(nextCountry);
           setInitialClubId(nextClub);
+          setInitialBio(nextBio);
         } catch (err) {
           const status = (err as Error & { status?: number }).status;
           if (status === 422) {
@@ -283,6 +300,17 @@ export default function ProfilePage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
+        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          Biography
+          <textarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            rows={5}
+            maxLength={2000}
+            placeholder="Share a few lines about yourself"
+            style={{ resize: "vertical" }}
+          />
+        </label>
         <select
           aria-label="Country"
           value={countryCode}

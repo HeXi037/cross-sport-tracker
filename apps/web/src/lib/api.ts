@@ -148,6 +148,7 @@ export interface PlayerMe {
   region_code: string | null;
   club_id?: string | null;
   photo_url?: string | null;
+  bio: string | null;
 }
 
 export type PlayerLocationPayload = {
@@ -155,6 +156,7 @@ export type PlayerLocationPayload = {
   country_code?: string | null;
   region_code?: string | null;
   club_id?: string | null;
+  bio?: string | null;
 };
 
 export async function fetchMyPlayer(): Promise<PlayerMe> {

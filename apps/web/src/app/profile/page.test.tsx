@@ -9,6 +9,7 @@ const apiMocks = vi.hoisted(() => ({
   apiFetch: vi.fn(),
   fetchMyPlayer: vi.fn(),
   updateMyPlayerLocation: vi.fn(),
+  fetchClubs: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -28,6 +29,8 @@ describe("ProfilePage", () => {
     apiMocks.apiFetch.mockReset();
     apiMocks.fetchMyPlayer.mockReset();
     apiMocks.updateMyPlayerLocation.mockReset();
+    apiMocks.fetchClubs.mockReset();
+    apiMocks.fetchClubs.mockResolvedValue([]);
     apiMocks.isLoggedIn.mockReturnValue(true);
     window.localStorage.clear();
   });
@@ -45,6 +48,7 @@ describe("ProfilePage", () => {
       country_code: "US",
       region_code: "NA",
       club_id: "club-old",
+      bio: "Existing bio",
     });
 
     await act(async () => {
@@ -55,12 +59,17 @@ describe("ProfilePage", () => {
     const countrySelect = screen.getByLabelText("Country") as HTMLSelectElement;
     expect(countrySelect.value).toBe("US");
     expect(screen.getByText(/Continent:/i)).toHaveTextContent("North America");
+    const [, clubSelect] = screen.getAllByLabelText("Favorite club") as [
+      HTMLInputElement,
+      HTMLSelectElement,
+    ];
+    expect(clubSelect.value).toBe("club-old");
     expect(
-      screen.getByLabelText("Favorite club") as HTMLInputElement
-    ).toHaveValue("club-old");
+      screen.getByLabelText("Biography") as HTMLTextAreaElement
+    ).toHaveValue("Existing bio");
   });
 
-  it("submits updated country and favorite club when saving", async () => {
+  it("submits updated country and biography when saving", async () => {
     apiMocks.fetchMe.mockResolvedValue({ username: "existing" });
     apiMocks.fetchMyPlayer.mockResolvedValue({
       id: "player-1",
@@ -69,6 +78,7 @@ describe("ProfilePage", () => {
       country_code: "US",
       region_code: "NA",
       club_id: "club-old",
+      bio: "Existing bio",
     });
     apiMocks.updateMyPlayerLocation.mockResolvedValue({
       id: "player-1",
@@ -77,6 +87,7 @@ describe("ProfilePage", () => {
       country_code: "SE",
       region_code: "EU",
       club_id: "club-new",
+      bio: "Updated biography",
     });
     apiMocks.updateMe.mockResolvedValue({ access_token: "new.token.value" });
 
@@ -85,10 +96,11 @@ describe("ProfilePage", () => {
     });
 
     const countrySelect = screen.getByLabelText("Country") as HTMLSelectElement;
-    const clubInput = screen.getByLabelText("Favorite club") as HTMLInputElement;
+    screen.getAllByLabelText("Favorite club");
+    const bioTextarea = screen.getByLabelText("Biography") as HTMLTextAreaElement;
 
     fireEvent.change(countrySelect, { target: { value: "SE" } });
-    fireEvent.change(clubInput, { target: { value: " club-new " } });
+    fireEvent.change(bioTextarea, { target: { value: "Updated biography" } });
 
     const saveButton = screen.getByRole("button", { name: /save/i });
 
@@ -98,12 +110,14 @@ describe("ProfilePage", () => {
 
     const statusMessage = await screen.findByRole("status");
 
-    expect(apiMocks.updateMyPlayerLocation).toHaveBeenCalledWith({
-      location: "SE",
-      country_code: "SE",
-      region_code: "EU",
-      club_id: "club-new",
-    });
+    expect(apiMocks.updateMyPlayerLocation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        location: "SE",
+        country_code: "SE",
+        region_code: "EU",
+        bio: "Updated biography",
+      })
+    );
     expect(apiMocks.updateMe).toHaveBeenCalledWith({ username: "existing" });
     expect(statusMessage).toHaveTextContent(/profile updated/i);
     expect(window.localStorage.getItem("token")).toBe("new.token.value");
@@ -118,6 +132,7 @@ describe("ProfilePage", () => {
       country_code: "US",
       region_code: "NA",
       club_id: "club-old",
+      bio: "Existing bio",
     });
     apiMocks.updateMyPlayerLocation.mockResolvedValue({
       id: "player-1",
@@ -126,6 +141,7 @@ describe("ProfilePage", () => {
       country_code: null,
       region_code: null,
       club_id: null,
+      bio: null,
     });
     apiMocks.updateMe.mockResolvedValue({});
 
@@ -136,10 +152,15 @@ describe("ProfilePage", () => {
     await screen.findByDisplayValue("existing");
 
     const countrySelect = screen.getByLabelText("Country") as HTMLSelectElement;
-    const clubInput = screen.getByLabelText("Favorite club") as HTMLInputElement;
+    const [, clubSelect] = screen.getAllByLabelText("Favorite club") as [
+      HTMLInputElement,
+      HTMLSelectElement,
+    ];
+    const bioTextarea = screen.getByLabelText("Biography") as HTMLTextAreaElement;
 
     fireEvent.change(countrySelect, { target: { value: "" } });
-    fireEvent.change(clubInput, { target: { value: " " } });
+    fireEvent.change(clubSelect, { target: { value: "" } });
+    fireEvent.change(bioTextarea, { target: { value: "   " } });
 
     const saveButton = screen.getByRole("button", { name: /save/i });
 
@@ -152,6 +173,7 @@ describe("ProfilePage", () => {
       country_code: null,
       region_code: null,
       club_id: null,
+      bio: null,
     });
   });
 });

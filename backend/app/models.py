@@ -40,6 +40,7 @@ class Player(Base):
     name = Column(String, nullable=False)
     club_id = Column(String, ForeignKey("club.id"), nullable=True)
     photo_url = Column(String, nullable=True)
+    bio = Column(Text, nullable=True)
     location = Column(String, nullable=True)
     country_code = Column(String(2), nullable=True)
     region_code = Column(String(3), nullable=True)

@@ -42,10 +42,21 @@ class PlayerCreate(BaseModel):
     )
     club_id: Optional[str] = None
     photo_url: Optional[str] = None
+    bio: Optional[str] = Field(default=None, max_length=2000)
     location: Optional[str] = None
     ranking: Optional[int] = None
     country_code: Optional[str] = None
     region_code: Optional[str] = None
+
+    @field_validator("bio", mode="before")
+    @classmethod
+    def _normalize_bio(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            trimmed = value.strip()
+            return trimmed or None
+        raise TypeError("bio must be a string")
 
     @model_validator(mode="after")
     def _normalize_location(cls, model: "PlayerCreate") -> "PlayerCreate":
@@ -73,6 +84,7 @@ class PlayerLocationUpdate(BaseModel):
     country_code: Optional[str] = None
     region_code: Optional[str] = None
     club_id: Optional[str] = None
+    bio: Optional[str] = Field(default=None, max_length=2000)
 
     @field_validator("club_id", mode="after")
     @classmethod
@@ -83,6 +95,16 @@ class PlayerLocationUpdate(BaseModel):
             trimmed = value.strip()
             return trimmed or None
         raise TypeError("club_id must be a string")
+
+    @field_validator("bio", mode="before")
+    @classmethod
+    def _normalize_bio(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            trimmed = value.strip()
+            return trimmed or None
+        raise TypeError("bio must be a string")
 
     @model_validator(mode="after")
     def _normalize_location(
@@ -112,6 +134,7 @@ class PlayerOut(BaseModel):
     name: str
     club_id: Optional[str] = None
     photo_url: Optional[str] = None
+    bio: Optional[str] = None
     location: Optional[str] = None
     ranking: Optional[int] = None
     country_code: Optional[str] = None
@@ -138,6 +161,16 @@ class PlayerOut(BaseModel):
             model.location = None
             model.region_code = None
         return model
+
+    @field_validator("bio", mode="before")
+    @classmethod
+    def _normalize_bio(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            trimmed = value.strip()
+            return trimmed or None
+        raise TypeError("bio must be a string")
 
 class PlayerNameOut(BaseModel):
     id: str

@@ -117,7 +117,7 @@ describe("PlayersPage", () => {
     vi.useRealTimers();
   });
 
-  it("filters out Albert accounts", async () => {
+  it("renders players even when named Albert", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -129,6 +129,14 @@ describe("PlayersPage", () => {
           ],
         }),
       })
+      .mockResolvedValueOnce(
+        mockStatsResponse({
+          playerId: "1",
+          wins: 5,
+          losses: 2,
+          winPct: 0.7142857143,
+        })
+      )
       .mockResolvedValueOnce(
         mockStatsResponse({
           playerId: "2",
@@ -143,8 +151,10 @@ describe("PlayersPage", () => {
       render(<PlayersPage />);
     });
 
-    expect(screen.queryByText("Albert")).toBeNull();
-    expect(screen.getByText("Bob")).toBeTruthy();
+    expect(await screen.findByText("Albert")).toBeTruthy();
+    expect(await screen.findByText("Bob")).toBeTruthy();
+    expect(await screen.findByText("5-2 (71%)")).toBeTruthy();
+    expect(await screen.findByText("4-1 (80%)")).toBeTruthy();
   });
 
   it("shows a message when no players match the search", async () => {

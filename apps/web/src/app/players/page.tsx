@@ -54,10 +54,7 @@ export default function PlayersPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        const filtered = (data.players as Player[]).filter(
-          (p) => !p.name.toLowerCase().startsWith("albert")
-        );
-        setPlayers(filtered);
+        setPlayers(data.players as Player[]);
       } else {
         setError("Failed to load players.");
       }

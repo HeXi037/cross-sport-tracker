@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 import { execSync } from "child_process";
@@ -74,5 +74,91 @@ describe("MatchDetailPage", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Ann vs Ben vs Cam" })
     ).toBeInTheDocument();
+  });
+
+  it("renders racket sport summary with detailed scoreboard", async () => {
+    const match = {
+      id: "m3",
+      sport: "tennis",
+      ruleset: "",
+      status: "",
+      playedAt: null,
+      participants: [
+        { side: "A", playerIds: ["p1"] },
+        { side: "B", playerIds: ["p2"] },
+      ],
+      summary: {
+        sets: { A: 2, B: 1 },
+        games: { A: 6, B: 4 },
+        points: { A: 30, B: 15 },
+      },
+    };
+
+    apiFetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => match })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: "p1", name: "Serena" },
+          { id: "p2", name: "Venus" },
+        ],
+      });
+
+    render(await MatchDetailPage({ params: { mid: "m3" } }));
+
+    const table = await screen.findByRole("table", { name: /racket scoreboard/i });
+    const rows = within(table).getAllByRole("row");
+    expect(rows).toHaveLength(3);
+    const sideARow = rows[1];
+    const sideBRow = rows[2];
+    expect(within(sideARow).getByText("A")).toBeInTheDocument();
+    expect(within(sideARow).getByText("2")).toBeInTheDocument();
+    expect(within(sideARow).getByText("6")).toBeInTheDocument();
+    expect(within(sideARow).getByText("30")).toBeInTheDocument();
+    expect(within(sideBRow).getByText("1")).toBeInTheDocument();
+    expect(within(sideBRow).getByText("4")).toBeInTheDocument();
+    expect(within(sideBRow).getByText("15")).toBeInTheDocument();
+  });
+
+  it("renders disc golf hole breakdown including to-par totals", async () => {
+    const match = {
+      id: "m4",
+      sport: "disc_golf",
+      ruleset: "",
+      status: "",
+      playedAt: null,
+      participants: [
+        { side: "A", playerIds: ["p1"] },
+        { side: "B", playerIds: ["p2"] },
+      ],
+      summary: {
+        scores: { A: [3, 4, 2], B: [4, 5, 3] },
+        pars: [3, 4, 3],
+        totals: { A: 9, B: 12 },
+        parTotal: 10,
+        toPar: { A: -1, B: 2 },
+      },
+    };
+
+    apiFetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => match })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: "p1", name: "Eagle" },
+          { id: "p2", name: "Faldo" },
+        ],
+      });
+
+    render(await MatchDetailPage({ params: { mid: "m4" } }));
+
+    const table = await screen.findByRole("table", { name: /disc golf scoreboard/i });
+    expect(within(table).getByText("H1")).toBeInTheDocument();
+    expect(within(table).getByText("Par")).toBeInTheDocument();
+    expect(within(table).getByText("H3")).toBeInTheDocument();
+    expect(within(table).getByText("9")).toBeInTheDocument();
+    expect(within(table).getByText("12")).toBeInTheDocument();
+    expect(within(table).getByText("+2")).toBeInTheDocument();
+    expect(within(table).getByText("-1")).toBeInTheDocument();
   });
 });

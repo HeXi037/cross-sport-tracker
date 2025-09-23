@@ -25,7 +25,7 @@ export type EnrichedMatch = MatchRow & {
   players: Record<string, PlayerInfo[]>;
 };
 
-import { apiFetch } from './api';
+import { apiFetch, withAbsolutePhotoUrl } from './api';
 
 export async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
   const details = await Promise.all(
@@ -57,7 +57,7 @@ export async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> 
         if (p.id) {
           remaining.delete(p.id);
           if (p.name) {
-            idToPlayer.set(p.id, p);
+            idToPlayer.set(p.id, withAbsolutePhotoUrl(p));
           } else {
             missing.push(p.id);
             idToPlayer.set(p.id, { id: p.id, name: 'Unknown' });

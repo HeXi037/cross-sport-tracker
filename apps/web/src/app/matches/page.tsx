@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, withAbsolutePhotoUrl } from "../../lib/api";
 import Pager from "./pager";
 import PlayerName, { PlayerInfo } from "../../components/PlayerName";
 
@@ -76,7 +76,12 @@ async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
         if (p.id) {
           remaining.delete(p.id);
           if (p.name) {
-            idToPlayer.set(p.id, p as PlayerInfo);
+            const info: PlayerInfo = {
+              id: p.id,
+              name: p.name,
+              photo_url: p.photo_url ?? null,
+            };
+            idToPlayer.set(p.id, withAbsolutePhotoUrl(info));
           } else {
             missing.push(p.id);
             idToPlayer.set(p.id, { id: p.id, name: "Unknown" });

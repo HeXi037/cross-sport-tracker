@@ -13,6 +13,7 @@ import {
   updateMySocialLink,
   deleteMySocialLink,
   type PlayerSocialLink,
+  ensureAbsoluteApiUrl,
 } from "../../lib/api";
 import type { PlayerLocationPayload } from "../../lib/api";
 import ClubSelect from "../../components/ClubSelect";
@@ -86,7 +87,11 @@ export default function ProfilePage() {
         const me = await fetchMe();
         if (!active) return;
         setUsername(me.username);
-        setPhotoUrl(me.photo_url ?? null);
+        setPhotoUrl(
+          typeof me.photo_url === "string" && me.photo_url
+            ? ensureAbsoluteApiUrl(me.photo_url)
+            : null
+        );
         try {
           const player = await fetchMyPlayer();
           if (!active) return;
@@ -151,7 +156,11 @@ export default function ProfilePage() {
         body: form,
       });
       const data = (await res.json()) as { photo_url?: string };
-      setPhotoUrl(data.photo_url ?? null);
+      setPhotoUrl(
+        typeof data.photo_url === "string" && data.photo_url
+          ? ensureAbsoluteApiUrl(data.photo_url)
+          : null
+      );
       setMessage("Profile photo updated");
     } catch {
       setError("Photo upload failed");

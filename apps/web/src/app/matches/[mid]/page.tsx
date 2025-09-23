@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { apiFetch } from "../../../lib/api";
+import { apiFetch, withAbsolutePhotoUrl } from "../../../lib/api";
 import LiveSummary, { type SummaryData } from "./live-summary";
 import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
 
@@ -53,7 +53,7 @@ async function fetchPlayers(ids: string[]): Promise<Map<string, PlayerInfo>> {
     if (p.id) {
       remaining.delete(p.id);
       if (p.name) {
-        map.set(p.id, p);
+        map.set(p.id, withAbsolutePhotoUrl(p));
       } else {
         missing.push(p.id);
         map.set(p.id, { id: p.id, name: "Unknown" });

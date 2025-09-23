@@ -3,15 +3,20 @@ import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 import { execSync } from "child_process";
 
-vi.mock("../../../lib/api", () => ({
-  apiFetch: vi.fn(),
-  apiUrl: (p: string) => p,
-}));
+const apiFetchMock = vi.hoisted(() => vi.fn());
+
+vi.mock("../../../lib/api", async () => {
+  const actual = await vi.importActual<typeof import("../../../lib/api")>(
+    "../../../lib/api"
+  );
+  return {
+    ...actual,
+    apiFetch: apiFetchMock,
+    apiUrl: (p: string) => p,
+  };
+});
 
 import MatchDetailPage from "./page";
-import { apiFetch } from "../../../lib/api";
-
-const apiFetchMock = apiFetch as unknown as ReturnType<typeof vi.fn>;
 
 describe("MatchDetailPage", () => {
   afterEach(() => {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { apiFetch } from '../../../lib/api';
+import { apiFetch, ensureAbsoluteApiUrl } from '../../../lib/api';
 
 interface Props {
   playerId: string;
@@ -24,7 +24,11 @@ export default function PhotoUpload({ playerId, initialUrl }: Props) {
     });
     if (r.ok) {
       const data = (await r.json()) as { photo_url?: string };
-      setUrl(data.photo_url ?? null);
+      setUrl(
+        typeof data.photo_url === 'string' && data.photo_url
+          ? ensureAbsoluteApiUrl(data.photo_url)
+          : null
+      );
     }
     setUploading(false);
   };

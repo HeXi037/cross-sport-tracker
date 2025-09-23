@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { apiFetch, fetchClubs } from "../../../lib/api";
+import { apiFetch, fetchClubs, withAbsolutePhotoUrl } from "../../../lib/api";
 import PlayerCharts from "./PlayerCharts";
 import PlayerComments from "./comments-client";
 import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
@@ -86,7 +86,8 @@ async function getPlayer(id: string): Promise<Player> {
     cache: "no-store",
   } as RequestInit);
   if (!res.ok) throw new Error("player");
-  return (await res.json()) as Player;
+  const data = (await res.json()) as Player;
+  return withAbsolutePhotoUrl(data);
 }
 
 async function getMatches(
@@ -134,7 +135,7 @@ async function getMatches(
         if (p.id) {
           remaining.delete(p.id);
           if (p.name) {
-            idToPlayer.set(p.id, p);
+            idToPlayer.set(p.id, withAbsolutePhotoUrl(p));
           } else {
             missing.push(p.id);
             idToPlayer.set(p.id, { id: p.id, name: "Unknown" });

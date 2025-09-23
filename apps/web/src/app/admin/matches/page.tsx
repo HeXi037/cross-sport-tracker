@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { apiFetch, isAdmin } from "../../../lib/api";
+import { apiFetch, isAdmin, withAbsolutePhotoUrl } from "../../../lib/api";
 import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
 
 type MatchRow = {
@@ -69,7 +69,7 @@ async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
         if (p.id) {
           remaining.delete(p.id);
           if (p.name) {
-            idToPlayer.set(p.id, p);
+            idToPlayer.set(p.id, withAbsolutePhotoUrl(p));
           } else {
             missing.push(p.id);
             idToPlayer.set(p.id, { id: p.id, name: "Unknown" });

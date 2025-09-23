@@ -13,6 +13,31 @@ export function apiUrl(path: string): string {
   return `${b}${p}`;
 }
 
+const ABSOLUTE_URL_REGEX = /^[a-zA-Z][a-zA-Z\d+\-.]*:/;
+
+export function ensureAbsoluteApiUrl(path: string): string;
+export function ensureAbsoluteApiUrl(path: string | null): string | null;
+export function ensureAbsoluteApiUrl(path: string | undefined): string | undefined;
+export function ensureAbsoluteApiUrl(
+  path: string | null | undefined
+): string | null | undefined {
+  if (path == null) return path;
+  if (path === '') return path;
+  if (path.startsWith('//')) return path;
+  if (ABSOLUTE_URL_REGEX.test(path)) return path;
+  return apiUrl(path);
+}
+
+export function withAbsolutePhotoUrl<T extends { photo_url?: string | null }>(
+  entity: T
+): T {
+  const url = entity?.photo_url;
+  if (typeof url !== 'string') return entity;
+  const normalized = ensureAbsoluteApiUrl(url);
+  if (normalized === url) return entity;
+  return { ...entity, photo_url: normalized } as T;
+}
+
 export async function apiFetch(path: string, init?: RequestInit) {
   const headers = new Headers(init?.headers);
   if (typeof window !== "undefined") {
@@ -113,7 +138,8 @@ export function isAdmin(): boolean {
 
 export async function fetchMe() {
   const res = await apiFetch("/v0/auth/me");
-  return res.json();
+  const data = (await res.json()) as PlayerMe;
+  return withAbsolutePhotoUrl(data);
 }
 
 export async function updateMe(data: {
@@ -176,7 +202,8 @@ export type PlayerSocialLinkUpdatePayload = Partial<PlayerSocialLinkCreatePayloa
 
 export async function fetchMyPlayer(): Promise<PlayerMe> {
   const res = await apiFetch("/v0/players/me");
-  return res.json();
+  const data = (await res.json()) as PlayerMe;
+  return withAbsolutePhotoUrl(data);
 }
 
 export async function updateMyPlayerLocation(
@@ -191,7 +218,8 @@ export async function updateMyPlayerLocation(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  return res.json();
+  const updated = (await res.json()) as PlayerMe;
+  return withAbsolutePhotoUrl(updated);
 }
 
 export async function listMySocialLinks(): Promise<PlayerSocialLink[]> {
@@ -241,5 +269,6 @@ export async function updatePlayerLocation(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  return res.json();
+  const updated = (await res.json()) as PlayerMe;
+  return withAbsolutePhotoUrl(updated);
 }

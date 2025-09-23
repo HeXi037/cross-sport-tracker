@@ -1,3 +1,5 @@
+import { ensureAbsoluteApiUrl } from '../lib/api';
+
 export type PlayerInfo = {
   id: string;
   name: string;
@@ -5,12 +7,16 @@ export type PlayerInfo = {
 };
 
 export default function PlayerName({ player }: { player: PlayerInfo }) {
+  const photoUrl =
+    typeof player.photo_url === 'string' && player.photo_url
+      ? ensureAbsoluteApiUrl(player.photo_url)
+      : null;
   return (
     <span className="player-name" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-      {player.photo_url && (
+      {photoUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={player.photo_url}
+          src={photoUrl}
           alt={player.name}
           width={24}
           height={24}

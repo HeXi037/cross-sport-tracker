@@ -9,6 +9,9 @@ const apiMocks = vi.hoisted(() => ({
   apiFetch: vi.fn(),
   fetchMyPlayer: vi.fn(),
   updateMyPlayerLocation: vi.fn(),
+  createMySocialLink: vi.fn(),
+  updateMySocialLink: vi.fn(),
+  deleteMySocialLink: vi.fn(),
 }));
 
 const routerMock = vi.hoisted(() => ({ push: pushMock }));
@@ -17,7 +20,23 @@ vi.mock("next/navigation", () => ({
   useRouter: () => routerMock,
 }));
 
-vi.mock("../../lib/api", () => apiMocks);
+vi.mock("../../lib/api", async () => {
+  const actual = await vi.importActual<typeof import("../../lib/api")>(
+    "../../lib/api"
+  );
+  return {
+    ...actual,
+    fetchMe: apiMocks.fetchMe,
+    updateMe: apiMocks.updateMe,
+    isLoggedIn: apiMocks.isLoggedIn,
+    apiFetch: apiMocks.apiFetch,
+    fetchMyPlayer: apiMocks.fetchMyPlayer,
+    updateMyPlayerLocation: apiMocks.updateMyPlayerLocation,
+    createMySocialLink: apiMocks.createMySocialLink,
+    updateMySocialLink: apiMocks.updateMySocialLink,
+    deleteMySocialLink: apiMocks.deleteMySocialLink,
+  };
+});
 
 import ProfilePage from "./page";
 
@@ -30,6 +49,9 @@ describe("ProfilePage", () => {
     apiMocks.apiFetch.mockReset();
     apiMocks.fetchMyPlayer.mockReset();
     apiMocks.updateMyPlayerLocation.mockReset();
+    apiMocks.createMySocialLink.mockReset();
+    apiMocks.updateMySocialLink.mockReset();
+    apiMocks.deleteMySocialLink.mockReset();
     apiMocks.isLoggedIn.mockReturnValue(true);
     apiMocks.fetchMe.mockResolvedValue({ username: "default-user", photo_url: null });
     apiMocks.fetchMyPlayer.mockResolvedValue({
@@ -71,6 +93,20 @@ describe("ProfilePage", () => {
     const favoriteClubFields = await screen.findAllByLabelText("Favorite club");
     const clubSearchInput = favoriteClubFields[0] as HTMLInputElement;
     expect(clubSearchInput).toHaveValue("club-old");
+  });
+
+  it("normalizes relative profile photo URLs", async () => {
+    apiMocks.fetchMe.mockResolvedValue({
+      username: "relative-user",
+      photo_url: "/media/photos/me.png",
+    });
+
+    await act(async () => {
+      render(<ProfilePage />);
+    });
+
+    const img = await screen.findByAltText("relative-user profile photo");
+    expect(img).toHaveAttribute("src", "/api/media/photos/me.png");
   });
 
   it("submits updated country and favorite club when saving", async () => {

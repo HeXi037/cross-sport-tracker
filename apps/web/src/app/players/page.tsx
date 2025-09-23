@@ -1,7 +1,12 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { apiFetch, isAdmin, updatePlayerLocation } from "../../lib/api";
+import {
+  apiFetch,
+  isAdmin,
+  updatePlayerLocation,
+  withAbsolutePhotoUrl,
+} from "../../lib/api";
 import { COUNTRY_OPTIONS } from "../../lib/countries";
 import PlayerName, { PlayerInfo } from "../../components/PlayerName";
 
@@ -54,7 +59,10 @@ export default function PlayersPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setPlayers(data.players as Player[]);
+        const normalized = ((data.players as Player[]) ?? []).map((p) =>
+          withAbsolutePhotoUrl(p)
+        );
+        setPlayers(normalized);
       } else {
         setError("Failed to load players.");
       }

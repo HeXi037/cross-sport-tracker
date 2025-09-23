@@ -210,6 +210,7 @@ async def _load_social_links(
         ).scalars().all()
     except SQLAlchemyError as exc:
         if is_missing_table_error(exc, PlayerSocialLink.__tablename__):
+            await session.rollback()
             return []
         raise
     return [
@@ -437,6 +438,7 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
         ).scalars().all()
     except SQLAlchemyError as exc:
         if is_missing_table_error(exc, PlayerMetric.__tablename__):
+            await session.rollback()
             rows = []
         else:
             raise
@@ -449,6 +451,7 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
             )
         ).scalars().all()
     except SQLAlchemyError:
+        await session.rollback()
         badges = []
     social_links = await _load_social_links(session, player_id)
     return PlayerOut(

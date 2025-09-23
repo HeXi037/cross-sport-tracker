@@ -197,6 +197,18 @@ async def _get_active_player_for_user(
     ).scalar_one_or_none()
 
 
+async def _rollback_if_active(session: AsyncSession) -> None:
+    """Rollback ``session`` if a transaction is currently active."""
+
+    try:
+        if session.in_transaction():
+            await session.rollback()
+    except SQLAlchemyError:
+        # If rollback itself fails we have nothing else to do; propagate the
+        # original error instead.
+        pass
+
+
 async def _load_social_links(
     session: AsyncSession, player_id: str
 ) -> list[PlayerSocialLinkOut]:
@@ -209,9 +221,12 @@ async def _load_social_links(
             )
         ).scalars().all()
     except SQLAlchemyError as exc:
+        await _rollback_if_active(session)
         if is_missing_table_error(exc, PlayerSocialLink.__tablename__):
-            await session.rollback()
             return []
+        raise
+    except Exception:
+        await _rollback_if_active(session)
         raise
     return [
         PlayerSocialLinkOut(
@@ -990,6 +1005,7 @@ async def _compute_player_stats(
                 )
             ).scalars().all()
         except SQLAlchemyError as exc:  # pragma: no cover - optional history
+            await _rollback_if_active(session)
             if not is_missing_table_error(exc, ScoreEvent.__tablename__):
                 raise
             rating_events = []
@@ -1036,6 +1052,7 @@ async def _compute_player_stats(
             ).scalars().all()
             rating_current = {row.sport_id: row.value for row in rating_rows}
         except SQLAlchemyError as exc:  # pragma: no cover - optional table
+            await _rollback_if_active(session)
             if not is_missing_table_error(exc, Rating.__tablename__):
                 raise
             rating_current = {}
@@ -1056,6 +1073,7 @@ async def _compute_player_stats(
                 for row in glicko_rows
             }
         except SQLAlchemyError as exc:  # pragma: no cover - optional table
+            await _rollback_if_active(session)
             if not is_missing_table_error(exc, GlickoRating.__tablename__):
                 raise
             glicko_current = {}

@@ -25,6 +25,33 @@ export function ensureAbsoluteApiUrl(
   if (path === '') return path;
   if (path.startsWith('//')) return path;
   if (ABSOLUTE_URL_REGEX.test(path)) return path;
+
+  if (path.startsWith('/')) {
+    const base = apiBase();
+
+    if (!ABSOLUTE_URL_REGEX.test(base)) {
+      const normalizedBase = base.endsWith('/') ? base : `${base}/`;
+      if (path.startsWith(normalizedBase)) {
+        return path;
+      }
+    } else {
+      try {
+        const baseUrl = new URL(base);
+        const pathnameWithTrailingSlash = baseUrl.pathname.endsWith('/')
+          ? baseUrl.pathname
+          : `${baseUrl.pathname}/`;
+        if (
+          baseUrl.pathname === '/' ||
+          path.startsWith(pathnameWithTrailingSlash)
+        ) {
+          return `${baseUrl.origin}${path}`;
+        }
+      } catch {
+        // If the base URL cannot be parsed, fall through to the default logic.
+      }
+    }
+  }
+
   return apiUrl(path);
 }
 

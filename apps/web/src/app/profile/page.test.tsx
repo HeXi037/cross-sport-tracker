@@ -65,10 +65,10 @@ describe("ProfilePage", () => {
     });
 
     expect(await screen.findByDisplayValue("existing")).toBeInTheDocument();
-    const countrySelect = screen.getByLabelText("Country") as HTMLSelectElement;
+    const countrySelect = (await screen.findByLabelText("Country")) as HTMLSelectElement;
     expect(countrySelect.value).toBe("US");
-    expect(screen.getByText(/Continent:/i)).toHaveTextContent("North America");
-    const favoriteClubFields = screen.getAllByLabelText("Favorite club");
+    expect(await screen.findByText(/Continent:/i)).toHaveTextContent("North America");
+    const favoriteClubFields = await screen.findAllByLabelText("Favorite club");
     const clubSearchInput = favoriteClubFields[0] as HTMLInputElement;
     expect(clubSearchInput).toHaveValue("club-old");
   });
@@ -99,8 +99,8 @@ describe("ProfilePage", () => {
 
     await screen.findByDisplayValue("existing");
 
-    const countrySelect = screen.getByLabelText("Country") as HTMLSelectElement;
-    const favoriteClubFields = screen.getAllByLabelText("Favorite club");
+    const countrySelect = (await screen.findByLabelText("Country")) as HTMLSelectElement;
+    const favoriteClubFields = await screen.findAllByLabelText("Favorite club");
     const clubSearchInput = favoriteClubFields[0] as HTMLInputElement;
     const clubSelect = favoriteClubFields[1] as HTMLSelectElement;
 
@@ -158,8 +158,8 @@ describe("ProfilePage", () => {
 
     await screen.findByDisplayValue("existing");
 
-    const countrySelect = screen.getByLabelText("Country") as HTMLSelectElement;
-    const favoriteClubFields = screen.getAllByLabelText("Favorite club");
+    const countrySelect = (await screen.findByLabelText("Country")) as HTMLSelectElement;
+    const favoriteClubFields = await screen.findAllByLabelText("Favorite club");
     const clubSearchInput = favoriteClubFields[0] as HTMLInputElement;
     const clubSelect = favoriteClubFields[1] as HTMLSelectElement;
 

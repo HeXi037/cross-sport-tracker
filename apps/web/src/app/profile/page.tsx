@@ -13,6 +13,7 @@ import {
   updateMySocialLink,
   deleteMySocialLink,
   type PlayerSocialLink,
+  type UserMe,
   ensureAbsoluteApiUrl,
 } from "../../lib/api";
 import type { PlayerLocationPayload } from "../../lib/api";
@@ -84,7 +85,7 @@ export default function ProfilePage() {
     let active = true;
     (async () => {
       try {
-        const me = await fetchMe();
+        const me: UserMe = await fetchMe();
         if (!active) return;
         setUsername(me.username);
         setPhotoUrl(

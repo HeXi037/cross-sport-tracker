@@ -53,7 +53,12 @@ describe("ProfilePage", () => {
     apiMocks.updateMySocialLink.mockReset();
     apiMocks.deleteMySocialLink.mockReset();
     apiMocks.isLoggedIn.mockReturnValue(true);
-    apiMocks.fetchMe.mockResolvedValue({ username: "default-user", photo_url: null });
+    apiMocks.fetchMe.mockResolvedValue({
+      id: "user-default",
+      username: "default-user",
+      is_admin: false,
+      photo_url: null,
+    });
     apiMocks.fetchMyPlayer.mockResolvedValue({
       id: "default-player",
       name: "Default Player",
@@ -72,7 +77,12 @@ describe("ProfilePage", () => {
   });
 
   it("loads and displays existing player details", async () => {
-    apiMocks.fetchMe.mockResolvedValue({ username: "existing", photo_url: "photo.png" });
+    apiMocks.fetchMe.mockResolvedValue({
+      id: "user-existing",
+      username: "existing",
+      is_admin: false,
+      photo_url: "photo.png",
+    });
     apiMocks.fetchMyPlayer.mockResolvedValue({
       id: "player-1",
       name: "Existing Player",
@@ -97,7 +107,9 @@ describe("ProfilePage", () => {
 
   it("normalizes relative profile photo URLs", async () => {
     apiMocks.fetchMe.mockResolvedValue({
+      id: "user-relative",
       username: "relative-user",
+      is_admin: false,
       photo_url: "/media/photos/me.png",
     });
 
@@ -110,7 +122,11 @@ describe("ProfilePage", () => {
   });
 
   it("submits updated country and favorite club when saving", async () => {
-    apiMocks.fetchMe.mockResolvedValue({ username: "existing" });
+    apiMocks.fetchMe.mockResolvedValue({
+      id: "user-existing",
+      username: "existing",
+      is_admin: false,
+    });
     apiMocks.fetchMyPlayer.mockResolvedValue({
       id: "player-1",
       name: "Existing Player",
@@ -169,7 +185,11 @@ describe("ProfilePage", () => {
   });
 
   it("allows clearing country and club", async () => {
-    apiMocks.fetchMe.mockResolvedValue({ username: "existing" });
+    apiMocks.fetchMe.mockResolvedValue({
+      id: "user-existing",
+      username: "existing",
+      is_admin: false,
+    });
     apiMocks.fetchMyPlayer.mockResolvedValue({
       id: "player-1",
       name: "Existing Player",

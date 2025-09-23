@@ -136,22 +136,37 @@ export function isAdmin(): boolean {
   return !!payload?.is_admin;
 }
 
-export async function fetchMe() {
+export interface UserMe {
+  id: string;
+  username: string;
+  is_admin: boolean;
+  photo_url?: string | null;
+}
+
+export async function fetchMe(): Promise<UserMe> {
   const res = await apiFetch("/v0/auth/me");
-  const data = (await res.json()) as PlayerMe;
+  const data = (await res.json()) as UserMe;
   return withAbsolutePhotoUrl(data);
 }
+
+export interface TokenResponse {
+  access_token: string;
+  refresh_token: string;
+}
+
+export type UpdateMeResponse = Partial<TokenResponse>;
 
 export async function updateMe(data: {
   username?: string;
   password?: string;
-}) {
+}): Promise<UpdateMeResponse> {
   const res = await apiFetch("/v0/auth/me", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  return res.json();
+  const payload = (await res.json()) as UpdateMeResponse;
+  return payload;
 }
 
 export interface ClubSummary {

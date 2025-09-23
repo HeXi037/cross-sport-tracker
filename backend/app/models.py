@@ -46,6 +46,13 @@ class Player(Base):
     ranking = Column(Integer, nullable=True)
     deleted_at = Column(DateTime, nullable=True)
 
+    social_links = relationship(
+        "PlayerSocialLink",
+        cascade="all, delete-orphan",
+        order_by="PlayerSocialLink.created_at",
+        back_populates="player",
+    )
+
     __table_args__ = (
         Index("uq_player_name_lower", func.lower(name), unique=True),
     )
@@ -127,6 +134,18 @@ class Rating(Base):
     player_id = Column(String, ForeignKey("player.id"), nullable=False)
     sport_id = Column(String, ForeignKey("sport.id"), nullable=False)
     value = Column(Float, nullable=False, default=1000)
+
+
+class PlayerSocialLink(Base):
+    __tablename__ = "player_social_link"
+
+    id = Column(String, primary_key=True)
+    player_id = Column(String, ForeignKey("player.id", ondelete="CASCADE"), nullable=False)
+    label = Column(String(100), nullable=False)
+    url = Column(String, nullable=False)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    player = relationship("Player", back_populates="social_links")
 
 
 class GlickoRating(Base):

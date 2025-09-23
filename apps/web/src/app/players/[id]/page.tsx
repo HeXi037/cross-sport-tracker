@@ -10,12 +10,20 @@ export const dynamic = "force-dynamic";
 interface Player extends PlayerInfo {
   club_id?: string | null;
   badges: Badge[];
+  social_links?: PlayerSocialLink[];
 }
 
 interface Badge {
   id: string;
   name: string;
   icon?: string | null;
+}
+
+interface PlayerSocialLink {
+  id: string;
+  label: string;
+  url: string;
+  created_at: string;
 }
 
 type MatchRow = {
@@ -183,6 +191,36 @@ async function getStats(playerId: string): Promise<PlayerStats | null> {
   return (await r.json()) as PlayerStats;
 }
 
+function iconForSocialLink(link: PlayerSocialLink): string {
+  const label = link.label.toLowerCase();
+  let host = "";
+  try {
+    host = new URL(link.url).hostname.toLowerCase();
+  } catch {
+    host = "";
+  }
+  const checks: { icon: string; needles: string[] }[] = [
+    { icon: "𝕏", needles: ["twitter", "x.com"] },
+    { icon: "📸", needles: ["instagram"] },
+    { icon: "▶️", needles: ["youtube", "youtu.be"] },
+    { icon: "🎮", needles: ["twitch"] },
+    { icon: "🎵", needles: ["tiktok"] },
+    { icon: "📘", needles: ["facebook"] },
+    { icon: "💼", needles: ["linkedin"] },
+    { icon: "🌐", needles: ["website", "blog"] },
+  ];
+  for (const { icon, needles } of checks) {
+    if (
+      needles.some(
+        (needle) => label.includes(needle) || host.includes(needle)
+      )
+    ) {
+      return icon;
+    }
+  }
+  return "🔗";
+}
+
 function formatSummary(s?: MatchDetail["summary"]): string {
   if (!s) return "";
   const render = (scores: Record<string, number>, label: string) => {
@@ -323,6 +361,40 @@ export default async function PlayerPage({
           </h1>
           {player.club_id ? (
             <p>Club: {clubName ?? player.club_id}</p>
+          ) : null}
+          {player.social_links && player.social_links.length ? (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "0.5rem",
+                marginTop: "0.75rem",
+              }}
+            >
+              {player.social_links.map((link) => (
+                <a
+                  key={link.id}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.35rem",
+                    padding: "0.35rem 0.75rem",
+                    borderRadius: "9999px",
+                    backgroundColor: "#f4f4f4",
+                    color: "inherit",
+                    textDecoration: "none",
+                    border: "1px solid #e0e0e0",
+                  }}
+                  title={link.url}
+                >
+                  <span aria-hidden="true">{iconForSocialLink(link)}</span>
+                  <span>{link.label}</span>
+                </a>
+              ))}
+            </div>
           ) : null}
 
           <nav className="mt-4 mb-4 space-x-4">

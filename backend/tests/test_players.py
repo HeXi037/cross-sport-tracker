@@ -1,4 +1,4 @@
-import os, sys, asyncio, base64, pytest
+import os, sys, asyncio, base64, pytest, uuid
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -18,6 +18,7 @@ from app.models import (
     PlayerBadge,
     PlayerMetric,
     RefreshToken,
+    PlayerSocialLink,
 )
 from app.exceptions import DomainException, ProblemDetail
 
@@ -68,18 +69,19 @@ def setup_db():
         db.AsyncSessionLocal = None
         engine = db.get_engine()
         async with engine.begin() as conn:
-            await conn.run_sync(
-                db.Base.metadata.create_all,
-                tables=[
-                    Club.__table__,
-                    Player.__table__,
-                    User.__table__,
-                    Badge.__table__,
-                    PlayerBadge.__table__,
-                    PlayerMetric.__table__,
-                    RefreshToken.__table__,
-                ],
-            )
+                await conn.run_sync(
+                    db.Base.metadata.create_all,
+                    tables=[
+                        Club.__table__,
+                        Player.__table__,
+                        User.__table__,
+                        Badge.__table__,
+                        PlayerBadge.__table__,
+                        PlayerMetric.__table__,
+                        RefreshToken.__table__,
+                        PlayerSocialLink.__table__,
+                    ],
+                )
     asyncio.run(init_models())
     yield
     if os.path.exists("./test_players.db"):
@@ -166,6 +168,88 @@ def test_delete_player_soft_delete() -> None:
     asyncio.run(check_deleted())
 
 
+def test_player_social_links_crud(async_client) -> None:
+    client, loop = async_client
+
+    async def scenario() -> None:
+        username = f"social-{uuid.uuid4().hex[:6]}"
+        resp = await client.post(
+            "/auth/signup",
+            json={"username": username, "password": "Str0ng!Pass!"},
+        )
+        assert resp.status_code == 200
+        token = resp.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        me_resp = await client.get("/players/me", headers=headers)
+        assert me_resp.status_code == 200
+        me_data = me_resp.json()
+        assert me_data["social_links"] == []
+        player_id = me_data["id"]
+
+        list_resp = await client.get("/players/me/social-links", headers=headers)
+        assert list_resp.status_code == 200
+        assert list_resp.json() == []
+
+        create_resp = await client.post(
+            "/players/me/social-links",
+            json={"label": "Website", "url": "https://example.com"},
+            headers=headers,
+        )
+        assert create_resp.status_code == 201
+        created = create_resp.json()
+        assert created["label"] == "Website"
+        link_id = created["id"]
+
+        player_with_link = await client.get("/players/me", headers=headers)
+        assert player_with_link.status_code == 200
+        assert len(player_with_link.json()["social_links"]) == 1
+
+        public_player = await client.get(f"/players/{player_id}")
+        assert public_player.status_code == 200
+        assert len(public_player.json()["social_links"]) == 1
+
+        update_resp = await client.patch(
+            f"/players/me/social-links/{link_id}",
+            json={"label": "Home", "url": "https://example.com/about"},
+            headers=headers,
+        )
+        assert update_resp.status_code == 200
+        assert update_resp.json()["label"] == "Home"
+
+        delete_resp = await client.delete(
+            f"/players/me/social-links/{link_id}", headers=headers
+        )
+        assert delete_resp.status_code == 204
+
+        final_list = await client.get("/players/me/social-links", headers=headers)
+        assert final_list.status_code == 200
+        assert final_list.json() == []
+
+    loop.run_until_complete(scenario())
+
+
+def test_player_social_link_invalid_url(async_client) -> None:
+    client, loop = async_client
+
+    async def scenario() -> None:
+        username = f"social-invalid-{uuid.uuid4().hex[:6]}"
+        resp = await client.post(
+            "/auth/signup",
+            json={"username": username, "password": "Str0ng!Pass!"},
+        )
+        assert resp.status_code == 200
+        token = resp.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        bad_resp = await client.post(
+            "/players/me/social-links",
+            json={"label": "FTP", "url": "ftp://example.com"},
+            headers=headers,
+        )
+        assert bad_resp.status_code == 422
+
+    loop.run_until_complete(scenario())
 def test_hard_delete_player_allows_username_reuse() -> None:
     with TestClient(app) as client:
         token = admin_token(client)

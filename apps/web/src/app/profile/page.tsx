@@ -46,8 +46,10 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [countryCode, setCountryCode] = useState("");
   const [clubId, setClubId] = useState("");
+  const [bio, setBio] = useState("");
   const [initialCountryCode, setInitialCountryCode] = useState("");
   const [initialClubId, setInitialClubId] = useState("");
+  const [initialBio, setInitialBio] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -67,10 +69,13 @@ export default function ProfilePage() {
           if (!active) return;
           const nextCountry = player.country_code ?? "";
           const nextClub = player.club_id ?? "";
+          const nextBio = player.bio ?? "";
           setCountryCode(nextCountry);
           setClubId(nextClub);
+          setBio(nextBio);
           setInitialCountryCode(nextCountry);
           setInitialClubId(nextClub);
+          setInitialBio(nextBio);
         } catch (playerErr) {
           if (!active) return;
           const status = (playerErr as Error & { status?: number }).status;
@@ -83,6 +88,8 @@ export default function ProfilePage() {
             setInitialCountryCode("");
             setClubId("");
             setInitialClubId("");
+            setBio("");
+            setInitialBio("");
           } else {
             console.error("Failed to load player profile", playerErr);
             setError("Failed to load profile");
@@ -145,6 +152,8 @@ export default function ProfilePage() {
     }
     const normalizedCountry = countryCode.trim().toUpperCase();
     const trimmedClubId = clubId.trim();
+    const normalizedBio = bio.trim();
+    const bioChanged = bio !== initialBio;
 
     const hasValidCountry =
       !normalizedCountry ||
@@ -179,6 +188,10 @@ export default function ProfilePage() {
       payload.club_id = trimmedClubId ? trimmedClubId : null;
     }
 
+    if (bioChanged) {
+      payload.bio = normalizedBio ? normalizedBio : null;
+    }
+
     setSaving(true);
     try {
       if (Object.keys(payload).length > 0) {
@@ -186,10 +199,13 @@ export default function ProfilePage() {
           const updatedPlayer = await updateMyPlayerLocation(payload);
           const nextCountry = updatedPlayer.country_code ?? "";
           const nextClub = updatedPlayer.club_id ?? "";
+          const nextBio = updatedPlayer.bio ?? "";
           setCountryCode(nextCountry);
           setClubId(nextClub);
+          setBio(nextBio);
           setInitialCountryCode(nextCountry);
           setInitialClubId(nextClub);
+          setInitialBio(nextBio);
         } catch (err) {
           const status = (err as Error & { status?: number }).status;
           if (status === 422) {
@@ -281,6 +297,13 @@ export default function ProfilePage() {
           placeholder="New password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+        />
+        <textarea
+          aria-label="Bio"
+          placeholder="Tell us about yourself"
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+          rows={4}
         />
         <select
           aria-label="Country"

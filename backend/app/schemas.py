@@ -37,6 +37,7 @@ class PlayerCreate(BaseModel):
     )
     club_id: Optional[str] = None
     photo_url: Optional[str] = None
+    bio: Optional[str] = None
     location: Optional[str] = None
     ranking: Optional[int] = None
     country_code: Optional[str] = None
@@ -68,6 +69,7 @@ class PlayerLocationUpdate(BaseModel):
     country_code: Optional[str] = None
     region_code: Optional[str] = None
     club_id: Optional[str] = None
+    bio: Optional[str] = None
 
     @field_validator("club_id", mode="after")
     @classmethod
@@ -107,6 +109,7 @@ class PlayerOut(BaseModel):
     name: str
     club_id: Optional[str] = None
     photo_url: Optional[str] = None
+    bio: Optional[str] = None
     location: Optional[str] = None
     ranking: Optional[int] = None
     country_code: Optional[str] = None

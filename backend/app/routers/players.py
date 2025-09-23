@@ -96,6 +96,7 @@ async def create_player(
         name=normalized_name,
         club_id=body.club_id,
         photo_url=body.photo_url,
+        bio=(body.bio.strip() or None) if body.bio is not None else None,
         location=body.location,
         country_code=body.country_code,
         region_code=body.region_code,
@@ -109,6 +110,7 @@ async def create_player(
         name=p.name,
         club_id=p.club_id,
         photo_url=p.photo_url,
+        bio=p.bio,
         location=p.location,
         country_code=p.country_code,
         region_code=p.region_code,
@@ -139,6 +141,7 @@ async def list_players(
             name=p.name,
             club_id=p.club_id,
             photo_url=p.photo_url,
+            bio=p.bio,
             location=p.location,
             country_code=p.country_code,
             region_code=p.region_code,
@@ -192,6 +195,7 @@ async def _apply_player_location_update(
     country_value = player.country_code
     region_value = player.region_code
     club_value = player.club_id
+    bio_value = player.bio
 
     if "location" in fields_set:
         location_value = body.location
@@ -216,6 +220,14 @@ async def _apply_player_location_update(
             if exists is None:
                 raise HTTPException(status_code=422, detail="unknown club id")
 
+    if "bio" in fields_set:
+        raw_bio = body.bio
+        if raw_bio is None:
+            bio_value = None
+        else:
+            trimmed = raw_bio.strip()
+            bio_value = trimmed or None
+
     location_value, country_value, region_value = normalize_location_fields(
         location_value,
         country_value,
@@ -236,6 +248,9 @@ async def _apply_player_location_update(
 
     if "club_id" in fields_set:
         player.club_id = club_value
+
+    if "bio" in fields_set:
+        player.bio = bio_value
 
     await session.commit()
     return True
@@ -308,6 +323,7 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
         name=p.name,
         club_id=p.club_id,
         photo_url=p.photo_url,
+        bio=p.bio,
         location=p.location,
         country_code=p.country_code,
         region_code=p.region_code,

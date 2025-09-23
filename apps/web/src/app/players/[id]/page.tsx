@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 
 interface Player extends PlayerInfo {
   club_id?: string | null;
+  bio?: string | null;
   badges: Badge[];
 }
 
@@ -311,6 +312,9 @@ export default async function PlayerPage({
           <h1 className="heading">
             <PlayerName player={player} />
           </h1>
+          {player.bio ? (
+            <p className="mt-2 text-gray-700 whitespace-pre-line">{player.bio}</p>
+          ) : null}
           {player.club_id && <p>Club: {player.club_id}</p>}
 
           <nav className="mt-4 mb-4 space-x-4">

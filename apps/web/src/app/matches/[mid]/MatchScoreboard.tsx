@@ -106,7 +106,7 @@ function renderDiscGolfSummary(summary: SummaryData) {
               {formatValue(
                 typeof parTotal === "number" && Number.isFinite(parTotal)
                   ? parTotal
-                  : pars.reduce((acc, val) => {
+                  : pars.reduce((acc: number, val) => {
                       if (typeof val === "number" && Number.isFinite(val)) {
                         return acc + val;
                       }

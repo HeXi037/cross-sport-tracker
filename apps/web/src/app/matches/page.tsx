@@ -144,45 +144,55 @@ export default async function MatchesPage(
     const disablePrev = offset <= 0;
     const disableNext = rows.length < limit;
 
+    const hasMatches = matches.length > 0;
+
     return (
       <main className="container">
         <h1 className="heading">Matches</h1>
-        <ul className="match-list">
-          {matches.map((m) => (
-            <li key={m.id} className="card match-item">
-              <div style={{ fontWeight: 500 }}>
-                {m.participants.map((side, i) => (
-                  <span key={i}>
-                    {side.map((pl, j) => (
-                      <span key={pl.id}>
-                        <PlayerName player={pl} />
-                        {j < side.length - 1 ? " & " : ""}
+        {hasMatches ? (
+          <>
+            <ul className="match-list">
+              {matches.map((m) => (
+                <li key={m.id} className="card match-item">
+                  <div style={{ fontWeight: 500 }}>
+                    {m.participants.map((side, i) => (
+                      <span key={i}>
+                        {side.map((pl, j) => (
+                          <span key={pl.id}>
+                            <PlayerName player={pl} />
+                            {j < side.length - 1 ? " & " : ""}
+                          </span>
+                        ))}
+                        {i < m.participants.length - 1 ? " vs " : ""}
                       </span>
                     ))}
-                    {i < m.participants.length - 1 ? " vs " : ""}
-                  </span>
-                ))}
-              </div>
-              <div className="match-meta">
-                {formatSummary(m.summary)}
-                {m.summary ? " · " : ""}
-                {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
-                {m.playedAt ? new Date(m.playedAt).toLocaleDateString() : "—"} ·{" "}
-                {m.location ?? "—"}
-              </div>
-              <div>
-                <Link href={`/matches/${m.id}`}>More info</Link>
-              </div>
-            </li>
-          ))}
-        </ul>
-        <Pager
-          limit={limit}
-          prevOffset={prevOffset}
-          nextOffset={nextOffset}
-          disablePrev={disablePrev}
-          disableNext={disableNext}
-        />
+                  </div>
+                  <div className="match-meta">
+                    {formatSummary(m.summary)}
+                    {m.summary ? " · " : ""}
+                    {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
+                    {m.playedAt
+                      ? new Date(m.playedAt).toLocaleDateString()
+                      : "—"} ·{" "}
+                    {m.location ?? "—"}
+                  </div>
+                  <div>
+                    <Link href={`/matches/${m.id}`}>More info</Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <Pager
+              limit={limit}
+              prevOffset={prevOffset}
+              nextOffset={nextOffset}
+              disablePrev={disablePrev}
+              disableNext={disableNext}
+            />
+          </>
+        ) : (
+          <p className="empty-state">No matches yet.</p>
+        )}
       </main>
     );
   } catch {

@@ -189,6 +189,47 @@ describe("RecordPadelPage", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 
+  it("shows an error when saving the match fails", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          players: [
+            { id: "p1", name: "A" },
+            { id: "p2", name: "B" },
+          ],
+        }),
+      })
+      .mockRejectedValueOnce(new Error("Network error"));
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordPadelPage />);
+
+    await waitFor(() => screen.getByLabelText("Player A1"));
+
+    fireEvent.change(screen.getByLabelText("Player A1"), {
+      target: { value: "p1" },
+    });
+    fireEvent.change(screen.getByLabelText("Player B1"), {
+      target: { value: "p2" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        /failed to save match/i,
+      ),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /save/i })).toBeEnabled(),
+    );
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
   it("includes auth token in API requests", async () => {
     window.localStorage.setItem("token", "tkn");
     const fetchMock = vi

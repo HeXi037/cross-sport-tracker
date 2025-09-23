@@ -138,9 +138,11 @@ export default function RecordPadelPage() {
       }
       setSuccess(true);
       router.push(`/matches`);
-    } catch {
+    } catch (err) {
+      console.error("Failed to save padel match", err);
       setSaving(false);
-      // ignore network errors
+      setSuccess(false);
+      setError("Failed to save match. Please try again.");
     }
   };
 

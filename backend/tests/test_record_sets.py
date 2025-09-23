@@ -104,6 +104,7 @@ def test_record_sets_success(client_and_session):
 
     summary = asyncio.run(fetch_summary())
     assert summary["sets"] == {"A": 2, "B": 0}
+    assert summary["set_scores"] == [{"A": 6, "B": 4}, {"A": 6, "B": 2}]
 
 
 def test_record_sets_tiebreak_updates_summary_and_ratings(client_and_session):
@@ -146,6 +147,7 @@ def test_record_sets_tiebreak_updates_summary_and_ratings(client_and_session):
 
     summary, rating_map = asyncio.run(fetch_summary_and_ratings())
     assert summary["sets"] == {"A": 1, "B": 0}
+    assert summary["set_scores"] == [{"A": 7, "B": 6}]
     assert set(rating_map) == {"pa", "pb"}
     assert rating_map["pa"] > rating_map["pb"]
     assert rating_map["pa"] > 1000

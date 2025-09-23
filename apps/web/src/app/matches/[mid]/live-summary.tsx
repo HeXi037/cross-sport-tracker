@@ -5,11 +5,13 @@ import { useMatchStream } from "../../../lib/useMatchStream";
 import MatchScoreboard from "./MatchScoreboard";
 
 type NumericRecord = Record<string, number>;
+type SetScores = Array<Record<string, number>>;
 
 export type RacketSummary = {
   sets?: NumericRecord;
   games?: NumericRecord;
   points?: NumericRecord;
+  set_scores?: SetScores;
   config?: unknown;
   [key: string]: unknown;
 };
@@ -54,6 +56,28 @@ function extractConfig(summary: SummaryData): unknown {
 function formatScoreline(summary?: SummaryData): string {
   if (!isRecord(summary)) return "—";
   const maybe = summary as RacketSummary;
+  const setsHistory = maybe.set_scores;
+  if (Array.isArray(setsHistory) && setsHistory.length) {
+    const formatted = setsHistory
+      .map((set) => {
+        if (!set || typeof set !== "object") return null;
+        const entries = Object.entries(set as Record<string, unknown>);
+        if (!entries.length) return null;
+        const values = entries
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([, value]) =>
+            typeof value === "number" && Number.isFinite(value)
+              ? value.toString()
+              : null
+          );
+        if (values.some((v) => v === null)) return null;
+        return values.join("-");
+      })
+      .filter((val): val is string => Boolean(val));
+    if (formatted.length) {
+      return formatted.join(", ");
+    }
+  }
   const format = (scores?: Record<string, number>) => {
     const a = scores?.A ?? 0;
     const b = scores?.B ?? 0;

@@ -24,6 +24,7 @@ type MatchDetail = {
     sets?: Record<string, number>;
     games?: Record<string, number>;
     points?: Record<string, number>;
+    set_scores?: Array<Record<string, number>>;
   } | null;
 };
 
@@ -110,6 +111,27 @@ async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
 
 function formatSummary(s?: MatchDetail["summary"]): string {
   if (!s) return "";
+  if (Array.isArray(s.set_scores) && s.set_scores.length) {
+    const formatted = s.set_scores
+      .map((set) => {
+        if (!set || typeof set !== "object") return null;
+        const entries = Object.entries(set);
+        if (!entries.length) return null;
+        const values = entries
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([, value]) =>
+            typeof value === "number" && Number.isFinite(value)
+              ? value.toString()
+              : null
+          );
+        if (values.some((v) => v === null)) return null;
+        return values.join("-");
+      })
+      .filter((val): val is string => Boolean(val));
+    if (formatted.length) {
+      return formatted.join(", ");
+    }
+  }
   const render = (scores: Record<string, number>, label: string) => {
     const parts = Object.keys(scores)
       .sort()

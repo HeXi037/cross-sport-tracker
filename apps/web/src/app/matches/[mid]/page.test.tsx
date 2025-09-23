@@ -110,9 +110,13 @@ describe("MatchDetailPage", () => {
         { side: "B", playerIds: ["p2"] },
       ],
       summary: {
-        sets: { A: 2, B: 1 },
-        games: { A: 6, B: 4 },
-        points: { A: 30, B: 15 },
+        set_scores: [
+          { A: 6, B: 4 },
+          { A: 7, B: 5 },
+        ],
+        sets: { A: 2, B: 0 },
+        games: { A: 3, B: 2 },
+        points: { A: 40, B: 30 },
       },
     };
 
@@ -141,15 +145,24 @@ describe("MatchDetailPage", () => {
     const table = await screen.findByRole("table", { name: /racket scoreboard/i });
     const rows = within(table).getAllByRole("row");
     expect(rows).toHaveLength(3);
+    const headers = within(rows[0])
+      .getAllByRole("columnheader")
+      .map((cell) => cell.textContent?.trim());
+    expect(headers).toEqual(["Side", "Set 1", "Set 2", "Sets", "Games", "Points"]);
+
     const sideARow = rows[1];
-    const sideBRow = rows[2];
+    const sideACells = within(sideARow)
+      .getAllByRole("cell")
+      .map((cell) => cell.textContent?.trim());
     expect(within(sideARow).getByText("A")).toBeInTheDocument();
-    expect(within(sideARow).getByText("2")).toBeInTheDocument();
-    expect(within(sideARow).getByText("6")).toBeInTheDocument();
-    expect(within(sideARow).getByText("30")).toBeInTheDocument();
-    expect(within(sideBRow).getByText("1")).toBeInTheDocument();
-    expect(within(sideBRow).getByText("4")).toBeInTheDocument();
-    expect(within(sideBRow).getByText("15")).toBeInTheDocument();
+    expect(sideACells).toEqual(["6", "7", "2", "3", "40"]);
+
+    const sideBRow = rows[2];
+    const sideBCells = within(sideBRow)
+      .getAllByRole("cell")
+      .map((cell) => cell.textContent?.trim());
+    expect(sideBCells).toEqual(["4", "5", "0", "2", "30"]);
+    expect(screen.getByText(/Overall: 6-4, 7-5/)).toBeInTheDocument();
   });
 
   it("renders disc golf hole breakdown including to-par totals", async () => {

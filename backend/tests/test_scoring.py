@@ -86,12 +86,14 @@ def test_record_sets():
     events, state = padel.record_sets([(6, 4), (6, 2)])
     assert state["sets"]["A"] == 2
     assert len(events) == (6 + 4 + 6 + 2) * 4
+    assert state["set_scores"] == [{"A": 6, "B": 4}, {"A": 6, "B": 2}]
 
 
 def test_padel_record_sets_tiebreak():
     events, state = padel.record_sets([(7, 6)])
     summary = padel.summary(state)
     assert summary["sets"] == {"A": 1, "B": 0}
+    assert summary["set_scores"] == [{"A": 7, "B": 6}]
     tiebreak_to = summary["config"].get("tiebreakTo", 7)
     assert len(events) == (12 * 4) + tiebreak_to
 
@@ -99,6 +101,7 @@ def test_padel_record_sets_tiebreak():
 def test_tennis_record_sets_tiebreak():
     events, state = tennis.record_sets([(7, 6)])
     assert state["sets"] == {"A": 1, "B": 0}
+    assert state["set_scores"] == [{"A": 7, "B": 6}]
     assert len(events) == (12 * 4) + state["config"].get("tiebreakTo", 7)
 
 
@@ -135,6 +138,7 @@ def test_padel_tiebreak():
 
     assert state["sets"] == {"A": 1, "B": 0}
     assert state["games"] == {"A": 0, "B": 0}
+    assert state["set_scores"] == [{"A": 7, "B": 6}]
 
 
 def test_padel_match_stops_after_set_limit():

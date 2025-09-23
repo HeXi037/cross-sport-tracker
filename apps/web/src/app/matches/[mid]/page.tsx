@@ -10,10 +10,15 @@ type ID = string;
 // "side" can be any identifier (A, B, C, ...), so keep it loose
 type Participant = { side: string; playerIds: string[] };
 
+type Sport = { id: string; name: string };
+
+type Ruleset = { id: string; name: string };
+
 type MatchDetail = {
   id: ID;
   sport?: string | null;
-  ruleset?: string | null;
+  rulesetId?: string | null;
+  bestOf?: number | null;
   status?: string | null;
   playedAt?: string | null;
   location?: string | null;
@@ -65,6 +70,38 @@ async function fetchPlayers(ids: string[]): Promise<Map<string, PlayerInfo>> {
   return map;
 }
 
+async function fetchSports(): Promise<Sport[]> {
+  try {
+    const res = (await apiFetch(`/v0/sports`, {
+      cache: "no-store",
+    } as RequestInit)) as Response;
+    if (!res.ok) {
+      return [];
+    }
+    return (await res.json()) as Sport[];
+  } catch (error) {
+    console.warn("Unable to load sports catalog", error);
+    return [];
+  }
+}
+
+async function fetchRulesets(sportId?: string | null): Promise<Ruleset[]> {
+  if (!sportId) return [];
+  try {
+    const res = (await apiFetch(
+      `/v0/rulesets?sport=${encodeURIComponent(sportId)}`,
+      { cache: "no-store" } as RequestInit
+    )) as Response;
+    if (!res.ok) {
+      return [];
+    }
+    return (await res.json()) as Ruleset[];
+  } catch (error) {
+    console.warn(`Unable to load rulesets for sport ${sportId}`, error);
+    return [];
+  }
+}
+
 export default async function MatchDetailPage({
   params,
 }: {
@@ -76,7 +113,11 @@ export default async function MatchDetailPage({
   const uniqueIds = Array.from(
     new Set(parts.flatMap((p) => p.playerIds ?? []))
   );
-  const idToPlayer = await fetchPlayers(uniqueIds);
+  const [idToPlayer, sports, rulesets] = await Promise.all([
+    fetchPlayers(uniqueIds),
+    fetchSports(),
+    fetchRulesets(match.sport),
+  ]);
 
   const sidePlayers: Record<string, PlayerInfo[]> = {};
   for (const p of parts) {
@@ -85,6 +126,13 @@ export default async function MatchDetailPage({
     );
     sidePlayers[p.side] = players;
   }
+
+  const sportName = sports.find((s) => s.id === match.sport)?.name;
+  const rulesetName = match.rulesetId
+    ? rulesets.find((r) => r.id === match.rulesetId)?.name
+    : undefined;
+  const sportLabel = sportName ?? match.sport ?? "sport";
+  const rulesetLabel = rulesetName ?? match.rulesetId ?? "rules";
 
   const playedAtDate = match.playedAt ? new Date(match.playedAt) : null;
   const playedAtStr = playedAtDate
@@ -121,7 +169,7 @@ export default async function MatchDetailPage({
           )) || "A vs B"}
         </h1>
         <p className="match-meta">
-          {match.sport || "sport"} · {match.ruleset || "rules"} · {" "}
+          {sportLabel} · {rulesetLabel} · {" "}
           {match.status || "status"}
           {playedAtStr ? ` · ${playedAtStr}` : ""}
           {match.location ? ` · ${match.location}` : ""}

@@ -374,11 +374,19 @@ textarea {
 }
 
 .match-participants {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
+  font-weight: inherit;
+}
+
+.match-participants--emphasized {
   font-weight: 500;
+}
+
+.match-participants--heading {
+  font-weight: inherit;
 }
 
 .match-participants__side-wrapper {

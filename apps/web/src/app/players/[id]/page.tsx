@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { apiFetch, fetchClubs, withAbsolutePhotoUrl } from "../../../lib/api";
 import PlayerCharts from "./PlayerCharts";
 import PlayerComments from "./comments-client";
+import MatchParticipants from "../../../components/MatchParticipants";
 import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
 import PhotoUpload from "./PhotoUpload";
 import { formatDate, parseAcceptLanguage } from "../../../lib/i18n";
@@ -494,17 +495,12 @@ export default async function PlayerPage({
                       <li key={m.id} className="mb-2">
                         <div>
                           <Link href={`/matches/${m.id}`}>
-                            {Object.values(m.players).map((side, i) => (
-                              <span key={i}>
-                                {side.map((pl, j) => (
-                                  <span key={pl.id}>
-                                    <PlayerName player={pl} />
-                                    {j < side.length - 1 ? " & " : ""}
-                                  </span>
-                                ))}
-                                {i < Object.values(m.players).length - 1 ? " vs " : ""}
-                              </span>
-                            ))}
+                            <MatchParticipants
+                              as="span"
+                              sides={
+                                Object.values(m.players) as PlayerInfo[][]
+                              }
+                            />
                           </Link>
                         </div>
                         <div className="text-sm text-gray-700">
@@ -549,14 +545,7 @@ export default async function PlayerPage({
             <ul>
               {recentOpponents.map((o) => (
                 <li key={o.id} className="mb-2">
-                  <div>
-                    {o.opponents.map((pl, j) => (
-                      <span key={pl.id}>
-                        <PlayerName player={pl} />
-                        {j < o.opponents.length - 1 ? " & " : ""}
-                      </span>
-                    ))}
-                  </div>
+                  <MatchParticipants sides={[o.opponents]} />
                   <div className="text-sm text-gray-700">
                     {o.date} · {o.result}
                   </div>
@@ -595,17 +584,10 @@ export default async function PlayerPage({
               {upcoming.map((m) => (
                 <li key={m.id} className="mb-2">
                   <Link href={`/matches/${m.id}`}>
-                    {Object.values(m.players).map((side, i) => (
-                      <span key={i}>
-                        {side.map((pl, j) => (
-                          <span key={pl.id}>
-                            <PlayerName player={pl} />
-                            {j < side.length - 1 ? " & " : ""}
-                          </span>
-                        ))}
-                        {i < Object.values(m.players).length - 1 ? " vs " : ""}
-                      </span>
-                    ))}
+                    <MatchParticipants
+                      as="span"
+                      sides={Object.values(m.players) as PlayerInfo[][]}
+                    />
                   </Link>
                   <div className="text-sm text-gray-700">
                     {formatDate(m.playedAt, locale)} · {m.location ?? "—"}

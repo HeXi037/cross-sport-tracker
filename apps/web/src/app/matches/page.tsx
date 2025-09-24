@@ -2,7 +2,8 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { apiFetch, withAbsolutePhotoUrl } from "../../lib/api";
 import Pager from "./pager";
-import PlayerName, { PlayerInfo } from "../../components/PlayerName";
+import MatchParticipants from "../../components/MatchParticipants";
+import { type PlayerInfo } from "../../components/PlayerName";
 import { formatDate, parseAcceptLanguage } from "../../lib/i18n";
 
 export const dynamic = "force-dynamic";
@@ -184,41 +185,10 @@ export default async function MatchesPage(
           <ul className="match-list">
             {matches.map((m) => (
               <li key={m.id} className="card match-item">
-                <div className="match-participants">
-                  {m.participants.map((side, sideIndex) => (
-                    <div
-                      key={sideIndex}
-                      className="match-participants__side-wrapper"
-                    >
-                      {sideIndex > 0 && (
-                        <span
-                          className="match-participants__versus"
-                          aria-label="versus"
-                        >
-                          vs
-                        </span>
-                      )}
-                      <div className="match-participants__side">
-                        {side.map((pl, playerIndex) => (
-                          <span
-                            key={pl.id}
-                            className="match-participants__entry"
-                          >
-                            {playerIndex > 0 && (
-                              <span
-                                className="match-participants__separator"
-                                aria-label="and"
-                              >
-                                &
-                              </span>
-                            )}
-                            <PlayerName player={pl} />
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <MatchParticipants
+                  sides={m.participants}
+                  className="match-participants--emphasized"
+                />
                 <div className="match-meta">
                   {formatSummary(m.summary)}
                   {m.summary ? " · " : ""}

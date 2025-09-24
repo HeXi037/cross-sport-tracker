@@ -9,7 +9,7 @@ import {
   type EnrichedMatch,
   type PlayerInfo,
 } from '../lib/matches';
-import PlayerName from '../components/PlayerName';
+import MatchParticipants from '../components/MatchParticipants';
 import { useLocale } from '../lib/LocaleContext';
 
 interface Sport { id: string; name: string }
@@ -166,19 +166,10 @@ export default function HomePageClient({
           <ul className="match-list" role="list">
             {matches.map((m) => (
               <li key={m.id} className="card match-item">
-                <div style={{ fontWeight: 500 }}>
-                  {Object.values(m.players).map((side: PlayerInfo[], i) => (
-                    <span key={i}>
-                      {side.map((pl, j) => (
-                        <span key={pl.id}>
-                          <PlayerName player={pl} />
-                          {j < side.length - 1 ? ' & ' : ''}
-                        </span>
-                      ))}
-                      {i < Object.values(m.players).length - 1 ? ' vs ' : ''}
-                    </span>
-                  ))}
-                </div>
+                <MatchParticipants
+                  sides={Object.values(m.players) as PlayerInfo[][]}
+                  className="match-participants--emphasized"
+                />
                 <div className="match-meta">
                   {m.sport} · Best of {m.bestOf ?? '—'} ·{' '}
                   {m.playedAt ? dateFormatter.format(new Date(m.playedAt)) : '—'}

@@ -17,7 +17,9 @@ const nextConfig = {
         permanent: true,
       },
       {
-        source: '/:path((?!_next|api).+)/',
+        // Use a catch-all pattern so nested segments like `/players/123/`
+        // also redirect to their non-trailing-slash form.
+        source: '/:path((?!_next|api).*)/',
         destination: '/:path',
         permanent: true,
       },

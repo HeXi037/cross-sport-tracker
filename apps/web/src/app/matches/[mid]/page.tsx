@@ -188,11 +188,6 @@ export default async function MatchDetailPage({
     }
   }
 
-  const summaryConfig =
-    isRecord(initialSummary) && "config" in initialSummary
-      ? (initialSummary as { config?: unknown }).config
-      : undefined;
-
   return (
     <main className="container">
       <div className="text-sm">
@@ -225,7 +220,7 @@ export default async function MatchDetailPage({
         sport={match.sport}
         status={statusText}
         initialSummary={initialSummary}
-        initialConfig={summaryConfig}
+        initialEvents={match.events ?? []}
       />
     </main>
   );

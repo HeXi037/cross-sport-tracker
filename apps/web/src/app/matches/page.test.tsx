@@ -13,7 +13,9 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("next/headers", () => ({
-  headers: vi.fn(() => new Headers()),
+  headers: () => ({
+    get: () => undefined,
+  }),
 }));
 
 describe("MatchesPage", () => {

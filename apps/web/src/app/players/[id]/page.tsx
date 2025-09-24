@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { apiFetch, fetchClubs, withAbsolutePhotoUrl } from "../../../lib/api";
 import PlayerCharts from "./PlayerCharts";
 import PlayerComments from "./comments-client";
 import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
 import PhotoUpload from "./PhotoUpload";
+import { formatDate, parseAcceptLanguage } from "../../../lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -322,6 +324,7 @@ export default async function PlayerPage({
   params: { id: string };
   searchParams: { view?: string };
 }) {
+  const locale = parseAcceptLanguage(headers().get("accept-language"));
   try {
     const [player, allMatches, stats, upcoming] = await Promise.all([
       getPlayer(params.id),
@@ -363,9 +366,7 @@ export default async function PlayerPage({
           .flatMap(([, pl]) => pl);
         const winner = winnerFromSummary(m.summary);
         const result = winner ? (winner === mySide ? "Win" : "Loss") : "—";
-        const date = m.playedAt
-          ? new Date(m.playedAt).toLocaleDateString()
-          : "—";
+        const date = formatDate(m.playedAt, locale);
         return { id: m.id, opponents, date, result };
       })
       .filter(Boolean) as {
@@ -499,9 +500,7 @@ export default async function PlayerPage({
                           {result ? ` · ${result}` : ""}
                           {m.summary || result ? " · " : ""}
                           {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
-                          {m.playedAt
-                            ? new Date(m.playedAt).toLocaleDateString()
-                            : "—"}
+                          {formatDate(m.playedAt, locale)}
                           {" · "}
                           {m.location ?? "—"}
                         </div>
@@ -597,11 +596,7 @@ export default async function PlayerPage({
                     ))}
                   </Link>
                   <div className="text-sm text-gray-700">
-                    {m.playedAt
-                      ? new Date(m.playedAt).toLocaleDateString()
-                      : "—"}
-                    {" · "}
-                    {m.location ?? "—"}
+                    {formatDate(m.playedAt, locale)} · {m.location ?? "—"}
                   </div>
                 </li>
               ))}

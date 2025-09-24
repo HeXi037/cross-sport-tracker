@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { apiFetch, withAbsolutePhotoUrl } from "../../lib/api";
 import Pager from "./pager";
 import PlayerName, { PlayerInfo } from "../../components/PlayerName";
+import { formatDate, parseAcceptLanguage } from "../../lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -157,6 +159,7 @@ export default async function MatchesPage(
   const searchParams = props.searchParams ?? {};
   const limit = Number(searchParams.limit) || 25;
   const offset = Number(searchParams.offset) || 0;
+  const locale = parseAcceptLanguage(headers().get('accept-language'));
 
   try {
     const rows = await getMatches(limit, offset);
@@ -198,9 +201,7 @@ export default async function MatchesPage(
                   {formatSummary(m.summary)}
                   {m.summary ? " · " : ""}
                   {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
-                  {m.playedAt
-                    ? new Date(m.playedAt).toLocaleDateString()
-                    : "—"} ·{" "}
+                  {formatDate(m.playedAt, locale)} ·{" "}
                   {m.location ?? "—"}
                 </div>
                 <div>

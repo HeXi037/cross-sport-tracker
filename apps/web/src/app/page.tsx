@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic';
 import { apiFetch } from '../lib/api';
 import HomePageClient from './home-page-client';
 import { enrichMatches, type MatchRow, type EnrichedMatch } from '../lib/matches';
+import { headers } from 'next/headers';
+import { parseAcceptLanguage } from '../lib/i18n';
 
 type Sport = { id: string; name: string };
 
@@ -11,6 +13,7 @@ export default async function HomePage() {
   let matches: EnrichedMatch[] = [];
   let sportError = false;
   let matchError = false;
+  const locale = parseAcceptLanguage(headers().get('accept-language'));
 
   const [sportsResult, matchesResult] = await Promise.allSettled([
     apiFetch('/v0/sports', { next: { revalidate: 60 } }),
@@ -40,6 +43,7 @@ export default async function HomePage() {
       matches={matches}
       sportError={sportError}
       matchError={matchError}
+      initialLocale={locale}
     />
   );
 }

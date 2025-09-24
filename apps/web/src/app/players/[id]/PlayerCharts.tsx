@@ -1,8 +1,10 @@
 'use client';
 
+import { useMemo } from 'react';
 import WinRateChart, { WinRatePoint } from '../../../components/charts/WinRateChart';
 import RankingHistoryChart, { RankingPoint } from '../../../components/charts/RankingHistoryChart';
 import MatchHeatmap, { HeatmapDatum } from '../../../components/charts/MatchHeatmap';
+import { useLocale } from '../../../lib/LocaleContext';
 
 interface EnrichedMatch {
   playedAt: string | null;
@@ -10,6 +12,11 @@ interface EnrichedMatch {
 }
 
 export default function PlayerCharts({ matches }: { matches: EnrichedMatch[] }) {
+  const locale = useLocale();
+  const dateFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }),
+    [locale],
+  );
   const sorted = [...matches].sort((a, b) => {
     const da = a.playedAt ? new Date(a.playedAt).getTime() : 0;
     const db = b.playedAt ? new Date(b.playedAt).getTime() : 0;
@@ -29,7 +36,9 @@ export default function PlayerCharts({ matches }: { matches: EnrichedMatch[] }) 
     } else {
       rank += 1;
     }
-    const dateLabel = m.playedAt ? new Date(m.playedAt).toLocaleDateString() : `Match ${i + 1}`;
+    const dateLabel = m.playedAt
+      ? dateFormatter.format(new Date(m.playedAt))
+      : `Match ${i + 1}`;
     winRateData.push({ date: dateLabel, winRate: wins / (i + 1) });
     rankingData.push({ date: dateLabel, rank });
 

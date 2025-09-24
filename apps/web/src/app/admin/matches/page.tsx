@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiFetch, isAdmin, withAbsolutePhotoUrl } from "../../../lib/api";
 import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
+import { useLocale } from "../../../lib/LocaleContext";
 
 type MatchRow = {
   id: string;
@@ -118,6 +119,11 @@ function formatSummary(s?: MatchDetail["summary"]): string {
 export default function AdminMatchesPage() {
   const [matches, setMatches] = useState<EnrichedMatch[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const locale = useLocale();
+  const dateFormatter = useMemo(
+    () => new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }),
+    [locale],
+  );
 
   const load = useCallback(async () => {
     try {
@@ -172,7 +178,7 @@ export default function AdminMatchesPage() {
               {formatSummary(m.summary)}
               {m.summary ? " · " : ""}
               {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
-              {m.playedAt ? new Date(m.playedAt).toLocaleDateString() : "—"} ·{" "}
+              {m.playedAt ? dateFormatter.format(new Date(m.playedAt)) : "—"} ·{" "}
               {m.location ?? "—"}
             </div>
             <div>

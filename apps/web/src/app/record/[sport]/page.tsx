@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { flushSync } from "react-dom";
 import { useRouter, useParams } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
+import { useLocale } from "../../../lib/LocaleContext";
 
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 
@@ -41,6 +42,8 @@ export default function RecordSportPage() {
   const [location, setLocation] = useState("");
   const [doubles, setDoubles] = useState(isPadel);
   const [submitting, setSubmitting] = useState(false);
+  const locale = useLocale();
+  const locale = useLocale();
 
   useEffect(() => {
     async function loadPlayers() {
@@ -196,10 +199,14 @@ export default function RecordSportPage() {
 
   return (
     <main className="container">
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="form-stack">
         {isPickleball && (
-          <label>
+          <label
+            className="form-field form-field--checkbox"
+            htmlFor="record-doubles"
+          >
             <input
+              id="record-doubles"
               type="checkbox"
               checked={doubles}
               onChange={(e) => handleToggle(e.target.checked)}
@@ -208,55 +215,79 @@ export default function RecordSportPage() {
           </label>
         )}
 
-        <div className="datetime">
-          <input
-            type="date"
-            aria-label="Date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-          <input
-            type="time"
-            aria-label="Time"
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-          />
-        </div>
-
-        <input
-          type="text"
-          aria-label="Location"
-          placeholder="Location"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-        />
+        <fieldset className="form-fieldset">
+          <legend className="form-legend">Match details</legend>
+          <div className="form-grid form-grid--two">
+            <label className="form-field" htmlFor="record-date">
+              <span className="form-label">Date</span>
+              <input
+                id="record-date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                lang={locale}
+              />
+            </label>
+            <label className="form-field" htmlFor="record-time">
+              <span className="form-label">Start time</span>
+              <input
+                id="record-time"
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                lang={locale}
+              />
+            </label>
+          </div>
+          <label className="form-field" htmlFor="record-location">
+            <span className="form-label">Location</span>
+            <input
+              id="record-location"
+              type="text"
+              placeholder="Location"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+            />
+          </label>
+        </fieldset>
 
         {isBowling ? (
-          <div className="players">
-            {bowlingIds.map((id, idx) => (
-              <div key={idx} className="bowling-player">
-                <select
-                  aria-label={`Player ${idx + 1}`}
-                  value={id}
-                  onChange={(e) => handleBowlingIdChange(idx, e.target.value)}
-                >
-                  <option value="">Select player</option>
-                  {players.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="Score"
-                  value={bowlingScores[idx]}
-                  onChange={(e) => handleBowlingScoreChange(idx, e.target.value)}
-                />
-              </div>
-            ))}
+          <fieldset className="form-fieldset">
+            <legend className="form-legend">Players and scores</legend>
+            <div className="form-stack">
+              {bowlingIds.map((id, idx) => (
+                <div key={idx} className="form-grid form-grid--two bowling-player">
+                  <label className="form-field" htmlFor={`bowling-player-${idx}`}>
+                    <span className="form-label">Player {idx + 1}</span>
+                    <select
+                      id={`bowling-player-${idx}`}
+                      value={id}
+                      onChange={(e) => handleBowlingIdChange(idx, e.target.value)}
+                    >
+                      <option value="">Select player</option>
+                      {players.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="form-field" htmlFor={`bowling-score-${idx}`}>
+                    <span className="form-label">Score</span>
+                    <input
+                      id={`bowling-score-${idx}`}
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="Score"
+                      value={bowlingScores[idx]}
+                      onChange={(e) => handleBowlingScoreChange(idx, e.target.value)}
+                      inputMode="numeric"
+                    />
+                  </label>
+                </div>
+              ))}
+            </div>
             {bowlingIds.length < 6 && (
               <button
                 type="button"
@@ -268,85 +299,110 @@ export default function RecordSportPage() {
                 Add Player
               </button>
             )}
-          </div>
+          </fieldset>
         ) : (
           <>
-            <div className="players">
-              <select
-                aria-label="Player A1"
-                value={ids.a1}
-                onChange={(e) => handleIdChange("a1", e.target.value)}
-              >
-                <option value="">Select player</option>
-                {players.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+            <fieldset className="form-fieldset">
+              <legend className="form-legend">Players</legend>
+              <div className="form-grid form-grid--two">
+                <label className="form-field" htmlFor="record-player-a1">
+                  <span className="form-label">Team A player 1</span>
+                  <select
+                    id="record-player-a1"
+                    value={ids.a1}
+                    onChange={(e) => handleIdChange("a1", e.target.value)}
+                  >
+                    <option value="">Select player</option>
+                    {players.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {doubles && (
+                  <label className="form-field" htmlFor="record-player-a2">
+                    <span className="form-label">Team A player 2</span>
+                    <select
+                      id="record-player-a2"
+                      value={ids.a2}
+                      onChange={(e) => handleIdChange("a2", e.target.value)}
+                    >
+                      <option value="">Select player</option>
+                      {players.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <label className="form-field" htmlFor="record-player-b1">
+                  <span className="form-label">Team B player 1</span>
+                  <select
+                    id="record-player-b1"
+                    value={ids.b1}
+                    onChange={(e) => handleIdChange("b1", e.target.value)}
+                  >
+                    <option value="">Select player</option>
+                    {players.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {doubles && (
+                  <label className="form-field" htmlFor="record-player-b2">
+                    <span className="form-label">Team B player 2</span>
+                    <select
+                      id="record-player-b2"
+                      value={ids.b2}
+                      onChange={(e) => handleIdChange("b2", e.target.value)}
+                    >
+                      <option value="">Select player</option>
+                      {players.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </div>
+            </fieldset>
 
-              {doubles && (
-                <select
-                  aria-label="Player A2"
-                  value={ids.a2}
-                  onChange={(e) => handleIdChange("a2", e.target.value)}
-                >
-                  <option value="">Select player</option>
-                  {players.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              <select
-                aria-label="Player B1"
-                value={ids.b1}
-                onChange={(e) => handleIdChange("b1", e.target.value)}
-              >
-                <option value="">Select player</option>
-                {players.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-
-              {doubles && (
-                <select
-                  aria-label="Player B2"
-                  value={ids.b2}
-                  onChange={(e) => handleIdChange("b2", e.target.value)}
-                >
-                  <option value="">Select player</option>
-                  {players.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-
-            <div className="score">
-              <input
-                type="number"
-                min="0"
-                step="1"
-                placeholder="A"
-                value={scoreA}
-                onChange={(e) => setScoreA(e.target.value)}
-              />
-              <input
-                type="number"
-                min="0"
-                step="1"
-                placeholder="B"
-                value={scoreB}
-                onChange={(e) => setScoreB(e.target.value)}
-              />
-            </div>
+            <fieldset className="form-fieldset">
+              <legend className="form-legend">Match score</legend>
+              <div className="form-grid form-grid--two">
+                <label className="form-field" htmlFor="record-score-a">
+                  <span className="form-label">Team A score</span>
+                  <input
+                    id="record-score-a"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="A"
+                    value={scoreA}
+                    onChange={(e) => setScoreA(e.target.value)}
+                    inputMode="numeric"
+                  />
+                </label>
+                <label className="form-field" htmlFor="record-score-b">
+                  <span className="form-label">Team B score</span>
+                  <input
+                    id="record-score-b"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="B"
+                    value={scoreB}
+                    onChange={(e) => setScoreB(e.target.value)}
+                    inputMode="numeric"
+                  />
+                </label>
+              </div>
+            </fieldset>
           </>
         )}
 

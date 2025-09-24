@@ -327,29 +327,42 @@ export default function ProfilePage() {
         {uploading && <span>Uploading…</span>}
       </div>
       <form onSubmit={handleSubmit} className="auth-form">
-        <input
-          type="text"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <input
-          type="password"
-          placeholder="New password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <select
-          aria-label="Country"
-          value={countryCode}
-          onChange={(e) => setCountryCode(e.target.value)}
-        >
-          <option value="">Select a country</option>
-          {COUNTRY_OPTIONS.map((option) => (
-            <option key={option.code} value={option.code}>
-              {option.name}
-            </option>
-          ))}
-        </select>
+        <label className="form-field" htmlFor="profile-username">
+          <span className="form-label">Display name</span>
+          <input
+            id="profile-username"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="name"
+          />
+        </label>
+        <label className="form-field" htmlFor="profile-password">
+          <span className="form-label">New password</span>
+          <input
+            id="profile-password"
+            type="password"
+            placeholder="New password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+          />
+        </label>
+        <label className="form-field" htmlFor="profile-country">
+          <span className="form-label">Country</span>
+          <select
+            id="profile-country"
+            value={countryCode}
+            onChange={(e) => setCountryCode(e.target.value)}
+          >
+            <option value="">Select a country</option>
+            {COUNTRY_OPTIONS.map((option) => (
+              <option key={option.code} value={option.code}>
+                {option.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <div style={{ fontSize: "0.9rem", color: "#555" }}>
           Continent: {continentLabel ?? "—"}
         </div>

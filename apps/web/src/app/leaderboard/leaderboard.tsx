@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { apiUrl } from "../../lib/api";
 
@@ -40,7 +40,6 @@ const normalizeClubId = (value?: string | null) =>
 
 export default function Leaderboard({ sport, country, clubId }: Props) {
   const router = useRouter();
-  const pathname = usePathname();
 
   const initialCountry = normalizeCountry(country);
   const initialClubId = normalizeClubId(clubId);
@@ -69,13 +68,23 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   }, [country, clubId]);
 
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (filters.country) params.set("country", filters.country);
-    if (filters.clubId) params.set("clubId", filters.clubId);
-    const query = params.toString();
-    const nextUrl = query ? `${pathname}?${query}` : pathname;
+    if (typeof window === "undefined") {
+      return;
+    }
+    const url = new URL(window.location.href);
+    if (filters.country) {
+      url.searchParams.set("country", filters.country);
+    } else {
+      url.searchParams.delete("country");
+    }
+    if (filters.clubId) {
+      url.searchParams.set("clubId", filters.clubId);
+    } else {
+      url.searchParams.delete("clubId");
+    }
+    const nextUrl = `${url.pathname}${url.search}`;
     router.replace(nextUrl, { scroll: false });
-  }, [filters.country, filters.clubId, pathname, router]);
+  }, [filters.country, filters.clubId, router]);
 
   const appliedCountry = filters.country;
   const appliedClubId = filters.clubId;
@@ -100,17 +109,20 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   }, [appliedCountry, appliedClubId]);
 
   const withRegion = (base: string) =>
-    regionQueryString ? `${base}?${regionQueryString}` : base;
+    regionQueryString
+      ? `${base}${base.includes("?") ? "&" : "?"}${regionQueryString}`
+      : base;
 
   const regionDescription = useMemo(() => {
-    if (!supportsFilters) {
+    if (sport === "master") {
       return "Global master leaderboard";
     }
     const parts: string[] = [];
     if (appliedCountry) parts.push(`Country: ${appliedCountry}`);
     if (appliedClubId) parts.push(`Club: ${appliedClubId}`);
-    return parts.length > 0 ? parts.join(" · ") : "Global";
-  }, [supportsFilters, appliedCountry, appliedClubId]);
+    const region = parts.length > 0 ? parts.join(" · ") : "Global";
+    return sport === ALL_SPORTS ? `All sports combined · ${region}` : region;
+  }, [sport, appliedCountry, appliedClubId]);
 
   const normalizedDraftCountry = normalizeCountry(draftCountry);
   const normalizedDraftClubId = normalizeClubId(draftClubId);
@@ -118,12 +130,11 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     normalizedDraftCountry !== appliedCountry ||
     normalizedDraftClubId !== appliedClubId;
   const canApply = supportsFilters && hasDraftChanges;
-  const canClear = Boolean(
-    appliedCountry ||
-    appliedClubId ||
-    draftCountry ||
-    draftClubId
-  );
+  const hasDraftValues = Boolean(normalizedDraftCountry || normalizedDraftClubId);
+  const hasAppliedFilters = Boolean(appliedCountry || appliedClubId);
+  const canClear = supportsFilters
+    ? hasDraftValues || hasAppliedFilters
+    : hasAppliedFilters;
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -243,21 +254,21 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         </div>
         <nav style={{ display: "flex", gap: "0.5rem", fontSize: "0.9rem" }}>
           <Link
-            href={withRegion("/leaderboard/master")}
-            style={{ textDecoration: sport === "master" ? "underline" : "none" }}
+            href={withRegion("/leaderboard")}
+            style={{ textDecoration: sport === ALL_SPORTS ? "underline" : "none" }}
           >
-            All sports
+            All sports (combined)
           </Link>
           <Link
-            href={withRegion("/leaderboard")}
-            style={{ textDecoration: sport === "all" ? "underline" : "none" }}
+            href={withRegion("/leaderboard?tab=master")}
+            style={{ textDecoration: sport === "master" ? "underline" : "none" }}
           >
-            Best of all sports
+            Master leaderboard
           </Link>
           {SPORTS.map((s) => (
             <Link
               key={s}
-              href={withRegion(`/leaderboard/${s}`)}
+              href={withRegion(`/leaderboard?tab=${s}`)}
               style={{ textDecoration: sport === s ? "underline" : "none" }}
             >
               {s}
@@ -266,81 +277,106 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         </nav>
       </header>
 
-      <form
-        onSubmit={handleSubmit}
-        style={{
-          marginTop: "1rem",
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "0.75rem",
-          alignItems: "flex-end",
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", minWidth: "120px" }}>
-          <label style={{ fontSize: "0.85rem", fontWeight: 600 }} htmlFor="leaderboard-country">
-            Country
-          </label>
-          <input
-            id="leaderboard-country"
-            value={draftCountry}
-            onChange={(event) => setDraftCountry(event.target.value.toUpperCase())}
-            placeholder="e.g. SE"
-            maxLength={5}
-            style={{ padding: "0.35rem", border: "1px solid #ccc", borderRadius: "4px" }}
-            disabled={!supportsFilters}
-          />
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", minWidth: "140px" }}>
-          <label style={{ fontSize: "0.85rem", fontWeight: 600 }} htmlFor="leaderboard-club">
-            Club
-          </label>
-          <input
-            id="leaderboard-club"
-            value={draftClubId}
-            onChange={(event) => setDraftClubId(event.target.value)}
-            placeholder="e.g. club-123"
-            style={{ padding: "0.35rem", border: "1px solid #ccc", borderRadius: "4px" }}
-            disabled={!supportsFilters}
-          />
-        </div>
-        <div style={{ display: "flex", gap: "0.5rem" }}>
-          <button
-            type="submit"
+        {supportsFilters ? (
+          <form
+            onSubmit={handleSubmit}
             style={{
-              padding: "0.4rem 0.9rem",
-              borderRadius: "4px",
-              border: "1px solid #222",
-              background: canApply ? "#222" : "#ccc",
-              color: "#fff",
-              cursor: canApply ? "pointer" : "not-allowed",
-              opacity: canApply ? 1 : 0.7,
+              marginTop: "1rem",
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "0.75rem",
+              alignItems: "flex-end",
             }}
-            disabled={!canApply}
           >
-            Apply
-          </button>
-          <button
-            type="button"
-            onClick={handleClear}
+            <div style={{ display: "flex", flexDirection: "column", minWidth: "120px" }}>
+              <label style={{ fontSize: "0.85rem", fontWeight: 600 }} htmlFor="leaderboard-country">
+                Country
+              </label>
+              <input
+                id="leaderboard-country"
+                value={draftCountry}
+                onChange={(event) => setDraftCountry(event.target.value.toUpperCase())}
+                placeholder="e.g. SE"
+                maxLength={5}
+                style={{ padding: "0.35rem", border: "1px solid #ccc", borderRadius: "4px" }}
+              />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", minWidth: "140px" }}>
+              <label style={{ fontSize: "0.85rem", fontWeight: 600 }} htmlFor="leaderboard-club">
+                Club
+              </label>
+              <input
+                id="leaderboard-club"
+                value={draftClubId}
+                onChange={(event) => setDraftClubId(event.target.value)}
+                placeholder="e.g. club-123"
+                style={{ padding: "0.35rem", border: "1px solid #ccc", borderRadius: "4px" }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button
+                type="submit"
+                style={{
+                  padding: "0.4rem 0.9rem",
+                  borderRadius: "4px",
+                  border: "1px solid #222",
+                  background: canApply ? "#222" : "#ccc",
+                  color: "#fff",
+                  cursor: canApply ? "pointer" : "not-allowed",
+                  opacity: canApply ? 1 : 0.7,
+                }}
+                disabled={!canApply}
+              >
+                Apply
+              </button>
+              <button
+                type="button"
+                onClick={handleClear}
+                style={{
+                  padding: "0.4rem 0.9rem",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc",
+                  background: "transparent",
+                  cursor: canClear ? "pointer" : "not-allowed",
+                  opacity: canClear ? 1 : 0.7,
+                }}
+                disabled={!canClear}
+              >
+                Clear
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div
             style={{
-              padding: "0.4rem 0.9rem",
-              borderRadius: "4px",
-              border: "1px solid #ccc",
-              background: "transparent",
-              cursor: canClear ? "pointer" : "not-allowed",
-              opacity: canClear ? 1 : 0.7,
+              marginTop: "1rem",
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.5rem",
             }}
-            disabled={!canClear}
           >
-            Clear
-          </button>
-        </div>
-        {!supportsFilters && (
-          <p style={{ fontSize: "0.8rem", color: "#777", margin: 0 }}>
-            Regional filters apply to individual sport leaderboards.
-          </p>
+            <p style={{ fontSize: "0.8rem", color: "#777", margin: 0 }}>
+              Regional filters apply to individual sport leaderboards.
+            </p>
+            {hasAppliedFilters && (
+              <div>
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  style={{
+                    padding: "0.4rem 0.9rem",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    background: "transparent",
+                    cursor: "pointer",
+                  }}
+                >
+                  Clear region filters
+                </button>
+              </div>
+            )}
+          </div>
         )}
-      </form>
 
       {loading ? (
         <table

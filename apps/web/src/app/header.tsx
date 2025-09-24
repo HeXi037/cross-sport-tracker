@@ -64,12 +64,7 @@ export default function Header() {
           </li>
           <li>
             <Link href="/leaderboard" onClick={() => setOpen(false)}>
-              Leaderboard
-            </Link>
-          </li>
-          <li>
-            <Link href="/leaderboard/master" onClick={() => setOpen(false)}>
-              All Sports
+              Leaderboards
             </Link>
           </li>
           {admin && (

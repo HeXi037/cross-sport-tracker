@@ -421,14 +421,16 @@ export default function LiveSummary({
   useEffect(() => {
     if (!event) return;
 
-    const incomingLabel = resolveStatusLabelFromUpdate(event);
+    const incomingLabel = sanitizeStatus(resolveStatusLabelFromUpdate(event));
     if (incomingLabel !== undefined) {
       setStatusLabel(incomingLabel);
     }
 
-    const incomingCode = resolveStatusCodeFromUpdate(event);
+    const incomingCode = sanitizeStatus(resolveStatusCodeFromUpdate(event));
     if (incomingCode !== undefined) {
       setStatusValue(incomingCode);
+    } else if (incomingLabel !== undefined) {
+      setStatusValue(undefined);
     }
 
     let nextSummary: SummaryData | undefined;

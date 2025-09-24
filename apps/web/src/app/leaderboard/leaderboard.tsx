@@ -42,6 +42,49 @@ const normalizeCountry = (value?: string | null) =>
 const normalizeClubId = (value?: string | null) =>
   value ? value.trim() : "";
 
+const formatSportLabel = (sportId: string) =>
+  sportId
+    .split(/[_-]/g)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+
+const canonicalizePathname = (pathname: string) => {
+  if (pathname === "/" || pathname === "") {
+    return "/";
+  }
+  return pathname.replace(/\/+$/, "") || "/";
+};
+
+const getEmptyStateMessage = (
+  sport: LeaderboardSport,
+  hasAppliedFilters: boolean,
+) => {
+  if (hasAppliedFilters) {
+    if (sport === MASTER_SPORT) {
+      return "The master leaderboard has no results for this region yet. Try clearing the filters or check back soon.";
+    }
+    if (sport === ALL_SPORTS) {
+      return "No matches have been recorded with these filters yet. Try adjusting the filters or check back soon.";
+    }
+    return `No ${formatSportLabel(
+      sport,
+    )} matches have been recorded for this region yet. Try clearing the filters or check back soon.`;
+  }
+
+  if (sport === MASTER_SPORT) {
+    return "The master leaderboard doesn't have any results yet. Check back soon!";
+  }
+
+  if (sport === ALL_SPORTS) {
+    return "No matches have been recorded yet. Check back soon!";
+  }
+
+  return `No ${formatSportLabel(
+    sport,
+  )} matches have been recorded yet. Check back soon!`;
+};
+
 export default function Leaderboard({ sport, country, clubId }: Props) {
   const router = useRouter();
 
@@ -56,7 +99,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   });
 
   const [leaders, setLeaders] = useState<Leader[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -86,8 +129,12 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     } else {
       url.searchParams.delete("clubId");
     }
-    const nextUrl = `${url.pathname}${url.search}`;
-    router.replace(nextUrl, { scroll: false });
+    const canonicalPath = canonicalizePathname(url.pathname);
+    const nextUrl = `${canonicalPath}${url.search}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+    if (nextUrl !== currentUrl) {
+      router.replace(nextUrl, { scroll: false });
+    }
   }, [filters.country, filters.clubId, router]);
 
   const appliedCountry = filters.country;
@@ -139,6 +186,11 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const canClear = supportsFilters
     ? hasDraftValues || hasAppliedFilters
     : hasAppliedFilters;
+
+  const emptyStateMessage = useMemo(
+    () => getEmptyStateMessage(sport, hasAppliedFilters),
+    [sport, hasAppliedFilters],
+  );
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -427,7 +479,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           </tbody>
         </table>
       ) : leaders.length === 0 ? (
-        <p>{error ?? "No data."}</p>
+        <p>{error ?? emptyStateMessage}</p>
       ) : (
         <table
           style={{

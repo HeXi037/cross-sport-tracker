@@ -474,15 +474,30 @@ export default function LiveSummary({
   );
   const scoreline = useMemo(() => formatScoreline(effectiveSummary), [effectiveSummary]);
   const finished = isFinishedStatus(statusValue ?? statusLabel);
-
-  const indicatorLabel = connected ? "Live" : fallback ? "Polling" : "Offline";
-  const indicatorDotClass = connected ? "dot-live" : "dot-polling";
-  const showStatusSuffix = statusLabel ? ` · ${statusLabel}` : "";
+  const statusHeading = finished ? "Final score" : "Live summary";
+  const indicatorLabel = finished
+    ? statusLabel ?? "Final"
+    : connected
+      ? "Live"
+      : fallback
+        ? "Polling"
+        : "Offline";
+  const indicatorDotClass = finished
+    ? "dot-final"
+    : connected
+      ? "dot-live"
+      : "dot-polling";
+  const normalizedStatusLabel = statusLabel ?? "";
+  const showStatusSuffix =
+    normalizedStatusLabel &&
+    !(finished && normalizedStatusLabel.toLowerCase() === "final")
+      ? ` · ${normalizedStatusLabel}`
+      : "";
 
   return (
     <section className="live-summary-card" aria-labelledby="live-summary-heading">
       <div className="live-summary-header">
-        <span id="live-summary-heading">{`Live summary${showStatusSuffix}`}</span>
+        <span id="live-summary-heading">{`${statusHeading}${showStatusSuffix}`}</span>
         <span className="connection-indicator" aria-live="polite">
           <span className={`dot ${indicatorDotClass}`} aria-hidden="true" />
           <span>{indicatorLabel}</span>

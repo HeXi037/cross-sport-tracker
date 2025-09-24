@@ -300,6 +300,75 @@ describe("PlayersPage", () => {
       screen.getByText(/only administrators can add new players/i)
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: /add/i })).toBeNull();
+    const controls = document.querySelector(
+      "[data-testid=\"player-create-controls\"]"
+    ) as HTMLElement | null;
+    expect(controls).toBeTruthy();
+    expect(controls?.hasAttribute("hidden")).toBe(true);
+    expect(controls?.getAttribute("aria-hidden")).toBe("true");
+    expect(controls?.hasAttribute("inert")).toBe(true);
+  });
+
+  it("hides per-player admin controls for non-admin users", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          players: [
+            { id: "1", name: "Alice" },
+            { id: "2", name: "Bob" },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce(
+        mockStatsResponse({
+          playerId: "1",
+          wins: 3,
+          losses: 1,
+          winPct: 0.75,
+        })
+      )
+      .mockResolvedValueOnce(
+        mockStatsResponse({
+          playerId: "2",
+          wins: 1,
+          losses: 2,
+          winPct: 0.33,
+        })
+      );
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      renderWithProviders(<PlayersPage />);
+    });
+
+    await screen.findByText("Alice");
+    await screen.findByText("Bob");
+
+    expect(document.querySelector(".player-list__admin")).toBeNull();
+    expect(screen.queryByRole("button", { name: /delete/i })).toBeNull();
+    expect(screen.queryByLabelText(/country for alice/i)).toBeNull();
+    expect(screen.queryByLabelText(/country for bob/i)).toBeNull();
+  });
+
+  it("shows the create form when the viewer is an admin", async () => {
+    window.localStorage.setItem("token", "x.eyJpc19hZG1pbiI6dHJ1ZX0.y");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      renderWithProviders(<PlayersPage />);
+    });
+
+    const controls = screen.getByTestId("player-create-controls");
+    expect(controls.hasAttribute("hidden")).toBe(false);
+    expect(controls.getAttribute("aria-hidden")).toBe("false");
+    expect(controls.hasAttribute("inert")).toBe(false);
+    expect(screen.getByRole("button", { name: /add/i })).toBeTruthy();
+    window.localStorage.removeItem("token");
   });
 
   it("allows admin to delete a player", async () => {

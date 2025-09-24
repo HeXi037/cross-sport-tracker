@@ -195,16 +195,25 @@ async function getUpcomingMatches(playerId: string): Promise<EnrichedMatch[]> {
   return getMatches(playerId, true);
 }
 
-async function getStats(playerId: string): Promise<PlayerStats | null> {
+type PlayerStatsResult = {
+  stats: PlayerStats | null;
+  error: boolean;
+};
+
+async function getStats(playerId: string): Promise<PlayerStatsResult> {
   try {
     const r = await apiFetch(
       `/v0/players/${encodeURIComponent(playerId)}/stats`,
       { cache: "no-store" } as RequestInit
     );
-    if (!r.ok) return null;
-    return (await r.json()) as PlayerStats;
-  } catch {
-    return null;
+    if (!r.ok) {
+      return { stats: null, error: true };
+    }
+    const data = (await r.json()) as PlayerStats | null;
+    return { stats: data, error: false };
+  } catch (err) {
+    console.warn(`Failed to load stats for player ${playerId}`, err);
+    return { stats: null, error: true };
   }
 }
 
@@ -326,12 +335,13 @@ export default async function PlayerPage({
 }) {
   const locale = parseAcceptLanguage(headers().get("accept-language"));
   try {
-    const [player, allMatches, stats, upcoming] = await Promise.all([
+    const [player, allMatches, statsResult, upcoming] = await Promise.all([
       getPlayer(params.id),
       getMatches(params.id),
       getStats(params.id),
       getUpcomingMatches(params.id),
     ]);
+    const { stats, error: statsError } = statsResult;
     let clubName: string | null = null;
     if (player.club_id) {
       try {
@@ -385,12 +395,14 @@ export default async function PlayerPage({
           <h1 className="heading">
             <PlayerName player={player} />
           </h1>
-          {stats === null ? (
-            <p className="mt-2 text-sm text-gray-600">Stats unavailable.</p>
+          {statsError ? (
+            <p className="mt-2 text-sm text-gray-600">Couldn&apos;t load stats.</p>
           ) : matchSummary ? (
             <p className="mt-2 text-sm text-gray-600">
               Record: {formatMatchSummary(matchSummary)}
             </p>
+          ) : stats === null ? (
+            <p className="mt-2 text-sm text-gray-600">Stats unavailable.</p>
           ) : null}
           {player.bio ? (
             <p

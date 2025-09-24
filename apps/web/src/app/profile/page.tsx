@@ -469,7 +469,7 @@ export default function ProfilePage() {
             placeholder="Search for a club"
             searchInputId="profile-club-search"
             selectId="profile-club-select"
-            searchLabel="Search favorite club"
+            searchLabel="Favorite club"
             name="club_id"
           />
         </div>

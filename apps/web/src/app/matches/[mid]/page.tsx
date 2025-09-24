@@ -2,7 +2,8 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { apiFetch, withAbsolutePhotoUrl } from "../../../lib/api";
 import LiveSummary, { type SummaryData } from "./live-summary";
-import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
+import MatchParticipants from "../../../components/MatchParticipants";
+import { PlayerInfo } from "../../../components/PlayerName";
 import { formatDateTime, parseAcceptLanguage } from "../../../lib/i18n";
 
 export const dynamic = "force-dynamic";
@@ -159,17 +160,15 @@ export default async function MatchDetailPage({
 
       <header className="section">
         <h1 className="heading">
-          {Object.keys(sidePlayers).map((s, i) => (
-            <span key={s}>
-              {sidePlayers[s]?.map((pl, j) => (
-                <span key={pl.id}>
-                  <PlayerName player={pl} />
-                  {j < (sidePlayers[s]?.length ?? 0) - 1 ? " / " : ""}
-                </span>
-              ))}
-              {i < Object.keys(sidePlayers).length - 1 ? " vs " : ""}
-            </span>
-          )) || "A vs B"}
+          {Object.keys(sidePlayers).length ? (
+            <MatchParticipants
+              as="span"
+              sides={Object.values(sidePlayers)}
+              separatorSymbol="/"
+            />
+          ) : (
+            "A vs B"
+          )}
         </h1>
         <p className="match-meta">
           {sportLabel} · {rulesetLabel} · {" "}

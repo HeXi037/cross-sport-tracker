@@ -7,5 +7,7 @@ The current Vitest run exposes a couple of actionable gaps. Capture them here so
 - [ ] Alternatively, document that application-specific tests must be invoked from `apps/web/` until the workspace is wired up, and update any CI helpers that assume the root command works. (Choose one approach.)
 
 ## Bowling record page test missing score placeholders
-- [ ] Update the bowling score inputs (or their test queries) so the "allows recording multiple bowling players" spec can find the score fields without relying on placeholder text that is not rendered today.
-- [ ] When the fields are discoverable again, re-run `pnpm test -- --runInBand` inside `apps/web/` to confirm the suite returns to green.
+- [ ] Audit `apps/web/src/app/record/[sport]/page.tsx` to confirm how bowling score inputs are labelled and decide whether the UI should expose placeholders, visible labels, or `aria-label`s for each score field.
+- [ ] If the UI should surface labels, update the markup so every bowling score input has a reliable accessible name without depending on placeholder text that disappears on focus.
+- [ ] Adjust `apps/web/src/app/record/[sport]/page.test.tsx` so the "allows recording multiple bowling players" spec queries the score fields via the new accessible names (for example, `getByLabelText`), rather than looking for `/score/i` placeholders that never render.
+- [ ] Run `pnpm test -- --runInBand` from `apps/web/` to verify the suite passes once the bowling inputs and tests are aligned.

@@ -5,7 +5,7 @@ import { useMatchStream } from "../../../lib/useMatchStream";
 import MatchScoreboard from "./MatchScoreboard";
 
 type NumericRecord = Record<string, number>;
-type SetScores = Array<Record<string, number>>;
+type SetScores = Array<Record<string, unknown>>;
 
 export type RacketSummary = {
   sets?: NumericRecord;

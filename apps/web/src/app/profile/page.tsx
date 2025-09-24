@@ -25,6 +25,40 @@ import {
 } from "../../lib/countries";
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
+const INVALID_SOCIAL_URL_MESSAGE =
+  "Enter a valid URL that starts with http:// or https:// and includes a hostname.";
+
+type SaveFeedback = { type: "success" | "error"; message: string } | null;
+
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+
+function isValidHttpUrl(value: string): boolean {
+  if (!value) {
+    return false;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return false;
+  }
+  if (/\s/.test(trimmed)) {
+    return false;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return false;
+    }
+    if (!parsed.hostname) {
+      return false;
+    }
+    if (LOCAL_HOSTS.has(parsed.hostname)) {
+      return true;
+    }
+    return parsed.hostname.includes(".");
+  } catch {
+    return false;
+  }
+}
 
 function extractErrorMessage(err: unknown): string | null {
   if (!err) return null;
@@ -67,6 +101,7 @@ export default function ProfilePage() {
   const [linkSavingId, setLinkSavingId] = useState<string | null>(null);
   const [linkDeletingId, setLinkDeletingId] = useState<string | null>(null);
   const [linkSubmitting, setLinkSubmitting] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState<SaveFeedback>(null);
 
   const resetSocialLinkState = (links: PlayerSocialLink[]) => {
     setSocialLinks(links);
@@ -148,6 +183,7 @@ export default function ProfilePage() {
     if (!file) return;
     setError(null);
     setMessage(null);
+    setSaveFeedback(null);
     setUploading(true);
     try {
       const form = new FormData();
@@ -175,15 +211,21 @@ export default function ProfilePage() {
     e.preventDefault();
     setError(null);
     setMessage(null);
+    setSaveFeedback(null);
     const trimmedUsername = username.trim();
     if (trimmedUsername.length < 3) {
-      setError("Username must be at least 3 characters");
+      setSaveFeedback({
+        type: "error",
+        message: "Username must be at least 3 characters.",
+      });
       return;
     }
     if (password && (password.length < 12 || !PASSWORD_REGEX.test(password))) {
-      setError(
-        "Password must be at least 12 characters and include letters, numbers, and symbols",
-      );
+      setSaveFeedback({
+        type: "error",
+        message:
+          "Password must be at least 12 characters and include letters, numbers, and symbols.",
+      });
       return;
     }
     const normalizedCountry = countryCode.trim().toUpperCase();
@@ -193,7 +235,10 @@ export default function ProfilePage() {
       !normalizedCountry ||
       COUNTRY_OPTIONS.some((option) => option.code === normalizedCountry);
     if (!hasValidCountry) {
-      setError("Please select a valid country");
+      setSaveFeedback({
+        type: "error",
+        message: "Please select a valid country.",
+      });
       return;
     }
 
@@ -247,10 +292,16 @@ export default function ProfilePage() {
         } catch (err) {
           const status = (err as Error & { status?: number }).status;
           if (status === 422) {
-            setError("Invalid location. Please choose a different country or club.");
+            setSaveFeedback({
+              type: "error",
+              message: "Invalid location. Please choose a different country or club.",
+            });
           } else {
             const message = extractErrorMessage(err);
-            setError(message ?? "Failed to update location settings");
+            setSaveFeedback({
+              type: "error",
+              message: message ?? "Failed to update location settings.",
+            });
           }
           return;
         }
@@ -276,16 +327,21 @@ export default function ProfilePage() {
         const status = (err as Error & { status?: number }).status;
         const message = extractErrorMessage(err);
         if (status === 422 && message) {
-          setError(message);
+          setSaveFeedback({ type: "error", message });
         } else {
-          setError(message ?? "Update failed");
+          setSaveFeedback({
+            type: "error",
+            message: message ?? "Update failed.",
+          });
         }
         return;
       }
 
       setPassword("");
-      setError(null);
-      setMessage("Profile updated");
+      setSaveFeedback({
+        type: "success",
+        message: "Profile saved successfully.",
+      });
     } finally {
       setSaving(false);
     }
@@ -333,7 +389,10 @@ export default function ProfilePage() {
             id="profile-username"
             type="text"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => {
+              setSaveFeedback(null);
+              setUsername(e.target.value);
+            }}
             autoComplete="name"
           />
         </label>
@@ -344,7 +403,10 @@ export default function ProfilePage() {
             type="password"
             placeholder="New password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setSaveFeedback(null);
+              setPassword(e.target.value);
+            }}
             autoComplete="new-password"
           />
         </label>
@@ -353,7 +415,10 @@ export default function ProfilePage() {
           <select
             id="profile-country"
             value={countryCode}
-            onChange={(e) => setCountryCode(e.target.value)}
+            onChange={(e) => {
+              setSaveFeedback(null);
+              setCountryCode(e.target.value);
+            }}
           >
             <option value="">Select a country</option>
             {COUNTRY_OPTIONS.map((option) => (
@@ -363,16 +428,47 @@ export default function ProfilePage() {
             ))}
           </select>
         </label>
-        <div style={{ fontSize: "0.9rem", color: "#555" }}>
-          Continent: {continentLabel ?? "—"}
+        <p
+          style={{ fontSize: "0.85rem", color: "#555", margin: "-0.25rem 0 0.75rem" }}
+        >
+          Selecting a country automatically fills your continent.
+        </p>
+        {continentLabel ? (
+          <div
+            className="form-field"
+            aria-live="polite"
+            style={{ gap: "0.25rem" }}
+          >
+            <span className="form-label">Continent</span>
+            <div
+              data-testid="continent-display"
+              style={{ fontSize: "0.95rem", fontWeight: 500 }}
+            >
+              {continentLabel}
+            </div>
+            <span style={{ fontSize: "0.85rem", color: "#555" }}>
+              This is set automatically based on your selected country.
+            </span>
+          </div>
+        ) : null}
+        <div className="form-field">
+          <span className="form-label">Favorite club</span>
+          <ClubSelect
+            value={clubId}
+            onChange={(next) => {
+              setSaveFeedback(null);
+              setClubId(next);
+            }}
+            placeholder="Search for a club"
+            ariaLabel="Favorite club"
+            name="club_id"
+          />
         </div>
-        <ClubSelect
-          value={clubId}
-          onChange={setClubId}
-          placeholder="Favorite club"
-          ariaLabel="Favorite club"
-          name="club_id"
-        />
+        <p
+          style={{ fontSize: "0.85rem", color: "#555", margin: "-0.25rem 0 0.75rem" }}
+        >
+          Leave blank if you do not want to show a favorite club.
+        </p>
         <label
           style={{ display: "grid", gap: "0.5rem", width: "100%" }}
           htmlFor="profile-bio"
@@ -381,7 +477,10 @@ export default function ProfilePage() {
           <textarea
             id="profile-bio"
             value={bio}
-            onChange={(e) => setBio(e.target.value)}
+            onChange={(e) => {
+              setSaveFeedback(null);
+              setBio(e.target.value);
+            }}
             rows={4}
             maxLength={2000}
             placeholder="Tell other players about yourself"
@@ -397,8 +496,22 @@ export default function ProfilePage() {
           />
         </label>
         <button type="submit" disabled={saving}>
-          Save
+          {saving ? "Saving…" : "Save"}
         </button>
+        <div aria-live="polite">
+          {saving ? (
+            <p style={{ fontSize: "0.9rem", color: "#555" }}>Saving changes…</p>
+          ) : null}
+          {saveFeedback ? (
+            <p
+              role={saveFeedback.type === "error" ? "alert" : "status"}
+              className={saveFeedback.type === "error" ? "error" : "success"}
+              style={{ marginTop: "0.5rem" }}
+            >
+              {saveFeedback.message}
+            </p>
+          ) : null}
+        </div>
       </form>
       {message && (
         <p role="status" className="success">
@@ -458,23 +571,24 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     disabled={busy || unchanged}
-                    onClick={async () => {
+                  onClick={async () => {
                       const nextLabel = trimmedLabel;
                       const nextUrl = trimmedUrl;
                       if (!nextLabel) {
                         setError("Link label is required");
                         setMessage(null);
+                        setSaveFeedback(null);
                         return;
                       }
-                      if (!/^https?:\/\//i.test(nextUrl)) {
-                        setError(
-                          "Social link URL must start with http:// or https://"
-                        );
+                      if (!isValidHttpUrl(nextUrl)) {
+                        setError(INVALID_SOCIAL_URL_MESSAGE);
                         setMessage(null);
+                        setSaveFeedback(null);
                         return;
                       }
                       setError(null);
                       setMessage(null);
+                      setSaveFeedback(null);
                       setLinkSavingId(link.id);
                       try {
                         const updated = await updateMySocialLink(link.id, {
@@ -489,6 +603,7 @@ export default function ProfilePage() {
                       } catch (err) {
                         const message = extractErrorMessage(err);
                         setError(message ?? "Failed to update social link");
+                        setSaveFeedback(null);
                       } finally {
                         setLinkSavingId(null);
                       }
@@ -502,6 +617,7 @@ export default function ProfilePage() {
                     onClick={async () => {
                       setError(null);
                       setMessage(null);
+                      setSaveFeedback(null);
                       setLinkDeletingId(link.id);
                       try {
                         await deleteMySocialLink(link.id);
@@ -513,6 +629,7 @@ export default function ProfilePage() {
                       } catch (err) {
                         const message = extractErrorMessage(err);
                         setError(message ?? "Failed to remove social link");
+                        setSaveFeedback(null);
                       } finally {
                         setLinkDeletingId(null);
                       }
@@ -532,14 +649,17 @@ export default function ProfilePage() {
             e.preventDefault();
             setError(null);
             setMessage(null);
+            setSaveFeedback(null);
             const label = newLinkLabel.trim();
             const url = newLinkUrl.trim();
             if (!label) {
               setError("Link label is required");
+              setSaveFeedback(null);
               return;
             }
-            if (!/^https?:\/\//i.test(url)) {
-              setError("Social link URL must start with http:// or https://");
+            if (!isValidHttpUrl(url)) {
+              setError(INVALID_SOCIAL_URL_MESSAGE);
+              setSaveFeedback(null);
               return;
             }
             setLinkSubmitting(true);
@@ -550,9 +670,11 @@ export default function ProfilePage() {
               setNewLinkLabel("");
               setNewLinkUrl("");
               setMessage("Social link added");
+              setSaveFeedback(null);
             } catch (err) {
               const message = extractErrorMessage(err);
               setError(message ?? "Failed to add social link");
+              setSaveFeedback(null);
             } finally {
               setLinkSubmitting(false);
             }
@@ -576,7 +698,7 @@ export default function ProfilePage() {
           </button>
         </form>
         <p style={{ fontSize: "0.85rem", color: "#555" }}>
-          URLs must start with http:// or https://.
+          URLs must include http:// or https:// and a valid hostname.
         </p>
       </section>
     </main>

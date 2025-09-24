@@ -220,4 +220,105 @@ describe("RecordSportPage", () => {
       summarizeSpy.mockRestore();
     }
   });
+
+  it("validates bowling frames as rolls are entered", async () => {
+    sportParam = "bowling";
+    const players = [{ id: "1", name: "Alice" }];
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordSportPage />);
+
+    await screen.findAllByText("Alice");
+
+    const select = screen.getAllByRole("combobox")[0];
+    fireEvent.change(select, { target: { value: "1" } });
+
+    const playerName = players[0].name;
+    const firstRoll = screen.getByLabelText(
+      `${playerName} frame 1 roll 1`
+    );
+    const secondRoll = screen.getByLabelText(
+      `${playerName} frame 1 roll 2`
+    );
+
+    fireEvent.change(firstRoll, { target: { value: "10" } });
+    expect((secondRoll as HTMLInputElement).value).toBe("");
+
+    fireEvent.change(secondRoll, { target: { value: "5" } });
+
+    expect((secondRoll as HTMLInputElement).value).toBe("");
+    expect(
+      screen.getByText(
+        `${playerName} – Frame 1: leave roll 2 empty after a strike.`
+      )
+    ).toBeInTheDocument();
+
+    fireEvent.change(firstRoll, { target: { value: "4" } });
+    fireEvent.change(secondRoll, { target: { value: "6" } });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText(
+          `${playerName} – Frame 1: leave roll 2 empty after a strike.`
+        )
+      ).not.toBeInTheDocument()
+    );
+  });
+
+  it("shows bowling frame totals once all rolls are complete", async () => {
+    sportParam = "bowling";
+    const players = [{ id: "1", name: "Alice" }];
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordSportPage />);
+
+    await screen.findAllByText("Alice");
+
+    const select = screen.getAllByRole("combobox")[0];
+    fireEvent.change(select, { target: { value: "1" } });
+
+    const playerName = players[0].name;
+
+    for (let frame = 1; frame <= 9; frame += 1) {
+      const roll1 = screen.getByLabelText(
+        `${playerName} frame ${frame} roll 1`
+      );
+      const roll2 = screen.getByLabelText(
+        `${playerName} frame ${frame} roll 2`
+      );
+      fireEvent.change(roll1, { target: { value: "3" } });
+      fireEvent.change(roll2, { target: { value: "4" } });
+    }
+
+    const finalRoll1 = screen.getByLabelText(
+      `${playerName} frame 10 roll 1`
+    );
+    const finalRoll2 = screen.getByLabelText(
+      `${playerName} frame 10 roll 2`
+    );
+    fireEvent.change(finalRoll1, { target: { value: "3" } });
+    fireEvent.change(finalRoll2, { target: { value: "4" } });
+
+    const firstFrameTotal = await screen.findByRole("status", {
+      name: `${playerName} frame 1 total`,
+    });
+    expect(firstFrameTotal).toHaveTextContent("Total: 7");
+
+    const finalFrameTotal = await screen.findByRole("status", {
+      name: `${playerName} frame 10 total`,
+    });
+    expect(finalFrameTotal).toHaveTextContent("Total: 70");
+
+    expect(
+      screen.getByText("Total: 70", { selector: ".bowling-total-preview" })
+    ).toBeInTheDocument();
+  });
 });

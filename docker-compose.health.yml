@@ -19,7 +19,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "node -e \"const http=require('http');const paths=['/','/record/padel'];let pending=paths.length,err=0;paths.forEach(p=>http.get('http://127.0.0.1:3000'+p,r=>{if(r.statusCode!==200)err=1;if(--pending===0)process.exit(err)}).on('error',()=>{err=1;if(--pending===0)process.exit(err)}));\"",
+          "node - <<'NODE'\nconst http = require('http');\n\nconst origin = 'http://127.0.0.1:3000';\nconst paths = ['/', '/record/padel'];\nconst MAX_REDIRECTS = 3;\n\nfunction check(url, redirects = 0) {\n  return new Promise((resolve) => {\n    const req = http.get(url, (res) => {\n      res.resume();\n      const status = res.statusCode || 0;\n      if (status >= 200 && status < 300) {\n        resolve(true);\n        return;\n      }\n      if (\n        status >= 300 &&\n        status < 400 &&\n        res.headers.location &&\n        redirects < MAX_REDIRECTS\n      ) {\n        const nextUrl = new URL(res.headers.location, url).toString();\n        check(nextUrl, redirects + 1).then(resolve);\n        return;\n      }\n      resolve(false);\n    });\n    req.on('error', () => resolve(false));\n  });\n}\n\n(async () => {\n  const results = await Promise.all(\n    paths.map((path) => check(new URL(path, origin).toString()))\n  );\n  process.exit(results.every(Boolean) ? 0 : 1);\n})();\nNODE",
         ]
       interval: 15s
       timeout: 3s

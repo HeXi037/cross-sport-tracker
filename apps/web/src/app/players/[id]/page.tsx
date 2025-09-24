@@ -102,7 +102,7 @@ async function getMatches(
   if (!r.ok) return [];
   const rows = ((await r.json()) as MatchRow[]).slice(0, 5);
 
-  const details = await Promise.all(
+  const detailResults = await Promise.allSettled(
     rows.map(async (m) => {
       const resp = await apiFetch(`/v0/matches/${encodeURIComponent(m.id)}`, {
         cache: "no-store",
@@ -111,6 +111,28 @@ async function getMatches(
       return { row: m, detail: (await resp.json()) as MatchDetail };
     })
   );
+
+  const details: { row: MatchRow; detail: MatchDetail }[] = [];
+  const failedDetails: { matchId: string; reason: unknown }[] = [];
+
+  detailResults.forEach((result, index) => {
+    const match = rows[index];
+    if (result.status === "fulfilled") {
+      details.push(result.value);
+    } else if (match) {
+      failedDetails.push({ matchId: match.id, reason: result.reason });
+      details.push({ row: match, detail: { participants: [] } });
+    }
+  });
+
+  if (failedDetails.length) {
+    console.warn(
+      `Failed to load match details for matches: ${failedDetails
+        .map((f) => f.matchId)
+        .join(", ")}`,
+      failedDetails.map((f) => ({ matchId: f.matchId, reason: f.reason }))
+    );
+  }
 
   const ids = new Set<string>();
   for (const { detail } of details) {
@@ -370,14 +392,56 @@ export default async function PlayerPage({
   searchParams: { view?: string };
 }) {
   const locale = parseAcceptLanguage(headers().get("accept-language"));
+  let player: Player;
   try {
-    const [player, allMatches, statsResult, upcoming] = await Promise.all([
-      getPlayer(params.id),
-      getMatches(params.id),
-      getStats(params.id),
-      getUpcomingMatches(params.id),
-    ]);
+    player = await getPlayer(params.id);
+  } catch {
+    return (
+      <main className="container">
+        <p className="text-red-500">Failed to load player.</p>
+        <Link href="/players">Back to players</Link>
+      </main>
+    );
+  }
+
+  try {
+    const [matchesSettled, statsSettled, upcomingSettled] =
+      await Promise.allSettled([
+        getMatches(params.id),
+        getStats(params.id),
+        getUpcomingMatches(params.id),
+      ]);
+
+    if (matchesSettled.status === "rejected") {
+      console.warn(
+        `Failed to load matches for player ${params.id}`,
+        matchesSettled.reason
+      );
+    }
+    const allMatches =
+      matchesSettled.status === "fulfilled" ? matchesSettled.value : [];
+
+    let statsResult: PlayerStatsResult;
+    if (statsSettled.status === "fulfilled") {
+      statsResult = statsSettled.value;
+    } else {
+      console.warn(
+        `Failed to load stats for player ${params.id}`,
+        statsSettled.reason
+      );
+      statsResult = { stats: null, error: true };
+    }
     const { stats, error: statsError } = statsResult;
+
+    if (upcomingSettled.status === "rejected") {
+      console.warn(
+        `Failed to load upcoming matches for player ${params.id}`,
+        upcomingSettled.reason
+      );
+    }
+    const upcoming =
+      upcomingSettled.status === "fulfilled" ? upcomingSettled.value : [];
+
     let clubName: string | null = null;
     if (player.club_id) {
       try {
@@ -652,7 +716,8 @@ export default async function PlayerPage({
       </main>
       </PlayerDetailErrorBoundary>
     );
-  } catch {
+  } catch (err) {
+    console.error(`Failed to render player ${params.id}`, err);
     return (
       <main className="container">
         <p className="text-red-500">Failed to load player.</p>
@@ -661,3 +726,4 @@ export default async function PlayerPage({
     );
   }
 }
+

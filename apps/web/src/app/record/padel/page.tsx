@@ -233,13 +233,15 @@ export default function RecordPadelPage() {
               </span>
             </label>
             <label className="form-field" htmlFor="padel-time">
-              <span className="form-label">Start time</span>
+              <span className="form-label" id="padel-time-label">
+                Start time
+              </span>
               <input
                 id="padel-time"
                 type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                lang={locale}
+                aria-labelledby="padel-time-label"
               />
             </label>
           </div>

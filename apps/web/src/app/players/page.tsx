@@ -45,6 +45,7 @@ export default function PlayersPage() {
   const [creating, setCreating] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [updatingLocation, setUpdatingLocation] = useState<string | null>(null);
+  const [statsError, setStatsError] = useState(false);
   const admin = isAdmin();
 
   const trimmedName = name.trim();
@@ -90,10 +91,12 @@ export default function PlayersPage() {
   useEffect(() => {
     if (!players.length) {
       setPlayerStats({});
+      setStatsError(false);
       return;
     }
     let cancelled = false;
     async function loadStats() {
+      setStatsError(false);
       const entries = await Promise.all(
         players.map(async (p) => {
           try {
@@ -110,9 +113,14 @@ export default function PlayersPage() {
       );
       if (!cancelled) {
         setPlayerStats(Object.fromEntries(entries));
+        setStatsError(entries.some(([, stats]) => stats === null));
       }
     }
-    loadStats();
+    loadStats().catch(() => {
+      if (!cancelled) {
+        setStatsError(true);
+      }
+    });
     return () => {
       cancelled = true;
     };
@@ -228,103 +236,122 @@ export default function PlayersPage() {
           </div>
           {filteredPlayers.length === 0 && debouncedSearch.trim() !== "" ? (
             <p>No players found.</p>
+          ) : filteredPlayers.length === 0 ? (
+            <p>No players available yet.</p>
           ) : (
-            <ul>
-              {filteredPlayers.map((p) => (
-                <li key={p.id}>
-                  <Link href={`/players/${p.id}`}>
-                    <PlayerName player={p} />
-                  </Link>
-                  <div className="text-sm text-gray-600">
-                    {(() => {
-                      const stats = playerStats[p.id];
-                      if (stats === undefined) return "Loading stats…";
-                      if (!stats || !stats.matchSummary)
-                        return "Stats unavailable";
-                      const { wins, losses, draws, winPct } =
-                        stats.matchSummary;
-                      const parts = [wins, losses];
-                      if (draws) parts.push(draws);
-                      const pct = Number.isFinite(winPct)
-                        ? Math.round(winPct * 100)
-                        : 0;
-                      return `${parts.join("-")} (${pct}%)`;
-                    })()}
-                  </div>
-                  {admin && (
-                    <div style={{ marginTop: 8 }}>
-                      <label className="mr-2" htmlFor={`country-${p.id}`}>
-                        Country:
-                      </label>
-                      <select
-                        id={`country-${p.id}`}
-                        aria-label={`Country for ${p.name}`}
-                        value={p.country_code ?? ""}
-                        onChange={(e) => handleCountryChange(p, e.target.value)}
-                        disabled={updatingLocation === p.id}
-                        className="input"
-                        style={{ maxWidth: 220, display: "inline-block", marginRight: 8 }}
-                      >
-                        <option value="">Unspecified</option>
-                        {COUNTRY_OPTIONS.map((option) => (
-                          <option key={option.code} value={option.code}>
-                            {option.name}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        style={{ marginLeft: 8 }}
-                        onClick={() => handleDelete(p.id)}
-                      >
-                        Delete
-                      </button>
+            <>
+              {statsError && (
+                <p className="player-list__error" role="alert">
+                  Player stats failed to load. Displayed records may be
+                  incomplete.
+                </p>
+              )}
+              <ul className="player-list">
+                {filteredPlayers.map((p) => (
+                  <li key={p.id} className="player-list__item">
+                    <div className="player-list__row">
+                      <Link href={`/players/${p.id}`} className="player-list__link">
+                        <PlayerName player={p} />
+                      </Link>
+                      <span className="player-list__stats">
+                        {(() => {
+                          const stats = playerStats[p.id];
+                          if (stats === undefined) return "Loading stats…";
+                          if (!stats || !stats.matchSummary)
+                            return "Stats unavailable";
+                          const { wins, losses, draws, winPct } =
+                            stats.matchSummary;
+                          const parts = [wins, losses];
+                          if (draws) parts.push(draws);
+                          const pct = Number.isFinite(winPct)
+                            ? Math.round(winPct * 100)
+                            : 0;
+                          return `${parts.join("-")} (${pct}%)`;
+                        })()}
+                      </span>
                     </div>
-                  )}
-                </li>
-              ))}
-            </ul>
+                    {admin && (
+                      <div className="player-list__admin">
+                        <label className="player-list__label" htmlFor={`country-${p.id}`}>
+                          Country:
+                        </label>
+                        <select
+                          id={`country-${p.id}`}
+                          aria-label={`Country for ${p.name}`}
+                          value={p.country_code ?? ""}
+                          onChange={(e) => handleCountryChange(p, e.target.value)}
+                          disabled={updatingLocation === p.id}
+                          className="input player-list__select"
+                        >
+                          <option value="">Unspecified</option>
+                          {COUNTRY_OPTIONS.map((option) => (
+                            <option key={option.code} value={option.code}>
+                              {option.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          className="player-list__delete"
+                          onClick={() => handleDelete(p.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </>
       )}
-      <div className="form-field">
-        <label htmlFor="player-name" className="form-label">
-          Player name
-        </label>
-        <input
-          id="player-name"
-          className="input"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Enter player name"
-          autoComplete="name"
-        />
-      </div>
-      {!nameIsValid && trimmedName !== "" && (
-        <div className="text-red-500 mt-2">
-          Name must be 1-50 characters and contain only letters,
-          numbers, spaces, hyphens, or apostrophes.
-        </div>
+      {admin ? (
+        <>
+          <div className="form-field">
+            <label htmlFor="player-name" className="form-label">
+              Player name
+            </label>
+            <input
+              id="player-name"
+              className="input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter player name"
+              autoComplete="name"
+            />
+          </div>
+          {!nameIsValid && trimmedName !== "" && (
+            <div className="text-red-500 mt-2">
+              Name must be 1-50 characters and contain only letters,
+              numbers, spaces, hyphens, or apostrophes.
+            </div>
+          )}
+          <div className="form-field">
+            <label htmlFor="player-photo" className="form-label">
+              Upload profile photo (optional)
+            </label>
+            <input
+              id="player-photo"
+              type="file"
+              accept="image/*"
+              onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+              className="input"
+            />
+          </div>
+          <button
+            className="button"
+            onClick={create}
+            disabled={creating || name.trim() === ""}
+          >
+            {creating ? "Saving…" : "Add"}
+          </button>
+          {success && <div className="text-green-600 mt-2">{success}</div>}
+        </>
+      ) : (
+        <p className="player-list__admin-note">
+          Only administrators can add new players.
+        </p>
       )}
-      <div className="form-field">
-        <label htmlFor="player-photo" className="form-label">
-          Upload profile photo (optional)
-        </label>
-        <input
-          id="player-photo"
-          type="file"
-          accept="image/*"
-          onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
-          className="input"
-        />
-      </div>
-      <button
-        className="button"
-        onClick={create}
-        disabled={creating || name.trim() === ""}
-      >
-        {creating ? "Saving…" : "Add"}
-      </button>
-      {success && <div className="text-green-600 mt-2">{success}</div>}
       {error && (
         <div className="text-red-500 mt-2">
           {error}

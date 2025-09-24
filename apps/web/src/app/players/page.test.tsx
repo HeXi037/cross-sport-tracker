@@ -39,6 +39,7 @@ function mockStatsResponse({
 describe("PlayersPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    window.localStorage.clear();
   });
 
   it("shows a loading message while fetching players", async () => {
@@ -53,6 +54,7 @@ describe("PlayersPage", () => {
   });
 
   it("disables add button for blank names", async () => {
+    window.localStorage.setItem("token", "x.eyJpc19hZG1pbiI6dHJ1ZX0.y");
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
@@ -202,6 +204,7 @@ describe("PlayersPage", () => {
   });
 
   it("shows a success message after adding a player", async () => {
+    window.localStorage.setItem("token", "x.eyJpc19hZG1pbiI6dHJ1ZX0.y");
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) })
@@ -229,6 +232,22 @@ describe("PlayersPage", () => {
     });
     expect(screen.queryByText(/added successfully/i)).toBeNull();
     vi.useRealTimers();
+  });
+
+  it("informs non-admins that the add form is unavailable", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      render(<PlayersPage />);
+    });
+
+    expect(
+      screen.getByText(/only administrators can add new players/i)
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /add/i })).toBeNull();
   });
 
   it("allows admin to delete a player", async () => {

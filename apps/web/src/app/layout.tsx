@@ -3,6 +3,7 @@ import './globals.css';
 import Header from './header';
 import ChunkErrorReload from '../components/ChunkErrorReload';
 import ToastProvider from '../components/ToastProvider';
+import SessionBanner from '../components/SessionBanner';
 import { headers } from 'next/headers';
 import { LocaleProvider } from '../lib/LocaleContext';
 import { parseAcceptLanguage } from '../lib/i18n';
@@ -28,6 +29,7 @@ export default function RootLayout({
           <ToastProvider>
             <ChunkErrorReload />
             <Header />
+            <SessionBanner />
             {children}
           </ToastProvider>
         </LocaleProvider>

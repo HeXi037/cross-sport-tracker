@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiFetch, isAdmin } from './api';
+import {
+  apiFetch,
+  isAdmin,
+  logout,
+  persistSession,
+  SESSION_ENDED_STORAGE_KEY,
+} from './api';
 
 function buildToken(payload: Record<string, unknown>): string {
   const json = JSON.stringify(payload);
@@ -28,6 +34,60 @@ describe('isAdmin', () => {
   it('returns false for malformed token', () => {
     window.localStorage.setItem('token', 'bad.token');
     expect(isAdmin()).toBe(false);
+  });
+});
+
+describe('persistSession', () => {
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
+  it('stores access and refresh tokens and clears session flags', () => {
+    window.localStorage.setItem(
+      SESSION_ENDED_STORAGE_KEY,
+      JSON.stringify({ reason: 'expired', timestamp: Date.now() })
+    );
+
+    persistSession({ access_token: 'abc', refresh_token: 'def' });
+
+    expect(window.localStorage.getItem('token')).toBe('abc');
+    expect(window.localStorage.getItem('refresh_token')).toBe('def');
+    expect(window.localStorage.getItem(SESSION_ENDED_STORAGE_KEY)).toBeNull();
+  });
+});
+
+describe('logout', () => {
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
+  it('records a session end when expiring', () => {
+    window.localStorage.setItem('token', 'abc');
+    window.localStorage.setItem('refresh_token', 'def');
+
+    logout('expired');
+
+    expect(window.localStorage.getItem('token')).toBeNull();
+    expect(window.localStorage.getItem('refresh_token')).toBeNull();
+    const sessionEnd = window.localStorage.getItem(SESSION_ENDED_STORAGE_KEY);
+    expect(sessionEnd).not.toBeNull();
+    if (sessionEnd) {
+      const parsed = JSON.parse(sessionEnd) as { reason?: string };
+      expect(parsed.reason).toBe('expired');
+    }
+  });
+
+  it('clears session end notices on manual logout', () => {
+    window.localStorage.setItem('token', 'abc');
+    window.localStorage.setItem(
+      SESSION_ENDED_STORAGE_KEY,
+      JSON.stringify({ reason: 'expired', timestamp: Date.now() })
+    );
+
+    logout();
+
+    expect(window.localStorage.getItem('token')).toBeNull();
+    expect(window.localStorage.getItem(SESSION_ENDED_STORAGE_KEY)).toBeNull();
   });
 });
 
@@ -91,5 +151,11 @@ describe('apiFetch', () => {
       status: 401,
     });
     expect(window.localStorage.getItem('token')).toBeNull();
+    const sessionEnd = window.localStorage.getItem(SESSION_ENDED_STORAGE_KEY);
+    expect(sessionEnd).not.toBeNull();
+    if (sessionEnd) {
+      const parsed = JSON.parse(sessionEnd) as { reason?: string };
+      expect(parsed.reason).toBe('expired');
+    }
   });
 });

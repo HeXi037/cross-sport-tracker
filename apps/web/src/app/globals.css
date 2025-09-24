@@ -221,6 +221,31 @@ textarea {
   border-left-color: var(--color-accent-red);
 }
 
+.session-banner {
+  background: var(--color-accent-red);
+  color: var(--color-surface);
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  box-shadow: 0 2px 6px rgba(10, 31, 68, 0.25);
+}
+
+.session-banner__close {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.session-banner__close:hover,
+.session-banner__close:focus-visible {
+  opacity: 0.8;
+}
+
 /* Navigation bar */
 .nav {
   background: var(--color-nav-bg);

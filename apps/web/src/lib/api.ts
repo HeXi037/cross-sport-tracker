@@ -15,6 +15,189 @@ export function apiUrl(path: string): string {
 
 const ABSOLUTE_URL_REGEX = /^[a-zA-Z][a-zA-Z\d+\-.]*:/;
 
+const ACCESS_TOKEN_KEY = "token";
+const REFRESH_TOKEN_KEY = "refresh_token";
+export const SESSION_ENDED_STORAGE_KEY = "cst:session-ended";
+export const SESSION_ENDED_EVENT = "cst:session-ended";
+const REFRESH_BUFFER_SECONDS = 30;
+
+type LogoutReason = "manual" | "expired" | "error";
+export type SessionEndDetail = {
+  reason: Exclude<LogoutReason, "manual">;
+  timestamp: number;
+};
+type TokenUpdate = { access_token?: string; refresh_token?: string };
+
+let refreshTimeout: ReturnType<typeof setTimeout> | null = null;
+let refreshPromise: Promise<string | null> | null = null;
+
+function readStoredAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage?.getItem(ACCESS_TOKEN_KEY) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function readStoredRefreshToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage?.getItem(REFRESH_TOKEN_KEY) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function cancelScheduledRefresh() {
+  if (refreshTimeout) {
+    clearTimeout(refreshTimeout);
+    refreshTimeout = null;
+  }
+}
+
+function broadcastSessionEnd(reason: Exclude<LogoutReason, "manual">) {
+  if (typeof window === "undefined") return;
+  const detail: SessionEndDetail = { reason, timestamp: Date.now() };
+  try {
+    window.localStorage?.setItem(
+      SESSION_ENDED_STORAGE_KEY,
+      JSON.stringify(detail)
+    );
+  } catch {
+    // Ignore storage errors – the banner is a best-effort hint.
+  }
+  window.dispatchEvent(new CustomEvent(SESSION_ENDED_EVENT, { detail }));
+}
+
+function scheduleAccessTokenRefresh(token: string | null) {
+  cancelScheduledRefresh();
+  if (!token) return;
+  const payload = getTokenPayload(token);
+  const exp = typeof payload?.exp === "number" ? payload.exp : null;
+  if (!exp) return;
+  const refreshAt = exp * 1000 - REFRESH_BUFFER_SECONDS * 1000;
+  const delay = Math.max(refreshAt - Date.now(), 0);
+  refreshTimeout = setTimeout(() => {
+    ensureAccessTokenValid(true).catch((err) => {
+      console.error("Failed to refresh session", err);
+    });
+  }, delay);
+}
+
+export function persistSession(tokens: TokenUpdate): void {
+  if (typeof window === "undefined") return;
+  const { access_token, refresh_token } = tokens;
+  try {
+    if (access_token) {
+      window.localStorage?.setItem(ACCESS_TOKEN_KEY, access_token);
+    }
+    if (refresh_token) {
+      window.localStorage?.setItem(REFRESH_TOKEN_KEY, refresh_token);
+    }
+    if (access_token || refresh_token) {
+      window.localStorage?.removeItem(SESSION_ENDED_STORAGE_KEY);
+    }
+  } catch {
+    // Ignore storage quota errors; they'll surface when we next read tokens.
+  }
+  const activeToken = access_token ?? readStoredAccessToken();
+  scheduleAccessTokenRefresh(activeToken);
+  window.dispatchEvent(new Event("storage"));
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    const refreshToken = readStoredRefreshToken();
+    if (!refreshToken) {
+      logout("expired");
+      return null;
+    }
+    let response: Response;
+    try {
+      response = await fetch(apiUrl("/v0/auth/refresh"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+    } catch (err) {
+      throw err;
+    }
+
+    if (!response.ok) {
+      let problemMessage: string | undefined;
+      try {
+        const data = await response.clone().json();
+        if (data && typeof data === "object") {
+          const detail = (data as Record<string, unknown>).detail;
+          const title = (data as Record<string, unknown>).title;
+          if (typeof detail === "string" && detail.length > 0) {
+            problemMessage = detail;
+          } else if (typeof title === "string" && title.length > 0) {
+            problemMessage = title;
+          }
+        }
+      } catch {
+        // Ignore JSON parsing issues and fall back to reading the text body.
+      }
+
+      let text: string | undefined;
+      if (!problemMessage) {
+        text = await response.text();
+      }
+
+      const message =
+        problemMessage ?? text ?? response.statusText ?? "Unknown error";
+      const err: Error & { status?: number } = new Error(
+        `HTTP ${response.status}: ${message}`
+      );
+      err.status = response.status;
+      if (response.status === 401) {
+        logout("expired");
+      }
+      throw err;
+    }
+
+    const data = (await response.json()) as TokenResponse;
+    persistSession(data);
+    return data.access_token;
+  })();
+
+  try {
+    return await refreshPromise;
+  } finally {
+    refreshPromise = null;
+  }
+}
+
+async function ensureAccessTokenValid(
+  forceRefresh = false
+): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+  const token = readStoredAccessToken();
+  if (!token) return null;
+  const payload = getTokenPayload(token);
+  const exp = typeof payload?.exp === "number" ? payload.exp : null;
+  if (!exp) return token;
+  const nowSeconds = Date.now() / 1000;
+  if (forceRefresh || exp - REFRESH_BUFFER_SECONDS <= nowSeconds) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      scheduleAccessTokenRefresh(refreshed);
+      return refreshed;
+    }
+    return readStoredAccessToken();
+  }
+  return token;
+}
+
+if (typeof window !== "undefined") {
+  scheduleAccessTokenRefresh(readStoredAccessToken());
+}
+
 export function ensureAbsoluteApiUrl(path: string): string;
 export function ensureAbsoluteApiUrl(path: string | null): string | null;
 export function ensureAbsoluteApiUrl(path: string | undefined): string | undefined;
@@ -65,50 +248,86 @@ export function withAbsolutePhotoUrl<T extends { photo_url?: string | null }>(
   return { ...entity, photo_url: normalized } as T;
 }
 
-export async function apiFetch(path: string, init?: RequestInit) {
+async function executeFetch(
+  path: string,
+  init: RequestInit | undefined,
+  attempt: number
+): Promise<Response> {
   const headers = new Headers(init?.headers);
   if (typeof window !== "undefined") {
-    const token = window.localStorage?.getItem("token");
+    let token: string | null = null;
+    try {
+      token = await ensureAccessTokenValid();
+    } catch (err) {
+      console.error("Failed to ensure access token", err);
+      token = readStoredAccessToken();
+    }
     if (token) headers.set("Authorization", `Bearer ${token}`);
   }
-  try {
-    const res = await fetch(apiUrl(path), { ...init, headers });
-    if (!res.ok) {
-      let problemMessage: string | undefined;
-      try {
-        const data = await res.clone().json();
-        if (data && typeof data === "object") {
-          const detail = (data as Record<string, unknown>).detail;
-          const title = (data as Record<string, unknown>).title;
-          if (typeof detail === "string" && detail.length > 0) {
-            problemMessage = detail;
-          } else if (typeof title === "string" && title.length > 0) {
-            problemMessage = title;
-          }
-        }
-      } catch {
-        // Ignore JSON parsing issues and fall back to reading the text body.
+
+  const res = await fetch(apiUrl(path), { ...init, headers });
+
+  if (res.status === 401 && typeof window !== "undefined" && attempt === 0) {
+    try {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        return executeFetch(path, init, attempt + 1);
       }
-
-      let text: string | undefined;
-      if (!problemMessage || res.status === 401) {
-        text = await res.text();
-      }
-
-      const message = problemMessage ?? text ?? res.statusText ?? "Unknown error";
-      const logoutSource = problemMessage ?? text ?? "";
-
-      if (res.status === 401 && logoutSource.includes("token expired")) {
-        logout();
-      }
-
-      const err: Error & { status?: number } = new Error(
-        `HTTP ${res.status}: ${message}`
-      );
-      err.status = res.status;
-      throw err;
+    } catch (refreshErr) {
+      console.error("Failed to refresh access token", refreshErr);
     }
+  }
+
+  if (res.ok) {
     return res;
+  }
+
+  let problemMessage: string | undefined;
+  try {
+    const data = await res.clone().json();
+    if (data && typeof data === "object") {
+      const detail = (data as Record<string, unknown>).detail;
+      const title = (data as Record<string, unknown>).title;
+      if (typeof detail === "string" && detail.length > 0) {
+        problemMessage = detail;
+      } else if (typeof title === "string" && title.length > 0) {
+        problemMessage = title;
+      }
+    }
+  } catch {
+    // Ignore JSON parsing issues and fall back to reading the text body.
+  }
+
+  let text: string | undefined;
+  if (!problemMessage || res.status === 401) {
+    text = await res.text();
+  }
+
+  const message = problemMessage ?? text ?? res.statusText ?? "Unknown error";
+  const logoutSource = (problemMessage ?? text ?? "").toLowerCase();
+
+  if (res.status === 401) {
+    if (
+      logoutSource.includes("token expired") ||
+      logoutSource.includes("missing token") ||
+      logoutSource.includes("invalid token") ||
+      logoutSource.includes("user not found") ||
+      logoutSource.includes("not authenticated")
+    ) {
+      logout("expired");
+    }
+  }
+
+  const err: Error & { status?: number } = new Error(
+    `HTTP ${res.status}: ${message}`
+  );
+  err.status = res.status;
+  throw err;
+}
+
+export async function apiFetch(path: string, init?: RequestInit) {
+  try {
+    return await executeFetch(path, init, 0);
   } catch (err) {
     console.error("API request failed", err);
     throw err;
@@ -127,12 +346,11 @@ interface TokenPayload {
   [key: string]: unknown;
 }
 
-function getTokenPayload(): TokenPayload | null {
-  if (typeof window === "undefined") return null;
-  const token = window.localStorage?.getItem("token");
-  if (!token) return null;
+function getTokenPayload(token?: string | null): TokenPayload | null {
+  const rawToken = token ?? readStoredAccessToken();
+  if (!rawToken) return null;
   try {
-    const [, payload] = token.split(".");
+    const [, payload] = rawToken.split(".");
     return JSON.parse(base64UrlDecode(payload));
   } catch {
     return null;
@@ -148,14 +366,29 @@ export function isLoggedIn(): boolean {
   return getTokenPayload() !== null;
 }
 
-export function logout() {
-  if (typeof window !== "undefined") {
-    window.localStorage.removeItem("token");
-    // Manually notify listeners since the `storage` event doesn't fire in
-    // the same tab that performed the update.  Header components listen for
-    // this event to refresh login state.
-    window.dispatchEvent(new Event("storage"));
+export function logout(reason: LogoutReason = "manual") {
+  if (typeof window === "undefined") return;
+  cancelScheduledRefresh();
+  refreshPromise = null;
+  try {
+    window.localStorage?.removeItem(ACCESS_TOKEN_KEY);
+    window.localStorage?.removeItem(REFRESH_TOKEN_KEY);
+  } catch {
+    // Ignore storage errors when clearing tokens.
   }
+  if (reason === "manual") {
+    try {
+      window.localStorage?.removeItem(SESSION_ENDED_STORAGE_KEY);
+    } catch {
+      // Ignore storage errors when clearing session notifications.
+    }
+  } else {
+    broadcastSessionEnd(reason);
+  }
+  // Manually notify listeners since the `storage` event doesn't fire in the
+  // same tab that performed the update. Header components listen for this
+  // event to refresh login state.
+  window.dispatchEvent(new Event("storage"));
 }
 
 export function isAdmin(): boolean {

@@ -2,7 +2,12 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch, currentUsername, logout } from "../../lib/api";
+import {
+  apiFetch,
+  currentUsername,
+  logout,
+  persistSession,
+} from "../../lib/api";
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -37,12 +42,7 @@ export default function LoginPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        window.localStorage.setItem("token", data.access_token);
-        // The header listens for the `storage` event to refresh auth state,
-        // but that event isn't emitted in the same tab that updates
-        // localStorage.  Manually dispatch it so the header reflects the new
-        // login immediately.
-        window.dispatchEvent(new Event("storage"));
+        persistSession(data);
         router.push("/");
       } else {
         setErrors(["Login failed. Please check your username and password."]); 
@@ -96,10 +96,7 @@ export default function LoginPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        window.localStorage.setItem("token", data.access_token);
-        // Notify other components of the updated auth token.  Without this the
-        // header will continue showing stale login state until a page reload.
-        window.dispatchEvent(new Event("storage"));
+        persistSession(data);
         router.push("/");
       } else {
         setErrors(["Signup failed. Please try again."]);

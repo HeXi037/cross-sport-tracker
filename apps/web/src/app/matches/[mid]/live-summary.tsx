@@ -1,60 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  type SummaryData,
+  type RacketSummary,
+  isRecord,
+} from "../../../lib/match-summary";
 import { useMatchStream } from "../../../lib/useMatchStream";
 import MatchScoreboard from "./MatchScoreboard";
 
-type NumericRecord = Record<string, number>;
 type SetScores = Array<Record<string, unknown>>;
-
-export type RacketSummary = {
-  sets?: NumericRecord;
-  games?: NumericRecord;
-  points?: NumericRecord;
-  set_scores?: SetScores;
-  config?: unknown;
-  [key: string]: unknown;
-};
-
-export type DiscGolfSummary = {
-  scores?: Record<string, Array<number | null | undefined>>;
-  pars?: Array<number | null | undefined>;
-  totals?: NumericRecord;
-  parTotal?: number | null;
-  toPar?: NumericRecord;
-  config?: unknown;
-  [key: string]: unknown;
-};
-
-export type BowlingSummaryPlayer = {
-  side?: string;
-  playerId?: string;
-  playerName?: string;
-  frames?: Array<Array<number | null | undefined>>;
-  scores?: Array<number | null | undefined>;
-  total?: number | null;
-};
-
-export type BowlingSummary = {
-  frames?: Array<Array<number | null | undefined>>;
-  scores?: Array<number | null | undefined>;
-  total?: number | null;
-  players?: BowlingSummaryPlayer[];
-  config?: unknown;
-  [key: string]: unknown;
-};
-
-export type SummaryData =
-  | RacketSummary
-  | DiscGolfSummary
-  | BowlingSummary
-  | Record<string, unknown>
-  | null
-  | undefined;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
 
 function extractConfig(summary: SummaryData): unknown {
   if (isRecord(summary) && "config" in summary) {

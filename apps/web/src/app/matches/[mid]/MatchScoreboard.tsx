@@ -1,6 +1,9 @@
 "use client";
 
-import type { BowlingSummaryPlayer, SummaryData } from "./live-summary";
+import type {
+  BowlingSummaryPlayer,
+  SummaryData,
+} from "../../../lib/match-summary";
 
 const RACKET_SPORTS = new Set([
   "padel",

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import PlayersPage from "./page";
+import ToastProvider from "../../components/ToastProvider";
 
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
@@ -36,10 +37,15 @@ function mockStatsResponse({
   };
 }
 
+function renderWithProviders(ui: ReactNode) {
+  return render(<ToastProvider>{ui}</ToastProvider>);
+}
+
 describe("PlayersPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     window.localStorage.clear();
+    vi.useRealTimers();
   });
 
   it("shows a loading message while fetching players", async () => {
@@ -47,7 +53,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
 
     expect(screen.getByText(/loading players/i)).toBeTruthy();
@@ -61,7 +67,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
 
     const button = await screen.findByRole("button", { name: /add/i });
@@ -103,7 +109,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
     await screen.findByText("Alice");
     await screen.findByText("3-1 (75%)");
@@ -150,7 +156,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
 
     expect(await screen.findByText("Albert")).toBeTruthy();
@@ -190,7 +196,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
     await screen.findByText("Alice");
     vi.useFakeTimers();
@@ -214,7 +220,7 @@ describe("PlayersPage", () => {
 
     vi.useFakeTimers();
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
 
     const input = screen.getByPlaceholderText(/name/i);
@@ -234,6 +240,32 @@ describe("PlayersPage", () => {
     vi.useRealTimers();
   });
 
+  it("shows stats unavailable and displays a toast when stats fail", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ players: [{ id: "1", name: "Alice" }] }),
+      })
+      .mockRejectedValueOnce(new Error("boom"));
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      renderWithProviders(<PlayersPage />);
+    });
+
+    await screen.findByText("Alice");
+    expect(await screen.findByText("Stats unavailable")).toBeTruthy();
+    const warnings = screen.getAllByText(/couldn't load some player stats/i);
+    expect(warnings.length).toBeGreaterThanOrEqual(2);
+
+    vi.useFakeTimers();
+    await act(async () => {
+      vi.runOnlyPendingTimers();
+    });
+    vi.useRealTimers();
+  });
+
   it("informs non-admins that the add form is unavailable", async () => {
     const fetchMock = vi
       .fn()
@@ -241,7 +273,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
 
     expect(
@@ -278,7 +310,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
 
     const button = await screen.findByRole("button", { name: /delete/i });
@@ -316,7 +348,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
 
     const select = await screen.findByLabelText("Country for Alice");
@@ -364,7 +396,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
 
     const select = await screen.findByLabelText("Country for Alice");

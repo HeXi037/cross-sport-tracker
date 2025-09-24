@@ -8,6 +8,13 @@ import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
 import MatchParticipants from "../../../components/MatchParticipants";
 import PhotoUpload from "./PhotoUpload";
 import { formatDate, parseAcceptLanguage } from "../../../lib/i18n";
+import {
+  formatMatchRecord,
+  normalizeMatchSummary,
+  normalizeVersusRecords,
+  type NormalizedMatchSummary,
+  type NormalizedVersusRecord,
+} from "../../../lib/player-stats";
 
 export const dynamic = "force-dynamic";
 
@@ -59,21 +66,9 @@ type EnrichedMatch = MatchRow & {
   playerWon?: boolean;
 };
 
-interface VersusRecord {
-  playerId: string;
-  playerName: string;
-  wins: number;
-  losses: number;
-  winPct: number;
-}
+type VersusRecord = NormalizedVersusRecord;
 
-type MatchSummary = {
-  wins: number;
-  losses: number;
-  draws: number;
-  total: number;
-  winPct: number;
-};
+type MatchSummary = NormalizedMatchSummary;
 
 interface PlayerStats {
   playerId: string;
@@ -82,7 +77,7 @@ interface PlayerStats {
   worstAgainst?: VersusRecord | null;
   bestWith?: VersusRecord | null;
   worstWith?: VersusRecord | null;
-  withRecords: VersusRecord[];
+  withRecords?: VersusRecord[];
 }
 
 async function getPlayer(id: string): Promise<Player> {
@@ -232,27 +227,38 @@ async function getStats(playerId: string): Promise<PlayerStatsResult> {
       return { stats: null, error: false };
     }
 
-    if (
-      typeof parsed !== "object" ||
-      parsed === null ||
-      typeof (parsed as { playerId?: unknown }).playerId !== "string"
-    ) {
+    if (typeof parsed !== "object" || parsed === null) {
       return { stats: null, error: true };
     }
 
-    return { stats: parsed as PlayerStats, error: false };
+    const raw = parsed as Record<string, unknown>;
+    const playerIdValue = raw["playerId"];
+    if (typeof playerIdValue !== "string") {
+      return { stats: null, error: true };
+    }
+
+    const summaryValue = raw["matchSummary"];
+    const normalizedSummary = normalizeMatchSummary(summaryValue);
+    if (!normalizedSummary && summaryValue != null) {
+      console.warn(
+        `Ignoring invalid match summary payload for player ${playerId}`
+      );
+    }
+
+    const normalizedWithRecords = normalizeVersusRecords(raw["withRecords"]);
+
+    const sanitized: PlayerStats = {
+      ...(parsed as PlayerStats),
+      playerId: playerIdValue,
+      matchSummary: normalizedSummary,
+      withRecords: normalizedWithRecords,
+    };
+
+    return { stats: sanitized, error: false };
   } catch (err) {
     console.warn(`Failed to load stats for player ${playerId}`, err);
     return { stats: null, error: true };
   }
-}
-
-function formatMatchSummary(summary: MatchSummary): string {
-  const { wins, losses, draws, winPct } = summary;
-  const parts = [wins, losses];
-  if (draws) parts.push(draws);
-  const pct = Number.isFinite(winPct) ? Math.round(winPct * 100) : 0;
-  return `${parts.join("-")} (${pct}%)`;
 }
 
 function iconForSocialLink(link: PlayerSocialLink): string {
@@ -417,6 +423,8 @@ export default async function PlayerPage({
     }[];
 
     const matchSummary = stats?.matchSummary ?? null;
+    const teammateRecords: VersusRecord[] =
+      stats && Array.isArray(stats.withRecords) ? stats.withRecords : [];
 
     return (
       <PlayerDetailErrorBoundary playerId={params.id}>
@@ -432,7 +440,7 @@ export default async function PlayerPage({
               </p>
             ) : matchSummary ? (
               <p className="mt-2 text-sm text-gray-600">
-                Record: {formatMatchSummary(matchSummary)}
+                Record: {formatMatchRecord(matchSummary)}
               </p>
             ) : stats === null ? (
               <p className="mt-2 text-sm text-gray-600">Stats unavailable.</p>
@@ -588,11 +596,11 @@ export default async function PlayerPage({
               <p>No recent opponents found.</p>
             )}
 
-            {stats?.withRecords?.length ? (
+            {teammateRecords.length ? (
               <>
                 <h2 className="heading mt-4">Teammate Records</h2>
                 <ul>
-                  {stats.withRecords.map((r) => (
+                  {teammateRecords.map((r) => (
                     <li key={r.playerId}>
                       {r.wins}-{r.losses} with {r.playerName || r.playerId}
                     </li>

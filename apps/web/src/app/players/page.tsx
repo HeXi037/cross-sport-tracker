@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import {
   apiFetch,
@@ -9,6 +9,12 @@ import {
 } from "../../lib/api";
 import { COUNTRY_OPTIONS } from "../../lib/countries";
 import PlayerName, { PlayerInfo } from "../../components/PlayerName";
+import { useToast } from "../../components/ToastProvider";
+import {
+  formatMatchRecord,
+  normalizeMatchSummary,
+  type NormalizedMatchSummary,
+} from "../../lib/player-stats";
 
 const NAME_REGEX = /^[A-Za-z0-9 '-]{1,50}$/;
 
@@ -22,14 +28,11 @@ interface Player extends PlayerInfo {
 
 interface PlayerStats {
   playerId: string;
-  matchSummary: {
-    wins: number;
-    losses: number;
-    draws: number;
-    total: number;
-    winPct: number;
-  };
+  matchSummary: NormalizedMatchSummary;
 }
+
+const STATS_ERROR_MESSAGE =
+  "We couldn't load some player stats. Displayed records may be incomplete.";
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -46,7 +49,9 @@ export default function PlayersPage() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [updatingLocation, setUpdatingLocation] = useState<string | null>(null);
   const [statsError, setStatsError] = useState(false);
+  const statsToastShown = useRef(false);
   const admin = isAdmin();
+  const { showToast } = useToast();
 
   const trimmedName = name.trim();
   const nameIsValid = NAME_REGEX.test(trimmedName);
@@ -92,6 +97,7 @@ export default function PlayersPage() {
     if (!players.length) {
       setPlayerStats({});
       setStatsError(false);
+      statsToastShown.current = false;
       return;
     }
     let cancelled = false;
@@ -105,8 +111,34 @@ export default function PlayersPage() {
                 `/v0/players/${encodeURIComponent(p.id)}/stats`,
                 { cache: "no-store" }
               );
-              const data = (await res.json()) as PlayerStats;
-              return [p.id, data] as const;
+              let payload: unknown;
+              try {
+                payload = await res.json();
+              } catch (parseError) {
+                console.warn(
+                  `Failed to parse stats payload for player ${p.id}`,
+                  parseError
+                );
+                return [p.id, null] as const;
+              }
+              if (!payload || typeof payload !== "object") {
+                return [p.id, null] as const;
+              }
+              const statsPayload = payload as {
+                playerId?: unknown;
+                matchSummary?: unknown;
+              };
+              const summary = normalizeMatchSummary(statsPayload.matchSummary);
+              if (typeof statsPayload.playerId !== "string" || !summary) {
+                return [p.id, null] as const;
+              }
+              return [
+                p.id,
+                {
+                  playerId: statsPayload.playerId,
+                  matchSummary: summary,
+                },
+              ] as const;
             } catch (err) {
               console.warn(`Failed to load stats for player ${p.id}`, err);
               return [p.id, null] as const;
@@ -115,15 +147,26 @@ export default function PlayersPage() {
         );
         if (!cancelled) {
           setPlayerStats(Object.fromEntries(entries));
-          setStatsError(entries.some(([, stats]) => stats === null));
+          const hadError = entries.some(([, stats]) => stats === null);
+          setStatsError(hadError);
+          if (hadError && !statsToastShown.current) {
+            showToast({ message: STATS_ERROR_MESSAGE, variant: "error" });
+            statsToastShown.current = true;
+          } else if (!hadError) {
+            statsToastShown.current = false;
+          }
         }
       } catch (err) {
         if (!cancelled) {
-          console.error('Failed to load player stats list', err);
+          console.error("Failed to load player stats list", err);
           setPlayerStats(
             Object.fromEntries(players.map((p) => [p.id, null] as const))
           );
           setStatsError(true);
+          if (!statsToastShown.current) {
+            showToast({ message: STATS_ERROR_MESSAGE, variant: "error" });
+            statsToastShown.current = true;
+          }
         }
       }
     }
@@ -131,7 +174,7 @@ export default function PlayersPage() {
     return () => {
       cancelled = true;
     };
-  }, [players]);
+  }, [players, showToast]);
 
   async function create() {
     if (!nameIsValid) {
@@ -249,8 +292,7 @@ export default function PlayersPage() {
             <>
               {statsError && (
                 <p className="player-list__error" role="alert">
-                  We couldn&apos;t load some player stats. Displayed records may
-                  be incomplete.
+                  {STATS_ERROR_MESSAGE}
                 </p>
               )}
               <ul className="player-list">
@@ -266,14 +308,7 @@ export default function PlayersPage() {
                           if (stats === undefined) return "Loading stats…";
                           if (!stats || !stats.matchSummary)
                             return "Stats unavailable";
-                          const { wins, losses, draws, winPct } =
-                            stats.matchSummary;
-                          const parts = [wins, losses];
-                          if (draws) parts.push(draws);
-                          const pct = Number.isFinite(winPct)
-                            ? Math.round(winPct * 100)
-                            : 0;
-                          return `${parts.join("-")} (${pct}%)`;
+                          return formatMatchRecord(stats.matchSummary);
                         })()}
                       </span>
                     </div>

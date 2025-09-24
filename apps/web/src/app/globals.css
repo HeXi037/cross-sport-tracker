@@ -194,6 +194,33 @@ textarea {
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
+.toast-container {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.toast {
+  min-width: 240px;
+  max-width: min(360px, 90vw);
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 10px 25px rgba(10, 31, 68, 0.15);
+  border-left: 4px solid var(--color-accent-blue);
+  pointer-events: auto;
+}
+
+.toast--error {
+  border-left-color: var(--color-accent-red);
+}
+
 /* Navigation bar */
 .nav {
   background: var(--color-nav-bg);

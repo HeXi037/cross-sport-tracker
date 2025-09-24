@@ -1,12 +1,21 @@
 import type { ReactNode } from "react";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import PlayersPage from "./page";
+import ToastProvider from "../../components/ToastProvider";
 
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
 }));
+
+function renderPlayersPage() {
+  return render(
+    <ToastProvider>
+      <PlayersPage />
+    </ToastProvider>
+  );
+}
 
 function mockStatsResponse({
   playerId,
@@ -47,7 +56,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderPlayersPage();
     });
 
     expect(screen.getByText(/loading players/i)).toBeTruthy();
@@ -61,7 +70,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderPlayersPage();
     });
 
     const button = await screen.findByRole("button", { name: /add/i });
@@ -103,7 +112,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderPlayersPage();
     });
     await screen.findByText("Alice");
     await screen.findByText("3-1 (75%)");
@@ -150,7 +159,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderPlayersPage();
     });
 
     expect(await screen.findByText("Albert")).toBeTruthy();
@@ -190,7 +199,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderPlayersPage();
     });
     await screen.findByText("Alice");
     vi.useFakeTimers();
@@ -214,7 +223,7 @@ describe("PlayersPage", () => {
 
     vi.useFakeTimers();
     await act(async () => {
-      render(<PlayersPage />);
+      renderPlayersPage();
     });
 
     const input = screen.getByPlaceholderText(/name/i);
@@ -241,7 +250,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderPlayersPage();
     });
 
     expect(
@@ -278,7 +287,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderPlayersPage();
     });
 
     const button = await screen.findByRole("button", { name: /delete/i });
@@ -316,7 +325,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderPlayersPage();
     });
 
     const select = await screen.findByLabelText("Country for Alice");
@@ -364,7 +373,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderPlayersPage();
     });
 
     const select = await screen.findByLabelText("Country for Alice");
@@ -383,5 +392,53 @@ describe("PlayersPage", () => {
       )
     ).toBe(true);
     window.localStorage.removeItem("token");
+  });
+
+  it("shows stats unavailable when the stats payload has no matches", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ players: [{ id: "1", name: "Alice" }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          playerId: "1",
+          matchSummary: { wins: 0, losses: 0, draws: 0, total: 0, winPct: 0 },
+        }),
+      });
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      renderPlayersPage();
+    });
+
+    await screen.findByText("Alice");
+    expect(await screen.findByText(/stats unavailable/i)).toBeTruthy();
+  });
+
+  it("shows a toast when player stats fail to load", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ players: [{ id: "1", name: "Alice" }] }),
+      })
+      .mockRejectedValueOnce(new Error("network failure"));
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      renderPlayersPage();
+    });
+
+    await screen.findByText("Alice");
+    expect(await screen.findByText(/stats unavailable/i)).toBeTruthy();
+    await waitFor(() => {
+      const notices = screen.getAllByText(
+        /we couldn't load some player stats\. displayed records may be incomplete\./i
+      );
+      expect(notices.length).toBeGreaterThan(1);
+    });
   });
 });

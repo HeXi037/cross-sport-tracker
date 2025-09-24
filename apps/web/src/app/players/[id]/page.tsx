@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { apiFetch, fetchClubs, withAbsolutePhotoUrl } from "../../../lib/api";
+import { normalizePlayerStats, type MatchSummary } from "../../../lib/stats";
 import PlayerCharts from "./PlayerCharts";
 import PlayerComments from "./comments-client";
 import PlayerDetailErrorBoundary from "./PlayerDetailErrorBoundary";
 import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
 import PhotoUpload from "./PhotoUpload";
 import { formatDate, parseAcceptLanguage } from "../../../lib/i18n";
+import StatsErrorToast from "./StatsErrorToast";
 
 export const dynamic = "force-dynamic";
 
@@ -66,23 +68,18 @@ interface VersusRecord {
   winPct: number;
 }
 
-type MatchSummary = {
-  wins: number;
-  losses: number;
-  draws: number;
-  total: number;
-  winPct: number;
-};
-
-interface PlayerStats {
+interface PlayerStatsRaw {
   playerId: string;
-  matchSummary?: MatchSummary | null;
+  matchSummary?: unknown;
   bestAgainst?: VersusRecord | null;
   worstAgainst?: VersusRecord | null;
   bestWith?: VersusRecord | null;
   worstWith?: VersusRecord | null;
-  withRecords: VersusRecord[];
+  withRecords?: VersusRecord[];
+  [key: string]: unknown;
 }
+
+type PlayerStats = PlayerStatsRaw & { matchSummary: MatchSummary };
 
 async function getPlayer(id: string): Promise<Player> {
   const res = await apiFetch(`/v0/players/${encodeURIComponent(id)}`, {
@@ -210,8 +207,9 @@ async function getStats(playerId: string): Promise<PlayerStatsResult> {
     if (!r.ok) {
       return { stats: null, error: true };
     }
-    const data = (await r.json()) as PlayerStats | null;
-    return { stats: data, error: false };
+    const raw = (await r.json()) as PlayerStatsRaw | null;
+    const stats = normalizePlayerStats<PlayerStatsRaw>(raw);
+    return { stats, error: false };
   } catch (err) {
     console.warn(`Failed to load stats for player ${playerId}`, err);
     return { stats: null, error: true };
@@ -391,6 +389,7 @@ export default async function PlayerPage({
 
     return (
       <PlayerDetailErrorBoundary playerId={params.id}>
+        <StatsErrorToast show={statsError} />
         <main className="container md:flex">
           <section className="flex-1 md:mr-4">
             <PhotoUpload playerId={player.id} initialUrl={player.photo_url} />
@@ -571,18 +570,22 @@ export default async function PlayerPage({
               <p>No recent opponents found.</p>
             )}
 
-            {stats?.withRecords?.length ? (
-              <>
-                <h2 className="heading mt-4">Teammate Records</h2>
-                <ul>
-                  {stats.withRecords.map((r) => (
-                    <li key={r.playerId}>
-                      {r.wins}-{r.losses} with {r.playerName || r.playerId}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : null}
+            {(() => {
+              const teammateRecords = stats?.withRecords ?? [];
+              if (!teammateRecords.length) return null;
+              return (
+                <>
+                  <h2 className="heading mt-4">Teammate Records</h2>
+                  <ul>
+                    {teammateRecords.map((r) => (
+                      <li key={r.playerId}>
+                        {r.wins}-{r.losses} with {r.playerName || r.playerId}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              );
+            })()}
 
             <PlayerCharts matches={matches} />
 

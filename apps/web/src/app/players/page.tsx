@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import {
   apiFetch,
@@ -9,6 +9,8 @@ import {
 } from "../../lib/api";
 import { COUNTRY_OPTIONS } from "../../lib/countries";
 import PlayerName, { PlayerInfo } from "../../components/PlayerName";
+import { normalizePlayerStats, type MatchSummary } from "../../lib/stats";
+import { useToast } from "../../components/ToastProvider";
 
 const NAME_REGEX = /^[A-Za-z0-9 '-]{1,50}$/;
 
@@ -20,16 +22,13 @@ interface Player extends PlayerInfo {
   badges?: { id: string; name: string; icon?: string | null }[];
 }
 
-interface PlayerStats {
-  playerId: string;
-  matchSummary: {
-    wins: number;
-    losses: number;
-    draws: number;
-    total: number;
-    winPct: number;
-  };
-}
+type PlayerStatsRaw = {
+  playerId?: string;
+  matchSummary?: unknown;
+  [key: string]: unknown;
+};
+
+type PlayerStats = PlayerStatsRaw & { matchSummary: MatchSummary };
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -46,6 +45,8 @@ export default function PlayersPage() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [updatingLocation, setUpdatingLocation] = useState<string | null>(null);
   const [statsError, setStatsError] = useState(false);
+  const { showToast } = useToast();
+  const lastStatsError = useRef(false);
   const admin = isAdmin();
 
   const trimmedName = name.trim();
@@ -105,21 +106,37 @@ export default function PlayersPage() {
                 `/v0/players/${encodeURIComponent(p.id)}/stats`,
                 { cache: "no-store" }
               );
-              const data = (await res.json()) as PlayerStats;
-              return [p.id, data] as const;
+              const data = (await res.json()) as PlayerStatsRaw | null;
+              const normalized = normalizePlayerStats<PlayerStatsRaw>(data);
+              return {
+                id: p.id,
+                stats: normalized,
+                failed: false,
+              } as const;
             } catch (err) {
               console.warn(`Failed to load stats for player ${p.id}`, err);
-              return [p.id, null] as const;
+              return {
+                id: p.id,
+                stats: null,
+                failed: true,
+              } as const;
             }
           })
         );
         if (!cancelled) {
-          setPlayerStats(Object.fromEntries(entries));
-          setStatsError(entries.some(([, stats]) => stats === null));
+          const statsMap = entries.reduce<Record<string, PlayerStats | null>>(
+            (acc, entry) => {
+              acc[entry.id] = entry.stats;
+              return acc;
+            },
+            {}
+          );
+          setPlayerStats(statsMap);
+          setStatsError(entries.some((entry) => entry.failed));
         }
       } catch (err) {
         if (!cancelled) {
-          console.error('Failed to load player stats list', err);
+          console.error("Failed to load player stats list", err);
           setPlayerStats(
             Object.fromEntries(players.map((p) => [p.id, null] as const))
           );
@@ -132,6 +149,17 @@ export default function PlayersPage() {
       cancelled = true;
     };
   }, [players]);
+
+  useEffect(() => {
+    if (statsError && !lastStatsError.current) {
+      showToast({
+        message:
+          "We couldn't load some player stats. Displayed records may be incomplete.",
+        type: "error",
+      });
+    }
+    lastStatsError.current = statsError;
+  }, [statsError, showToast]);
 
   async function create() {
     if (!nameIsValid) {
@@ -264,8 +292,7 @@ export default function PlayersPage() {
                         {(() => {
                           const stats = playerStats[p.id];
                           if (stats === undefined) return "Loading stats…";
-                          if (!stats || !stats.matchSummary)
-                            return "Stats unavailable";
+                          if (!stats) return "Stats unavailable";
                           const { wins, losses, draws, winPct } =
                             stats.matchSummary;
                           const parts = [wins, losses];

@@ -540,6 +540,10 @@ textarea {
   color: var(--color-accent-red);
 }
 
+.success {
+  color: var(--color-accent-blue);
+}
+
 /* Skeleton loading placeholders */
 @keyframes skeleton-shimmer {
   100% {

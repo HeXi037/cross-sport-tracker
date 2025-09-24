@@ -1,5 +1,9 @@
 import { redirect } from "next/navigation";
-import { ALL_SPORTS, SPORTS } from "../leaderboard";
+import {
+  ALL_SPORTS,
+  type LeaderboardSport,
+  isLeaderboardSport,
+} from "../constants";
 
 type LeaderboardSearchParams = {
   country?: string | string[];
@@ -9,8 +13,18 @@ type LeaderboardSearchParams = {
 const toSingleValue = (value?: string | string[]) =>
   Array.isArray(value) ? value[0] : value;
 
-const isSupportedSport = (value: string) =>
-  value === ALL_SPORTS || (SPORTS as readonly string[]).includes(value);
+const redirectToLeaderboard = (
+  sport: LeaderboardSport | undefined,
+  country?: string,
+  clubId?: string,
+): never => {
+  const params = new URLSearchParams();
+  if (sport && sport !== ALL_SPORTS) params.set("sport", sport);
+  if (country) params.set("country", country);
+  if (clubId) params.set("clubId", clubId);
+  const query = params.toString();
+  redirect(query ? `/leaderboard?${query}` : "/leaderboard");
+};
 
 export default function LeaderboardSportPage({
   params,
@@ -23,17 +37,9 @@ export default function LeaderboardSportPage({
   const country = toSingleValue(searchParams?.country);
   const clubId = toSingleValue(searchParams?.clubId);
 
-  if (!isSupportedSport(sport)) {
-    const fallback = new URLSearchParams();
-    if (country) fallback.set("country", country);
-    if (clubId) fallback.set("clubId", clubId);
-    const query = fallback.toString();
-    redirect(query ? `/leaderboard?${query}` : "/leaderboard");
+  if (!isLeaderboardSport(sport)) {
+    redirectToLeaderboard(undefined, country, clubId);
   }
 
-  const paramsWithFilters = new URLSearchParams({ tab: sport });
-  if (country) paramsWithFilters.set("country", country);
-  if (clubId) paramsWithFilters.set("clubId", clubId);
-
-  redirect(`/leaderboard?${paramsWithFilters.toString()}`);
+  redirectToLeaderboard(sport, country, clubId);
 }

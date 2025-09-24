@@ -16,6 +16,10 @@ vi.mock("../../../lib/api", async () => {
   };
 });
 
+vi.mock("next/headers", () => ({
+  headers: vi.fn(() => new Headers()),
+}));
+
 import MatchDetailPage from "./page";
 
 describe("MatchDetailPage", () => {
@@ -54,11 +58,15 @@ describe("MatchDetailPage", () => {
       )
     ).toBeInTheDocument();
 
-    const displayed = new Date(match.playedAt).toLocaleDateString();
+    const locale = "en-US";
+    const displayed = new Date(match.playedAt).toLocaleString(locale, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
     expect(screen.getByText((t) => t.includes(displayed))).toBeInTheDocument();
 
     const laDate = execSync(
-      "TZ=America/Los_Angeles node -e \"console.log(new Date('2024-01-01T00:00:00').toLocaleDateString())\""
+      "TZ=America/Los_Angeles node -e \"console.log(new Date('2024-01-01T00:00:00').toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }))\""
     )
       .toString()
       .trim();
@@ -101,6 +109,12 @@ describe("MatchDetailPage", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Ann vs Ben vs Cam" })
     ).toBeInTheDocument();
+
+    const meta = screen.getByText(
+      (text, element) =>
+        element?.classList.contains("match-meta") && text.includes("Bowling")
+    );
+    expect(meta).toHaveTextContent("Bowling · — · —");
   });
 
   it("renders racket sport summary with detailed scoreboard", async () => {
@@ -220,5 +234,69 @@ describe("MatchDetailPage", () => {
     expect(within(table).getByText("12")).toBeInTheDocument();
     expect(within(table).getByText("+2")).toBeInTheDocument();
     expect(within(table).getByText("-1")).toBeInTheDocument();
+  });
+
+  it("derives final racket totals when aggregated scores are missing", async () => {
+    const match = {
+      id: "m5",
+      sport: "padel",
+      rulesetId: "padel_standard",
+      status: "Completed",
+      playedAt: "2024-06-01T10:00:00Z",
+      participants: [
+        { side: "A", playerIds: ["p1"] },
+        { side: "B", playerIds: ["p2"] },
+      ],
+      summary: {
+        set_scores: [
+          { A: 6, B: 4 },
+          { A: 3, B: 6 },
+          { A: 7, B: 5 },
+        ],
+        sets: { A: 0, B: 0 },
+        games: { A: 0, B: 0 },
+      },
+    };
+
+    apiFetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => match })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: "p1", name: "Player A" },
+          { id: "p2", name: "Player B" },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: "padel", name: "Padel" }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: "padel_standard", name: "World Padel Tour" },
+        ],
+      });
+
+    render(await MatchDetailPage({ params: { mid: "m5" } }));
+
+    const table = await screen.findByRole("table", { name: /racket scoreboard/i });
+    const rows = within(table).getAllByRole("row");
+    const sideACells = within(rows[1])
+      .getAllByRole("cell")
+      .map((cell) => cell.textContent?.trim());
+    expect(sideACells).toEqual(["6", "3", "7", "2", "16"]);
+
+    const sideBCells = within(rows[2])
+      .getAllByRole("cell")
+      .map((cell) => cell.textContent?.trim());
+    expect(sideBCells).toEqual(["4", "6", "5", "1", "15"]);
+
+    expect(screen.getByText(/Overall: 6-4, 3-6, 7-5/)).toBeInTheDocument();
+
+    const indicator = screen.getByText(/Completed/, {
+      selector: ".connection-indicator",
+    });
+    expect(indicator).toBeInTheDocument();
   });
 });

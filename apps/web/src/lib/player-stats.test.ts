@@ -64,6 +64,18 @@ describe("normalizeMatchSummary", () => {
       winPct: 0,
     });
   });
+
+  it("returns null when a zero total includes wins or losses", () => {
+    expect(
+      normalizeMatchSummary({
+        wins: 1,
+        losses: 0,
+        draws: 0,
+        total: 0,
+        winPct: 1,
+      })
+    ).toBeNull();
+  });
 });
 
 describe("formatMatchRecord", () => {

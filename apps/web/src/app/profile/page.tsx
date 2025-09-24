@@ -15,6 +15,7 @@ import {
   type PlayerSocialLink,
   type UserMe,
   ensureAbsoluteApiUrl,
+  persistSession,
 } from "../../lib/api";
 import type { PlayerLocationPayload } from "../../lib/api";
 import ClubSelect from "../../components/ClubSelect";
@@ -319,9 +320,8 @@ export default function ProfilePage() {
 
       try {
         const res = await updateMe(body);
-        if (res.access_token) {
-          window.localStorage.setItem("token", res.access_token);
-          window.dispatchEvent(new Event("storage"));
+        if (res.access_token || res.refresh_token) {
+          persistSession(res);
         }
       } catch (err) {
         const status = (err as Error & { status?: number }).status;

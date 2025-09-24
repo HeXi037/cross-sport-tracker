@@ -47,7 +47,7 @@ describe("normalizeMatchSummary", () => {
     ).toBeNull();
   });
 
-  it("allows zero totals when no games have been played", () => {
+  it("treats empty summaries as missing", () => {
     expect(
       normalizeMatchSummary({
         wins: 0,
@@ -56,13 +56,7 @@ describe("normalizeMatchSummary", () => {
         total: 0,
         winPct: 0,
       })
-    ).toEqual({
-      wins: 0,
-      losses: 0,
-      draws: 0,
-      total: 0,
-      winPct: 0,
-    });
+    ).toBeNull();
   });
 
   it("returns null when a zero total includes wins or losses", () => {

@@ -144,6 +144,46 @@ describe("RecordSportPage", () => {
     expect(typeof payload.sets[0][1]).toBe("number");
   });
 
+  it("sends the canonical sport id when the route uses a dashed slug", async () => {
+    sportParam = "table-tennis";
+    const players = [
+      { id: "1", name: "Alice" },
+      { id: "2", name: "Bob" },
+      { id: "3", name: "Cara" },
+      { id: "4", name: "Dan" },
+    ];
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordSportPage />);
+
+    await screen.findAllByText("Alice");
+
+    fireEvent.change(screen.getByLabelText(/team a player 1/i), {
+      target: { value: "1" },
+    });
+    fireEvent.change(screen.getByLabelText(/team b player 1/i), {
+      target: { value: "3" },
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("A"), {
+      target: { value: "6" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("B"), {
+      target: { value: "8" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const payload = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(payload.sport).toBe("table_tennis");
+  });
+
   it("allows recording multiple bowling players", async () => {
     sportParam = "bowling";
     const players = [

@@ -178,7 +178,8 @@ function validateBowlingFrameInput(
 export default function RecordSportPage() {
   const router = useRouter();
   const params = useParams();
-  const sport = typeof params.sport === "string" ? params.sport : "";
+  const rawSport = typeof params.sport === "string" ? params.sport : "";
+  const sport = rawSport.replace(/-/g, "_");
   const isPadel = sport === "padel";
   const isPickleball = sport === "pickleball";
   const isBowling = sport === "bowling";

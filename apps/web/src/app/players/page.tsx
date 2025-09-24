@@ -97,30 +97,37 @@ export default function PlayersPage() {
     let cancelled = false;
     async function loadStats() {
       setStatsError(false);
-      const entries = await Promise.all(
-        players.map(async (p) => {
-          try {
-            const res = await apiFetch(
-              `/v0/players/${encodeURIComponent(p.id)}/stats`,
-              { cache: "no-store" }
-            );
-            const data = (await res.json()) as PlayerStats;
-            return [p.id, data] as const;
-          } catch {
-            return [p.id, null] as const;
-          }
-        })
-      );
-      if (!cancelled) {
-        setPlayerStats(Object.fromEntries(entries));
-        setStatsError(entries.some(([, stats]) => stats === null));
+      try {
+        const entries = await Promise.all(
+          players.map(async (p) => {
+            try {
+              const res = await apiFetch(
+                `/v0/players/${encodeURIComponent(p.id)}/stats`,
+                { cache: "no-store" }
+              );
+              const data = (await res.json()) as PlayerStats;
+              return [p.id, data] as const;
+            } catch (err) {
+              console.warn(`Failed to load stats for player ${p.id}`, err);
+              return [p.id, null] as const;
+            }
+          })
+        );
+        if (!cancelled) {
+          setPlayerStats(Object.fromEntries(entries));
+          setStatsError(entries.some(([, stats]) => stats === null));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to load player stats list', err);
+          setPlayerStats(
+            Object.fromEntries(players.map((p) => [p.id, null] as const))
+          );
+          setStatsError(true);
+        }
       }
     }
-    loadStats().catch(() => {
-      if (!cancelled) {
-        setStatsError(true);
-      }
-    });
+    loadStats();
     return () => {
       cancelled = true;
     };
@@ -242,8 +249,8 @@ export default function PlayersPage() {
             <>
               {statsError && (
                 <p className="player-list__error" role="alert">
-                  Player stats failed to load. Displayed records may be
-                  incomplete.
+                  We couldn&apos;t load some player stats. Displayed records may
+                  be incomplete.
                 </p>
               )}
               <ul className="player-list">

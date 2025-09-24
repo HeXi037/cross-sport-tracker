@@ -11,6 +11,12 @@ interface EnrichedMatch {
   playerWon?: boolean;
 }
 
+function parseMatchDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export default function PlayerCharts({ matches }: { matches: EnrichedMatch[] }) {
   const locale = useLocale();
   const dateFormatter = useMemo(
@@ -18,8 +24,8 @@ export default function PlayerCharts({ matches }: { matches: EnrichedMatch[] }) 
     [locale],
   );
   const sorted = [...matches].sort((a, b) => {
-    const da = a.playedAt ? new Date(a.playedAt).getTime() : 0;
-    const db = b.playedAt ? new Date(b.playedAt).getTime() : 0;
+    const da = parseMatchDate(a.playedAt)?.getTime() ?? 0;
+    const db = parseMatchDate(b.playedAt)?.getTime() ?? 0;
     return da - db;
   });
 
@@ -30,21 +36,21 @@ export default function PlayerCharts({ matches }: { matches: EnrichedMatch[] }) 
   const heatmapMap = new Map<string, number>();
 
   sorted.forEach((m, i) => {
+    const playedDate = parseMatchDate(m.playedAt);
     if (m.playerWon) {
       wins += 1;
       rank = Math.max(rank - 1, 1);
     } else {
       rank += 1;
     }
-    const dateLabel = m.playedAt
-      ? dateFormatter.format(new Date(m.playedAt))
+    const dateLabel = playedDate
+      ? dateFormatter.format(playedDate)
       : `Match ${i + 1}`;
     winRateData.push({ date: dateLabel, winRate: wins / (i + 1) });
     rankingData.push({ date: dateLabel, rank });
 
-    if (m.playedAt) {
-      const d = new Date(m.playedAt);
-      const key = `${d.getDay()}-${d.getHours()}`;
+    if (playedDate) {
+      const key = `${playedDate.getDay()}-${playedDate.getHours()}`;
       heatmapMap.set(key, (heatmapMap.get(key) || 0) + 1);
     }
   });

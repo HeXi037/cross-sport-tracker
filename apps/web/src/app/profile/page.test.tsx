@@ -39,6 +39,7 @@ vi.mock("../../lib/api", async () => {
 });
 
 import ProfilePage from "./page";
+import { USER_SETTINGS_STORAGE_KEY } from "../user-settings";
 
 describe("ProfilePage", () => {
   beforeEach(() => {
@@ -166,7 +167,7 @@ describe("ProfilePage", () => {
     fireEvent.change(clubSelect, { target: { value: "club-new" } });
     expect(clubSelect).toHaveValue("club-new");
 
-    const saveButton = await screen.findByRole("button", { name: /save/i });
+    const saveButton = await screen.findByRole("button", { name: /^save$/i });
 
     await act(async () => {
       fireEvent.click(saveButton);
@@ -225,7 +226,7 @@ describe("ProfilePage", () => {
     fireEvent.change(clubSelect, { target: { value: "" } });
     expect(clubSelect).toHaveValue("");
 
-    const saveButton = await screen.findByRole("button", { name: /save/i });
+    const saveButton = await screen.findByRole("button", { name: /^save$/i });
 
     await act(async () => {
       fireEvent.click(saveButton);
@@ -237,5 +238,61 @@ describe("ProfilePage", () => {
       region_code: null,
       club_id: null,
     });
+  });
+
+  it("loads stored user settings and saves updates", async () => {
+    window.localStorage.setItem(
+      USER_SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        defaultLeaderboardSport: "padel",
+        defaultLeaderboardCountry: "SE",
+        weeklySummaryEmails: false,
+      }),
+    );
+
+    await act(async () => {
+      render(<ProfilePage />);
+    });
+
+    const sportSelect = (await screen.findByLabelText(
+      "Default leaderboard sport",
+    )) as HTMLSelectElement;
+    expect(sportSelect.value).toBe("padel");
+
+    const countrySelect = (await screen.findByLabelText(
+      "Default leaderboard country",
+    )) as HTMLSelectElement;
+    expect(countrySelect.value).toBe("SE");
+
+    const weeklyToggle = (await screen.findByLabelText(
+      /Weekly summary emails/i,
+    )) as HTMLInputElement;
+    expect(weeklyToggle.checked).toBe(false);
+
+    fireEvent.change(sportSelect, { target: { value: "disc_golf" } });
+    fireEvent.change(countrySelect, { target: { value: "" } });
+    fireEvent.click(weeklyToggle);
+
+    const savePreferencesButton = await screen.findByRole("button", {
+      name: /save preferences/i,
+    });
+    expect(savePreferencesButton).not.toBeDisabled();
+
+    await act(async () => {
+      fireEvent.click(savePreferencesButton);
+    });
+
+    const stored = window.localStorage.getItem(USER_SETTINGS_STORAGE_KEY);
+    expect(stored).not.toBeNull();
+    const parsed = JSON.parse(stored as string) as {
+      defaultLeaderboardSport: string;
+      defaultLeaderboardCountry: string;
+      weeklySummaryEmails: boolean;
+    };
+    expect(parsed.defaultLeaderboardSport).toBe("disc_golf");
+    expect(parsed.defaultLeaderboardCountry).toBe("");
+    expect(parsed.weeklySummaryEmails).toBe(true);
+
+    await screen.findByText("Preferences updated.");
   });
 });

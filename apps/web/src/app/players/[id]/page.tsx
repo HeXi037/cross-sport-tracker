@@ -506,9 +506,9 @@ export default async function PlayerPage({
               <p className="mt-2 text-sm text-gray-600">
                 Record: {formatMatchRecord(matchSummary)}
               </p>
-            ) : stats === null ? (
+            ) : (
               <p className="mt-2 text-sm text-gray-600">Stats unavailable.</p>
-            ) : null}
+            )}
             {player.bio ? (
               <p
                 style={{

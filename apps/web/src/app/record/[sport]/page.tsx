@@ -322,13 +322,15 @@ export default function RecordSportPage() {
               />
             </label>
             <label className="form-field" htmlFor="record-time">
-              <span className="form-label">Start time</span>
+              <span className="form-label" id="record-time-label">
+                Start time
+              </span>
               <input
                 id="record-time"
                 type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                lang={locale}
+                aria-labelledby="record-time-label"
               />
             </label>
           </div>

@@ -39,6 +39,18 @@ export function normalizeMatchSummary(
   }
   const normalizedDraws =
     typeof draws === "number" && Number.isFinite(draws) && draws > 0 ? draws : 0;
+  if (total === 0) {
+    if (wins !== 0 || losses !== 0 || normalizedDraws !== 0) {
+      return null;
+    }
+    return {
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      total: 0,
+      winPct: 0,
+    };
+  }
   if (wins + losses + normalizedDraws > total) {
     return null;
   }

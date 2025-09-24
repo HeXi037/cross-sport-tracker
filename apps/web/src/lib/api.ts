@@ -49,6 +49,20 @@ function readStoredRefreshToken(): string | null {
   }
 }
 
+function hasStoredSessionTokens(
+  accessToken?: string | null,
+  refreshToken?: string | null
+): boolean {
+  if (typeof window === "undefined") return false;
+  if (accessToken === undefined) {
+    accessToken = readStoredAccessToken();
+  }
+  if (refreshToken === undefined) {
+    refreshToken = readStoredRefreshToken();
+  }
+  return Boolean(accessToken || refreshToken);
+}
+
 function cancelScheduledRefresh() {
   if (refreshTimeout) {
     clearTimeout(refreshTimeout);
@@ -113,7 +127,9 @@ async function refreshAccessToken(): Promise<string | null> {
   refreshPromise = (async () => {
     const refreshToken = readStoredRefreshToken();
     if (!refreshToken) {
-      logout("expired");
+      if (hasStoredSessionTokens()) {
+        logout("expired");
+      }
       return null;
     }
     let response: Response;
@@ -155,7 +171,7 @@ async function refreshAccessToken(): Promise<string | null> {
         `HTTP ${response.status}: ${message}`
       );
       err.status = response.status;
-      if (response.status === 401) {
+      if (response.status === 401 && hasStoredSessionTokens(undefined, refreshToken)) {
         logout("expired");
       }
       throw err;
@@ -307,13 +323,14 @@ async function executeFetch(
   const logoutSource = (problemMessage ?? text ?? "").toLowerCase();
 
   if (res.status === 401) {
-    if (
+    const shouldLogout =
       logoutSource.includes("token expired") ||
       logoutSource.includes("missing token") ||
       logoutSource.includes("invalid token") ||
       logoutSource.includes("user not found") ||
-      logoutSource.includes("not authenticated")
-    ) {
+      logoutSource.includes("not authenticated");
+
+    if (shouldLogout && hasStoredSessionTokens()) {
       logout("expired");
     }
   }

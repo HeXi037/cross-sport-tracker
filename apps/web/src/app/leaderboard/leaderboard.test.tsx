@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { render, waitFor, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import Leaderboard from "./leaderboard";
 import { apiUrl } from "../../lib/api";
@@ -19,6 +19,7 @@ describe("Leaderboard", () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    vi.restoreAllMocks();
     // @ts-expect-error - cleanup mocked fetch between tests
     global.fetch = undefined;
   });
@@ -79,5 +80,16 @@ describe("Leaderboard", () => {
     expect(urls).toContain(
       apiUrl("/v0/leaderboards?sport=disc_golf&country=SE&clubId=club-a")
     );
+  });
+
+  it("shows an error message when fetching fails", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("boom"));
+    global.fetch = fetchMock as typeof fetch;
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    render(<Leaderboard sport="padel" />);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await screen.findByText("We couldn't load the leaderboard right now.");
   });
 });

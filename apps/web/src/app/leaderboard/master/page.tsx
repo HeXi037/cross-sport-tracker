@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { MASTER_SPORT } from "../constants";
 
 type LeaderboardSearchParams = {
   country?: string | string[];
@@ -15,7 +16,7 @@ export default function MasterLeaderboardPage({
 }) {
   const country = toSingleValue(searchParams?.country);
   const clubId = toSingleValue(searchParams?.clubId);
-  const params = new URLSearchParams({ tab: "master" });
+  const params = new URLSearchParams({ sport: MASTER_SPORT });
   if (country) params.set("country", country);
   if (clubId) params.set("clubId", clubId);
   redirect(`/leaderboard?${params.toString()}`);

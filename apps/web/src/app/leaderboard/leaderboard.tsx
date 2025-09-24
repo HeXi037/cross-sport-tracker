@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { apiUrl } from "../../lib/api";
+import {
+  ALL_SPORTS,
+  MASTER_SPORT,
+  SPORTS,
+  type LeaderboardSport,
+} from "./constants";
 
 // Identifier type for players
 export type ID = string | number;
@@ -19,10 +25,8 @@ export type Leader = {
   sport?: string;
 };
 
-const SPORTS = ["padel", "badminton", "table-tennis", "disc_golf"] as const;
-
 type Props = {
-  sport: string;
+  sport: LeaderboardSport;
   country?: string | null;
   clubId?: string | null;
 };
@@ -99,7 +103,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     [appliedCountry, appliedClubId],
   );
 
-  const supportsFilters = sport !== "master";
+  const supportsFilters = sport !== MASTER_SPORT;
 
   const regionQueryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -114,7 +118,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       : base;
 
   const regionDescription = useMemo(() => {
-    if (sport === "master") {
+    if (sport === MASTER_SPORT) {
       return "Global master leaderboard";
     }
     const parts: string[] = [];
@@ -166,7 +170,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       setLoading(true);
       setError(null);
       try {
-        if (sport === "all") {
+        if (sport === ALL_SPORTS) {
           const results = await Promise.all(
             SPORTS.map(async (s) => {
               const res = await fetch(buildUrl(s));
@@ -181,7 +185,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
             .map((l, i) => ({ ...l, rank: i + 1 }));
           if (!cancelled) setLeaders(combined);
-        } else if (sport === "master") {
+        } else if (sport === MASTER_SPORT) {
           const res = await fetch(apiUrl(`/v0/leaderboards/master`));
           if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
           const data = await res.json();
@@ -194,14 +198,15 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           const arr = Array.isArray(data) ? data : data.leaders ?? [];
           if (!cancelled) setLeaders(arr as Leader[]);
         }
-      } catch {
+      } catch (err) {
         if (!cancelled) {
+          console.error("Failed to load leaderboard", err);
           setLeaders([]);
-          setError(
+          const fallbackMessage =
             appliedCountry || appliedClubId
-              ? "No leaderboard data yet for this region."
-              : "No leaderboard data yet."
-          );
+              ? "We couldn't load the leaderboard for this region."
+              : "We couldn't load the leaderboard right now.";
+          setError(fallbackMessage);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -218,7 +223,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       <tr>
         <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>#</th>
         <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>Player</th>
-        {sport === "all" && (
+        {sport === ALL_SPORTS && (
           <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>Sport</th>
         )}
         <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>Rating</th>
@@ -260,15 +265,15 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             All sports (combined)
           </Link>
           <Link
-            href={withRegion("/leaderboard?tab=master")}
-            style={{ textDecoration: sport === "master" ? "underline" : "none" }}
+            href={withRegion("/leaderboard?sport=master")}
+            style={{ textDecoration: sport === MASTER_SPORT ? "underline" : "none" }}
           >
             Master leaderboard
           </Link>
           {SPORTS.map((s) => (
             <Link
               key={s}
-              href={withRegion(`/leaderboard?tab=${s}`)}
+              href={withRegion(`/leaderboard?sport=${s}`)}
               style={{ textDecoration: sport === s ? "underline" : "none" }}
             >
               {s}
@@ -277,58 +282,89 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         </nav>
       </header>
 
-        {supportsFilters ? (
-          <form
-            onSubmit={handleSubmit}
-            style={{
-              marginTop: "1rem",
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "0.75rem",
-              alignItems: "flex-end",
-            }}
-          >
-            <div style={{ display: "flex", flexDirection: "column", minWidth: "120px" }}>
-              <label style={{ fontSize: "0.85rem", fontWeight: 600 }} htmlFor="leaderboard-country">
-                Country
-              </label>
-              <input
-                id="leaderboard-country"
-                value={draftCountry}
-                onChange={(event) => setDraftCountry(event.target.value.toUpperCase())}
-                placeholder="e.g. SE"
-                maxLength={5}
-                style={{ padding: "0.35rem", border: "1px solid #ccc", borderRadius: "4px" }}
-              />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", minWidth: "140px" }}>
-              <label style={{ fontSize: "0.85rem", fontWeight: 600 }} htmlFor="leaderboard-club">
-                Club
-              </label>
-              <input
-                id="leaderboard-club"
-                value={draftClubId}
-                onChange={(event) => setDraftClubId(event.target.value)}
-                placeholder="e.g. club-123"
-                style={{ padding: "0.35rem", border: "1px solid #ccc", borderRadius: "4px" }}
-              />
-            </div>
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <button
-                type="submit"
-                style={{
-                  padding: "0.4rem 0.9rem",
-                  borderRadius: "4px",
-                  border: "1px solid #222",
-                  background: canApply ? "#222" : "#ccc",
-                  color: "#fff",
-                  cursor: canApply ? "pointer" : "not-allowed",
-                  opacity: canApply ? 1 : 0.7,
-                }}
-                disabled={!canApply}
-              >
-                Apply
-              </button>
+      {supportsFilters ? (
+        <form
+          onSubmit={handleSubmit}
+          style={{
+            marginTop: "1rem",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "0.75rem",
+            alignItems: "flex-end",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", minWidth: "120px" }}>
+            <label style={{ fontSize: "0.85rem", fontWeight: 600 }} htmlFor="leaderboard-country">
+              Country
+            </label>
+            <input
+              id="leaderboard-country"
+              value={draftCountry}
+              onChange={(event) => setDraftCountry(event.target.value.toUpperCase())}
+              placeholder="e.g. SE"
+              maxLength={5}
+              style={{ padding: "0.35rem", border: "1px solid #ccc", borderRadius: "4px" }}
+            />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", minWidth: "140px" }}>
+            <label style={{ fontSize: "0.85rem", fontWeight: 600 }} htmlFor="leaderboard-club">
+              Club
+            </label>
+            <input
+              id="leaderboard-club"
+              value={draftClubId}
+              onChange={(event) => setDraftClubId(event.target.value)}
+              placeholder="e.g. club-123"
+              style={{ padding: "0.35rem", border: "1px solid #ccc", borderRadius: "4px" }}
+            />
+          </div>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button
+              type="submit"
+              style={{
+                padding: "0.4rem 0.9rem",
+                borderRadius: "4px",
+                border: "1px solid #222",
+                background: canApply ? "#222" : "#ccc",
+                color: "#fff",
+                cursor: canApply ? "pointer" : "not-allowed",
+                opacity: canApply ? 1 : 0.7,
+              }}
+              disabled={!canApply}
+            >
+              Apply
+            </button>
+            <button
+              type="button"
+              onClick={handleClear}
+              style={{
+                padding: "0.4rem 0.9rem",
+                borderRadius: "4px",
+                border: "1px solid #ccc",
+                background: "transparent",
+                cursor: canClear ? "pointer" : "not-allowed",
+                opacity: canClear ? 1 : 0.7,
+              }}
+              disabled={!canClear}
+            >
+              Clear
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div
+          style={{
+            marginTop: "1rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.5rem",
+          }}
+        >
+          <p style={{ fontSize: "0.8rem", color: "#777", margin: 0 }}>
+            Regional filters apply to individual sport leaderboards.
+          </p>
+          {hasAppliedFilters && (
+            <div>
               <button
                 type="button"
                 onClick={handleClear}
@@ -337,46 +373,15 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                   borderRadius: "4px",
                   border: "1px solid #ccc",
                   background: "transparent",
-                  cursor: canClear ? "pointer" : "not-allowed",
-                  opacity: canClear ? 1 : 0.7,
+                  cursor: "pointer",
                 }}
-                disabled={!canClear}
               >
-                Clear
+                Clear region filters
               </button>
             </div>
-          </form>
-        ) : (
-          <div
-            style={{
-              marginTop: "1rem",
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.5rem",
-            }}
-          >
-            <p style={{ fontSize: "0.8rem", color: "#777", margin: 0 }}>
-              Regional filters apply to individual sport leaderboards.
-            </p>
-            {hasAppliedFilters && (
-              <div>
-                <button
-                  type="button"
-                  onClick={handleClear}
-                  style={{
-                    padding: "0.4rem 0.9rem",
-                    borderRadius: "4px",
-                    border: "1px solid #ccc",
-                    background: "transparent",
-                    cursor: "pointer",
-                  }}
-                >
-                  Clear region filters
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+          )}
+        </div>
+      )}
 
       {loading ? (
         <table
@@ -397,7 +402,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                 <td style={{ padding: "4px 16px 4px 0" }}>
                   <div className="skeleton" style={{ width: "120px", height: "1em" }} />
                 </td>
-                {sport === "all" && (
+                {sport === ALL_SPORTS && (
                   <td style={{ padding: "4px 16px 4px 0" }}>
                     <div className="skeleton" style={{ width: "80px", height: "1em" }} />
                   </td>
@@ -446,7 +451,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                 >
                   <td style={{ padding: "4px 16px 4px 0" }}>{row.rank}</td>
                   <td style={{ padding: "4px 16px 4px 0" }}>{row.playerName}</td>
-                  {sport === "all" && (
+                  {sport === ALL_SPORTS && (
                     <td style={{ padding: "4px 16px 4px 0" }}>{row.sport}</td>
                   )}
                   <td style={{ padding: "4px 16px 4px 0" }}>
@@ -467,6 +472,3 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     </main>
   );
 }
-
-export const ALL_SPORTS = "all";
-export { SPORTS };

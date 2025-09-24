@@ -16,9 +16,10 @@ export default function AllSportsRedirect({
   const country = toSingleValue(searchParams?.country);
   const clubId = toSingleValue(searchParams?.clubId);
 
-  const params = new URLSearchParams({ tab: "all" });
+  const params = new URLSearchParams();
   if (country) params.set("country", country);
   if (clubId) params.set("clubId", clubId);
 
-  redirect(`/leaderboard?${params.toString()}`);
+  const query = params.toString();
+  redirect(query ? `/leaderboard?${query}` : "/leaderboard");
 }

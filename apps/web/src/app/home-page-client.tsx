@@ -36,6 +36,7 @@ export default function HomePageClient({
   matches: initialMatches,
   sportError: initialSportError,
   matchError: initialMatchError,
+  initialLocale,
 }: Props): ReactElement {
   const [sports, setSports] = useState(initialSports);
   const [matches, setMatches] = useState(initialMatches);

@@ -33,20 +33,154 @@ const PLAYER_LOOKUP_ERROR_MESSAGE =
 const PLAYER_LOOKUP_NETWORK_MESSAGE =
   "Could not reach the player service. Some entries may appear as \"Unknown\". Check your connection and try again.";
 
+type MatchRulesetInfo = {
+  id?: string | null;
+  name?: string | null;
+  label?: string | null;
+  displayName?: string | null;
+  code?: string | null;
+  value?: string | null;
+  [key: string]: unknown;
+};
+
+type MatchStatusInfo = {
+  label?: string | null;
+  name?: string | null;
+  display?: string | null;
+  description?: string | null;
+  value?: string | null;
+  code?: string | null;
+  status?: string | null;
+  [key: string]: unknown;
+};
+
 type MatchDetail = {
   id: ID;
   sport?: string | null;
   sportName?: string | null;
   rulesetId?: string | null;
   rulesetName?: string | null;
+  rulesetLabel?: string | null;
+  ruleset?: MatchRulesetInfo | string | null;
   bestOf?: number | null;
-  status?: string | null;
+  status?: MatchStatusInfo | string | null;
+  statusName?: string | null;
+  statusLabel?: string | null;
   playedAt?: string | null;
   location?: string | null;
   participants?: Participant[] | null;
   summary?: SummaryData | null;
   events?: ScoreEvent[] | null;
 };
+
+function normalizeLabel(value: unknown): string | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return `${value}`;
+  }
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function pickFirstString(
+  source: Record<string, unknown>,
+  keys: string[]
+): string | undefined {
+  for (const key of keys) {
+    const candidate = normalizeLabel(source[key]);
+    if (candidate) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
+function resolveRulesetName(match: MatchDetail): string | undefined {
+  const direct =
+    normalizeLabel(match.rulesetName ?? match.rulesetLabel) ?? undefined;
+  if (direct) return direct;
+
+  const { ruleset } = match;
+  if (!ruleset) return undefined;
+
+  if (typeof ruleset === "string") {
+    return normalizeLabel(ruleset);
+  }
+
+  if (typeof ruleset === "object" && !Array.isArray(ruleset)) {
+    return pickFirstString(ruleset as Record<string, unknown>, [
+      "name",
+      "label",
+      "displayName",
+      "title",
+    ]);
+  }
+
+  return undefined;
+}
+
+function resolveRulesetIdentifier(match: MatchDetail): string | undefined {
+  const direct = normalizeLabel(match.rulesetId);
+  if (direct) return direct;
+
+  const { ruleset } = match;
+  if (!ruleset) return undefined;
+
+  if (typeof ruleset === "object" && !Array.isArray(ruleset)) {
+    const fromObject = pickFirstString(ruleset as Record<string, unknown>, [
+      "id",
+      "code",
+      "value",
+      "slug",
+    ]);
+    if (fromObject) {
+      return fromObject;
+    }
+  }
+
+  if (typeof ruleset === "string") {
+    return normalizeLabel(ruleset);
+  }
+
+  return undefined;
+}
+
+function resolveStatusText(match: MatchDetail): string | undefined {
+  const labeled =
+    normalizeLabel(match.statusLabel ?? match.statusName) ?? undefined;
+  if (labeled) return labeled;
+
+  const { status } = match;
+  if (!status) return undefined;
+
+  if (typeof status === "string") {
+    return normalizeLabel(status);
+  }
+
+  if (typeof status === "object" && !Array.isArray(status)) {
+    const fromKnown = pickFirstString(status as Record<string, unknown>, [
+      "label",
+      "name",
+      "display",
+      "description",
+      "value",
+      "code",
+      "status",
+    ]);
+    if (fromKnown) {
+      return fromKnown;
+    }
+
+    for (const value of Object.values(status as Record<string, unknown>)) {
+      const candidate = normalizeLabel(value);
+      if (candidate) {
+        return candidate;
+      }
+    }
+  }
+
+  return undefined;
+}
 
 async function fetchMatch(mid: string): Promise<MatchDetail> {
   const res = (await apiFetch(`/v0/matches/${encodeURIComponent(mid)}`, {
@@ -207,19 +341,23 @@ export default async function MatchDetailPage({
   }
 
   const sportName = sports.find((s) => s.id === match.sport)?.name;
-  const rulesetName = match.rulesetId
-    ? rulesets.find((r) => r.id === match.rulesetId)?.name
+  const matchedRuleset = match.rulesetId
+    ? rulesets.find((r) => r.id === match.rulesetId)
     : undefined;
+  const rulesetNameFromLookup = normalizeLabel(matchedRuleset?.name);
   const fallbackLabel = "—";
-  const statusText =
-    typeof match.status === "string" && match.status.trim()
-      ? match.status.trim()
-      : undefined;
+  const statusText = resolveStatusText(match);
+
+  const resolvedRulesetName = resolveRulesetName(match);
+  const resolvedRulesetId = resolveRulesetIdentifier(match);
 
   const sportLabel =
     match.sportName ?? sportName ?? match.sport ?? fallbackLabel;
   const rulesetLabel =
-    match.rulesetName ?? rulesetName ?? match.rulesetId ?? fallbackLabel;
+    resolvedRulesetName ??
+    rulesetNameFromLookup ??
+    resolvedRulesetId ??
+    fallbackLabel;
   const statusLabel = statusText ?? fallbackLabel;
 
   const playedAtDate = match.playedAt ? new Date(match.playedAt) : null;

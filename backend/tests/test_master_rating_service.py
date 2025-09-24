@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -27,9 +28,10 @@ def test_update_master_ratings_upsert_and_prune():
             session.add_all([
                 Player(id="p1", name="A"),
                 Player(id="p2", name="B"),
-                Player(id="p3", name="C"),
+                Player(id="p3", name="C", deleted_at=datetime.now(timezone.utc)),
                 Rating(id="r1", player_id="p1", sport_id="padel", value=1200),
                 Rating(id="r2", player_id="p2", sport_id="padel", value=800),
+                Rating(id="r3", player_id="p3", sport_id="padel", value=1000),
                 MasterRating(id="m1", player_id="p1", value=500),
                 MasterRating(id="m3", player_id="p3", value=750),
             ])
@@ -48,3 +50,4 @@ def test_update_master_ratings_upsert_and_prune():
     assert len(results) == 2
     assert results[0][0] == "p1" and abs(results[0][1] - 1000.0) < 1e-6
     assert results[1][0] == "p2" and abs(results[1][1]) < 1e-6
+    assert all(pid != "p3" for pid, _ in results)

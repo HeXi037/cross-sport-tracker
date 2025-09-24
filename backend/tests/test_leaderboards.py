@@ -1,7 +1,7 @@
 import os
 import sys
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import FastAPI
@@ -22,6 +22,7 @@ from app.models import (
     Match,
     MatchParticipant,
     ScoreEvent,
+    MasterRating,
 )  # noqa: E402
 from app.routers import leaderboards  # noqa: E402
 
@@ -49,6 +50,7 @@ def setup_db():
                     Rating.__table__,
                     Match.__table__,
                     ScoreEvent.__table__,
+                    MasterRating.__table__,
                 ],
             )
             await conn.exec_driver_sql("DROP TABLE IF EXISTS match_participant")
@@ -168,3 +170,20 @@ def test_leaderboard_filter_by_club():
         leaders = data["leaders"]
         assert [entry["playerId"] for entry in leaders] == ["p1", "p3"]
         assert [entry["rank"] for entry in leaders] == [1, 2]
+
+
+def test_master_leaderboard_excludes_deleted_players():
+    async def delete_player():
+        async with db.AsyncSessionLocal() as session:
+            player = await session.get(Player, "p4")
+            player.deleted_at = datetime.now(timezone.utc)
+            await session.commit()
+
+    asyncio.run(delete_player())
+    with TestClient(app) as client:
+        resp = client.get("/leaderboards/master")
+        assert resp.status_code == 200
+        data = resp.json()
+        leaders = data["leaders"]
+        assert "p4" not in [entry["playerId"] for entry in leaders]
+        assert data["total"] == len(leaders) == 3

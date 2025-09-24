@@ -151,6 +151,7 @@ async def master_leaderboard(
     stmt = (
         select(MasterRating, Player)
         .join(Player, Player.id == MasterRating.player_id)
+        .where(Player.deleted_at.is_(None))
         .order_by(MasterRating.value.desc())
     )
     all_rows = (await session.execute(stmt)).all()

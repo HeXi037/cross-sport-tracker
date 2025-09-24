@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { apiUrl } from "../../lib/api";
+import { loadUserSettings } from "../user-settings";
 import {
   ALL_SPORTS,
   MASTER_SPORT,
@@ -98,9 +99,13 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     clubId: initialClubId,
   });
 
+  const appliedCountry = filters.country;
+  const appliedClubId = filters.clubId;
+
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [preferencesApplied, setPreferencesApplied] = useState(false);
 
   useEffect(() => {
     const nextCountry = normalizeCountry(country);
@@ -137,8 +142,57 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     }
   }, [filters.country, filters.clubId, router]);
 
-  const appliedCountry = filters.country;
-  const appliedClubId = filters.clubId;
+  useEffect(() => {
+    if (preferencesApplied) {
+      return;
+    }
+    if (typeof window === "undefined") {
+      return;
+    }
+    const settings = loadUserSettings();
+    const preferredSport = settings.defaultLeaderboardSport;
+    const preferredCountry = settings.defaultLeaderboardCountry;
+    const url = new URL(window.location.href);
+    const hasSportParam = url.searchParams.has("sport");
+    const hasCountryParam = url.searchParams.has("country");
+    const shouldRedirectSport =
+      !hasSportParam &&
+      preferredSport &&
+      preferredSport !== ALL_SPORTS &&
+      sport !== preferredSport;
+
+    if (shouldRedirectSport) {
+      url.searchParams.set("sport", preferredSport);
+    }
+
+    if (!hasCountryParam && preferredCountry) {
+      url.searchParams.set("country", preferredCountry);
+      if (appliedCountry !== preferredCountry) {
+        setDraftCountry(preferredCountry);
+        setFilters((prev) =>
+          prev.country === preferredCountry
+            ? prev
+            : { country: preferredCountry, clubId: prev.clubId }
+        );
+      }
+    }
+
+    if (shouldRedirectSport || (!hasCountryParam && preferredCountry)) {
+      const base = canonicalizePathname(url.pathname);
+      const search = url.searchParams.toString();
+      const nextUrl = search ? `${base}?${search}` : base;
+      const currentUrl = `${window.location.pathname}${window.location.search}`;
+      if (nextUrl !== currentUrl) {
+        router.replace(nextUrl, { scroll: false });
+      }
+    }
+
+    if (shouldRedirectSport) {
+      return;
+    }
+
+    setPreferencesApplied(true);
+  }, [appliedCountry, preferencesApplied, router, sport]);
 
   const buildUrl = useCallback(
     (sportId: string) => {
@@ -217,6 +271,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   };
 
   useEffect(() => {
+    if (!preferencesApplied) {
+      return;
+    }
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -268,7 +325,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [sport, appliedCountry, appliedClubId, buildUrl]);
+  }, [sport, appliedCountry, appliedClubId, buildUrl, preferencesApplied]);
 
   const TableHeader = () => (
     <thead>

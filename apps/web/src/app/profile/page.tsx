@@ -24,6 +24,18 @@ import {
   getContinentForCountry,
   CONTINENT_LABELS,
 } from "../../lib/countries";
+import {
+  areUserSettingsEqual,
+  getDefaultUserSettings,
+  loadUserSettings,
+  saveUserSettings,
+  type UserSettings,
+} from "../user-settings";
+import {
+  ALL_SPORTS,
+  MASTER_SPORT,
+  SPORT_OPTIONS,
+} from "../leaderboard/constants";
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
 const INVALID_SOCIAL_URL_MESSAGE =
@@ -78,6 +90,20 @@ function extractErrorMessage(err: unknown): string | null {
   return null;
 }
 
+function formatSportOption(id: string): string {
+  if (id === ALL_SPORTS) {
+    return "All sports (combined)";
+  }
+  if (id === MASTER_SPORT) {
+    return "Master leaderboard";
+  }
+  return id
+    .split(/[_-]/g)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -104,6 +130,23 @@ export default function ProfilePage() {
   const [linkDeletingId, setLinkDeletingId] = useState<string | null>(null);
   const [linkSubmitting, setLinkSubmitting] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<SaveFeedback>(null);
+  const [preferences, setPreferences] = useState<UserSettings>(
+    () => getDefaultUserSettings(),
+  );
+  const [initialPreferences, setInitialPreferences] = useState<UserSettings>(
+    () => getDefaultUserSettings(),
+  );
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const [preferencesSaving, setPreferencesSaving] = useState(false);
+  const [preferencesFeedback, setPreferencesFeedback] =
+    useState<SaveFeedback>(null);
+
+  const clearFeedback = () => {
+    setError(null);
+    setMessage(null);
+    setSaveFeedback(null);
+    setPreferencesFeedback(null);
+  };
 
   const resetSocialLinkState = (links: PlayerSocialLink[]) => {
     setSocialLinks(links);
@@ -163,6 +206,7 @@ export default function ProfilePage() {
             console.error("Failed to load player profile", playerErr);
             setError("Failed to load profile");
             setMessage(null);
+            setPreferencesFeedback(null);
           }
         }
       } catch {
@@ -180,12 +224,17 @@ export default function ProfilePage() {
     };
   }, [router]);
 
+  useEffect(() => {
+    const stored = loadUserSettings();
+    setPreferences(stored);
+    setInitialPreferences(stored);
+    setPreferencesLoaded(true);
+  }, []);
+
   const handlePhotoChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setError(null);
-    setMessage(null);
-    setSaveFeedback(null);
+    clearFeedback();
     setUploading(true);
     try {
       const form = new FormData();
@@ -211,9 +260,7 @@ export default function ProfilePage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setMessage(null);
-    setSaveFeedback(null);
+    clearFeedback();
     const trimmedUsername = username.trim();
     if (trimmedUsername.length < 3) {
       setSaveFeedback({
@@ -348,6 +395,36 @@ export default function ProfilePage() {
     }
   };
 
+  const handlePreferencesSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    clearFeedback();
+    if (!preferencesLoaded) {
+      setPreferencesFeedback({
+        type: "error",
+        message: "Preferences are still loading. Please wait a moment.",
+      });
+      return;
+    }
+    setPreferencesSaving(true);
+    try {
+      const normalized = saveUserSettings(preferences);
+      setPreferences(normalized);
+      setInitialPreferences(normalized);
+      setPreferencesFeedback({
+        type: "success",
+        message: "Preferences updated.",
+      });
+    } catch (err) {
+      console.error("Failed to save preferences", err);
+      setPreferencesFeedback({
+        type: "error",
+        message: "We couldn't save your preferences. Please try again.",
+      });
+    } finally {
+      setPreferencesSaving(false);
+    }
+  };
+
   const continentCode = getContinentForCountry(countryCode);
   const continentLabel = continentCode ? CONTINENT_LABELS[continentCode] : null;
   const newLinkLabelError =
@@ -355,6 +432,11 @@ export default function ProfilePage() {
   const newLinkUrlError =
     error === INVALID_SOCIAL_URL_MESSAGE &&
     !isValidHttpUrl(newLinkUrl.trim());
+  const preferencesDirty = !areUserSettingsEqual(
+    preferences,
+    initialPreferences,
+  );
+  const preferencesInputsDisabled = !preferencesLoaded || preferencesSaving;
 
   if (loading) {
     return (
@@ -532,6 +614,123 @@ export default function ProfilePage() {
           {error}
         </p>
       )}
+      <form
+        onSubmit={handlePreferencesSubmit}
+        className="auth-form"
+        aria-labelledby="preferences-heading"
+      >
+        <h2
+          id="preferences-heading"
+          className="heading"
+          style={{ fontSize: "1.25rem" }}
+        >
+          Preferences
+        </h2>
+        <label className="form-field" htmlFor="preferences-sport">
+          <span className="form-label">Default leaderboard sport</span>
+          <select
+            id="preferences-sport"
+            value={preferences.defaultLeaderboardSport}
+            onChange={(event) => {
+              setPreferencesFeedback(null);
+              setMessage(null);
+              setError(null);
+              setPreferences((prev) => ({
+                ...prev,
+                defaultLeaderboardSport: event.target.value,
+              }));
+            }}
+            disabled={preferencesInputsDisabled}
+          >
+            {SPORT_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {formatSportOption(option)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="form-field" htmlFor="preferences-country">
+          <span className="form-label">Default leaderboard country</span>
+          <select
+            id="preferences-country"
+            value={preferences.defaultLeaderboardCountry}
+            onChange={(event) => {
+              const nextValue = event.target.value;
+              setPreferencesFeedback(null);
+              setMessage(null);
+              setError(null);
+              setPreferences((prev) => ({
+                ...prev,
+                defaultLeaderboardCountry: nextValue,
+              }));
+            }}
+            disabled={preferencesInputsDisabled}
+          >
+            <option value="">No default country</option>
+            {COUNTRY_OPTIONS.map((option) => (
+              <option key={option.code} value={option.code}>
+                {option.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label
+          className="form-field"
+          htmlFor="preferences-weekly-summary"
+          style={{ alignItems: "flex-start" }}
+        >
+          <span className="form-label" style={{ marginBottom: "0.25rem" }}>
+            Weekly summary emails
+          </span>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <input
+                id="preferences-weekly-summary"
+                type="checkbox"
+                checked={preferences.weeklySummaryEmails}
+                onChange={(event) => {
+                  setPreferencesFeedback(null);
+                  setMessage(null);
+                  setError(null);
+                  setPreferences((prev) => ({
+                    ...prev,
+                    weeklySummaryEmails: event.target.checked,
+                  }));
+                }}
+                disabled={preferencesInputsDisabled}
+              />
+              <span>Send me a recap email of new matches once per week.</span>
+            </div>
+            <p style={{ fontSize: "0.85rem", color: "#555", margin: 0 }}>
+              We only send emails when there are new matches from clubs you follow.
+            </p>
+          </div>
+        </label>
+        <button
+          type="submit"
+          disabled={preferencesInputsDisabled || !preferencesDirty}
+        >
+          {preferencesSaving ? "Saving preferences…" : "Save preferences"}
+        </button>
+        <div aria-live="polite">
+          {preferencesSaving ? (
+            <p style={{ fontSize: "0.9rem", color: "#555" }}>
+              Saving your preferences…
+            </p>
+          ) : null}
+          {preferencesFeedback ? (
+            <p
+              role={preferencesFeedback.type === "error" ? "alert" : "status"}
+              className={
+                preferencesFeedback.type === "error" ? "error" : "success"
+              }
+              style={{ marginTop: "0.5rem" }}
+            >
+              {preferencesFeedback.message}
+            </p>
+          ) : null}
+        </div>
+      </form>
       <section className="auth-form" aria-labelledby="social-links-heading">
         <h2 id="social-links-heading" className="heading" style={{ fontSize: "1.25rem" }}>
           Social links
@@ -603,18 +802,18 @@ export default function ProfilePage() {
                       if (!nextLabel) {
                         setError(SOCIAL_LINK_LABEL_REQUIRED_MESSAGE);
                         setMessage(null);
+                        setPreferencesFeedback(null);
                         setSaveFeedback(null);
                         return;
                       }
                       if (!isValidHttpUrl(nextUrl)) {
                         setError(INVALID_SOCIAL_URL_MESSAGE);
                         setMessage(null);
+                        setPreferencesFeedback(null);
                         setSaveFeedback(null);
                         return;
                       }
-                      setError(null);
-                      setMessage(null);
-                      setSaveFeedback(null);
+                      clearFeedback();
                       setLinkSavingId(link.id);
                       try {
                         const updated = await updateMySocialLink(link.id, {
@@ -629,6 +828,7 @@ export default function ProfilePage() {
                       } catch (err) {
                         const message = extractErrorMessage(err);
                         setError(message ?? "Failed to update social link");
+                        setPreferencesFeedback(null);
                         setSaveFeedback(null);
                       } finally {
                         setLinkSavingId(null);
@@ -641,9 +841,7 @@ export default function ProfilePage() {
                     type="button"
                     disabled={busy}
                     onClick={async () => {
-                      setError(null);
-                      setMessage(null);
-                      setSaveFeedback(null);
+                      clearFeedback();
                       setLinkDeletingId(link.id);
                       try {
                         await deleteMySocialLink(link.id);
@@ -655,6 +853,7 @@ export default function ProfilePage() {
                       } catch (err) {
                         const message = extractErrorMessage(err);
                         setError(message ?? "Failed to remove social link");
+                        setPreferencesFeedback(null);
                         setSaveFeedback(null);
                       } finally {
                         setLinkDeletingId(null);
@@ -673,18 +872,18 @@ export default function ProfilePage() {
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            setError(null);
-            setMessage(null);
-            setSaveFeedback(null);
+            clearFeedback();
             const label = newLinkLabel.trim();
             const url = newLinkUrl.trim();
             if (!label) {
               setError(SOCIAL_LINK_LABEL_REQUIRED_MESSAGE);
+              setPreferencesFeedback(null);
               setSaveFeedback(null);
               return;
             }
             if (!isValidHttpUrl(url)) {
               setError(INVALID_SOCIAL_URL_MESSAGE);
+              setPreferencesFeedback(null);
               setSaveFeedback(null);
               return;
             }
@@ -700,6 +899,7 @@ export default function ProfilePage() {
             } catch (err) {
               const message = extractErrorMessage(err);
               setError(message ?? "Failed to add social link");
+              setPreferencesFeedback(null);
               setSaveFeedback(null);
             } finally {
               setLinkSubmitting(false);

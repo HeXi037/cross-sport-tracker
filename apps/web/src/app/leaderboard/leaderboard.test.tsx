@@ -2,6 +2,7 @@ import { render, waitFor, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import Leaderboard from "./leaderboard";
 import { apiUrl } from "../../lib/api";
+import { USER_SETTINGS_STORAGE_KEY } from "../user-settings";
 
 const replaceMock = vi.fn();
 let mockPathname = "/leaderboard";
@@ -16,6 +17,7 @@ describe("Leaderboard", () => {
     mockPathname = "/leaderboard";
     replaceMock.mockReset();
     window.history.replaceState(null, "", "/leaderboard");
+    window.localStorage.clear();
   });
 
   afterEach(() => {
@@ -132,5 +134,32 @@ describe("Leaderboard", () => {
     await waitFor(() =>
       expect(replaceMock).toHaveBeenCalledWith("/leaderboard", { scroll: false })
     );
+  });
+
+  it("applies stored sport and country preferences when no filters are provided", async () => {
+    window.localStorage.setItem(
+      USER_SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        defaultLeaderboardSport: "padel",
+        defaultLeaderboardCountry: "SE",
+        weeklySummaryEmails: true,
+      }),
+    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<Leaderboard sport="all" />);
+
+    await waitFor(() =>
+      expect(replaceMock).toHaveBeenCalledWith(
+        "/leaderboard?sport=padel&country=SE",
+        { scroll: false },
+      ),
+    );
+
+    const countryInput = (await screen.findByLabelText("Country")) as HTMLInputElement;
+    expect(countryInput.value).toBe("SE");
   });
 });

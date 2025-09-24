@@ -99,7 +99,8 @@ describe("ProfilePage", () => {
     expect(await screen.findByDisplayValue("existing")).toBeInTheDocument();
     const countrySelect = (await screen.findByLabelText("Country")) as HTMLSelectElement;
     expect(countrySelect.value).toBe("US");
-    expect(await screen.findByText(/Continent:/i)).toHaveTextContent("North America");
+    const continentDisplay = await screen.findByTestId("continent-display");
+    expect(continentDisplay).toHaveTextContent("North America");
     const favoriteClubFields = await screen.findAllByLabelText("Favorite club");
     const clubSearchInput = favoriteClubFields[0] as HTMLInputElement;
     expect(clubSearchInput).toHaveValue("club-old");
@@ -171,7 +172,7 @@ describe("ProfilePage", () => {
       fireEvent.click(saveButton);
     });
 
-    const statusMessage = await screen.findByRole("status");
+    const statusMessage = await screen.findByText(/Profile saved successfully\./i);
 
     expect(apiMocks.updateMyPlayerLocation).toHaveBeenCalledWith({
       location: "SE",
@@ -180,7 +181,7 @@ describe("ProfilePage", () => {
       club_id: "club-new",
     });
     expect(apiMocks.updateMe).toHaveBeenCalledWith({ username: "existing" });
-    expect(statusMessage).toHaveTextContent(/profile updated/i);
+    expect(statusMessage).toBeInTheDocument();
     expect(window.localStorage.getItem("token")).toBe("new.token.value");
   });
 

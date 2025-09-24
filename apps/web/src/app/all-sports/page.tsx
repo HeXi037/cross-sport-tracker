@@ -1,23 +1,24 @@
 import { redirect } from "next/navigation";
 
-type LeaderboardSearchParams = {
+const toSingleValue = (value?: string | string[]) =>
+  Array.isArray(value) ? value[0] : value;
+
+type SearchParams = {
   country?: string | string[];
   clubId?: string | string[];
 };
 
-const toSingleValue = (value?: string | string[]) =>
-  Array.isArray(value) ? value[0] : value;
-
-export default function MasterLeaderboardPage({
+export default function AllSportsRedirect({
   searchParams,
 }: {
-  searchParams?: LeaderboardSearchParams;
+  searchParams?: SearchParams;
 }) {
   const country = toSingleValue(searchParams?.country);
   const clubId = toSingleValue(searchParams?.clubId);
-  const params = new URLSearchParams({ tab: "master" });
+
+  const params = new URLSearchParams({ tab: "all" });
   if (country) params.set("country", country);
   if (clubId) params.set("clubId", clubId);
+
   redirect(`/leaderboard?${params.toString()}`);
 }
-

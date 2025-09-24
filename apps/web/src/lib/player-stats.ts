@@ -34,7 +34,7 @@ export function normalizeMatchSummary(
   ) {
     return null;
   }
-  if (total <= 0 || wins < 0 || losses < 0 || winPct < 0) {
+  if (total < 0 || wins < 0 || losses < 0 || winPct < 0) {
     return null;
   }
   const normalizedDraws =

@@ -35,7 +35,19 @@ describe("normalizeMatchSummary", () => {
     ).toBeNull();
   });
 
-  it("returns null for non-positive totals", () => {
+  it("returns null for negative totals", () => {
+    expect(
+      normalizeMatchSummary({
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        total: -1,
+        winPct: 0,
+      })
+    ).toBeNull();
+  });
+
+  it("allows zero totals when no games have been played", () => {
     expect(
       normalizeMatchSummary({
         wins: 0,
@@ -44,7 +56,13 @@ describe("normalizeMatchSummary", () => {
         total: 0,
         winPct: 0,
       })
-    ).toBeNull();
+    ).toEqual({
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      total: 0,
+      winPct: 0,
+    });
   });
 });
 

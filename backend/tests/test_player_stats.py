@@ -273,6 +273,38 @@ def test_player_stats(client_and_session):
     assert data["ratings"] == []
 
 
+def test_player_stats_postgresql_json_handling(client_and_session, monkeypatch):
+    """Ensure the Postgres code path works without relying on the removed JSON text helper."""
+
+    client, session_maker = client_and_session
+    seed(session_maker)
+
+    # Simulate PostgreSQL JSONB helpers by reusing SQLite JSON functions.
+    monkeypatch.setattr(
+        players.func,
+        "jsonb_array_elements",
+        players.func.json_each,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        players.func,
+        "jsonb_array_length",
+        players.func.json_array_length,
+        raising=False,
+    )
+
+    async def compute():
+        async with session_maker() as session:
+            session.bind.dialect.name = "postgresql"
+            return await players._compute_player_stats(session, "p1", span=10)
+
+    stats = asyncio.run(compute())
+
+    assert stats.matchSummary.total == 2
+    assert stats.bestAgainst and stats.bestAgainst.playerId == "p3"
+    assert stats.bestWith and stats.bestWith.playerId == "p2"
+
+
 def test_player_stats_with_singles(client_and_session):
     client, session_maker = client_and_session
     seed_with_singles(session_maker)

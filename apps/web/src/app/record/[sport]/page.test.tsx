@@ -1,6 +1,18 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
+import { vi, type Mock } from "vitest";
+
+vi.mock("../../../lib/bowlingSummary", () => ({
+  summarizeBowlingInput: vi.fn(),
+}));
+
+import { summarizeBowlingInput } from "../../../lib/bowlingSummary";
 import RecordSportPage from "./page";
+
+const summarizeBowlingInputMock = summarizeBowlingInput as Mock<
+  [string[][], { playerLabel: string }],
+  { frames: number[][]; frameScores: number[]; total: number }
+>;
 
 let sportParam = "padel";
 const router = { push: vi.fn() };
@@ -13,6 +25,7 @@ describe("RecordSportPage", () => {
   afterEach(() => {
     router.push.mockReset();
     vi.clearAllMocks();
+    summarizeBowlingInputMock.mockReset();
   });
 
   it("rejects duplicate player selections", async () => {
@@ -157,6 +170,16 @@ describe("RecordSportPage", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
     global.fetch = fetchMock as typeof fetch;
 
+    summarizeBowlingInputMock.mockImplementation((_, { playerLabel }) => {
+      const totals: Record<string, number> = {
+        Alice: 100,
+        Bob: 120,
+        Cara: 90,
+      };
+      const total = totals[playerLabel] ?? 0;
+      return { frames: [], frameScores: [], total };
+    });
+
     render(<RecordSportPage />);
 
     await screen.findAllByText("Alice");
@@ -168,10 +191,10 @@ describe("RecordSportPage", () => {
     fireEvent.change(selects[1], { target: { value: "2" } });
     fireEvent.change(selects[2], { target: { value: "3" } });
 
-    const scoreInputs = screen.getAllByPlaceholderText(/score/i);
-    fireEvent.change(scoreInputs[0], { target: { value: "100" } });
-    fireEvent.change(scoreInputs[1], { target: { value: "120" } });
-    fireEvent.change(scoreInputs[2], { target: { value: "90" } });
+    const scoreInputs = screen.getAllByLabelText(/frame 1 roll 1/i);
+    fireEvent.change(scoreInputs[0], { target: { value: "10" } });
+    fireEvent.change(scoreInputs[1], { target: { value: "9" } });
+    fireEvent.change(scoreInputs[2], { target: { value: "8" } });
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
@@ -182,6 +205,11 @@ describe("RecordSportPage", () => {
       { side: "B", playerIds: ["2"] },
       { side: "C", playerIds: ["3"] },
     ]);
-    expect(payload.sets).toEqual([[100], [120], [90]]);
+    expect(payload.score).toEqual([100, 120, 90]);
+    expect(payload.details.players.map((p: { total: number }) => p.total)).toEqual([
+      100,
+      120,
+      90,
+    ]);
   });
 });

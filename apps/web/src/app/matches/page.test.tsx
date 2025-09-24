@@ -1,7 +1,13 @@
 import type { ReactNode } from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import MatchesPage from "./page";
 import "@testing-library/jest-dom";
+
+vi.mock("next/headers", () => ({
+  headers: () => ({
+    get: () => undefined,
+  }),
+}));
 
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
@@ -59,7 +65,9 @@ describe("MatchesPage", () => {
     const page = await MatchesPage({ searchParams: {} });
     render(page);
 
-    await screen.findByText((_, el) => el?.textContent === "Alice vs Bob");
+    const matchItem = await screen.findByRole("listitem");
+    expect(within(matchItem).getByText("Alice")).toBeInTheDocument();
+    expect(within(matchItem).getByText("Bob")).toBeInTheDocument();
     expect(
       screen.getByText((text) => text.includes("6-4, 7-5"))
     ).toBeInTheDocument();

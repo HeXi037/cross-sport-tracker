@@ -5,6 +5,12 @@ import { execSync } from "child_process";
 
 const apiFetchMock = vi.hoisted(() => vi.fn());
 
+vi.mock("next/headers", () => ({
+  headers: () => ({
+    get: () => undefined,
+  }),
+}));
+
 vi.mock("../../../lib/api", async () => {
   const actual = await vi.importActual<typeof import("../../../lib/api")>(
     "../../../lib/api"
@@ -54,11 +60,13 @@ describe("MatchDetailPage", () => {
       )
     ).toBeInTheDocument();
 
-    const displayed = new Date(match.playedAt).toLocaleDateString();
+    const displayed = new Intl.DateTimeFormat("en-US", {
+      dateStyle: "medium",
+    }).format(new Date(match.playedAt));
     expect(screen.getByText((t) => t.includes(displayed))).toBeInTheDocument();
 
     const laDate = execSync(
-      "TZ=America/Los_Angeles node -e \"console.log(new Date('2024-01-01T00:00:00').toLocaleDateString())\""
+      "TZ=America/Los_Angeles node -e \"console.log(new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date('2024-01-01T00:00:00')))\""
     )
       .toString()
       .trim();

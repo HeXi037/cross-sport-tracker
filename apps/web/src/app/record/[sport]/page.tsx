@@ -43,7 +43,6 @@ export default function RecordSportPage() {
   const [doubles, setDoubles] = useState(isPadel);
   const [submitting, setSubmitting] = useState(false);
   const locale = useLocale();
-  const locale = useLocale();
 
   useEffect(() => {
     async function loadPlayers() {

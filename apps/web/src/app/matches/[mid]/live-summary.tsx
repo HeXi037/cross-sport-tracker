@@ -26,10 +26,20 @@ export type DiscGolfSummary = {
   [key: string]: unknown;
 };
 
+export type BowlingSummaryPlayer = {
+  side?: string;
+  playerId?: string;
+  playerName?: string;
+  frames?: Array<Array<number | null | undefined>>;
+  scores?: Array<number | null | undefined>;
+  total?: number | null;
+};
+
 export type BowlingSummary = {
   frames?: Array<Array<number | null | undefined>>;
   scores?: Array<number | null | undefined>;
   total?: number | null;
+  players?: BowlingSummaryPlayer[];
   config?: unknown;
   [key: string]: unknown;
 };

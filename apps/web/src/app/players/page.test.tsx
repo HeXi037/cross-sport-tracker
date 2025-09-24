@@ -52,7 +52,7 @@ describe("PlayersPage", () => {
     expect(screen.getByText(/loading players/i)).toBeTruthy();
   });
 
-  it("disables add button for blank names", async () => {
+  it("shows a permissions message for non-admins", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
@@ -62,11 +62,11 @@ describe("PlayersPage", () => {
       render(<PlayersPage />);
     });
 
-    const button = await screen.findByRole("button", { name: /add/i });
-    expect(button.disabled).toBe(true);
+    expect(
+      screen.getByText(/only administrators can add new players/i)
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /add/i })).toBeNull();
 
-    fireEvent.click(button);
-    // Only initial load should trigger fetch
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -202,6 +202,7 @@ describe("PlayersPage", () => {
   });
 
   it("shows a success message after adding a player", async () => {
+    window.localStorage.setItem("token", "x.eyJpc19hZG1pbiI6dHJ1ZX0.y");
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) })
@@ -229,6 +230,27 @@ describe("PlayersPage", () => {
     });
     expect(screen.queryByText(/added successfully/i)).toBeNull();
     vi.useRealTimers();
+    window.localStorage.removeItem("token");
+  });
+
+  it("shows a warning message when stats fail to load", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ players: [{ id: "1", name: "Alice" }] }),
+      })
+      .mockRejectedValueOnce(new Error("stats failed"));
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      render(<PlayersPage />);
+    });
+
+    await screen.findByText("Alice");
+    expect(
+      await screen.findByText(/unable to load some player stats right now/i)
+    ).toBeTruthy();
   });
 
   it("allows admin to delete a player", async () => {

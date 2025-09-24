@@ -36,6 +36,7 @@ export default function PlayersPage() {
   const [playerStats, setPlayerStats] = useState<
     Record<string, PlayerStats | null>
   >({});
+  const [statsError, setStatsError] = useState(false);
   const [name, setName] = useState("");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -90,10 +91,13 @@ export default function PlayersPage() {
   useEffect(() => {
     if (!players.length) {
       setPlayerStats({});
+      setStatsError(false);
       return;
     }
     let cancelled = false;
     async function loadStats() {
+      setStatsError(false);
+      let hadError = false;
       const entries = await Promise.all(
         players.map(async (p) => {
           try {
@@ -104,12 +108,18 @@ export default function PlayersPage() {
             const data = (await res.json()) as PlayerStats;
             return [p.id, data] as const;
           } catch {
+            hadError = true;
             return [p.id, null] as const;
           }
         })
       );
       if (!cancelled) {
-        setPlayerStats(Object.fromEntries(entries));
+        setPlayerStats(
+          Object.fromEntries(entries) as Record<string, PlayerStats | null>
+        );
+        if (hadError) {
+          setStatsError(true);
+        }
       }
     }
     loadStats();
@@ -225,24 +235,26 @@ export default function PlayersPage() {
             <ul>
               {filteredPlayers.map((p) => (
                 <li key={p.id}>
-                  <Link href={`/players/${p.id}`}>
-                    <PlayerName player={p} />
-                  </Link>
-                  <div className="text-sm text-gray-600">
-                    {(() => {
-                      const stats = playerStats[p.id];
-                      if (stats === undefined) return "Loading stats…";
-                      if (!stats || !stats.matchSummary)
-                        return "Stats unavailable";
-                      const { wins, losses, draws, winPct } =
-                        stats.matchSummary;
-                      const parts = [wins, losses];
-                      if (draws) parts.push(draws);
-                      const pct = Number.isFinite(winPct)
-                        ? Math.round(winPct * 100)
-                        : 0;
-                      return `${parts.join("-")} (${pct}%)`;
-                    })()}
+                  <div>
+                    <Link href={`/players/${p.id}`}>
+                      <PlayerName player={p} />
+                    </Link>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {(() => {
+                        const stats = playerStats[p.id];
+                        if (stats === undefined) return "Loading stats…";
+                        if (!stats || !stats.matchSummary)
+                          return "Stats unavailable";
+                        const { wins, losses, draws, winPct } =
+                          stats.matchSummary;
+                        const parts = [wins, losses];
+                        if (draws) parts.push(draws);
+                        const pct = Number.isFinite(winPct)
+                          ? Math.round(winPct * 100)
+                          : 0;
+                        return `${parts.join("-")} (${pct}%)`;
+                      })()}
+                    </p>
                   </div>
                   {admin && (
                     <div style={{ marginTop: 8 }}>
@@ -277,34 +289,48 @@ export default function PlayersPage() {
               ))}
             </ul>
           )}
+          {statsError && (
+            <p className="mt-2 text-sm text-amber-600">
+              Unable to load some player stats right now. They may be
+              incomplete.
+            </p>
+          )}
         </>
       )}
-      <input
-        className="input"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="name"
-      />
-      {!nameIsValid && trimmedName !== "" && (
-        <div className="text-red-500 mt-2">
-          Name must be 1-50 characters and contain only letters,
-          numbers, spaces, hyphens, or apostrophes.
+      {admin ? (
+        <div className="mt-4">
+          <input
+            className="input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="name"
+          />
+          {!nameIsValid && trimmedName !== "" && (
+            <div className="text-red-500 mt-2">
+              Name must be 1-50 characters and contain only letters,
+              numbers, spaces, hyphens, or apostrophes.
+            </div>
+          )}
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+            className="input mt-2"
+          />
+          <button
+            className="button"
+            onClick={create}
+            disabled={creating || name.trim() === ""}
+          >
+            {creating ? "Saving…" : "Add"}
+          </button>
+          {success && <div className="text-green-600 mt-2">{success}</div>}
         </div>
+      ) : (
+        <p className="mt-4 text-sm text-gray-600">
+          Only administrators can add new players.
+        </p>
       )}
-      <input
-        type="file"
-        accept="image/*"
-        onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
-        className="input mt-2"
-      />
-      <button
-        className="button"
-        onClick={create}
-        disabled={creating || name.trim() === ""}
-      >
-        {creating ? "Saving…" : "Add"}
-      </button>
-      {success && <div className="text-green-600 mt-2">{success}</div>}
       {error && (
         <div className="text-red-500 mt-2">
           {error}

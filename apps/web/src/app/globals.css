@@ -38,6 +38,59 @@ a {
   margin: 0 auto;
 }
 
+.datetime {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.datetime .field-group {
+  flex: 1 1 160px;
+  min-width: 160px;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.field-label {
+  font-weight: 600;
+}
+
+.field-hint {
+  color: #555;
+  font-size: 0.85rem;
+  margin-top: -4px;
+}
+
+.field-group select,
+.field-group input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.players {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.sets .set {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.input-error {
+  border: 1px solid var(--color-accent-red);
+  box-shadow: 0 0 0 1px var(--color-accent-red);
+}
+
 .heading {
   margin-top: 0;
   color: var(--color-accent-red);

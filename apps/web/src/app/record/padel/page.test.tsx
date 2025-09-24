@@ -39,22 +39,22 @@ describe("RecordPadelPage", () => {
 
     render(<RecordPadelPage />);
 
-    await waitFor(() => screen.getByLabelText("Player A1"));
+    await waitFor(() => screen.getByLabelText("Player A 1"));
 
     fireEvent.change(screen.getByPlaceholderText("Location"), {
       target: { value: "Center Court" },
     });
 
-    fireEvent.change(screen.getByLabelText("Player A1"), {
+    fireEvent.change(screen.getByLabelText("Player A 1"), {
       target: { value: "p1" },
     });
-    fireEvent.change(screen.getByLabelText("Player A2"), {
+    fireEvent.change(screen.getByLabelText("Player A 2"), {
       target: { value: "p2" },
     });
-    fireEvent.change(screen.getByLabelText("Player B1"), {
+    fireEvent.change(screen.getByLabelText("Player B 1"), {
       target: { value: "p3" },
     });
-    fireEvent.change(screen.getByLabelText("Player B2"), {
+    fireEvent.change(screen.getByLabelText("Player B 2"), {
       target: { value: "p4" },
     });
 
@@ -121,9 +121,9 @@ describe("RecordPadelPage", () => {
 
     render(<RecordPadelPage />);
 
-    await waitFor(() => screen.getByLabelText("Player A1"));
+    await waitFor(() => screen.getByLabelText("Player A 1"));
 
-    fireEvent.change(screen.getByLabelText("Player A1"), {
+    fireEvent.change(screen.getByLabelText("Player A 1"), {
       target: { value: "p1" },
     });
 
@@ -137,7 +137,7 @@ describe("RecordPadelPage", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: /save/i })).toBeEnabled();
 
-    fireEvent.change(screen.getByLabelText("Player B1"), {
+    fireEvent.change(screen.getByLabelText("Player B 1"), {
       target: { value: "p2" },
     });
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
@@ -162,12 +162,12 @@ describe("RecordPadelPage", () => {
 
     render(<RecordPadelPage />);
 
-    await waitFor(() => screen.getByLabelText("Player A1"));
+    await waitFor(() => screen.getByLabelText("Player A 1"));
 
-    fireEvent.change(screen.getByLabelText("Player A1"), {
+    fireEvent.change(screen.getByLabelText("Player A 1"), {
       target: { value: "p1" },
     });
-    fireEvent.change(screen.getByLabelText("Player B1"), {
+    fireEvent.change(screen.getByLabelText("Player B 1"), {
       target: { value: "p1" },
     });
 
@@ -181,12 +181,73 @@ describe("RecordPadelPage", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: /save/i })).toBeEnabled();
 
-    fireEvent.change(screen.getByLabelText("Player B1"), {
+    fireEvent.change(screen.getByLabelText("Player B 1"), {
       target: { value: "p2" },
     });
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("validates incomplete set scores before submission", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          players: [
+            { id: "p1", name: "A" },
+            { id: "p2", name: "B" },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "m1" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordPadelPage />);
+
+    await waitFor(() => screen.getByLabelText("Player A 1"));
+
+    fireEvent.change(screen.getByLabelText("Player A 1"), {
+      target: { value: "p1" },
+    });
+    fireEvent.change(screen.getByLabelText("Player B 1"), {
+      target: { value: "p2" },
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("Set 1 A"), {
+      target: { value: "6" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/Set 1 is incomplete/i),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByPlaceholderText("Set 1 A")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(screen.getByPlaceholderText("Set 1 B")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: /save/i })).toBeEnabled();
+
+    fireEvent.change(screen.getByPlaceholderText("Set 1 B"), {
+      target: { value: "4" },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("Set 1 A")).not.toHaveAttribute("aria-invalid"),
+    );
+    expect(screen.getByPlaceholderText("Set 1 B")).not.toHaveAttribute("aria-invalid");
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
   });
 
   it("shows an error when saving the match fails", async () => {
@@ -206,12 +267,12 @@ describe("RecordPadelPage", () => {
 
     render(<RecordPadelPage />);
 
-    await waitFor(() => screen.getByLabelText("Player A1"));
+    await waitFor(() => screen.getByLabelText("Player A 1"));
 
-    fireEvent.change(screen.getByLabelText("Player A1"), {
+    fireEvent.change(screen.getByLabelText("Player A 1"), {
       target: { value: "p1" },
     });
-    fireEvent.change(screen.getByLabelText("Player B1"), {
+    fireEvent.change(screen.getByLabelText("Player B 1"), {
       target: { value: "p2" },
     });
 
@@ -248,12 +309,12 @@ describe("RecordPadelPage", () => {
 
     render(<RecordPadelPage />);
 
-    await waitFor(() => screen.getByLabelText("Player A1"));
+    await waitFor(() => screen.getByLabelText("Player A 1"));
 
-    fireEvent.change(screen.getByLabelText("Player A1"), {
+    fireEvent.change(screen.getByLabelText("Player A 1"), {
       target: { value: "p1" },
     });
-    fireEvent.change(screen.getByLabelText("Player B1"), {
+    fireEvent.change(screen.getByLabelText("Player B 1"), {
       target: { value: "p2" },
     });
 

@@ -1,60 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  SummaryData,
+  RacketSummary,
+  DiscGolfSummary,
+  BowlingSummary,
+  SetScores,
+  getNumericEntries,
+  hasPositiveValues,
+  isRecord,
+  isFinishedStatus,
+} from "../../../lib/match-summary";
 import { useMatchStream } from "../../../lib/useMatchStream";
 import MatchScoreboard from "./MatchScoreboard";
-
-type NumericRecord = Record<string, number>;
-type SetScores = Array<Record<string, unknown>>;
-
-export type RacketSummary = {
-  sets?: NumericRecord;
-  games?: NumericRecord;
-  points?: NumericRecord;
-  set_scores?: SetScores;
-  config?: unknown;
-  [key: string]: unknown;
-};
-
-export type DiscGolfSummary = {
-  scores?: Record<string, Array<number | null | undefined>>;
-  pars?: Array<number | null | undefined>;
-  totals?: NumericRecord;
-  parTotal?: number | null;
-  toPar?: NumericRecord;
-  config?: unknown;
-  [key: string]: unknown;
-};
-
-export type BowlingSummaryPlayer = {
-  side?: string;
-  playerId?: string;
-  playerName?: string;
-  frames?: Array<Array<number | null | undefined>>;
-  scores?: Array<number | null | undefined>;
-  total?: number | null;
-};
-
-export type BowlingSummary = {
-  frames?: Array<Array<number | null | undefined>>;
-  scores?: Array<number | null | undefined>;
-  total?: number | null;
-  players?: BowlingSummaryPlayer[];
-  config?: unknown;
-  [key: string]: unknown;
-};
-
-export type SummaryData =
-  | RacketSummary
-  | DiscGolfSummary
-  | BowlingSummary
-  | Record<string, unknown>
-  | null
-  | undefined;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
 
 function extractConfig(summary: SummaryData): unknown {
   if (isRecord(summary) && "config" in summary) {
@@ -67,23 +26,6 @@ function sanitizeStatus(value?: string | null): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   return trimmed ? trimmed : undefined;
-}
-
-function getNumericEntries(record: unknown): Array<[string, number]> {
-  if (!record || typeof record !== "object") return [];
-  const entries: Array<[string, number]> = [];
-  for (const [key, rawValue] of Object.entries(
-    record as Record<string, unknown>
-  )) {
-    if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
-      entries.push([key, rawValue]);
-    }
-  }
-  return entries;
-}
-
-function hasPositiveValues(record: unknown): boolean {
-  return getNumericEntries(record).some(([, value]) => value > 0);
 }
 
 function deriveRacketTotals(
@@ -237,9 +179,11 @@ export default function LiveSummary({
     [summary]
   );
 
+  const finished = isFinishedStatus(status);
   const connectionLabel = isLive
     ? "Live"
     : status ?? (fallback ? "Polling…" : "Offline");
+  const showConnectionIndicator = !finished;
 
   return (
     <section className="card live-summary-card">
@@ -247,12 +191,19 @@ export default function LiveSummary({
         <span className="live-summary-overall">
           Overall: {formatScoreline(effectiveSummary)}
         </span>
-        <span className="connection-indicator">
-          <span className={`dot ${isLive ? "dot-live" : "dot-polling"}`} />
-          {connectionLabel}
-        </span>
+        {showConnectionIndicator ? (
+          <span className="connection-indicator">
+            <span className={`dot ${isLive ? "dot-live" : "dot-polling"}`} />
+            {connectionLabel}
+          </span>
+        ) : null}
       </div>
-      <MatchScoreboard summary={effectiveSummary} sport={sport} config={config} />
+      <MatchScoreboard
+        summary={effectiveSummary}
+        sport={sport}
+        config={config}
+        isFinished={finished}
+      />
     </section>
   );
 }

@@ -5,6 +5,41 @@ import { execSync } from "child_process";
 
 const apiFetchMock = vi.hoisted(() => vi.fn());
 
+type ScoreEvent = {
+  type: string;
+  payload: { type: string; by: "A" | "B" };
+};
+
+function buildPadelEvents(
+  setScores: Array<{ A: number; B: number }>
+): ScoreEvent[] {
+  const events: ScoreEvent[] = [];
+  const pushGame = (side: "A" | "B") => {
+    for (let i = 0; i < 4; i += 1) {
+      events.push({ type: "POINT", payload: { type: "POINT", by: side } });
+    }
+  };
+
+  for (const score of setScores) {
+    const winner = score.A > score.B ? "A" : "B";
+    const loser = winner === "A" ? "B" : "A";
+    const winnerGames = score[winner];
+    const loserGames = score[loser];
+    const sharedGames = Math.min(winnerGames, loserGames);
+
+    for (let i = 0; i < sharedGames; i += 1) {
+      pushGame(winner);
+      pushGame(loser);
+    }
+
+    for (let i = sharedGames; i < winnerGames; i += 1) {
+      pushGame(winner);
+    }
+  }
+
+  return events;
+}
+
 vi.mock("../../../lib/api", async () => {
   const actual = await vi.importActual<typeof import("../../../lib/api")>(
     "../../../lib/api"
@@ -184,9 +219,77 @@ describe("MatchDetailPage", () => {
     expect(screen.getByText(/Overall: 6-4, 7-5/)).toBeInTheDocument();
   });
 
-  it("renders disc golf hole breakdown including to-par totals", async () => {
+  it("reconstructs completed padel totals from point events", async () => {
     const match = {
       id: "m4",
+      sport: "padel",
+      rulesetId: "padel_standard",
+      status: "Completed",
+      playedAt: null,
+      participants: [
+        { side: "A", playerIds: ["p1", "p2"] },
+        { side: "B", playerIds: ["p3", "p4"] },
+      ],
+      summary: {
+        sets: { A: 2, B: 0 },
+        games: { A: 0, B: 0 },
+        points: { A: 0, B: 0 },
+      },
+      events: buildPadelEvents([
+        { A: 6, B: 4 },
+        { A: 6, B: 3 },
+      ]),
+    };
+
+    apiFetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => match })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: "p1", name: "Ana" },
+          { id: "p2", name: "Bea" },
+          { id: "p3", name: "Carla" },
+          { id: "p4", name: "Dana" },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: "padel", name: "Padel" }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: "padel_standard", name: "World Padel Tour" },
+        ],
+      });
+
+    render(await MatchDetailPage({ params: { mid: "m4" } }));
+
+    const table = await screen.findByRole("table", { name: /racket scoreboard/i });
+    const rows = within(table).getAllByRole("row");
+    expect(rows).toHaveLength(3);
+    const headers = within(rows[0])
+      .getAllByRole("columnheader")
+      .map((cell) => cell.textContent?.trim());
+    expect(headers).toEqual(["Side", "Set 1", "Set 2", "Sets", "Games", "Points"]);
+
+    const sideARow = rows[1];
+    const sideACells = within(sideARow)
+      .getAllByRole("cell")
+      .map((cell) => cell.textContent?.trim());
+    expect(sideACells).toEqual(["6", "6", "2", "12", "48"]);
+
+    const sideBRow = rows[2];
+    const sideBCells = within(sideBRow)
+      .getAllByRole("cell")
+      .map((cell) => cell.textContent?.trim());
+    expect(sideBCells).toEqual(["4", "3", "0", "7", "28"]);
+    expect(screen.getByText(/Overall: 6-4, 6-3/)).toBeInTheDocument();
+  });
+
+  it("renders disc golf hole breakdown including to-par totals", async () => {
+    const match = {
+      id: "m5",
       sport: "disc_golf",
       rulesetId: "disc_golf_standard",
       status: "",
@@ -294,9 +397,10 @@ describe("MatchDetailPage", () => {
 
     expect(screen.getByText(/Overall: 6-4, 3-6, 7-5/)).toBeInTheDocument();
 
-    const indicator = screen.getByText(/Completed/, {
-      selector: ".connection-indicator",
-    });
-    expect(indicator).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Completed/, {
+        selector: ".connection-indicator",
+      })
+    ).not.toBeInTheDocument();
   });
 });

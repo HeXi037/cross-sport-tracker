@@ -1,9 +1,19 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { apiFetch, withAbsolutePhotoUrl } from "../../../lib/api";
-import LiveSummary, { type SummaryData } from "./live-summary";
+import LiveSummary from "./live-summary";
 import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
 import { formatDateTime, parseAcceptLanguage } from "../../../lib/i18n";
+import {
+  type SummaryData,
+  type ScoreEvent,
+  isFinishedStatus,
+  isRacketSport,
+  rebuildRacketSummaryFromEvents,
+  shouldRebuildRacketSummary,
+  isRecord,
+} from "../../../lib/match-summary";
 
 export const dynamic = "force-dynamic";
 
@@ -19,13 +29,16 @@ type Ruleset = { id: string; name: string };
 type MatchDetail = {
   id: ID;
   sport?: string | null;
+  sportName?: string | null;
   rulesetId?: string | null;
+  rulesetName?: string | null;
   bestOf?: number | null;
   status?: string | null;
   playedAt?: string | null;
   location?: string | null;
   participants?: Participant[] | null;
   summary?: SummaryData | null;
+  events?: ScoreEvent[] | null;
 };
 
 async function fetchMatch(mid: string): Promise<MatchDetail> {
@@ -129,24 +142,53 @@ export default async function MatchDetailPage({
     );
     sidePlayers[p.side] = players;
   }
+  const sideEntries = Object.entries(sidePlayers);
 
   const sportName = sports.find((s) => s.id === match.sport)?.name;
   const rulesetName = match.rulesetId
     ? rulesets.find((r) => r.id === match.rulesetId)?.name
     : undefined;
   const fallbackLabel = "—";
-  const sportLabel = sportName ?? match.sport ?? fallbackLabel;
-  const rulesetLabel = rulesetName ?? match.rulesetId ?? fallbackLabel;
-  const statusLabel = match.status?.trim() ? match.status : fallbackLabel;
+  const statusText =
+    typeof match.status === "string" && match.status.trim()
+      ? match.status.trim()
+      : undefined;
+
+  const sportLabel =
+    match.sportName ?? sportName ?? match.sport ?? fallbackLabel;
+  const rulesetLabel =
+    match.rulesetName ?? rulesetName ?? match.rulesetId ?? fallbackLabel;
+  const statusLabel = statusText ?? fallbackLabel;
 
   const playedAtDate = match.playedAt ? new Date(match.playedAt) : null;
   const playedAtStr = playedAtDate
     ? formatDateTime(playedAtDate, locale)
     : "";
 
+  let initialSummary: SummaryData = match.summary ?? null;
+  const summaryRecord = isRecord(initialSummary)
+    ? (initialSummary as Record<string, unknown>)
+    : null;
+
+  if (isRacketSport(match.sport) && isFinishedStatus(statusText)) {
+    const needsRebuild =
+      shouldRebuildRacketSummary(initialSummary) || !summaryRecord;
+    if (needsRebuild) {
+      const config = summaryRecord && "config" in summaryRecord ? summaryRecord.config : undefined;
+      const derived = rebuildRacketSummaryFromEvents(
+        match.sport,
+        match.events ?? [],
+        config
+      );
+      if (derived) {
+        initialSummary = summaryRecord ? { ...summaryRecord, ...derived } : derived;
+      }
+    }
+  }
+
   const summaryConfig =
-    match.summary && typeof match.summary === "object" && "config" in match.summary
-      ? (match.summary as { config?: unknown }).config
+    isRecord(initialSummary) && "config" in initialSummary
+      ? (initialSummary as { config?: unknown }).config
       : undefined;
 
   return (
@@ -159,17 +201,29 @@ export default async function MatchDetailPage({
 
       <header className="section">
         <h1 className="heading">
-          {Object.keys(sidePlayers).map((s, i) => (
-            <span key={s}>
-              {sidePlayers[s]?.map((pl, j) => (
-                <span key={pl.id}>
-                  <PlayerName player={pl} />
-                  {j < (sidePlayers[s]?.length ?? 0) - 1 ? " / " : ""}
-                </span>
-              ))}
-              {i < Object.keys(sidePlayers).length - 1 ? " vs " : ""}
-            </span>
-          )) || "A vs B"}
+          {sideEntries.length ? (
+            sideEntries.map(([sideKey, players], sideIdx) => (
+              <span key={sideKey} className="match-heading-side">
+                {players.map((player, playerIdx) => (
+                  <Fragment
+                    key={player.id ?? `${sideKey}-${playerIdx}`}
+                  >
+                    {playerIdx > 0 ? (
+                      <span className="player-separator" aria-hidden="true">
+                        {" / "}
+                      </span>
+                    ) : null}
+                    <PlayerName player={player} />
+                  </Fragment>
+                ))}
+                {sideIdx < sideEntries.length - 1 ? (
+                  <span className="match-heading-versus">{" vs "}</span>
+                ) : null}
+              </span>
+            ))
+          ) : (
+            "A vs B"
+          )}
         </h1>
         <p className="match-meta">
           {sportLabel} · {rulesetLabel} · {" "}
@@ -181,8 +235,8 @@ export default async function MatchDetailPage({
       <LiveSummary
         mid={params.mid}
         sport={match.sport}
-        status={match.status}
-        initialSummary={match.summary}
+        status={statusText}
+        initialSummary={initialSummary}
         initialConfig={summaryConfig}
       />
     </main>

@@ -214,7 +214,7 @@ export default async function MatchDetailPage({
           )}
         </h1>
         <p className="match-meta">
-          {sportLabel} · {rulesetLabel} · {" "}
+          {sportLabel} · {rulesetLabel} ·{" "}
           {statusLabel}
           {playedAtStr ? ` · ${playedAtStr}` : ""}
           {match.location ? ` · ${match.location}` : ""}

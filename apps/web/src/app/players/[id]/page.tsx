@@ -204,15 +204,43 @@ type PlayerStatsResult = {
 
 async function getStats(playerId: string): Promise<PlayerStatsResult> {
   try {
-    const r = await apiFetch(
+    const response = await apiFetch(
       `/v0/players/${encodeURIComponent(playerId)}/stats`,
-      { cache: "no-store" } as RequestInit
+      { cache: "no-store" } as RequestInit,
     );
-    if (!r.ok) {
+
+    if (!response.ok) {
       return { stats: null, error: true };
     }
-    const data = (await r.json()) as PlayerStats | null;
-    return { stats: data, error: false };
+
+    if (response.status === 204) {
+      return { stats: null, error: false };
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = await response.json();
+    } catch (parseError) {
+      console.warn(
+        `Failed to parse stats payload for player ${playerId}`,
+        parseError,
+      );
+      return { stats: null, error: true };
+    }
+
+    if (parsed === null) {
+      return { stats: null, error: false };
+    }
+
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      typeof (parsed as { playerId?: unknown }).playerId !== "string"
+    ) {
+      return { stats: null, error: true };
+    }
+
+    return { stats: parsed as PlayerStats, error: false };
   } catch (err) {
     console.warn(`Failed to load stats for player ${playerId}`, err);
     return { stats: null, error: true };

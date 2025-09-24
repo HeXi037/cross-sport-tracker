@@ -2,14 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  type SummaryData,
-  type RacketSummary,
+  SummaryData,
+  RacketSummary,
+  DiscGolfSummary,
+  BowlingSummary,
+  SetScores,
+  getNumericEntries,
+  hasPositiveValues,
   isRecord,
+  isFinishedStatus,
 } from "../../../lib/match-summary";
 import { useMatchStream } from "../../../lib/useMatchStream";
 import MatchScoreboard from "./MatchScoreboard";
-
-type SetScores = Array<Record<string, unknown>>;
 
 function extractConfig(summary: SummaryData): unknown {
   if (isRecord(summary) && "config" in summary) {
@@ -22,23 +26,6 @@ function sanitizeStatus(value?: string | null): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   return trimmed ? trimmed : undefined;
-}
-
-function getNumericEntries(record: unknown): Array<[string, number]> {
-  if (!record || typeof record !== "object") return [];
-  const entries: Array<[string, number]> = [];
-  for (const [key, rawValue] of Object.entries(
-    record as Record<string, unknown>
-  )) {
-    if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
-      entries.push([key, rawValue]);
-    }
-  }
-  return entries;
-}
-
-function hasPositiveValues(record: unknown): boolean {
-  return getNumericEntries(record).some(([, value]) => value > 0);
 }
 
 function deriveRacketTotals(
@@ -126,88 +113,3 @@ function formatScoreline(summary?: SummaryData): string {
         return entries
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([, value]) => value.toString())
-          .join("-");
-      })
-      .filter((val): val is string => Boolean(val));
-    if (formatted.length) {
-      return formatted.join(", ");
-    }
-  }
-  const fromRecord = (record?: unknown) => {
-    const entries = getNumericEntries(record);
-    if (entries.length < 2) return null;
-    return entries
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([, value]) => value.toString())
-      .join("-");
-  };
-  const setsLine = fromRecord(maybe.sets);
-  if (setsLine) return setsLine;
-  const gamesLine = fromRecord(maybe.games);
-  if (gamesLine) return gamesLine;
-  const pointsLine = fromRecord(maybe.points);
-  if (pointsLine) return pointsLine;
-  return "—";
-}
-
-export default function LiveSummary({
-  mid,
-  initialSummary,
-  sport,
-  initialConfig,
-  status: initialStatus,
-}: {
-  mid: string;
-  sport?: string | null;
-  initialSummary?: SummaryData;
-  initialConfig?: unknown;
-  status?: string | null;
-}) {
-  const [summary, setSummary] = useState<SummaryData>(initialSummary);
-  const [config, setConfig] = useState<unknown>(
-    initialConfig ?? extractConfig(initialSummary)
-  );
-  const [status, setStatus] = useState<string | undefined>(() =>
-    sanitizeStatus(initialStatus)
-  );
-  const { event, connected, fallback } = useMatchStream(mid);
-  const isLive = connected && !fallback;
-
-  useEffect(() => {
-    if (event?.summary) {
-      setSummary(event.summary as SummaryData);
-      setConfig(extractConfig(event.summary as SummaryData));
-    }
-    if (event && "status" in event) {
-      setStatus(sanitizeStatus((event as { status?: string | null }).status));
-    }
-  }, [event]);
-
-  useEffect(() => {
-    setStatus(sanitizeStatus(initialStatus));
-  }, [initialStatus]);
-
-  const effectiveSummary = useMemo(
-    () => (summary ? enrichSummary(summary) : summary ?? null),
-    [summary]
-  );
-
-  const connectionLabel = isLive
-    ? "Live"
-    : status ?? (fallback ? "Polling…" : "Offline");
-
-  return (
-    <section className="card live-summary-card">
-      <div className="live-summary-header">
-        <span className="live-summary-overall">
-          Overall: {formatScoreline(effectiveSummary)}
-        </span>
-        <span className="connection-indicator">
-          <span className={`dot ${isLive ? "dot-live" : "dot-polling"}`} />
-          {connectionLabel}
-        </span>
-      </div>
-      <MatchScoreboard summary={effectiveSummary} sport={sport} config={config} />
-    </section>
-  );
-}

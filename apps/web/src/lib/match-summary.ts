@@ -1,11 +1,15 @@
+/*
+ * Shared match summary utilities and types used across match detail views.
+ */
+
 export type NumericRecord = Record<string, number>;
 export type SetScores = Array<Record<string, unknown>>;
 
 export type RacketSummary = {
-  sets?: NumericRecord;
-  games?: NumericRecord;
-  points?: NumericRecord;
-  set_scores?: SetScores;
+  sets?: NumericRecord | null;
+  games?: NumericRecord | null;
+  points?: NumericRecord | null;
+  set_scores?: SetScores | null;
   config?: unknown;
   [key: string]: unknown;
 };
@@ -46,11 +50,18 @@ export type SummaryData =
   | null
   | undefined;
 
+export type ScoreEventPayload = {
+  type?: string | null;
+  by?: string | null;
+  side?: string | null;
+  [key: string]: unknown;
+};
+
 export type ScoreEvent = {
   id?: string;
-  type?: string;
-  payload?: Record<string, unknown> | null;
-  createdAt?: string;
+  type?: string | null;
+  payload?: ScoreEventPayload | null;
+  createdAt?: string | null;
   [key: string]: unknown;
 };
 
@@ -66,6 +77,10 @@ const FINISHED_STATUS_KEYWORDS = new Set([
   "finalized",
   "finalised",
   "done",
+  "ended",
+  "inactive",
+  "closed",
+  "result",
 ]);
 
 export function isFinishedStatus(status?: string | null): boolean {
@@ -73,37 +88,70 @@ export function isFinishedStatus(status?: string | null): boolean {
   const normalized = status.trim().toLowerCase();
   if (!normalized) return false;
   if (FINISHED_STATUS_KEYWORDS.has(normalized)) return true;
-  return normalized.includes("final");
+  if (normalized.includes("final")) return true;
+  if (/^end(ed)?\b/.test(normalized)) return true;
+  return false;
 }
 
-const RACKET_SPORT_IDS = new Set([
+export function getNumericEntries(record: unknown): Array<[string, number]> {
+  if (!record || typeof record !== "object") return [];
+  const entries: Array<[string, number]> = [];
+  for (const [key, rawValue] of Object.entries(
+    record as Record<string, unknown>
+  )) {
+    if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
+      entries.push([key, rawValue]);
+    }
+  }
+  return entries;
+}
+
+export function hasPositiveValues(record: unknown): boolean {
+  return getNumericEntries(record).some(([, value]) => value > 0);
+}
+
+export function normalizeSportId(sport?: string | null): string | undefined {
+  if (typeof sport !== "string") return undefined;
+  const trimmed = sport.trim();
+  if (!trimmed) return undefined;
+  return trimmed.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+}
+
+export const RACKET_SPORTS = new Set([
   "padel",
   "tennis",
   "pickleball",
   "badminton",
-  "table-tennis",
   "table_tennis",
 ]);
 
 export function isRacketSport(sport?: string | null): boolean {
-  if (!sport) return false;
-  return RACKET_SPORT_IDS.has(sport.toLowerCase());
+  const normalized = normalizeSportId(sport);
+  if (!normalized) return false;
+  return RACKET_SPORTS.has(normalized);
+}
+
+function hasSetScoreDetails(summary: SummaryData): boolean {
+  if (!isRecord(summary)) return false;
+  const raw = summary as Record<string, unknown>;
+  const value = raw["set_scores"];
+  if (!Array.isArray(value)) return false;
+  return value.some(
+    (set) =>
+      isRecord(set) &&
+      getNumericEntries(set).some(([, games]) => games > 0)
+  );
 }
 
 export function shouldRebuildRacketSummary(
   summary: SummaryData | null | undefined
 ): boolean {
   if (!summary || !isRecord(summary)) return false;
-  const maybeSetScores = (summary as { set_scores?: unknown }).set_scores;
-  if (!Array.isArray(maybeSetScores)) return true;
-  if (maybeSetScores.length === 0) return true;
-  return !maybeSetScores.some(
-    (set) =>
-      isRecord(set) &&
-      Object.values(set).some(
-        (value) => typeof value === "number" && Number.isFinite(value)
-      )
-  );
+  const record = summary as Record<string, unknown>;
+  const hasGames = hasPositiveValues(record["games"]);
+  const hasPoints = hasPositiveValues(record["points"]);
+  const hasDetails = hasSetScoreDetails(summary) || hasGames || hasPoints;
+  return !hasDetails;
 }
 
 type Side = "A" | "B";
@@ -180,13 +228,13 @@ function createPadelOrTennisState(
 ): PadelOrTennisState {
   const config: RacketConfig = {};
   if (isRecord(configRaw)) {
-    const rawTiebreak = configRaw.tiebreakTo ?? configRaw.tiebreak_to;
+    const rawTiebreak = configRaw.tiebreakTo ?? (configRaw as Record<string, unknown>).tiebreak_to;
     const tiebreak = sanitizePositiveInteger(rawTiebreak);
     if (tiebreak !== undefined) config.tiebreakTo = tiebreak;
-    const rawSets = configRaw.sets ?? configRaw.bestOf ?? configRaw.best_of;
+    const rawSets = configRaw.sets ?? configRaw.bestOf ?? (configRaw as Record<string, unknown>).best_of;
     const sets = sanitizePositiveInteger(rawSets);
     if (sets !== undefined) config.sets = sets;
-    const rawGolden = configRaw.goldenPoint ?? configRaw.golden_point;
+    const rawGolden = configRaw.goldenPoint ?? (configRaw as Record<string, unknown>).golden_point;
     const golden = sanitizeBoolean(rawGolden);
     if (golden !== undefined) config.goldenPoint = golden;
   }
@@ -209,11 +257,11 @@ function createPickleballState(configRaw: unknown): PickleballState {
     winBy: 2,
   };
   if (isRecord(configRaw)) {
-    const pts = sanitizePositiveInteger(configRaw.pointsTo ?? configRaw.points_to);
+    const pts = sanitizePositiveInteger(configRaw.pointsTo ?? (configRaw as Record<string, unknown>).points_to);
     if (pts !== undefined) config.pointsTo = pts;
-    const winBy = sanitizePositiveInteger(configRaw.winBy ?? configRaw.win_by);
+    const winBy = sanitizePositiveInteger(configRaw.winBy ?? (configRaw as Record<string, unknown>).win_by);
     if (winBy !== undefined) config.winBy = winBy;
-    const best = sanitizePositiveInteger(configRaw.bestOf ?? configRaw.best_of);
+    const best = sanitizePositiveInteger(configRaw.bestOf ?? (configRaw as Record<string, unknown>).best_of);
     if (best !== undefined) config.bestOf = best;
   }
   return {
@@ -434,9 +482,9 @@ function rebuildPickleball(
 export function rebuildRacketSummaryFromEvents(
   sport: string | null | undefined,
   events: ScoreEvent[] | null | undefined,
-  config: unknown
+  config?: unknown
 ): RacketSummary | null {
-  const normalized = sport?.toLowerCase();
+  const normalized = normalizeSportId(sport);
   if (normalized === "padel" || normalized === "tennis") {
     return rebuildPadelOrTennis(normalized, events, config);
   }
@@ -445,4 +493,3 @@ export function rebuildRacketSummaryFromEvents(
   }
   return null;
 }
-

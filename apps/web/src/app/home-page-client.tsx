@@ -18,6 +18,8 @@ const sportIcons: Record<string, string> = {
   table_tennis: '🏓',
 };
 
+const toRecordPath = (sportId: string) => `/record/${sportId.replace(/_/g, '-')}`;
+
 interface Props {
   sports: Sport[];
   matches: EnrichedMatch[];
@@ -116,18 +118,20 @@ export default function HomePageClient({
           <ul className="sport-list" role="list">
             {sports.map((s) => {
               const icon = sportIcons[s.id];
+              const href = toRecordPath(s.id);
               return (
                 <li key={s.id} className="sport-item">
-                  {icon ? (
-                    <span className="sport-icon" aria-hidden="true">
-                      {icon}
-                    </span>
-                  ) : null}
-                  {icon ? (
-                    <span className="sr-only">{`${s.name} icon`}</span>
-                  ) : null}
-                  <span className="sport-name">{s.name}</span>
-                  <span className="sport-id">{s.id}</span>
+                  <Link href={href} className="sport-link">
+                    {icon ? (
+                      <span className="sport-icon" aria-hidden="true">
+                        {icon}
+                      </span>
+                    ) : null}
+                    {icon ? (
+                      <span className="sr-only">{`${s.name} icon`}</span>
+                    ) : null}
+                    <span className="sport-name">{s.name}</span>
+                  </Link>
                 </li>
               );
             })}

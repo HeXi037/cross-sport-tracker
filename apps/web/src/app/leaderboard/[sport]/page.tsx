@@ -37,9 +37,9 @@ export default function LeaderboardSportPage({
   const country = toSingleValue(searchParams?.country);
   const clubId = toSingleValue(searchParams?.clubId);
 
-  if (!isLeaderboardSport(sport)) {
-    redirectToLeaderboard(undefined, country, clubId);
+  if (isLeaderboardSport(sport)) {
+    redirectToLeaderboard(sport, country, clubId);
   }
 
-  redirectToLeaderboard(sport, country, clubId);
+  redirectToLeaderboard(undefined, country, clubId);
 }

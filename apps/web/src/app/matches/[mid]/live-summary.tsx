@@ -29,7 +29,7 @@ function sanitizeStatus(value?: string | null): string | undefined {
 }
 
 function deriveRacketTotals(
-  setScores?: SetScores
+  setScores?: SetScores | null
 ): { sets?: Record<string, number>; games?: Record<string, number> } | null {
   if (!Array.isArray(setScores) || setScores.length === 0) return null;
 

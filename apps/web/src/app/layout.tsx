@@ -2,6 +2,7 @@
 import './globals.css';
 import Header from './header';
 import ChunkErrorReload from '../components/ChunkErrorReload';
+import ToastProvider from '../components/ToastProvider';
 import { headers } from 'next/headers';
 import { LocaleProvider } from '../lib/LocaleContext';
 import { parseAcceptLanguage } from '../lib/i18n';
@@ -24,9 +25,11 @@ export default function RootLayout({
     <html lang={locale}>
       <body>
         <LocaleProvider locale={locale}>
-          <ChunkErrorReload />
-          <Header />
-          {children}
+          <ToastProvider>
+            <ChunkErrorReload />
+            <Header />
+            {children}
+          </ToastProvider>
         </LocaleProvider>
       </body>
     </html>

@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
+import * as bowlingSummary from "../../../lib/bowlingSummary";
 import RecordSportPage from "./page";
 
 let sportParam = "padel";
@@ -157,6 +158,26 @@ describe("RecordSportPage", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
     global.fetch = fetchMock as typeof fetch;
 
+    const totals = [100, 120, 90];
+    const summarySpy = vi
+      .spyOn(bowlingSummary, "summarizeBowlingInput")
+      .mockImplementation((_, options) => {
+        const explicitIndex = players.findIndex(
+          (p) => p.name === options.playerLabel
+        );
+        const fallbackMatch = /Player (\d+)/i.exec(options.playerLabel ?? "");
+        const index =
+          explicitIndex >= 0
+            ? explicitIndex
+            : fallbackMatch
+            ? Number(fallbackMatch[1]) - 1
+            : 0;
+        const total = totals[index] ?? 0;
+        const frameScores = Array(10).fill(total);
+        const frames = Array(10).fill([0, 0]);
+        return { frames, frameScores, total };
+      });
+
     render(<RecordSportPage />);
 
     await screen.findAllByText("Alice");
@@ -168,11 +189,6 @@ describe("RecordSportPage", () => {
     fireEvent.change(selects[1], { target: { value: "2" } });
     fireEvent.change(selects[2], { target: { value: "3" } });
 
-    const scoreInputs = screen.getAllByPlaceholderText(/score/i);
-    fireEvent.change(scoreInputs[0], { target: { value: "100" } });
-    fireEvent.change(scoreInputs[1], { target: { value: "120" } });
-    fireEvent.change(scoreInputs[2], { target: { value: "90" } });
-
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
@@ -182,6 +198,7 @@ describe("RecordSportPage", () => {
       { side: "B", playerIds: ["2"] },
       { side: "C", playerIds: ["3"] },
     ]);
-    expect(payload.sets).toEqual([[100], [120], [90]]);
+    expect(payload.score).toEqual(totals);
+    summarySpy.mockRestore();
   });
 });

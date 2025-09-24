@@ -6,6 +6,12 @@ import PlayerComments from "./comments-client";
 import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
 import PhotoUpload from "./PhotoUpload";
 import { formatDate, parseAcceptLanguage } from "../../../lib/i18n";
+import StatsErrorToast from "./StatsErrorToast";
+import {
+  sanitizePlayerStats,
+  type MatchSummary,
+  type PlayerStats as SanitizedPlayerStats,
+} from "../../../lib/stats";
 
 export const dynamic = "force-dynamic";
 
@@ -57,39 +63,34 @@ type EnrichedMatch = MatchRow & {
   playerWon?: boolean;
 };
 
-interface VersusRecord {
-  playerId: string;
-  playerName: string;
-  wins: number;
-  losses: number;
-  winPct: number;
-}
-
-type MatchSummary = {
-  wins: number;
-  losses: number;
-  draws: number;
-  total: number;
-  winPct: number;
-};
-
-interface PlayerStats {
-  playerId: string;
-  matchSummary?: MatchSummary | null;
-  bestAgainst?: VersusRecord | null;
-  worstAgainst?: VersusRecord | null;
-  bestWith?: VersusRecord | null;
-  worstWith?: VersusRecord | null;
-  withRecords: VersusRecord[];
-}
-
 async function getPlayer(id: string): Promise<Player> {
   const res = await apiFetch(`/v0/players/${encodeURIComponent(id)}`, {
     cache: "no-store",
   } as RequestInit);
   if (!res.ok) throw new Error("player");
   const data = (await res.json()) as Player;
-  return withAbsolutePhotoUrl(data);
+  const normalized = withAbsolutePhotoUrl(data);
+  const badges = Array.isArray(normalized.badges)
+    ? (normalized.badges.filter(
+        (badge): badge is Badge =>
+          !!badge && typeof badge.id === "string" && typeof badge.name === "string"
+      ))
+    : [];
+  const socialLinks = Array.isArray(normalized.social_links)
+    ? (normalized.social_links.filter(
+        (link): link is PlayerSocialLink =>
+          !!link &&
+          typeof link.id === "string" &&
+          typeof link.label === "string" &&
+          typeof link.url === "string" &&
+          typeof link.created_at === "string"
+      ))
+    : [];
+  return {
+    ...normalized,
+    badges,
+    social_links: socialLinks,
+  };
 }
 
 async function getMatches(
@@ -196,7 +197,7 @@ async function getUpcomingMatches(playerId: string): Promise<EnrichedMatch[]> {
 }
 
 type PlayerStatsResult = {
-  stats: PlayerStats | null;
+  stats: SanitizedPlayerStats | null;
   error: boolean;
 };
 
@@ -206,11 +207,17 @@ async function getStats(playerId: string): Promise<PlayerStatsResult> {
       `/v0/players/${encodeURIComponent(playerId)}/stats`,
       { cache: "no-store" } as RequestInit
     );
-    if (!r.ok) {
+    try {
+      const raw = await r.json();
+      const stats = sanitizePlayerStats(raw);
+      return { stats, error: false };
+    } catch (parseError) {
+      console.warn(
+        `Failed to parse stats payload for player ${playerId}`,
+        parseError
+      );
       return { stats: null, error: true };
     }
-    const data = (await r.json()) as PlayerStats | null;
-    return { stats: data, error: false };
   } catch (err) {
     console.warn(`Failed to load stats for player ${playerId}`, err);
     return { stats: null, error: true };
@@ -390,6 +397,7 @@ export default async function PlayerPage({
 
     return (
       <main className="container md:flex">
+        <StatsErrorToast error={statsError} />
         <section className="flex-1 md:mr-4">
           <PhotoUpload playerId={player.id} initialUrl={player.photo_url} />
           <h1 className="heading">
@@ -401,9 +409,9 @@ export default async function PlayerPage({
             <p className="mt-2 text-sm text-gray-600">
               Record: {formatMatchSummary(matchSummary)}
             </p>
-          ) : stats === null ? (
+          ) : (
             <p className="mt-2 text-sm text-gray-600">Stats unavailable.</p>
-          ) : null}
+          )}
           {player.bio ? (
             <p
               style={{

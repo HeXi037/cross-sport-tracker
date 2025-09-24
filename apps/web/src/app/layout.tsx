@@ -5,6 +5,7 @@ import ChunkErrorReload from '../components/ChunkErrorReload';
 import { headers } from 'next/headers';
 import { LocaleProvider } from '../lib/LocaleContext';
 import { parseAcceptLanguage } from '../lib/i18n';
+import { ToastProvider } from '../lib/toast';
 
 export const metadata = {
   title: 'cross-sport-tracker',
@@ -24,9 +25,11 @@ export default function RootLayout({
     <html lang={locale}>
       <body>
         <LocaleProvider locale={locale}>
-          <ChunkErrorReload />
-          <Header />
-          {children}
+          <ToastProvider>
+            <ChunkErrorReload />
+            <Header />
+            {children}
+          </ToastProvider>
         </LocaleProvider>
       </body>
     </html>

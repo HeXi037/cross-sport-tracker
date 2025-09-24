@@ -1,12 +1,17 @@
 import type { ReactNode } from "react";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import PlayersPage from "./page";
+import { ToastProvider } from "../../lib/toast";
 
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
 }));
+
+function renderWithProviders(ui: ReactNode) {
+  return render(<ToastProvider>{ui}</ToastProvider>);
+}
 
 function mockStatsResponse({
   playerId,
@@ -39,6 +44,8 @@ function mockStatsResponse({
 describe("PlayersPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.clearAllTimers();
+    vi.useRealTimers();
     window.localStorage.clear();
   });
 
@@ -47,7 +54,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
 
     expect(screen.getByText(/loading players/i)).toBeTruthy();
@@ -61,7 +68,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
 
     const button = await screen.findByRole("button", { name: /add/i });
@@ -103,7 +110,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
     await screen.findByText("Alice");
     await screen.findByText("3-1 (75%)");
@@ -117,6 +124,56 @@ describe("PlayersPage", () => {
     expect(screen.getByText("Bob")).toBeTruthy();
     expect(screen.getByText("2-3 (40%)")).toBeTruthy();
     vi.useRealTimers();
+  });
+
+  it("shows stats unavailable when the stats API returns an empty summary", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ players: [{ id: "1", name: "Alice" }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          playerId: "1",
+          matchSummary: { wins: 0, losses: 0, draws: 0, total: 0, winPct: 0 },
+        }),
+      });
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      renderWithProviders(<PlayersPage />);
+    });
+
+    expect(await screen.findByText("Alice")).toBeTruthy();
+    expect(await screen.findByText(/stats unavailable/i)).toBeTruthy();
+  });
+
+  it("surfaces a toast when loading stats fails", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ players: [{ id: "1", name: "Alice" }] }),
+      })
+      .mockRejectedValueOnce(new Error("network error"));
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      renderWithProviders(<PlayersPage />);
+    });
+
+    expect(await screen.findByText("Alice")).toBeTruthy();
+    expect(await screen.findByText(/stats unavailable/i)).toBeTruthy();
+    const statusMessages = await screen.findAllByRole("status");
+    expect(
+      statusMessages.some((element) =>
+        /player stats failed to load\. displayed records may be incomplete\./i.test(
+          element.textContent ?? ""
+        )
+      )
+    ).toBe(true);
   });
 
   it("renders players even when named Albert", async () => {
@@ -150,7 +207,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
 
     expect(await screen.findByText("Albert")).toBeTruthy();
@@ -190,7 +247,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
     await screen.findByText("Alice");
     vi.useFakeTimers();
@@ -214,7 +271,7 @@ describe("PlayersPage", () => {
 
     vi.useFakeTimers();
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
 
     const input = screen.getByPlaceholderText(/name/i);
@@ -241,7 +298,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
 
     expect(
@@ -278,7 +335,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
 
     const button = await screen.findByRole("button", { name: /delete/i });
@@ -316,7 +373,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
 
     const select = await screen.findByLabelText("Country for Alice");
@@ -364,7 +421,7 @@ describe("PlayersPage", () => {
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
-      render(<PlayersPage />);
+      renderWithProviders(<PlayersPage />);
     });
 
     const select = await screen.findByLabelText("Country for Alice");

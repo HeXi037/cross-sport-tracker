@@ -9,6 +9,8 @@ import {
 } from "../../lib/api";
 import { COUNTRY_OPTIONS } from "../../lib/countries";
 import PlayerName, { PlayerInfo } from "../../components/PlayerName";
+import { sanitizePlayerStats, type MatchSummary } from "../../lib/stats";
+import { useToast } from "../../lib/toast";
 
 const NAME_REGEX = /^[A-Za-z0-9 '-]{1,50}$/;
 
@@ -20,21 +22,13 @@ interface Player extends PlayerInfo {
   badges?: { id: string; name: string; icon?: string | null }[];
 }
 
-interface PlayerStats {
-  playerId: string;
-  matchSummary: {
-    wins: number;
-    losses: number;
-    draws: number;
-    total: number;
-    winPct: number;
-  };
-}
+const STATS_FAILURE_MESSAGE =
+  "Player stats failed to load. Displayed records may be incomplete.";
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [playerStats, setPlayerStats] = useState<
-    Record<string, PlayerStats | null>
+    Record<string, MatchSummary | null>
   >({});
   const [name, setName] = useState("");
   const [search, setSearch] = useState("");
@@ -47,6 +41,7 @@ export default function PlayersPage() {
   const [updatingLocation, setUpdatingLocation] = useState<string | null>(null);
   const [statsError, setStatsError] = useState(false);
   const admin = isAdmin();
+  const { showToast } = useToast();
 
   const trimmedName = name.trim();
   const nameIsValid = NAME_REGEX.test(trimmedName);
@@ -97,6 +92,7 @@ export default function PlayersPage() {
     let cancelled = false;
     async function loadStats() {
       setStatsError(false);
+      let hadFailure = false;
       const entries = await Promise.all(
         players.map(async (p) => {
           try {
@@ -104,27 +100,42 @@ export default function PlayersPage() {
               `/v0/players/${encodeURIComponent(p.id)}/stats`,
               { cache: "no-store" }
             );
-            const data = (await res.json()) as PlayerStats;
-            return [p.id, data] as const;
+            let summary: MatchSummary | null = null;
+            try {
+              const raw = await res.json();
+              const stats = sanitizePlayerStats(raw);
+              summary = stats?.matchSummary ?? null;
+            } catch {
+              hadFailure = true;
+            }
+            if (!summary) {
+              return [p.id, null] as const;
+            }
+            return [p.id, summary] as const;
           } catch {
+            hadFailure = true;
             return [p.id, null] as const;
           }
         })
       );
       if (!cancelled) {
         setPlayerStats(Object.fromEntries(entries));
-        setStatsError(entries.some(([, stats]) => stats === null));
+        setStatsError(hadFailure);
+        if (hadFailure) {
+          showToast(STATS_FAILURE_MESSAGE, { type: "error" });
+        }
       }
     }
     loadStats().catch(() => {
       if (!cancelled) {
         setStatsError(true);
+        showToast(STATS_FAILURE_MESSAGE, { type: "error" });
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [players]);
+  }, [players, showToast]);
 
   async function create() {
     if (!nameIsValid) {
@@ -242,8 +253,7 @@ export default function PlayersPage() {
             <>
               {statsError && (
                 <p className="player-list__error" role="alert">
-                  Player stats failed to load. Displayed records may be
-                  incomplete.
+                  {STATS_FAILURE_MESSAGE}
                 </p>
               )}
               <ul className="player-list">
@@ -255,12 +265,10 @@ export default function PlayersPage() {
                       </Link>
                       <span className="player-list__stats">
                         {(() => {
-                          const stats = playerStats[p.id];
-                          if (stats === undefined) return "Loading stats…";
-                          if (!stats || !stats.matchSummary)
-                            return "Stats unavailable";
-                          const { wins, losses, draws, winPct } =
-                            stats.matchSummary;
+                          const summary = playerStats[p.id];
+                          if (summary === undefined) return "Loading stats…";
+                          if (!summary) return "Stats unavailable";
+                          const { wins, losses, draws, winPct } = summary;
                           const parts = [wins, losses];
                           if (draws) parts.push(draws);
                           const pct = Number.isFinite(winPct)

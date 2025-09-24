@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import {
   Component,
   type ErrorInfo,
@@ -49,7 +50,15 @@ export default class PlayerDetailErrorBoundary extends Component<Props, State> {
         >
           <p className="font-semibold">Unable to display this player right now.</p>
           <p className="mt-2">
-            Something went wrong while loading the player details. Please try again.
+            Something went wrong while loading the player details. Please refresh
+            the page or try again later.
+          </p>
+          <p className="mt-2">
+            If the problem continues,{' '}
+            <Link href="/players" className="underline">
+              return to the players list
+            </Link>
+            .
           </p>
           <button
             type="button"

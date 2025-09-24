@@ -17,8 +17,10 @@ export default function PlayerError({
   return (
     <main className="container">
       <h1 className="heading">Player unavailable</h1>
-      <p className="mt-2 text-red-600">
-        Something went wrong while loading this player. Please try again.
+      <p className="mt-2 text-red-600" role="alert">
+        We couldn't load this player's details right now. Please refresh the
+        page or try again later. If the problem continues, return to the
+        players list.
       </p>
       <div className="mt-4 flex flex-col items-start gap-3 md:flex-row md:items-center">
         <button

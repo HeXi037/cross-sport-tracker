@@ -524,6 +524,10 @@ textarea {
   background: #2ecc71;
 }
 
+.connection-indicator .dot-final {
+  background: var(--color-accent-blue);
+}
+
 .connection-indicator .dot-polling {
   background: #bbb;
 }

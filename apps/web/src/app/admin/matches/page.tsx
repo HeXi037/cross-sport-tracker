@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiFetch, isAdmin, withAbsolutePhotoUrl } from "../../../lib/api";
-import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
+import { PlayerInfo } from "../../../components/PlayerName";
+import MatchParticipants from "../../../components/MatchParticipants";
 import { useLocale } from "../../../lib/LocaleContext";
 
 type MatchRow = {
@@ -161,19 +162,7 @@ export default function AdminMatchesPage() {
       <ul className="match-list">
         {matches.map((m) => (
           <li key={m.id} className="card match-item">
-            <div style={{ fontWeight: 500 }}>
-              {m.participants.map((side, i) => (
-                <span key={i}>
-                  {side.map((pl, j) => (
-                    <span key={pl.id}>
-                      <PlayerName player={pl} />
-                      {j < side.length - 1 ? " & " : ""}
-                    </span>
-                  ))}
-                  {i < m.participants.length - 1 ? " vs " : ""}
-                </span>
-              ))}
-            </div>
+            <MatchParticipants sides={m.participants} style={{ fontWeight: 500 }} />
             <div className="match-meta">
               {formatSummary(m.summary)}
               {m.summary ? " · " : ""}

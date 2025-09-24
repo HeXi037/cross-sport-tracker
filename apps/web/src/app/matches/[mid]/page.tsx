@@ -1,9 +1,9 @@
-import { Fragment } from "react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { apiFetch, withAbsolutePhotoUrl } from "../../../lib/api";
 import LiveSummary from "./live-summary";
-import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
+import MatchParticipants from "../../../components/MatchParticipants";
+import { PlayerInfo } from "../../../components/PlayerName";
 import { formatDateTime, parseAcceptLanguage } from "../../../lib/i18n";
 import {
   type SummaryData,
@@ -142,7 +142,6 @@ export default async function MatchDetailPage({
     );
     sidePlayers[p.side] = players;
   }
-  const sideEntries = Object.entries(sidePlayers);
 
   const sportName = sports.find((s) => s.id === match.sport)?.name;
   const rulesetName = match.rulesetId
@@ -174,7 +173,10 @@ export default async function MatchDetailPage({
     const needsRebuild =
       shouldRebuildRacketSummary(initialSummary) || !summaryRecord;
     if (needsRebuild) {
-      const config = summaryRecord && "config" in summaryRecord ? summaryRecord.config : undefined;
+      const config =
+        summaryRecord && "config" in summaryRecord
+          ? (summaryRecord as { config?: unknown }).config
+          : undefined;
       const derived = rebuildRacketSummaryFromEvents(
         match.sport,
         match.events ?? [],
@@ -201,32 +203,18 @@ export default async function MatchDetailPage({
 
       <header className="section">
         <h1 className="heading">
-          {sideEntries.length ? (
-            sideEntries.map(([sideKey, players], sideIdx) => (
-              <span key={sideKey} className="match-heading-side">
-                {players.map((player, playerIdx) => (
-                  <Fragment
-                    key={player.id ?? `${sideKey}-${playerIdx}`}
-                  >
-                    {playerIdx > 0 ? (
-                      <span className="player-separator" aria-hidden="true">
-                        {" / "}
-                      </span>
-                    ) : null}
-                    <PlayerName player={player} />
-                  </Fragment>
-                ))}
-                {sideIdx < sideEntries.length - 1 ? (
-                  <span className="match-heading-versus">{" vs "}</span>
-                ) : null}
-              </span>
-            ))
+          {Object.keys(sidePlayers).length ? (
+            <MatchParticipants
+              as="span"
+              sides={Object.values(sidePlayers)}
+              separatorSymbol="/"
+            />
           ) : (
             "A vs B"
           )}
         </h1>
         <p className="match-meta">
-          {sportLabel} · {rulesetLabel} · {" "}
+          {sportLabel} · {rulesetLabel} ·{" "}
           {statusLabel}
           {playedAtStr ? ` · ${playedAtStr}` : ""}
           {match.location ? ` · ${match.location}` : ""}

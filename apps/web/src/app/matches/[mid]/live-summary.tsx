@@ -18,6 +18,7 @@ type LiveSummaryProps = {
   mid: string;
   sport?: string | null;
   status?: string | null;
+  statusCode?: string | null;
   initialSummary?: SummaryData | null;
   initialEvents?: ScoreEvent[] | null;
 };
@@ -26,6 +27,96 @@ function sanitizeStatus(value?: string | null): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function normalizeStatusValue(value: unknown): string | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return `${value}`;
+  }
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function pickFirstStatusString(
+  source: Record<string, unknown>,
+  keys: string[]
+): string | undefined {
+  for (const key of keys) {
+    const candidate = normalizeStatusValue(source[key]);
+    if (candidate) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
+function resolveStatusLabelFromUpdate(update: unknown): string | undefined {
+  if (!update || typeof update !== "object") return undefined;
+  const record = update as Record<string, unknown>;
+
+  const labeled =
+    normalizeStatusValue(record["statusLabel"]) ??
+    normalizeStatusValue(record["statusName"]);
+  if (labeled) {
+    return labeled;
+  }
+
+  const status = record["status"];
+  if (typeof status === "string") {
+    return normalizeStatusValue(status);
+  }
+
+  if (status && typeof status === "object" && !Array.isArray(status)) {
+    const fromKnown = pickFirstStatusString(
+      status as Record<string, unknown>,
+      ["label", "name", "display", "description", "value", "code", "status"]
+    );
+    if (fromKnown) {
+      return fromKnown;
+    }
+
+    for (const value of Object.values(status as Record<string, unknown>)) {
+      const candidate = normalizeStatusValue(value);
+      if (candidate) {
+        return candidate;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function resolveStatusCodeFromUpdate(update: unknown): string | undefined {
+  if (!update || typeof update !== "object") return undefined;
+  const record = update as Record<string, unknown>;
+
+  const status = record["status"];
+  if (typeof status === "string") {
+    return normalizeStatusValue(status);
+  }
+
+  if (status && typeof status === "object" && !Array.isArray(status)) {
+    const fromKnown = pickFirstStatusString(
+      status as Record<string, unknown>,
+      ["status", "code", "value", "name", "id"]
+    );
+    if (fromKnown) {
+      return fromKnown;
+    }
+
+    for (const value of Object.values(status as Record<string, unknown>)) {
+      const candidate = normalizeStatusValue(value);
+      if (candidate) {
+        return candidate;
+      }
+    }
+  }
+
+  const fallback =
+    normalizeStatusValue(record["statusName"]) ??
+    normalizeStatusValue(record["statusLabel"]);
+  return fallback;
 }
 
 function deriveRacketTotals(
@@ -276,6 +367,7 @@ export default function LiveSummary({
   mid,
   sport,
   status,
+  statusCode,
   initialSummary = null,
   initialEvents = null,
 }: LiveSummaryProps) {
@@ -284,6 +376,9 @@ export default function LiveSummary({
   const summaryRef = useRef<SummaryData>(initialSummary ?? null);
   const [statusLabel, setStatusLabel] = useState<string | undefined>(() =>
     sanitizeStatus(status)
+  );
+  const [statusValue, setStatusValue] = useState<string | undefined>(() =>
+    sanitizeStatus(statusCode ?? status)
   );
   const [latestEvent, setLatestEvent] = useState<string | null>(null);
   const [pointTotals, setPointTotals] = useState<Record<string, number> | null>(
@@ -307,8 +402,12 @@ export default function LiveSummary({
   }, [status]);
 
   useEffect(() => {
+    setStatusValue(sanitizeStatus(statusCode ?? status));
+  }, [statusCode, status]);
+
+  useEffect(() => {
     if (!isRecord(summary)) return;
-    if (isFinishedStatus(statusLabel)) return;
+    if (isFinishedStatus(statusValue ?? statusLabel)) return;
     const maybePoints = (summary as RacketSummary).points;
     if (
       maybePoints !== null &&
@@ -317,14 +416,19 @@ export default function LiveSummary({
     ) {
       setPointTotals(null);
     }
-  }, [summary, statusLabel]);
+  }, [summary, statusLabel, statusValue]);
 
   useEffect(() => {
     if (!event) return;
 
-    const incomingStatus = sanitizeStatus((event as { status?: string | null }).status);
-    if (incomingStatus !== undefined) {
-      setStatusLabel(incomingStatus);
+    const incomingLabel = resolveStatusLabelFromUpdate(event);
+    if (incomingLabel !== undefined) {
+      setStatusLabel(incomingLabel);
+    }
+
+    const incomingCode = resolveStatusCodeFromUpdate(event);
+    if (incomingCode !== undefined) {
+      setStatusValue(incomingCode);
     }
 
     let nextSummary: SummaryData | undefined;
@@ -367,7 +471,7 @@ export default function LiveSummary({
     [enrichedSummary, pointTotals]
   );
   const scoreline = useMemo(() => formatScoreline(effectiveSummary), [effectiveSummary]);
-  const finished = isFinishedStatus(statusLabel);
+  const finished = isFinishedStatus(statusValue ?? statusLabel);
 
   const indicatorLabel = connected ? "Live" : fallback ? "Polling" : "Offline";
   const indicatorDotClass = connected ? "dot-live" : "dot-polling";

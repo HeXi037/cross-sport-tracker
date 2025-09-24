@@ -145,6 +145,37 @@ function resolveRulesetIdentifier(match: MatchDetail): string | undefined {
   return undefined;
 }
 
+function resolveStatusCode(match: MatchDetail): string | undefined {
+  const { status } = match;
+  if (typeof status === "string") {
+    return normalizeLabel(status);
+  }
+
+  if (status && typeof status === "object" && !Array.isArray(status)) {
+    const fromKnown = pickFirstString(status as Record<string, unknown>, [
+      "status",
+      "code",
+      "value",
+      "name",
+      "id",
+    ]);
+    if (fromKnown) {
+      return fromKnown;
+    }
+
+    for (const value of Object.values(status as Record<string, unknown>)) {
+      const candidate = normalizeLabel(value);
+      if (candidate) {
+        return candidate;
+      }
+    }
+  }
+
+  const fallback =
+    normalizeLabel(match.statusName) ?? normalizeLabel(match.statusLabel);
+  return fallback;
+}
+
 function resolveStatusText(match: MatchDetail): string | undefined {
   const labeled =
     normalizeLabel(match.statusLabel ?? match.statusName) ?? undefined;
@@ -347,6 +378,7 @@ export default async function MatchDetailPage({
   const rulesetNameFromLookup = normalizeLabel(matchedRuleset?.name);
   const fallbackLabel = "—";
   const statusText = resolveStatusText(match);
+  const statusCode = resolveStatusCode(match);
 
   const resolvedRulesetName = resolveRulesetName(match);
   const resolvedRulesetId = resolveRulesetIdentifier(match);
@@ -370,7 +402,9 @@ export default async function MatchDetailPage({
     ? (initialSummary as Record<string, unknown>)
     : null;
 
-  if (isRacketSport(match.sport) && isFinishedStatus(statusText)) {
+  const finishedStatus = statusCode ?? statusText;
+
+  if (isRacketSport(match.sport) && isFinishedStatus(finishedStatus)) {
     const needsRebuild =
       shouldRebuildRacketSummary(initialSummary) || !summaryRecord;
     if (needsRebuild) {
@@ -436,6 +470,7 @@ export default async function MatchDetailPage({
         mid={params.mid}
         sport={match.sport}
         status={statusText}
+        statusCode={statusCode}
         initialSummary={initialSummary}
         initialEvents={match.events ?? []}
       />

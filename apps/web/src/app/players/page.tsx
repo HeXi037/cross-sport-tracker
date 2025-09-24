@@ -32,7 +32,11 @@ interface PlayerStats {
 }
 
 const STATS_ERROR_MESSAGE =
-  "We couldn't load some player stats. Displayed records may be incomplete.";
+  "Could not load stats – please try again later.";
+const PLAYERS_LOAD_ERROR_MESSAGE =
+  "Could not load players. Please refresh the page or try again later.";
+const PLAYERS_NETWORK_ERROR_MESSAGE =
+  "Could not reach the server. Check your connection and try again.";
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -43,6 +47,7 @@ export default function PlayersPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [playersLoadError, setPlayersLoadError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -58,6 +63,7 @@ export default function PlayersPage() {
 
   async function load() {
     setError(null);
+    setPlayersLoadError(null);
     setLoading(true);
     try {
       const res = await apiFetch("/v0/players?limit=100&offset=0", {
@@ -69,11 +75,20 @@ export default function PlayersPage() {
           withAbsolutePhotoUrl(p)
         );
         setPlayers(normalized);
+        setPlayersLoadError(null);
       } else {
-        setError("Failed to load players.");
+        setPlayersLoadError(PLAYERS_LOAD_ERROR_MESSAGE);
+        setError(PLAYERS_LOAD_ERROR_MESSAGE);
+        showToast({ message: PLAYERS_LOAD_ERROR_MESSAGE, variant: "error" });
       }
-    } catch {
-      setError("Unable to reach the server.");
+    } catch (err) {
+      const message =
+        err && typeof err === "object" && "status" in err
+          ? PLAYERS_LOAD_ERROR_MESSAGE
+          : PLAYERS_NETWORK_ERROR_MESSAGE;
+      setPlayersLoadError(message);
+      setError(message);
+      showToast({ message, variant: "error" });
     } finally {
       setLoading(false);
     }
@@ -269,6 +284,13 @@ export default function PlayersPage() {
       <h1 className="heading">Players</h1>
       {loading && players.length === 0 ? (
         <div>Loading players…</div>
+      ) : playersLoadError && !loading && players.length === 0 ? (
+        <div className="player-list__error" role="alert">
+          {playersLoadError}
+          <button className="ml-2 underline" onClick={load}>
+            Retry
+          </button>
+        </div>
       ) : (
         <>
           <div className="form-field mb-12">
@@ -394,12 +416,9 @@ export default function PlayersPage() {
           Only administrators can add new players.
         </p>
       )}
-      {error && (
-        <div className="text-red-500 mt-2">
+      {error && !playersLoadError && (
+        <div className="text-red-500 mt-2" role="alert">
           {error}
-          <button className="ml-2 underline" onClick={load}>
-            Retry
-          </button>
         </div>
       )}
     </main>

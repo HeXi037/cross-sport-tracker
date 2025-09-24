@@ -59,6 +59,26 @@ describe("PlayersPage", () => {
     expect(screen.getByText(/loading players/i)).toBeTruthy();
   });
 
+  it("surfaces a toast and inline error when loading players fails", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify({}), {
+        status: 500,
+        statusText: "Server error",
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      renderWithProviders(<PlayersPage />);
+    });
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/could not load players/i);
+    const toast = await screen.findByTestId("toast");
+    expect(toast.textContent).toMatch(/could not load players/i);
+  });
+
   it("disables add button for blank names", async () => {
     window.localStorage.setItem("token", "x.eyJpc19hZG1pbiI6dHJ1ZX0.y");
     const fetchMock = vi
@@ -256,7 +276,7 @@ describe("PlayersPage", () => {
 
     await screen.findByText("Alice");
     expect(await screen.findByText("Stats unavailable")).toBeTruthy();
-    const warnings = screen.getAllByText(/couldn't load some player stats/i);
+    const warnings = screen.getAllByText(/could not load stats/i);
     expect(warnings.length).toBeGreaterThanOrEqual(2);
 
     vi.useFakeTimers();

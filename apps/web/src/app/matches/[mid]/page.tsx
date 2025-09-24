@@ -26,6 +26,13 @@ type Sport = { id: string; name: string };
 
 type Ruleset = { id: string; name: string };
 
+const MATCH_LOAD_ERROR_MESSAGE =
+  "Could not load this match. Please refresh the page or try again later.";
+const PLAYER_LOOKUP_ERROR_MESSAGE =
+  "Could not load player names for this match. Some entries may appear as \"Unknown\". Please refresh the page or try again later.";
+const PLAYER_LOOKUP_NETWORK_MESSAGE =
+  "Could not reach the player service. Some entries may appear as \"Unknown\". Check your connection and try again.";
+
 type MatchDetail = {
   id: ID;
   sport?: string | null;
@@ -49,40 +56,58 @@ async function fetchMatch(mid: string): Promise<MatchDetail> {
   return (await res.json()) as MatchDetail;
 }
 
-async function fetchPlayers(ids: string[]): Promise<Map<string, PlayerInfo>> {
-  if (!ids.length) return new Map();
-  const res = (await apiFetch(
-    `/v0/players/by-ids?ids=${ids.join(",")}`,
-    { cache: "no-store" }
-  )) as Response;
+async function fetchPlayers(ids: string[]): Promise<{
+  map: Map<string, PlayerInfo>;
+  error: string | null;
+}> {
   const map = new Map<string, PlayerInfo>();
-  if (!res.ok) {
-    ids.forEach((id) => map.set(id, { id, name: "Unknown" }));
-    console.warn(`Player names missing for ids: ${ids.join(", ")}`);
-    return map;
+  if (!ids.length) {
+    return { map, error: null };
   }
-  const players = (await res.json()) as PlayerInfo[];
-  const remaining = new Set(ids);
-  const missing: string[] = [];
-  players.forEach((p) => {
-    if (p.id) {
-      remaining.delete(p.id);
-      if (p.name) {
-        map.set(p.id, withAbsolutePhotoUrl(p));
-      } else {
-        missing.push(p.id);
-        map.set(p.id, { id: p.id, name: "Unknown" });
-      }
+
+  try {
+    const res = (await apiFetch(
+      `/v0/players/by-ids?ids=${ids.join(",")}`,
+      { cache: "no-store" }
+    )) as Response;
+    if (!res.ok) {
+      ids.forEach((id) => map.set(id, { id, name: "Unknown" }));
+      console.warn(`Player names missing for ids: ${ids.join(", ")}`);
+      return { map, error: PLAYER_LOOKUP_ERROR_MESSAGE };
     }
-  });
-  if (remaining.size) {
-    missing.push(...Array.from(remaining));
-    remaining.forEach((id) => map.set(id, { id, name: "Unknown" }));
+
+    const players = (await res.json()) as PlayerInfo[];
+    const remaining = new Set(ids);
+    const missing: string[] = [];
+
+    players.forEach((p) => {
+      if (p.id) {
+        remaining.delete(p.id);
+        if (p.name) {
+          map.set(p.id, withAbsolutePhotoUrl(p));
+        } else {
+          missing.push(p.id);
+          map.set(p.id, { id: p.id, name: "Unknown" });
+        }
+      }
+    });
+
+    if (remaining.size) {
+      missing.push(...Array.from(remaining));
+      remaining.forEach((id) => map.set(id, { id, name: "Unknown" }));
+    }
+
+    if (missing.length) {
+      console.warn(`Player names missing for ids: ${missing.join(", ")}`);
+      return { map, error: PLAYER_LOOKUP_ERROR_MESSAGE };
+    }
+
+    return { map, error: null };
+  } catch (error) {
+    console.error("Failed to load player names for match participants", error);
+    ids.forEach((id) => map.set(id, { id, name: "Unknown" }));
+    return { map, error: PLAYER_LOOKUP_NETWORK_MESSAGE };
   }
-  if (missing.length) {
-    console.warn(`Player names missing for ids: ${missing.join(", ")}`);
-  }
-  return map;
 }
 
 async function fetchSports(): Promise<Sport[]> {
@@ -122,18 +147,51 @@ export default async function MatchDetailPage({
 }: {
   params: { mid: string };
 }) {
-  const match = await fetchMatch(params.mid);
+  let match: MatchDetail | null = null;
+  let matchError: string | null = null;
+  try {
+    match = await fetchMatch(params.mid);
+  } catch (error) {
+    console.error(`Failed to load match ${params.mid}`, error);
+    matchError = MATCH_LOAD_ERROR_MESSAGE;
+  }
+
+  if (!match) {
+    return (
+      <main className="container">
+        <div className="text-sm">
+          <Link href="/matches" className="underline underline-offset-2">
+            ← Back to matches
+          </Link>
+        </div>
+        <h1 className="heading mt-6">Match unavailable</h1>
+        <p className="mt-2 text-red-600" role="alert">
+          {matchError ?? MATCH_LOAD_ERROR_MESSAGE}
+        </p>
+        <div className="mt-4 flex flex-col items-start gap-3 md:flex-row md:items-center">
+          <Link href={`/matches/${params.mid}`} className="button">
+            Try again
+          </Link>
+          <Link href="/matches" className="underline">
+            Back to matches
+          </Link>
+        </div>
+      </main>
+    );
+  }
   const locale = parseAcceptLanguage(headers().get("accept-language"));
 
   const parts = match.participants ?? [];
   const uniqueIds = Array.from(
     new Set(parts.flatMap((p) => p.playerIds ?? []))
   );
-  const [idToPlayer, sports, rulesets] = await Promise.all([
+  const [playerLookup, sports, rulesets] = await Promise.all([
     fetchPlayers(uniqueIds),
     fetchSports(),
     fetchRulesets(match.sport),
   ]);
+  const idToPlayer = playerLookup.map;
+  const playerLookupError = playerLookup.error;
 
   const sidePlayers: Record<string, PlayerInfo[]> = {};
   for (const p of parts) {
@@ -141,6 +199,11 @@ export default async function MatchDetailPage({
       (id) => idToPlayer.get(id) ?? { id, name: "Unknown" }
     );
     sidePlayers[p.side] = players;
+  }
+
+  const notices: string[] = [];
+  if (playerLookupError) {
+    notices.push(playerLookupError);
   }
 
   const sportName = sports.find((s) => s.id === match.sport)?.name;
@@ -195,6 +258,22 @@ export default async function MatchDetailPage({
           ← Back to matches
         </Link>
       </div>
+
+      {notices.length ? (
+        <div
+          role="alert"
+          className="mt-6 rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"
+        >
+          {notices.map((notice, index) => (
+            <p
+              key={`${index}-${notice}`}
+              className={index > 0 ? "mt-2" : undefined}
+            >
+              {notice}
+            </p>
+          ))}
+        </div>
+      ) : null}
 
       <header className="section">
         <h1 className="heading">

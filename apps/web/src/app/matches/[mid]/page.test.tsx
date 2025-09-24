@@ -403,4 +403,46 @@ describe("MatchDetailPage", () => {
       })
     ).not.toBeInTheDocument();
   });
+
+  it("shows a helpful message when a match cannot be loaded", async () => {
+    apiFetchMock.mockRejectedValueOnce(new Error("offline"));
+
+    render(await MatchDetailPage({ params: { mid: "missing" } }));
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: /match unavailable/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/could not load this match/i)).toBeInTheDocument();
+    expect(apiFetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("warns the viewer when player names cannot be fetched", async () => {
+    const match = {
+      id: "m6",
+      sport: "padel",
+      rulesetId: null,
+      status: "Scheduled",
+      playedAt: null,
+      participants: [
+        { side: "A", playerIds: ["p1"] },
+        { side: "B", playerIds: ["p2"] },
+      ],
+      summary: {},
+    };
+
+    apiFetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => match })
+      .mockRejectedValueOnce(new Error("lookup failed"))
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] });
+
+    render(await MatchDetailPage({ params: { mid: "m6" } }));
+
+    expect(
+      screen.getByText(/could not reach the player service/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: /unknown vs unknown/i })
+    ).toBeInTheDocument();
+  });
 });

@@ -6,8 +6,9 @@ from collections import defaultdict
 from fastapi import APIRouter, Depends, Response, HTTPException, UploadFile, File, Query
 from sqlalchemy import select, func, case, literal, true, delete, Text
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, InvalidRequestError
 from sqlalchemy.orm import aliased
+from sqlalchemy.sql.elements import ColumnElement
 
 from ..db import get_session
 from ..db_errors import is_missing_table_error
@@ -207,6 +208,28 @@ async def _rollback_if_active(session: AsyncSession) -> None:
         # If rollback itself fails we have nothing else to do; propagate the
         # original error instead.
         pass
+
+
+def _json_text_value(column: ColumnElement, *, is_sqlite: bool) -> ColumnElement:
+    """Return a SQL expression that coerces a JSON value to text when needed."""
+
+    if is_sqlite:
+        return column
+
+    try:  # SQLAlchemy 2.x removed ``.astext``; ``.as_string()`` replaces it on some expressions.
+        as_string = column.as_string  # type: ignore[attr-defined]
+    except AttributeError:
+        as_string = None
+
+    if callable(as_string):
+        try:
+            return as_string()
+        except (AttributeError, InvalidRequestError):
+            # Table-valued JSON columns (from ``jsonb_array_elements``) don't
+            # expose a working ``as_string`` helper; fall back to casting.
+            pass
+
+    return column.cast(Text)
 
 
 async def _load_social_links(
@@ -698,7 +721,7 @@ async def _compute_player_stats(
         func.json_array_length if is_sqlite else func.jsonb_array_length
     )
     self_ids = json_each(mp.player_ids).table_valued("value").alias("self_ids")
-    self_id_value = self_ids.c.value if is_sqlite else self_ids.c.value.cast(Text)
+    self_id_value = _json_text_value(self_ids.c.value, is_sqlite=is_sqlite)
 
     a_sets = Match.details["sets"]["A"].as_integer()
     b_sets = Match.details["sets"]["B"].as_integer()
@@ -800,7 +823,7 @@ async def _compute_player_stats(
     recent_results = [format_result(r) for r in results[-5:]]
 
     tm = json_each(pm.c.player_ids).table_valued("value").alias("tm")
-    tm_pid = tm.c.value if is_sqlite else tm.c.value.cast(Text)
+    tm_pid = _json_text_value(tm.c.value, is_sqlite=is_sqlite)
     team_stmt = (
         select(
             tm_pid.label("pid"),
@@ -815,7 +838,7 @@ async def _compute_player_stats(
     )
     opp_mp = aliased(MatchParticipant)
     opp_ids = json_each(opp_mp.player_ids).table_valued("value").alias("opp_ids")
-    opp_pid = opp_ids.c.value if is_sqlite else opp_ids.c.value.cast(Text)
+    opp_pid = _json_text_value(opp_ids.c.value, is_sqlite=is_sqlite)
     opp_stmt = (
         select(
             opp_pid.label("pid"),

@@ -21,6 +21,162 @@ interface IdMap {
   b2: string;
 }
 
+type BowlingEntry = {
+  id: string;
+  frames: string[][];
+};
+
+const MAX_BOWLING_PLAYERS = 6;
+const TOTAL_BOWLING_FRAMES = 10;
+const FINAL_FRAME_INDEX = TOTAL_BOWLING_FRAMES - 1;
+
+function createEmptyBowlingFrames(): string[][] {
+  return Array.from({ length: TOTAL_BOWLING_FRAMES }, (_, idx) =>
+    idx === FINAL_FRAME_INDEX ? ["", "", ""] : ["", ""]
+  );
+}
+
+function parseRoll(
+  value: string | undefined,
+  label: string,
+  frameNumber: number,
+  rollNumber: number
+): number {
+  const trimmed = (value ?? "").trim();
+  if (trimmed === "") {
+    throw new Error(
+      `${label}: enter roll ${rollNumber} for frame ${frameNumber}.`
+    );
+  }
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed)) {
+    throw new Error(
+      `${label}: roll ${rollNumber} in frame ${frameNumber} must be a whole number.`
+    );
+  }
+  if (parsed < 0 || parsed > 10) {
+    throw new Error(
+      `${label}: roll ${rollNumber} in frame ${frameNumber} must be between 0 and 10.`
+    );
+  }
+  return parsed;
+}
+
+function scoreBowlingFrames(frames: number[][]): number {
+  const normalized = frames.map((frame, idx) => {
+    if (idx < FINAL_FRAME_INDEX) {
+      if (frame[0] === 10) return [10];
+      return [frame[0] ?? 0, frame[1] ?? 0];
+    }
+    return [frame[0] ?? 0, frame[1] ?? 0, frame[2] ?? 0];
+  });
+
+  let total = 0;
+  for (let i = 0; i < TOTAL_BOWLING_FRAMES; i += 1) {
+    const frame = normalized[i] ?? [];
+    if (i < FINAL_FRAME_INDEX) {
+      if (frame[0] === 10) {
+        const bonus: number[] = [];
+        for (let j = i + 1; j < normalized.length; j += 1) {
+          bonus.push(...normalized[j]);
+          if (bonus.length >= 2) break;
+        }
+        const [b1 = 0, b2 = 0] = bonus;
+        total += 10 + b1 + b2;
+        continue;
+      }
+      const first = frame[0] ?? 0;
+      const second = frame[1] ?? 0;
+      if (first + second === 10) {
+        const next = normalized[i + 1];
+        const bonus = next ? next[0] ?? 0 : 0;
+        total += 10 + bonus;
+      } else {
+        total += first + second;
+      }
+      continue;
+    }
+
+    const first = frame[0] ?? 0;
+    const second = frame[1] ?? 0;
+    const third = frame[2] ?? 0;
+    if (first === 10) {
+      total += 10 + second + third;
+    } else if (first + second === 10) {
+      total += 10 + third;
+    } else {
+      total += first + second;
+    }
+  }
+
+  return total;
+}
+
+function parseBowlingFrames(frames: string[][], label: string): number {
+  const normalized: number[][] = [];
+
+  for (let frameIdx = 0; frameIdx < TOTAL_BOWLING_FRAMES; frameIdx += 1) {
+    const frame = frames[frameIdx] ?? [];
+    const frameNumber = frameIdx + 1;
+    const first = parseRoll(frame[0], label, frameNumber, 1);
+
+    if (frameIdx < FINAL_FRAME_INDEX) {
+      if (first === 10) {
+        const secondRaw = (frame[1] ?? "").trim();
+        if (secondRaw) {
+          const second = parseRoll(frame[1], label, frameNumber, 2);
+          if (second !== 0) {
+            throw new Error(
+              `${label}: frame ${frameNumber} ends after a strike; leave roll 2 blank or set it to 0.`
+            );
+          }
+        }
+        normalized.push([10]);
+        continue;
+      }
+
+      const second = parseRoll(frame[1], label, frameNumber, 2);
+      if (first + second > 10) {
+        throw new Error(
+          `${label}: frame ${frameNumber} cannot exceed 10 pins.`
+        );
+      }
+      normalized.push([first, second]);
+      continue;
+    }
+
+    const second = parseRoll(frame[1], label, frameNumber, 2);
+    if (first < 10 && first + second > 10) {
+      throw new Error(
+        `${label}: frame ${frameNumber} cannot exceed 10 pins before the bonus roll.`
+      );
+    }
+    const needsThird = first === 10 || first + second === 10;
+    const thirdRaw = (frame[2] ?? "").trim();
+    if (needsThird) {
+      if (!thirdRaw) {
+        throw new Error(
+          `${label}: frame ${frameNumber} requires a third roll after a strike or spare.`
+        );
+      }
+      const third = parseRoll(frame[2], label, frameNumber, 3);
+      normalized.push([first, second, third]);
+    } else {
+      if (thirdRaw) {
+        const third = parseRoll(frame[2], label, frameNumber, 3);
+        if (third !== 0) {
+          throw new Error(
+            `${label}: frame ${frameNumber} does not allow a third roll unless you record a strike or spare.`
+          );
+        }
+      }
+      normalized.push([first, second]);
+    }
+  }
+
+  return scoreBowlingFrames(normalized);
+}
+
 export default function RecordSportPage() {
   const router = useRouter();
   const params = useParams();
@@ -31,8 +187,9 @@ export default function RecordSportPage() {
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [ids, setIds] = useState<IdMap>({ a1: "", a2: "", b1: "", b2: "" });
-  const [bowlingIds, setBowlingIds] = useState<string[]>([""]);
-  const [bowlingScores, setBowlingScores] = useState<string[]>(["0"]);
+  const [bowlingEntries, setBowlingEntries] = useState<BowlingEntry[]>([
+    { id: "", frames: createEmptyBowlingFrames() },
+  ]);
   const [scoreA, setScoreA] = useState("0");
   const [scoreB, setScoreB] = useState("0");
   const [error, setError] = useState<string | null>(null);
@@ -62,11 +219,35 @@ export default function RecordSportPage() {
   };
 
   const handleBowlingIdChange = (index: number, value: string) => {
-    setBowlingIds((prev) => prev.map((id, i) => (i === index ? value : id)));
+    setBowlingEntries((prev) =>
+      prev.map((entry, i) => (i === index ? { ...entry, id: value } : entry))
+    );
   };
 
-  const handleBowlingScoreChange = (index: number, value: string) => {
-    setBowlingScores((prev) => prev.map((s, i) => (i === index ? value : s)));
+  const handleBowlingFrameChange = (
+    playerIndex: number,
+    frameIndex: number,
+    rollIndex: number,
+    value: string
+  ) => {
+    setBowlingEntries((prev) =>
+      prev.map((entry, idx) => {
+        if (idx !== playerIndex) return entry;
+        const frames = entry.frames.map((frame, fIdx) => {
+          if (fIdx !== frameIndex) return frame;
+          return frame.map((roll, rIdx) => (rIdx === rollIndex ? value : roll));
+        });
+        return { ...entry, frames };
+      })
+    );
+  };
+
+  const removeBowlingEntry = (index: number) => {
+    setBowlingEntries((prev) => {
+      if (prev.length <= 1) return prev;
+      const next = prev.filter((_, i) => i !== index);
+      return next.length ? next : [{ id: "", frames: createEmptyBowlingFrames() }];
+    });
   };
 
   const handleToggle = (checked: boolean) => {
@@ -92,9 +273,7 @@ export default function RecordSportPage() {
     let entries: { id: string; score: string }[] = [];
 
     if (isBowling) {
-      entries = bowlingIds
-        .map((id, idx) => ({ id, score: bowlingScores[idx] }))
-        .filter((e) => e.id);
+      entries = bowlingEntries.filter((entry) => entry.id);
       if (!entries.length) {
         setError("Please select at least one player.");
         return;
@@ -103,8 +282,21 @@ export default function RecordSportPage() {
         setError("Please select unique players.");
         return;
       }
-      if (entries.some((e) => e.score === "")) {
-        setError("Please enter scores for all players.");
+      try {
+        const totals = entries.map((entry, idx) => {
+          const name =
+            players.find((p) => p.id === entry.id)?.name || `Player ${idx + 1}`;
+          const total = parseBowlingFrames(entry.frames, name);
+          return { id: entry.id, total };
+        });
+        entries = totals.map((entry) => ({
+          id: entry.id,
+          score: String(entry.total),
+        }));
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Please verify frame scores.";
+        setError(message);
         return;
       }
       participants = entries.map((e, idx) => ({
@@ -232,38 +424,76 @@ export default function RecordSportPage() {
         />
 
         {isBowling ? (
-          <div className="players">
-            {bowlingIds.map((id, idx) => (
-              <div key={idx} className="bowling-player">
-                <select
-                  aria-label={`Player ${idx + 1}`}
-                  value={id}
-                  onChange={(e) => handleBowlingIdChange(idx, e.target.value)}
-                >
-                  <option value="">Select player</option>
-                  {players.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
+          <div className="bowling-players">
+            {bowlingEntries.map((entry, playerIdx) => (
+              <div key={playerIdx} className="bowling-player">
+                <div className="bowling-player-header">
+                  <select
+                    aria-label={`Player ${playerIdx + 1}`}
+                    value={entry.id}
+                    onChange={(e) => handleBowlingIdChange(playerIdx, e.target.value)}
+                  >
+                    <option value="">Select player</option>
+                    {players.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                  {bowlingEntries.length > 1 && (
+                    <button
+                      type="button"
+                      className="bowling-remove"
+                      onClick={() => removeBowlingEntry(playerIdx)}
+                      aria-label={`Remove player ${playerIdx + 1}`}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <div className="bowling-frames">
+                  {entry.frames.map((frame, frameIdx) => (
+                    <div key={frameIdx} className="bowling-frame">
+                      <span className="bowling-frame-number">
+                        Frame {frameIdx + 1}
+                      </span>
+                      <div className="bowling-frame-rolls">
+                        {frame.map((roll, rollIdx) => (
+                          <input
+                            key={rollIdx}
+                            type="number"
+                            min="0"
+                            max="10"
+                            step="1"
+                            inputMode="numeric"
+                            placeholder={`R${rollIdx + 1}`}
+                            aria-label={`Player ${playerIdx + 1} frame ${frameIdx + 1} roll ${rollIdx + 1}`}
+                            value={roll}
+                            onChange={(e) =>
+                              handleBowlingFrameChange(
+                                playerIdx,
+                                frameIdx,
+                                rollIdx,
+                                e.target.value
+                              )
+                            }
+                          />
+                        ))}
+                      </div>
+                    </div>
                   ))}
-                </select>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="Score"
-                  value={bowlingScores[idx]}
-                  onChange={(e) => handleBowlingScoreChange(idx, e.target.value)}
-                />
+                </div>
               </div>
             ))}
-            {bowlingIds.length < 6 && (
+            {bowlingEntries.length < MAX_BOWLING_PLAYERS && (
               <button
                 type="button"
-                onClick={() => {
-                  setBowlingIds((prev) => prev.concat(""));
-                  setBowlingScores((prev) => prev.concat("0"));
-                }}
+                className="bowling-add"
+                onClick={() =>
+                  setBowlingEntries((prev) =>
+                    prev.concat({ id: "", frames: createEmptyBowlingFrames() })
+                  )
+                }
               >
                 Add Player
               </button>

@@ -92,7 +92,11 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
       )}
       {token && (
         <form onSubmit={submit} className="mt-2">
+          <label className="sr-only" htmlFor="player-comment-input">
+            Add a comment
+          </label>
           <textarea
+            id="player-comment-input"
             value={content}
             onChange={(e) => setContent(e.target.value)}
             className="border p-2 w-full"

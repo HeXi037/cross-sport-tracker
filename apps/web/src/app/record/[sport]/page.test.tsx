@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
+import * as bowlingSummary from "../../../lib/bowlingSummary";
 import RecordSportPage from "./page";
 
 let sportParam = "padel";
@@ -151,37 +152,72 @@ describe("RecordSportPage", () => {
       { id: "3", name: "Cara" },
     ];
 
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
-    global.fetch = fetchMock as typeof fetch;
+    const totalsByPlayer: Record<string, number> = {
+      Alice: 100,
+      Bob: 120,
+      Cara: 90,
+    };
+    const summarizeSpy = vi
+      .spyOn(bowlingSummary, "summarizeBowlingInput")
+      .mockImplementation((_, options) => {
+        const total = totalsByPlayer[options.playerLabel] ?? 0;
+        return {
+          frames: Array.from({ length: 10 }, () => [0, 0]),
+          frameScores: Array.from({ length: 10 }, () => total),
+          total,
+        };
+      });
 
-    render(<RecordSportPage />);
+    try {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+      global.fetch = fetchMock as typeof fetch;
 
-    await screen.findAllByText("Alice");
+      render(<RecordSportPage />);
 
-    fireEvent.click(screen.getByText(/add player/i));
-    fireEvent.click(screen.getByText(/add player/i));
-    const selects = screen.getAllByRole("combobox");
-    fireEvent.change(selects[0], { target: { value: "1" } });
-    fireEvent.change(selects[1], { target: { value: "2" } });
-    fireEvent.change(selects[2], { target: { value: "3" } });
+      await screen.findAllByText("Alice");
 
-    const scoreInputs = screen.getAllByPlaceholderText(/score/i);
-    fireEvent.change(scoreInputs[0], { target: { value: "100" } });
-    fireEvent.change(scoreInputs[1], { target: { value: "120" } });
-    fireEvent.change(scoreInputs[2], { target: { value: "90" } });
+      fireEvent.click(screen.getByText(/add player/i));
+      fireEvent.click(screen.getByText(/add player/i));
+      const selects = screen.getAllByRole("combobox");
+      fireEvent.change(selects[0], { target: { value: "1" } });
+      fireEvent.change(selects[1], { target: { value: "2" } });
+      fireEvent.change(selects[2], { target: { value: "3" } });
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+      fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    const payload = JSON.parse(fetchMock.mock.calls[1][1].body);
-    expect(payload.participants).toEqual([
-      { side: "A", playerIds: ["1"] },
-      { side: "B", playerIds: ["2"] },
-      { side: "C", playerIds: ["3"] },
-    ]);
-    expect(payload.sets).toEqual([[100], [120], [90]]);
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+      const payload = JSON.parse(fetchMock.mock.calls[1][1].body);
+      expect(payload.participants).toEqual([
+        { side: "A", playerIds: ["1"] },
+        { side: "B", playerIds: ["2"] },
+        { side: "C", playerIds: ["3"] },
+      ]);
+      expect(payload.score).toEqual([100, 120, 90]);
+      expect(payload.details.players).toEqual([
+        expect.objectContaining({
+          side: "A",
+          playerId: "1",
+          playerName: "Alice",
+          total: 100,
+        }),
+        expect.objectContaining({
+          side: "B",
+          playerId: "2",
+          playerName: "Bob",
+          total: 120,
+        }),
+        expect.objectContaining({
+          side: "C",
+          playerId: "3",
+          playerName: "Cara",
+          total: 90,
+        }),
+      ]);
+    } finally {
+      summarizeSpy.mockRestore();
+    }
   });
 });

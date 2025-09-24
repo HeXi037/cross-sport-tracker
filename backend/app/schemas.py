@@ -344,6 +344,7 @@ class MatchCreate(BaseModel):
     location: Optional[str] = None
     score: Optional[List[int]] = None
     sets: Optional[List[List[int]]] = None
+    details: Optional[Dict[str, Any]] = None
 
     @field_validator("playedAt")
     def _normalize_played_at(cls, v: datetime | None) -> datetime | None:

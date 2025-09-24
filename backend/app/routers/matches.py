@@ -120,11 +120,16 @@ async def create_match(
         )
         session.add(mp)
 
+    extra_details = dict(body.details) if body.details else None
     if body.sets:
         totals = [sum(s) for s in body.sets]
-        match.details = {"score": {chr(65 + i): t for i, t in enumerate(totals)}}
+        score_detail = {"score": {chr(65 + i): t for i, t in enumerate(totals)}}
+        match.details = {**(extra_details or {}), **score_detail}
     elif body.score:
-        match.details = {"score": {chr(65 + i): s for i, s in enumerate(body.score)}}
+        score_detail = {"score": {chr(65 + i): s for i, s in enumerate(body.score)}}
+        match.details = {**(extra_details or {}), **score_detail}
+    elif extra_details:
+        match.details = extra_details
 
     await session.commit()
     await player_stats_cache.invalidate_players(all_player_ids)

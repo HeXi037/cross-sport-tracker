@@ -1,6 +1,6 @@
 "use client";
 
-import type { SummaryData } from "./live-summary";
+import type { BowlingSummaryPlayer, SummaryData } from "./live-summary";
 
 const RACKET_SPORTS = new Set([
   "padel",
@@ -10,6 +10,8 @@ const RACKET_SPORTS = new Set([
   "table-tennis",
   "table_tennis",
 ]);
+
+const BOWLING_FRAME_COUNT = 10;
 
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) return "—";
@@ -148,18 +150,82 @@ function renderDiscGolfSummary(summary: SummaryData) {
 
 function renderBowlingSummary(summary: SummaryData) {
   if (!summary || typeof summary !== "object") return null;
-  if (!("frames" in summary) && !("scores" in summary)) return null;
-
-  const frames = (summary as { frames?: Array<Array<number | null | undefined>> }).frames ?? [];
-  const scores = (summary as { scores?: Array<number | null | undefined> }).scores ?? [];
-  const total = (summary as { total?: number | null | undefined }).total;
-  const frameCount = Math.max(frames.length, scores.length, 10);
-  const frameNumbers = Array.from({ length: frameCount }, (_, i) => i + 1);
 
   const formatFrame = (frame: Array<number | null | undefined> | undefined) => {
     if (!frame || frame.length === 0) return "—";
     return frame.map((roll) => formatValue(roll)).join(", ");
   };
+
+  const maybePlayers = (summary as { players?: unknown }).players;
+  const players: BowlingSummaryPlayer[] = Array.isArray(maybePlayers)
+    ? maybePlayers.filter(
+        (player): player is BowlingSummaryPlayer =>
+          !!player && typeof player === "object"
+      )
+    : [];
+
+  if (players.length) {
+    const frameCount = Math.max(
+      BOWLING_FRAME_COUNT,
+      ...players.map((player) => player.frames?.length ?? 0),
+      ...players.map((player) => player.scores?.length ?? 0)
+    );
+    const frameNumbers = Array.from({ length: frameCount }, (_, i) => i + 1);
+
+    return (
+      <table className="scoreboard-table" aria-label="Bowling scoreboard">
+        <thead>
+          <tr>
+            <th scope="col">Player</th>
+            {frameNumbers.map((num) => (
+              <th scope="col" key={num}>
+                {num}
+              </th>
+            ))}
+            <th scope="col">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {players.map((player, idx) => {
+            const label =
+              player.playerName ??
+              player.side ??
+              `Player ${String.fromCharCode(65 + idx)}`;
+            return (
+              <tr key={player.playerId ?? player.side ?? idx}>
+                <th scope="row">{label}</th>
+                {frameNumbers.map((num, frameIdx) => (
+                  <td key={`${label}-${num}`}>
+                    <div className="bowling-frame-cell">
+                      <span className="bowling-frame-rolls">
+                        {formatFrame(player.frames?.[frameIdx])}
+                      </span>
+                      <span className="bowling-frame-total">
+                        {formatValue(player.scores?.[frameIdx])}
+                      </span>
+                    </div>
+                  </td>
+                ))}
+                <td>
+                  <span className="bowling-total">
+                    {formatValue(player.total)}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    );
+  }
+
+  if (!("frames" in summary) && !("scores" in summary)) return null;
+
+  const frames = (summary as { frames?: Array<Array<number | null | undefined>> }).frames ?? [];
+  const scores = (summary as { scores?: Array<number | null | undefined> }).scores ?? [];
+  const total = (summary as { total?: number | null | undefined }).total;
+  const frameCount = Math.max(frames.length, scores.length, BOWLING_FRAME_COUNT);
+  const frameNumbers = Array.from({ length: frameCount }, (_, i) => i + 1);
 
   return (
     <table className="scoreboard-table" aria-label="Bowling scoreboard">

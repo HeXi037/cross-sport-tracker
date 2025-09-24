@@ -232,6 +232,38 @@ async def test_create_match_with_sets(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_create_match_with_details(tmp_path):
+  from app import db
+  from app.models import Match, MatchParticipant, Sport, User
+  from app.schemas import MatchCreate, Participant
+  from app.routers.matches import create_match
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+      db.Base.metadata.create_all,
+      tables=[Sport.__table__, Match.__table__, MatchParticipant.__table__],
+    )
+
+  async with db.AsyncSessionLocal() as session:
+    body = MatchCreate(
+        sport="bowling",
+        participants=[Participant(side="A", playerIds=["p1"])],
+        score=[180],
+        details={"players": [{"side": "A", "total": 180}]},
+    )
+    admin = User(id="u1", username="admin", password_hash="", is_admin=True)
+    resp = await create_match(body, session, user=admin)
+    m = await session.get(Match, resp.id)
+    assert m.details == {
+        "players": [{"side": "A", "total": 180}],
+        "score": {"A": 180},
+    }
+
+
+@pytest.mark.anyio
 async def test_create_match_by_name_with_sets(tmp_path):
   from app import db
   from app.models import Match, MatchParticipant, Player, Sport, User

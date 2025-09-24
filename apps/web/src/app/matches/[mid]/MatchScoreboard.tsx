@@ -1,15 +1,15 @@
 "use client";
 
-import type { BowlingSummaryPlayer, SummaryData } from "./live-summary";
-
-const RACKET_SPORTS = new Set([
-  "padel",
-  "tennis",
-  "pickleball",
-  "badminton",
-  "table-tennis",
-  "table_tennis",
-]);
+import type {
+  BowlingSummaryPlayer,
+  SummaryData,
+} from "../../../lib/match-summary";
+import {
+  getNumericEntries,
+  isRacketSport,
+  normalizeSportId,
+  isRecord,
+} from "../../../lib/match-summary";
 
 const BOWLING_FRAME_COUNT = 10;
 
@@ -25,7 +25,10 @@ function formatToPar(value: unknown): string {
   return value > 0 ? `+${value}` : `${value}`;
 }
 
-function renderRacketSummary(summary: SummaryData) {
+function renderRacketSummary(
+  summary: SummaryData,
+  { hideIfEmpty = false }: { hideIfEmpty?: boolean } = {}
+) {
   if (!summary || typeof summary !== "object") return null;
   const sets = "sets" in summary ? (summary as Record<string, unknown>).sets : undefined;
   const games = "games" in summary ? (summary as Record<string, unknown>).games : undefined;
@@ -38,13 +41,33 @@ function renderRacketSummary(summary: SummaryData) {
     ? (setScoresRaw as Array<Record<string, unknown>>)
     : [];
 
-  if (!sets && !games && !points && setScores.length === 0) return null;
+  const setEntries = getNumericEntries(sets);
+  const gameEntries = getNumericEntries(games);
+  const pointEntries = getNumericEntries(points);
+  const hasSetScores = setScores.length > 0;
+  const showSetsColumn = setEntries.length > 0;
+  const showGamesColumn = gameEntries.length > 0;
+  const showPointsColumn = pointEntries.length > 0;
+
+  const shouldRender =
+    hasSetScores ||
+    showGamesColumn ||
+    showPointsColumn ||
+    (!hideIfEmpty && showSetsColumn);
+
+  if (!shouldRender) return null;
+
+  const setsRecord = isRecord(sets) ? (sets as Record<string, unknown>) : undefined;
+  const gamesRecord = isRecord(games) ? (games as Record<string, unknown>) : undefined;
+  const pointsRecord = isRecord(points)
+    ? (points as Record<string, unknown>)
+    : undefined;
 
   const sides = Array.from(
     new Set([
-      ...Object.keys((sets as Record<string, number>) ?? {}),
-      ...Object.keys((games as Record<string, number>) ?? {}),
-      ...Object.keys((points as Record<string, number>) ?? {}),
+      ...Object.keys((setsRecord as Record<string, number>) ?? {}),
+      ...Object.keys((gamesRecord as Record<string, number>) ?? {}),
+      ...Object.keys((pointsRecord as Record<string, number>) ?? {}),
       ...setScores.flatMap((set) => Object.keys((set as Record<string, number>) ?? {})),
     ])
   ).sort();
@@ -57,9 +80,9 @@ function renderRacketSummary(summary: SummaryData) {
           {setScores.map((_, idx) => (
             <th scope="col" key={`set-${idx}`}>{`Set ${idx + 1}`}</th>
           ))}
-          {sets ? <th scope="col">Sets</th> : null}
-          {games ? <th scope="col">Games</th> : null}
-          {points ? <th scope="col">Points</th> : null}
+          {showSetsColumn ? <th scope="col">Sets</th> : null}
+          {showGamesColumn ? <th scope="col">Games</th> : null}
+          {showPointsColumn ? <th scope="col">Points</th> : null}
         </tr>
       </thead>
       <tbody>
@@ -69,9 +92,15 @@ function renderRacketSummary(summary: SummaryData) {
             {setScores.map((set, idx) => (
               <td key={`set-${idx}`}>{formatValue((set as Record<string, unknown>)[side])}</td>
             ))}
-            {sets ? <td>{formatValue((sets as Record<string, unknown>)[side])}</td> : null}
-            {games ? <td>{formatValue((games as Record<string, unknown>)[side])}</td> : null}
-            {points ? <td>{formatValue((points as Record<string, unknown>)[side])}</td> : null}
+            {showSetsColumn ? (
+              <td>{formatValue(setsRecord?.[side])}</td>
+            ) : null}
+            {showGamesColumn ? (
+              <td>{formatValue(gamesRecord?.[side])}</td>
+            ) : null}
+            {showPointsColumn ? (
+              <td>{formatValue(pointsRecord?.[side])}</td>
+            ) : null}
           </tr>
         ))}
       </tbody>
@@ -273,33 +302,41 @@ function renderFallback(summary: SummaryData) {
 export default function MatchScoreboard({
   summary,
   sport,
+  isFinished,
 }: {
   summary: SummaryData;
   sport?: string | null;
   config?: unknown;
+  isFinished?: boolean;
 }) {
-  if (sport && RACKET_SPORTS.has(sport)) {
-    const racket = renderRacketSummary(summary);
+  const sportId = normalizeSportId(sport);
+
+  if (isRacketSport(sport)) {
+    const racket = renderRacketSummary(summary, {
+      hideIfEmpty: Boolean(isFinished),
+    });
     if (racket) {
       return <div className="scoreboard-wrapper">{racket}</div>;
     }
   }
 
-  if (sport === "disc_golf") {
+  if (sportId === "disc_golf") {
     const discGolf = renderDiscGolfSummary(summary);
     if (discGolf) {
       return <div className="scoreboard-wrapper">{discGolf}</div>;
     }
   }
 
-  if (sport === "bowling") {
+  if (sportId === "bowling") {
     const bowling = renderBowlingSummary(summary);
     if (bowling) {
       return <div className="scoreboard-wrapper">{bowling}</div>;
     }
   }
 
-  const racketFallback = renderRacketSummary(summary);
+  const racketFallback = renderRacketSummary(summary, {
+    hideIfEmpty: Boolean(isFinished),
+  });
   if (racketFallback) {
     return <div className="scoreboard-wrapper">{racketFallback}</div>;
   }

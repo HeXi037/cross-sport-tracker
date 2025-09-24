@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
+import { useLocale } from "../../../lib/LocaleContext";
 
 interface Player {
   id: string;
@@ -40,6 +41,7 @@ export default function RecordPadelPage() {
   const [location, setLocation] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const locale = useLocale();
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
@@ -148,116 +150,153 @@ export default function RecordPadelPage() {
 
   return (
     <main className="container">
-      <form onSubmit={handleSubmit}>
-        <div className="datetime">
-          <input
-            type="date"
-            aria-label="Date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-          <input
-            type="time"
-            aria-label="Time"
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-          />
-        </div>
+      <form onSubmit={handleSubmit} className="form-stack">
+        <fieldset className="form-fieldset">
+          <legend className="form-legend">Match details</legend>
+          <div className="form-grid form-grid--two">
+            <label className="form-field" htmlFor="padel-date">
+              <span className="form-label">Date</span>
+              <input
+                id="padel-date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                lang={locale}
+              />
+            </label>
+            <label className="form-field" htmlFor="padel-time">
+              <span className="form-label">Start time</span>
+              <input
+                id="padel-time"
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                lang={locale}
+              />
+            </label>
+          </div>
+          <label className="form-field" htmlFor="padel-location">
+            <span className="form-label">Location</span>
+            <input
+              id="padel-location"
+              type="text"
+              placeholder="Location"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+            />
+          </label>
+        </fieldset>
 
-        <input
-          type="text"
-          aria-label="Location"
-          placeholder="Location"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-        />
+        <fieldset className="form-fieldset">
+          <legend className="form-legend">Players</legend>
+          <div className="form-grid form-grid--two">
+            <label className="form-field" htmlFor="padel-player-a1">
+              <span className="form-label">Team A player 1</span>
+              <select
+                id="padel-player-a1"
+                value={ids.a1}
+                onChange={(e) => handleIdChange("a1", e.target.value)}
+              >
+                <option value="">Select player</option>
+                {players.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-        <div className="players">
-          <select
-            aria-label="Player A1"
-            value={ids.a1}
-            onChange={(e) => handleIdChange("a1", e.target.value)}
-          >
-            <option value="">Select player</option>
-            {players.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+            <label className="form-field" htmlFor="padel-player-a2">
+              <span className="form-label">Team A player 2</span>
+              <select
+                id="padel-player-a2"
+                value={ids.a2}
+                onChange={(e) => handleIdChange("a2", e.target.value)}
+              >
+                <option value="">Select player</option>
+                {players.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <select
-            aria-label="Player A2"
-            value={ids.a2}
-            onChange={(e) => handleIdChange("a2", e.target.value)}
-          >
-            <option value="">Select player</option>
-            {players.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+            <label className="form-field" htmlFor="padel-player-b1">
+              <span className="form-label">Team B player 1</span>
+              <select
+                id="padel-player-b1"
+                value={ids.b1}
+                onChange={(e) => handleIdChange("b1", e.target.value)}
+              >
+                <option value="">Select player</option>
+                {players.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <select
-            aria-label="Player B1"
-            value={ids.b1}
-            onChange={(e) => handleIdChange("b1", e.target.value)}
-          >
-            <option value="">Select player</option>
-            {players.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            aria-label="Player B2"
-            value={ids.b2}
-            onChange={(e) => handleIdChange("b2", e.target.value)}
-          >
-            <option value="">Select player</option>
-            {players.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <label>
-          Best of
-          <select
-            aria-label="Best of"
-            value={bestOf}
-            onChange={(e) => setBestOf(e.target.value)}
-          >
-            <option value="1">1</option>
-            <option value="3">3</option>
-            <option value="5">5</option>
-          </select>
-        </label>
+            <label className="form-field" htmlFor="padel-player-b2">
+              <span className="form-label">Team B player 2</span>
+              <select
+                id="padel-player-b2"
+                value={ids.b2}
+                onChange={(e) => handleIdChange("b2", e.target.value)}
+              >
+                <option value="">Select player</option>
+                {players.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label className="form-field" htmlFor="padel-best-of">
+            <span className="form-label">Best of</span>
+            <select
+              id="padel-best-of"
+              value={bestOf}
+              onChange={(e) => setBestOf(e.target.value)}
+            >
+              <option value="1">1</option>
+              <option value="3">3</option>
+              <option value="5">5</option>
+            </select>
+          </label>
+        </fieldset>
 
         <div className="sets">
           {sets.map((s, idx) => (
             <div key={idx} className="set">
-              <input
-                type="number"
-                min="0"
-                step="1"
-                placeholder={`Set ${idx + 1} A`}
-                value={s.A}
-                onChange={(e) => handleSetChange(idx, "A", e.target.value)}
-              />
-              <input
-                type="number"
-                min="0"
-                step="1"
-                placeholder={`Set ${idx + 1} B`}
-                value={s.B}
-                onChange={(e) => handleSetChange(idx, "B", e.target.value)}
-              />
+              <label className="form-field" htmlFor={`padel-set-${idx + 1}-a`}>
+                <span className="form-label">Set {idx + 1} team A</span>
+                <input
+                  id={`padel-set-${idx + 1}-a`}
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder={`Set ${idx + 1} A`}
+                  value={s.A}
+                  onChange={(e) => handleSetChange(idx, "A", e.target.value)}
+                  inputMode="numeric"
+                />
+              </label>
+              <label className="form-field" htmlFor={`padel-set-${idx + 1}-b`}>
+                <span className="form-label">Set {idx + 1} team B</span>
+                <input
+                  id={`padel-set-${idx + 1}-b`}
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder={`Set ${idx + 1} B`}
+                  value={s.B}
+                  onChange={(e) => handleSetChange(idx, "B", e.target.value)}
+                  inputMode="numeric"
+                />
+              </label>
             </div>
           ))}
         </div>

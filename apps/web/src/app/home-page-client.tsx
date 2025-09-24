@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type MouseEvent, type ReactElement } from 'react';
+import { useMemo, useState, type MouseEvent, type ReactElement } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '../lib/api';
 import {
@@ -10,6 +10,7 @@ import {
   type PlayerInfo,
 } from '../lib/matches';
 import PlayerName from '../components/PlayerName';
+import { useLocale } from '../lib/LocaleContext';
 
 interface Sport { id: string; name: string }
 
@@ -27,6 +28,7 @@ interface Props {
   matches: EnrichedMatch[];
   sportError: boolean;
   matchError: boolean;
+  initialLocale: string;
 }
 
 export default function HomePageClient({
@@ -41,6 +43,12 @@ export default function HomePageClient({
   const [matchError, setMatchError] = useState(initialMatchError);
   const [sportsLoading, setSportsLoading] = useState(false);
   const [matchesLoading, setMatchesLoading] = useState(false);
+  const localeFromContext = useLocale();
+  const activeLocale = localeFromContext || initialLocale;
+  const dateFormatter = useMemo(
+    () => new Intl.DateTimeFormat(activeLocale, { dateStyle: 'medium' }),
+    [activeLocale],
+  );
 
   const retrySports = async (e: MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
@@ -109,18 +117,20 @@ export default function HomePageClient({
             <p>No sports found.</p>
           )
         ) : (
-          <ul className="sport-list">
+          <ul className="sport-list" role="list">
             {sports.map((s) => {
               const icon = sportIcons[s.id];
               return (
                 <li key={s.id} className="sport-item">
                   {icon ? (
-                    <span role="img" aria-label={s.name} title={s.name}>
+                    <span className="sport-icon" aria-hidden="true">
                       {icon}
                     </span>
-                  ) : (
-                    s.name
-                  )}
+                  ) : null}
+                  {icon ? (
+                    <span className="sr-only">{`${s.name} icon`}</span>
+                  ) : null}
+                  <span className="sport-name">{s.name}</span>
                   <span className="sport-id">{s.id}</span>
                 </li>
               );
@@ -152,7 +162,7 @@ export default function HomePageClient({
             <p>No matches recorded yet.</p>
           )
         ) : (
-          <ul className="match-list">
+          <ul className="match-list" role="list">
             {matches.map((m) => (
               <li key={m.id} className="card match-item">
                 <div style={{ fontWeight: 500 }}>
@@ -170,7 +180,7 @@ export default function HomePageClient({
                 </div>
                 <div className="match-meta">
                   {m.sport} · Best of {m.bestOf ?? '—'} ·{' '}
-                  {m.playedAt ? new Date(m.playedAt).toLocaleDateString() : '—'}
+                  {m.playedAt ? dateFormatter.format(new Date(m.playedAt)) : '—'}
                   {m.location ? ` · ${m.location}` : ''}
                 </div>
                 <div>

@@ -213,12 +213,19 @@ export default function PlayersPage() {
         <div>Loading players…</div>
       ) : (
         <>
-          <input
-            className="input mb-2"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="search"
-          />
+          <div className="form-field mb-12">
+            <label htmlFor="player-search" className="sr-only">
+              Search players
+            </label>
+            <input
+              id="player-search"
+              type="search"
+              className="input"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search players"
+            />
+          </div>
           {filteredPlayers.length === 0 && debouncedSearch.trim() !== "" ? (
             <p>No players found.</p>
           ) : (
@@ -279,24 +286,37 @@ export default function PlayersPage() {
           )}
         </>
       )}
-      <input
-        className="input"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="name"
-      />
+      <div className="form-field">
+        <label htmlFor="player-name" className="form-label">
+          Player name
+        </label>
+        <input
+          id="player-name"
+          className="input"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Enter player name"
+          autoComplete="name"
+        />
+      </div>
       {!nameIsValid && trimmedName !== "" && (
         <div className="text-red-500 mt-2">
           Name must be 1-50 characters and contain only letters,
           numbers, spaces, hyphens, or apostrophes.
         </div>
       )}
-      <input
-        type="file"
-        accept="image/*"
-        onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
-        className="input mt-2"
-      />
+      <div className="form-field">
+        <label htmlFor="player-photo" className="form-label">
+          Upload profile photo (optional)
+        </label>
+        <input
+          id="player-photo"
+          type="file"
+          accept="image/*"
+          onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+          className="input"
+        />
+      </div>
       <button
         className="button"
         onClick={create}

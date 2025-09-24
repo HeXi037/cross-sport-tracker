@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { apiFetch, withAbsolutePhotoUrl } from "../../../lib/api";
 import LiveSummary, { type SummaryData } from "./live-summary";
 import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
+import { formatDateTime, parseAcceptLanguage } from "../../../lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -108,6 +110,7 @@ export default async function MatchDetailPage({
   params: { mid: string };
 }) {
   const match = await fetchMatch(params.mid);
+  const locale = parseAcceptLanguage(headers().get("accept-language"));
 
   const parts = match.participants ?? [];
   const uniqueIds = Array.from(
@@ -136,9 +139,7 @@ export default async function MatchDetailPage({
 
   const playedAtDate = match.playedAt ? new Date(match.playedAt) : null;
   const playedAtStr = playedAtDate
-    ? playedAtDate.getHours() || playedAtDate.getMinutes() || playedAtDate.getSeconds() || playedAtDate.getMilliseconds()
-      ? playedAtDate.toLocaleString()
-      : playedAtDate.toLocaleDateString()
+    ? formatDateTime(playedAtDate, locale)
     : "";
 
   const summaryConfig =

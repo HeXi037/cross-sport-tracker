@@ -47,21 +47,33 @@ function DiscGolfForm() {
         </p>
       )}
       <p>Hole {hole}</p>
-      <div className="scores">
-        <input
-          type="number"
-          placeholder="A"
-          value={a}
-          onChange={(e) => setA(e.target.value)}
-          disabled={!hasMatchId}
-        />
-        <input
-          type="number"
-          placeholder="B"
-          value={b}
-          onChange={(e) => setB(e.target.value)}
-          disabled={!hasMatchId}
-        />
+      <div className="scores form-grid form-grid--two">
+        <label className="form-field" htmlFor="disc-golf-score-a">
+          <span className="form-label">Player A strokes</span>
+          <input
+            id="disc-golf-score-a"
+            type="number"
+            placeholder="A"
+            value={a}
+            onChange={(e) => setA(e.target.value)}
+            disabled={!hasMatchId}
+            inputMode="numeric"
+            min="0"
+          />
+        </label>
+        <label className="form-field" htmlFor="disc-golf-score-b">
+          <span className="form-label">Player B strokes</span>
+          <input
+            id="disc-golf-score-b"
+            type="number"
+            placeholder="B"
+            value={b}
+            onChange={(e) => setB(e.target.value)}
+            disabled={!hasMatchId}
+            inputMode="numeric"
+            min="0"
+          />
+        </label>
       </div>
       <button onClick={submit} disabled={!hasMatchId}>
         Record Hole

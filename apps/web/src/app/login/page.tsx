@@ -96,35 +96,63 @@ export default function LoginPage() {
     <main className="container">
       <h1 className="heading">Login</h1>
       <form onSubmit={handleLogin} className="auth-form">
-        <input
-          type="text"
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <div className="form-field">
+          <label htmlFor="login-username" className="form-label">
+            Username
+          </label>
+          <input
+            id="login-username"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="username"
+            required
+          />
+        </div>
+        <div className="form-field">
+          <label htmlFor="login-password" className="form-label">
+            Password
+          </label>
+          <input
+            id="login-password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+          />
+        </div>
         <button type="submit">Login</button>
       </form>
 
       <h2 className="heading">Sign Up</h2>
       <form onSubmit={handleSignup} className="auth-form">
-        <input
-          type="text"
-          placeholder="Username"
-          value={newUser}
-          onChange={(e) => setNewUser(e.target.value)}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={newPass}
-          onChange={(e) => setNewPass(e.target.value)}
-        />
+        <div className="form-field">
+          <label htmlFor="signup-username" className="form-label">
+            Username
+          </label>
+          <input
+            id="signup-username"
+            type="text"
+            value={newUser}
+            onChange={(e) => setNewUser(e.target.value)}
+            autoComplete="username"
+            required
+          />
+        </div>
+        <div className="form-field">
+          <label htmlFor="signup-password" className="form-label">
+            Password
+          </label>
+          <input
+            id="signup-password"
+            type="password"
+            value={newPass}
+            onChange={(e) => setNewPass(e.target.value)}
+            autoComplete="new-password"
+            required
+          />
+        </div>
         <button type="submit">Sign Up</button>
       </form>
 

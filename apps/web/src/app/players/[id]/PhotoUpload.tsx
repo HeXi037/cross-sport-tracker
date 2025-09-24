@@ -39,13 +39,21 @@ export default function PhotoUpload({ playerId, initialUrl }: Props) {
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={url}
-          alt="player photo"
+          alt="Current player photo"
           width={120}
           height={120}
           style={{ borderRadius: '50%', objectFit: 'cover', marginBottom: 8 }}
         />
       )}
-      <input type="file" accept="image/*" onChange={onChange} />
+      <label className="form-field" htmlFor="player-photo-upload">
+        <span className="form-label">Update player photo</span>
+        <input
+          id="player-photo-upload"
+          type="file"
+          accept="image/*"
+          onChange={onChange}
+        />
+      </label>
       {uploading && <span>Uploading…</span>}
     </div>
   );

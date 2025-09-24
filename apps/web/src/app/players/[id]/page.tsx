@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { apiFetch, fetchClubs, withAbsolutePhotoUrl } from "../../../lib/api";
 import PlayerCharts from "./PlayerCharts";
 import PlayerComments from "./comments-client";
+import PlayerDetailErrorBoundary from "./PlayerDetailErrorBoundary";
 import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
 import PhotoUpload from "./PhotoUpload";
 import { formatDate, parseAcceptLanguage } from "../../../lib/i18n";
@@ -389,205 +390,208 @@ export default async function PlayerPage({
     const matchSummary = stats?.matchSummary ?? null;
 
     return (
-      <main className="container md:flex">
-        <section className="flex-1 md:mr-4">
-          <PhotoUpload playerId={player.id} initialUrl={player.photo_url} />
-          <h1 className="heading">
-            <PlayerName player={player} />
-          </h1>
-          {statsError ? (
-            <p className="mt-2 text-sm text-gray-600">Couldn&apos;t load stats.</p>
-          ) : matchSummary ? (
-            <p className="mt-2 text-sm text-gray-600">
-              Record: {formatMatchSummary(matchSummary)}
-            </p>
-          ) : stats === null ? (
-            <p className="mt-2 text-sm text-gray-600">Stats unavailable.</p>
-          ) : null}
-          {player.bio ? (
-            <p
-              style={{
-                marginTop: "0.75rem",
-                marginBottom: player.club_id ? "0.5rem" : "1rem",
-                whiteSpace: "pre-wrap",
-                color: "#444",
-                lineHeight: 1.5,
-              }}
-            >
-              {player.bio}
-            </p>
-          ) : null}
-          {player.club_id ? (
-            <p
-              style={{
-                marginTop: player.bio ? "0" : "0.75rem",
-                marginBottom: "0.75rem",
-              }}
-            >
-              Club: {clubName ?? player.club_id}
-            </p>
-          ) : null}
-          {player.social_links && player.social_links.length ? (
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "0.5rem",
-                marginTop: "0.75rem",
-              }}
-            >
-              {player.social_links.map((link) => (
-                <a
-                  key={link.id}
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "0.35rem",
-                    padding: "0.35rem 0.75rem",
-                    borderRadius: "9999px",
-                    backgroundColor: "#f4f4f4",
-                    color: "inherit",
-                    textDecoration: "none",
-                    border: "1px solid #e0e0e0",
-                  }}
-                  title={link.url}
-                >
-                  <span aria-hidden="true">{iconForSocialLink(link)}</span>
-                  <span>{link.label}</span>
-                </a>
-              ))}
-            </div>
-          ) : null}
+      <PlayerDetailErrorBoundary playerId={params.id}>
+        <main className="container md:flex">
+          <section className="flex-1 md:mr-4">
+            <PhotoUpload playerId={player.id} initialUrl={player.photo_url} />
+            <h1 className="heading">
+              <PlayerName player={player} />
+            </h1>
+            {statsError ? (
+              <p className="mt-2 text-sm text-gray-600">
+                We couldn&apos;t load this player&apos;s stats right now.
+              </p>
+            ) : matchSummary ? (
+              <p className="mt-2 text-sm text-gray-600">
+                Record: {formatMatchSummary(matchSummary)}
+              </p>
+            ) : stats === null ? (
+              <p className="mt-2 text-sm text-gray-600">Stats unavailable.</p>
+            ) : null}
+            {player.bio ? (
+              <p
+                style={{
+                  marginTop: "0.75rem",
+                  marginBottom: player.club_id ? "0.5rem" : "1rem",
+                  whiteSpace: "pre-wrap",
+                  color: "#444",
+                  lineHeight: 1.5,
+                }}
+              >
+                {player.bio}
+              </p>
+            ) : null}
+            {player.club_id ? (
+              <p
+                style={{
+                  marginTop: player.bio ? "0" : "0.75rem",
+                  marginBottom: "0.75rem",
+                }}
+              >
+                Club: {clubName ?? player.club_id}
+              </p>
+            ) : null}
+            {player.social_links && player.social_links.length ? (
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "0.5rem",
+                  marginTop: "0.75rem",
+                }}
+              >
+                {player.social_links.map((link) => (
+                  <a
+                    key={link.id}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.35rem",
+                      padding: "0.35rem 0.75rem",
+                      borderRadius: "9999px",
+                      backgroundColor: "#f4f4f4",
+                      color: "inherit",
+                      textDecoration: "none",
+                      border: "1px solid #e0e0e0",
+                    }}
+                    title={link.url}
+                  >
+                    <span aria-hidden="true">{iconForSocialLink(link)}</span>
+                    <span>{link.label}</span>
+                  </a>
+                ))}
+              </div>
+            ) : null}
 
-          <nav className="mt-4 mb-4 space-x-4">
-            <Link
-              href={`/players/${params.id}?view=timeline`}
-              className={view === "timeline" ? "font-bold" : ""}
-            >
-              Timeline
-            </Link>
-            <Link
-              href={`/players/${params.id}?view=summary`}
-              className={view === "summary" ? "font-bold" : ""}
-            >
-              Season Summary
-            </Link>
-          </nav>
+            <nav className="mt-4 mb-4 space-x-4">
+              <Link
+                href={`/players/${params.id}?view=timeline`}
+                className={view === "timeline" ? "font-bold" : ""}
+              >
+                Timeline
+              </Link>
+              <Link
+                href={`/players/${params.id}?view=summary`}
+                className={view === "summary" ? "font-bold" : ""}
+              >
+                Season Summary
+              </Link>
+            </nav>
 
-          {view === "timeline" ? (
-            <section>
-              <h2 className="heading">Matches</h2>
-              {sortedMatches.length ? (
-                <ul>
-                  {sortedMatches.map((m) => {
-                    const winner = winnerFromSummary(m.summary);
-                    const result =
-                      winner && m.playerSide
-                        ? winner === m.playerSide
-                          ? "Win"
-                          : "Loss"
-                        : "";
-                    return (
-                      <li key={m.id} className="mb-2">
-                        <div>
-                          <Link href={`/matches/${m.id}`}>
-                            {Object.values(m.players).map((side, i) => (
-                              <span key={i}>
-                                {side.map((pl, j) => (
-                                  <span key={pl.id}>
-                                    <PlayerName player={pl} />
-                                    {j < side.length - 1 ? " & " : ""}
-                                  </span>
-                                ))}
-                                {i < Object.values(m.players).length - 1 ? " vs " : ""}
-                              </span>
-                            ))}
-                          </Link>
-                        </div>
+            {view === "timeline" ? (
+              <section>
+                <h2 className="heading">Matches</h2>
+                {sortedMatches.length ? (
+                  <ul>
+                    {sortedMatches.map((m) => {
+                      const winner = winnerFromSummary(m.summary);
+                      const result =
+                        winner && m.playerSide
+                          ? winner === m.playerSide
+                            ? "Win"
+                            : "Loss"
+                          : "";
+                      return (
+                        <li key={m.id} className="mb-2">
+                          <div>
+                            <Link href={`/matches/${m.id}`}>
+                              {Object.values(m.players).map((side, i) => (
+                                <span key={i}>
+                                  {side.map((pl, j) => (
+                                    <span key={pl.id}>
+                                      <PlayerName player={pl} />
+                                      {j < side.length - 1 ? " & " : ""}
+                                    </span>
+                                  ))}
+                                  {i < Object.values(m.players).length - 1 ? " vs " : ""}
+                                </span>
+                              ))}
+                            </Link>
+                          </div>
+                          <div className="text-sm text-gray-700">
+                            {formatSummary(m.summary)}
+                            {result ? ` · ${result}` : ""}
+                            {m.summary || result ? " · " : ""}
+                            {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
+                            {formatDate(m.playedAt, locale)}
+                            {" · "}
+                            {m.location ?? "—"}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p>No matches found.</p>
+                )}
+              </section>
+            ) : (
+              <section>
+                <h2 className="heading">Season Summary</h2>
+                {seasons.length ? (
+                  <ul>
+                    {seasons.map((s) => (
+                      <li key={s.season} className="mb-2">
+                        <div className="font-semibold">{s.season}</div>
                         <div className="text-sm text-gray-700">
-                          {formatSummary(m.summary)}
-                          {result ? ` · ${result}` : ""}
-                          {m.summary || result ? " · " : ""}
-                          {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
-                          {formatDate(m.playedAt, locale)}
-                          {" · "}
-                          {m.location ?? "—"}
+                          Wins: {s.wins} · Losses: {s.losses}
                         </div>
                       </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p>No matches found.</p>
-              )}
-            </section>
-          ) : (
-            <section>
-              <h2 className="heading">Season Summary</h2>
-              {seasons.length ? (
-                <ul>
-                  {seasons.map((s) => (
-                    <li key={s.season} className="mb-2">
-                      <div className="font-semibold">{s.season}</div>
-                      <div className="text-sm text-gray-700">
-                        Wins: {s.wins} · Losses: {s.losses}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>No matches found.</p>
-              )}
-            </section>
-          )}
-
-          <h2 className="heading mt-4">Recent Opponents</h2>
-          {recentOpponents.length ? (
-            <ul>
-              {recentOpponents.map((o) => (
-                <li key={o.id} className="mb-2">
-                  <div>
-                    {o.opponents.map((pl, j) => (
-                      <span key={pl.id}>
-                        <PlayerName player={pl} />
-                        {j < o.opponents.length - 1 ? " & " : ""}
-                      </span>
                     ))}
-                  </div>
-                  <div className="text-sm text-gray-700">
-                    {o.date} · {o.result}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>No recent opponents found.</p>
-          )}
+                  </ul>
+                ) : (
+                  <p>No matches found.</p>
+                )}
+              </section>
+            )}
 
-          {stats?.withRecords?.length ? (
-            <>
-              <h2 className="heading mt-4">Teammate Records</h2>
+            <h2 className="heading mt-4">Recent Opponents</h2>
+            {recentOpponents.length ? (
               <ul>
-                {stats.withRecords.map((r) => (
-                  <li key={r.playerId}>
-                    {r.wins}-{r.losses} with {r.playerName || r.playerId}
+                {recentOpponents.map((o) => (
+                  <li key={o.id} className="mb-2">
+                    <div>
+                      {o.opponents.map((pl, j) => (
+                        <span key={pl.id}>
+                          <PlayerName player={pl} />
+                          {j < o.opponents.length - 1 ? " & " : ""}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="text-sm text-gray-700">
+                      {o.date} · {o.result}
+                    </div>
                   </li>
                 ))}
               </ul>
-            </>
-          ) : null}
+            ) : (
+              <p>No recent opponents found.</p>
+            )}
 
-          <PlayerCharts matches={matches} />
+            {stats?.withRecords?.length ? (
+              <>
+                <h2 className="heading mt-4">Teammate Records</h2>
+                <ul>
+                  {stats.withRecords.map((r) => (
+                    <li key={r.playerId}>
+                      {r.wins}-{r.losses} with {r.playerName || r.playerId}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
 
-          <PlayerComments playerId={player.id} />
+            <PlayerCharts matches={matches} />
 
-          <Link href="/players" className="block mt-4">
-            Back to players
-          </Link>
-        </section>
+            <PlayerComments playerId={player.id} />
+
+            <Link href="/players" className="block mt-4">
+              Back to players
+            </Link>
+          </section>
         <aside className="md:w-1/3 md:pl-4 mt-8 md:mt-0">
           <h2 className="heading">Upcoming Matches</h2>
           {upcoming.length ? (
@@ -628,6 +632,7 @@ export default async function PlayerPage({
           )}
         </aside>
       </main>
+      </PlayerDetailErrorBoundary>
     );
   } catch {
     return (

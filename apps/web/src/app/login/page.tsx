@@ -5,6 +5,16 @@ import { useRouter } from "next/navigation";
 import { apiFetch, currentUsername, logout } from "../../lib/api";
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const USERNAME_REGEX = /^[A-Za-z0-9_.-]+$/;
+
+function normalizeErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error) {
+    const cleaned = err.message.replace(/^HTTP \d+:\s*/, "").trim();
+    return cleaned.length > 0 ? cleaned : fallback;
+  }
+  return fallback;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,11 +23,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [newUser, setNewUser] = useState("");
   const [newPass, setNewPass] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [confirmPass, setConfirmPass] = useState("");
+  const [errors, setErrors] = useState<string[]>([]);
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setErrors([]);
     try {
       const res = await apiFetch("/v0/auth/login", {
         method: "POST",
@@ -34,27 +45,49 @@ export default function LoginPage() {
         window.dispatchEvent(new Event("storage"));
         router.push("/");
       } else {
-        setError("Login failed");
+        setErrors(["Login failed. Please check your username and password."]); 
       }
-    } catch {
-      setError("Login failed");
+    } catch (err) {
+      setErrors([normalizeErrorMessage(err, "Login failed. Please try again.")]);
     }
   };
 
   const handleSignup = async (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setErrors([]);
     const trimmedUser = newUser.trim();
+    const validationErrors: string[] = [];
+
     if (trimmedUser.length < 3) {
-      setError("Username must be at least 3 characters");
-      return;
+      validationErrors.push("Username must be at least 3 characters long.");
+    }
+    if (trimmedUser.length > 50) {
+      validationErrors.push("Username must be 50 characters or fewer.");
+    }
+    if (
+      trimmedUser.length >= 3 &&
+      trimmedUser.length <= 50 &&
+      !EMAIL_REGEX.test(trimmedUser) &&
+      !USERNAME_REGEX.test(trimmedUser)
+    ) {
+      validationErrors.push(
+        "Username must be a valid email address or contain only letters, numbers, underscores, hyphens, and periods.",
+      );
     }
     if (newPass.length < 12 || !PASSWORD_REGEX.test(newPass)) {
-      setError(
-        "Password must be at least 12 characters and include letters, numbers, and symbols",
+      validationErrors.push(
+        "Password must be at least 12 characters and include letters, numbers, and symbols.",
       );
+    }
+    if (newPass !== confirmPass) {
+      validationErrors.push("Password and confirmation must match.");
+    }
+
+    if (validationErrors.length > 0) {
+      setErrors(validationErrors);
       return;
     }
+    setNewUser(trimmedUser);
     try {
       const res = await apiFetch("/v0/auth/signup", {
         method: "POST",
@@ -69,10 +102,10 @@ export default function LoginPage() {
         window.dispatchEvent(new Event("storage"));
         router.push("/");
       } else {
-        setError("Signup failed");
+        setErrors(["Signup failed. Please try again."]);
       }
-    } catch {
-      setError("Signup failed");
+    } catch (err) {
+      setErrors([normalizeErrorMessage(err, "Signup failed. Please try again.")]);
     }
   };
 
@@ -153,13 +186,30 @@ export default function LoginPage() {
             required
           />
         </div>
+        <div className="form-field">
+          <label htmlFor="signup-confirm-password" className="form-label">
+            Confirm Password
+          </label>
+          <input
+            id="signup-confirm-password"
+            type="password"
+            value={confirmPass}
+            onChange={(e) => setConfirmPass(e.target.value)}
+            autoComplete="new-password"
+            required
+          />
+        </div>
         <button type="submit">Sign Up</button>
       </form>
 
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
+      {errors.length > 0 && (
+        <div role="alert" className="error">
+          <ul>
+            {errors.map((message, index) => (
+              <li key={`${message}-${index}`}>{message}</li>
+            ))}
+          </ul>
+        </div>
       )}
     </main>
   );

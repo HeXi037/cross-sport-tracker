@@ -152,6 +152,42 @@ describe("MatchDetailPage", () => {
     expect(meta).toHaveTextContent("Bowling · — · —");
   });
 
+  it("prefers API-provided ruleset and status labels", async () => {
+    const match = {
+      id: "m5",
+      sport: "padel",
+      rulesetId: "padel_standard",
+      ruleset: { id: "padel_standard", name: "Premier Padel" },
+      summary: {},
+      status: { label: "In Progress" },
+      playedAt: null,
+      participants: [],
+    };
+
+    apiFetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => match })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: "padel", name: "Padel" }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: "padel_standard", name: "World Padel Tour" },
+        ],
+      });
+
+    render(await MatchDetailPage({ params: { mid: "m5" } }));
+
+    const meta = screen.getByText(
+      (text, element) =>
+        element?.classList.contains("match-meta") && text.includes("Padel")
+    );
+    expect(meta).toHaveTextContent(
+      "Padel · Premier Padel · In Progress"
+    );
+  });
+
   it("renders racket sport summary with detailed scoreboard", async () => {
     const match = {
       id: "m3",

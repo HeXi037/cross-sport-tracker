@@ -5,7 +5,7 @@ from typing import Dict, List
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Rating, MasterRating
+from ..models import Rating, MasterRating, Player
 
 
 def _normalize(value: float, min_val: float, max_val: float) -> float:
@@ -31,6 +31,8 @@ async def update_master_ratings(session: AsyncSession) -> None:
     stats_rows = (
         await session.execute(
             select(Rating.sport_id, func.min(Rating.value), func.max(Rating.value))
+            .join(Player, Player.id == Rating.player_id)
+            .where(Player.deleted_at.is_(None))
             .group_by(Rating.sport_id)
         )
     ).all()
@@ -39,7 +41,13 @@ async def update_master_ratings(session: AsyncSession) -> None:
     }
 
     # Gather normalized ratings per player
-    rows = (await session.execute(select(Rating))).scalars().all()
+    rows = (
+        await session.execute(
+            select(Rating)
+            .join(Player, Player.id == Rating.player_id)
+            .where(Player.deleted_at.is_(None))
+        )
+    ).scalars().all()
     player_norms: Dict[str, List[float]] = defaultdict(list)
     for r in rows:
         min_val, max_val = sport_stats.get(r.sport_id, (r.value, r.value))

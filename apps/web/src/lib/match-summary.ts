@@ -143,8 +143,6 @@ function hasSetScoreDetails(summary: SummaryData): boolean {
 export function shouldRebuildRacketSummary(summary: SummaryData): boolean {
   if (!isRecord(summary)) return false;
   const record = summary as Record<string, unknown>;
-  const hasSets = hasPositiveValues(record["sets"]);
-  if (!hasSets) return false;
   const hasGames = hasPositiveValues(record["games"]);
   const hasPoints = hasPositiveValues(record["points"]);
   const hasDetails = hasSetScoreDetails(summary) || hasGames || hasPoints;

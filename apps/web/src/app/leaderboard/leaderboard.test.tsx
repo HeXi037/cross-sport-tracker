@@ -66,7 +66,7 @@ describe("Leaderboard", () => {
     );
   });
 
-  it("passes region filters to each sport when viewing the combined board", async () => {
+  it("ignores region filters when viewing the combined board", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue({ ok: true, json: async () => [] });
@@ -76,8 +76,12 @@ describe("Leaderboard", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
     const urls = fetchMock.mock.calls.map((c) => c[0]);
-    expect(urls).toContain(
+    expect(urls).toContain(apiUrl("/v0/leaderboards?sport=disc_golf"));
+    expect(urls).not.toContain(
       apiUrl("/v0/leaderboards?sport=disc_golf&country=SE&clubId=club-a")
+    );
+    await waitFor(() =>
+      expect(replaceMock).toHaveBeenCalledWith("/leaderboard", { scroll: false })
     );
   });
 });

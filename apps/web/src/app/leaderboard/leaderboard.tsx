@@ -19,7 +19,13 @@ export type Leader = {
   sport?: string;
 };
 
+const ALL_SPORTS = "all";
 const SPORTS = ["padel", "badminton", "table-tennis", "disc_golf"] as const;
+
+const isIndividualSport = (
+  value: string
+): value is (typeof SPORTS)[number] =>
+  SPORTS.includes(value as (typeof SPORTS)[number]);
 
 type Props = {
   sport: string;
@@ -42,8 +48,10 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const initialCountry = normalizeCountry(country);
-  const initialClubId = normalizeClubId(clubId);
+  const supportsFilters = isIndividualSport(sport);
+
+  const initialCountry = supportsFilters ? normalizeCountry(country) : "";
+  const initialClubId = supportsFilters ? normalizeClubId(clubId) : "";
 
   const [draftCountry, setDraftCountry] = useState(initialCountry);
   const [draftClubId, setDraftClubId] = useState(initialClubId);
@@ -57,8 +65,8 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const nextCountry = normalizeCountry(country);
-    const nextClubId = normalizeClubId(clubId);
+    const nextCountry = supportsFilters ? normalizeCountry(country) : "";
+    const nextClubId = supportsFilters ? normalizeClubId(clubId) : "";
     setDraftCountry(nextCountry);
     setDraftClubId(nextClubId);
     setFilters((prev) =>
@@ -66,19 +74,33 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         ? prev
         : { country: nextCountry, clubId: nextClubId }
     );
-  }, [country, clubId]);
+  }, [country, clubId, supportsFilters]);
 
   useEffect(() => {
+    if (!supportsFilters) {
+      if (country || clubId) {
+        router.replace(pathname, { scroll: false });
+      }
+      return;
+    }
     const params = new URLSearchParams();
     if (filters.country) params.set("country", filters.country);
     if (filters.clubId) params.set("clubId", filters.clubId);
     const query = params.toString();
     const nextUrl = query ? `${pathname}?${query}` : pathname;
     router.replace(nextUrl, { scroll: false });
-  }, [filters.country, filters.clubId, pathname, router]);
+  }, [
+    clubId,
+    country,
+    filters.clubId,
+    filters.country,
+    pathname,
+    router,
+    supportsFilters,
+  ]);
 
-  const appliedCountry = filters.country;
-  const appliedClubId = filters.clubId;
+  const appliedCountry = supportsFilters ? filters.country : "";
+  const appliedClubId = supportsFilters ? filters.clubId : "";
 
   const buildUrl = (sportId: string) => {
     const params = new URLSearchParams({ sport: sportId });
@@ -87,8 +109,6 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     return apiUrl(`/v0/leaderboards?${params.toString()}`);
   };
 
-  const supportsFilters = sport !== "master";
-
   const regionQueryString = useMemo(() => {
     const params = new URLSearchParams();
     if (appliedCountry) params.set("country", appliedCountry);
@@ -96,31 +116,40 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     return params.toString();
   }, [appliedCountry, appliedClubId]);
 
-  const withRegion = (base: string) =>
-    regionQueryString ? `${base}?${regionQueryString}` : base;
+  const withRegion = (base: string, targetSport: string) =>
+    regionQueryString && isIndividualSport(targetSport)
+      ? `${base}?${regionQueryString}`
+      : base;
 
   const regionDescription = useMemo(() => {
     if (!supportsFilters) {
-      return "Global master leaderboard";
+      if (sport === "all") {
+        return "Combined top performers across all sports";
+      }
+      if (sport === "master") {
+        return "Global master leaderboard";
+      }
+      return "Global leaderboard";
     }
     const parts: string[] = [];
     if (appliedCountry) parts.push(`Country: ${appliedCountry}`);
     if (appliedClubId) parts.push(`Club: ${appliedClubId}`);
     return parts.length > 0 ? parts.join(" · ") : "Global";
-  }, [supportsFilters, appliedCountry, appliedClubId]);
+  }, [supportsFilters, appliedCountry, appliedClubId, sport]);
 
-  const normalizedDraftCountry = normalizeCountry(draftCountry);
-  const normalizedDraftClubId = normalizeClubId(draftClubId);
+  const normalizedDraftCountry = supportsFilters
+    ? normalizeCountry(draftCountry)
+    : "";
+  const normalizedDraftClubId = supportsFilters
+    ? normalizeClubId(draftClubId)
+    : "";
   const hasDraftChanges =
     normalizedDraftCountry !== appliedCountry ||
     normalizedDraftClubId !== appliedClubId;
   const canApply = supportsFilters && hasDraftChanges;
-  const canClear = Boolean(
-    appliedCountry ||
-    appliedClubId ||
-    draftCountry ||
-    draftClubId
-  );
+  const canClear =
+    supportsFilters &&
+    Boolean(appliedCountry || appliedClubId || draftCountry || draftClubId);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -139,6 +168,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   };
 
   const handleClear = () => {
+    if (!supportsFilters) {
+      return;
+    }
     setDraftCountry("");
     setDraftClubId("");
     setFilters((prev) =>
@@ -183,11 +215,19 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       } catch {
         if (!cancelled) {
           setLeaders([]);
-          setError(
-            appliedCountry || appliedClubId
-              ? "No leaderboard data yet for this region."
-              : "No leaderboard data yet."
-          );
+          if (!supportsFilters) {
+            setError(
+              sport === "master"
+                ? "No cross-sport leaderboard data yet."
+                : "No combined leaderboard data yet. Try selecting an individual sport."
+            );
+          } else {
+            setError(
+              appliedCountry || appliedClubId
+                ? "No leaderboard data yet for this region."
+                : "No leaderboard data yet."
+            );
+          }
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -197,7 +237,17 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [sport, appliedCountry, appliedClubId]);
+  }, [sport, appliedCountry, appliedClubId, supportsFilters]);
+
+  const navLinks = [
+    { sportId: "master", href: "/leaderboard/master", label: "All sports" },
+    { sportId: ALL_SPORTS, href: "/leaderboard", label: "Per-sport best" },
+    ...SPORTS.map((s) => ({
+      sportId: s,
+      href: `/leaderboard/${s}`,
+      label: s,
+    })),
+  ];
 
   const TableHeader = () => (
     <thead>
@@ -239,25 +289,13 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           <p style={{ fontSize: "0.85rem", color: "#555" }}>{regionDescription}</p>
         </div>
         <nav style={{ display: "flex", gap: "0.5rem", fontSize: "0.9rem" }}>
-          <Link
-            href={withRegion("/leaderboard/master")}
-            style={{ textDecoration: sport === "master" ? "underline" : "none" }}
-          >
-            All sports
-          </Link>
-          <Link
-            href={withRegion("/leaderboard")}
-            style={{ textDecoration: sport === "all" ? "underline" : "none" }}
-          >
-            Best of all sports
-          </Link>
-          {SPORTS.map((s) => (
+          {navLinks.map(({ sportId, href, label }) => (
             <Link
-              key={s}
-              href={withRegion(`/leaderboard/${s}`)}
-              style={{ textDecoration: sport === s ? "underline" : "none" }}
+              key={sportId}
+              href={withRegion(href, sportId)}
+              style={{ textDecoration: sport === sportId ? "underline" : "none" }}
             >
-              {s}
+              {label}
             </Link>
           ))}
         </nav>
@@ -334,7 +372,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         </div>
         {!supportsFilters && (
           <p style={{ fontSize: "0.8rem", color: "#777", margin: 0 }}>
-            Regional filters apply to individual sport leaderboards.
+            Regional filters are available on the individual sport tabs above.
           </p>
         )}
       </form>
@@ -429,5 +467,4 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   );
 }
 
-export const ALL_SPORTS = "all";
-export { SPORTS };
+export { ALL_SPORTS, SPORTS };

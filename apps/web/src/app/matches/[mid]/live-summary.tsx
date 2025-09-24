@@ -307,7 +307,9 @@ export default function LiveSummary({
   }, [status]);
 
   useEffect(() => {
-    if (isRecord(summary) && hasPositiveValues((summary as RacketSummary).points)) {
+    if (!isRecord(summary)) return;
+    const maybePoints = (summary as RacketSummary).points;
+    if (getNumericEntries(maybePoints).length) {
       setPointTotals(null);
     }
   }, [summary]);

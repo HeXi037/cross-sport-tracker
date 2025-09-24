@@ -176,8 +176,8 @@ export function summarizeBowlingInput(
   let total = 0;
   for (let i = 0; i < FRAME_COUNT; i += 1) {
     const score = frameScore(frames, i, tenthBonus);
-    frameScores.push(score);
     total += score;
+    frameScores.push(total);
   }
   return { frames, frameScores, total };
 }

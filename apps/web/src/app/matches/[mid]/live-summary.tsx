@@ -308,11 +308,16 @@ export default function LiveSummary({
 
   useEffect(() => {
     if (!isRecord(summary)) return;
+    if (isFinishedStatus(statusLabel)) return;
     const maybePoints = (summary as RacketSummary).points;
-    if (getNumericEntries(maybePoints).length) {
+    if (
+      maybePoints !== null &&
+      typeof maybePoints === "object" &&
+      !Array.isArray(maybePoints)
+    ) {
       setPointTotals(null);
     }
-  }, [summary]);
+  }, [summary, statusLabel]);
 
   useEffect(() => {
     if (!event) return;

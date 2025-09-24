@@ -28,6 +28,7 @@ import {
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
 const INVALID_SOCIAL_URL_MESSAGE =
   "Enter a valid URL that starts with http:// or https:// and includes a hostname.";
+const SOCIAL_LINK_LABEL_REQUIRED_MESSAGE = "Link label is required";
 
 type SaveFeedback = { type: "success" | "error"; message: string } | null;
 
@@ -349,6 +350,11 @@ export default function ProfilePage() {
 
   const continentCode = getContinentForCountry(countryCode);
   const continentLabel = continentCode ? CONTINENT_LABELS[continentCode] : null;
+  const newLinkLabelError =
+    error === SOCIAL_LINK_LABEL_REQUIRED_MESSAGE && !newLinkLabel.trim();
+  const newLinkUrlError =
+    error === INVALID_SOCIAL_URL_MESSAGE &&
+    !isValidHttpUrl(newLinkUrl.trim());
 
   if (loading) {
     return (
@@ -372,14 +378,13 @@ export default function ProfilePage() {
             style={{ borderRadius: "50%", objectFit: "cover", marginBottom: 8 }}
           />
         )}
-        <label>
-          Profile photo
-          <input
-            type="file"
-            accept="image/png,image/jpeg"
-            onChange={handlePhotoChange}
-          />
-        </label>
+        <label htmlFor="profile-photo-input">Profile photo</label>
+        <input
+          id="profile-photo-input"
+          type="file"
+          accept="image/png,image/jpeg"
+          onChange={handlePhotoChange}
+        />
         {uploading && <span>Uploading…</span>}
       </div>
       <form onSubmit={handleSubmit} className="auth-form">
@@ -452,7 +457,9 @@ export default function ProfilePage() {
           </div>
         ) : null}
         <div className="form-field">
-          <span className="form-label">Favorite club</span>
+          <label className="form-label" htmlFor="profile-club-select">
+            Favorite club
+          </label>
           <ClubSelect
             value={clubId}
             onChange={(next) => {
@@ -460,7 +467,9 @@ export default function ProfilePage() {
               setClubId(next);
             }}
             placeholder="Search for a club"
-            ariaLabel="Favorite club"
+            searchInputId="profile-club-search"
+            selectId="profile-club-select"
+            searchLabel="Search favorite club"
             name="club_id"
           />
         </div>
@@ -536,6 +545,12 @@ export default function ProfilePage() {
               trimmedLabel === link.label && trimmedUrl === link.url;
             const busy =
               linkSavingId === link.id || linkDeletingId === link.id || linkSubmitting;
+            const labelInputId = `social-link-${link.id}-label`;
+            const urlInputId = `social-link-${link.id}-url`;
+            const labelHasError =
+              error === SOCIAL_LINK_LABEL_REQUIRED_MESSAGE && !trimmedLabel;
+            const urlHasError =
+              error === INVALID_SOCIAL_URL_MESSAGE && !isValidHttpUrl(trimmedUrl);
             return (
               <div
                 key={link.id}
@@ -545,7 +560,11 @@ export default function ProfilePage() {
                   marginBottom: "1rem",
                 }}
               >
+                <label className="sr-only" htmlFor={labelInputId}>
+                  Social link label
+                </label>
                 <input
+                  id={labelInputId}
                   type="text"
                   value={draft.label}
                   onChange={(e) =>
@@ -555,8 +574,13 @@ export default function ProfilePage() {
                     }))
                   }
                   placeholder="Label"
+                  aria-invalid={labelHasError ? true : undefined}
                 />
+                <label className="sr-only" htmlFor={urlInputId}>
+                  Social link URL
+                </label>
                 <input
+                  id={urlInputId}
                   type="url"
                   value={draft.url}
                   onChange={(e) =>
@@ -566,6 +590,8 @@ export default function ProfilePage() {
                     }))
                   }
                   placeholder="https://example.com"
+                  aria-invalid={urlHasError ? true : undefined}
+                  aria-describedby="social-link-url-hint"
                 />
                 <div style={{ display: "flex", gap: "0.5rem" }}>
                   <button
@@ -575,7 +601,7 @@ export default function ProfilePage() {
                       const nextLabel = trimmedLabel;
                       const nextUrl = trimmedUrl;
                       if (!nextLabel) {
-                        setError("Link label is required");
+                        setError(SOCIAL_LINK_LABEL_REQUIRED_MESSAGE);
                         setMessage(null);
                         setSaveFeedback(null);
                         return;
@@ -653,7 +679,7 @@ export default function ProfilePage() {
             const label = newLinkLabel.trim();
             const url = newLinkUrl.trim();
             if (!label) {
-              setError("Link label is required");
+              setError(SOCIAL_LINK_LABEL_REQUIRED_MESSAGE);
               setSaveFeedback(null);
               return;
             }
@@ -681,23 +707,37 @@ export default function ProfilePage() {
           }}
           style={{ display: "grid", gap: "0.5rem" }}
         >
+          <label className="sr-only" htmlFor="social-link-new-label">
+            New social link label
+          </label>
           <input
+            id="social-link-new-label"
             type="text"
             value={newLinkLabel}
             onChange={(e) => setNewLinkLabel(e.target.value)}
             placeholder="Label"
+            aria-invalid={newLinkLabelError ? true : undefined}
           />
+          <label className="sr-only" htmlFor="social-link-new-url">
+            New social link URL
+          </label>
           <input
+            id="social-link-new-url"
             type="url"
             value={newLinkUrl}
             onChange={(e) => setNewLinkUrl(e.target.value)}
             placeholder="https://example.com"
+            aria-invalid={newLinkUrlError ? true : undefined}
+            aria-describedby="social-link-url-hint"
           />
           <button type="submit" disabled={linkSubmitting}>
             Add link
           </button>
         </form>
-        <p style={{ fontSize: "0.85rem", color: "#555" }}>
+        <p
+          id="social-link-url-hint"
+          style={{ fontSize: "0.85rem", color: "#555" }}
+        >
           URLs must include http:// or https:// and a valid hostname.
         </p>
       </section>

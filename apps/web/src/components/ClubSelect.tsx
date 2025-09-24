@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useState,
   type ChangeEvent,
@@ -19,6 +20,9 @@ interface ClubSelectProps {
   disabled?: boolean;
   className?: string;
   ariaLabel?: string;
+  searchInputId?: string;
+  selectId?: string;
+  searchLabel?: string;
 }
 
 type LoadStatus = "idle" | "loading" | "loaded" | "error";
@@ -31,11 +35,30 @@ export default function ClubSelect({
   disabled = false,
   className,
   ariaLabel,
+  searchInputId: searchInputIdProp,
+  selectId: selectIdProp,
+  searchLabel,
 }: ClubSelectProps) {
+  const reactId = useId();
   const [options, setOptions] = useState<ClubSummary[]>([]);
   const [status, setStatus] = useState<LoadStatus>("idle");
   const [searchTerm, setSearchTerm] = useState("");
   const [dirtySearch, setDirtySearch] = useState(false);
+
+  const searchInputId = searchInputIdProp ?? `${reactId}-club-search`;
+  const selectId = selectIdProp ?? `${reactId}-club-select`;
+  const loadingMessageId = `${reactId}-club-loading`;
+  const errorMessageId = `${reactId}-club-error`;
+  const describedByIds = [
+    status === "loading" ? loadingMessageId : null,
+    status === "error" ? errorMessageId : null,
+  ].filter(Boolean);
+  const ariaDescribedBy = describedByIds.length ? describedByIds.join(" ") : undefined;
+
+  const searchLabelText =
+    searchLabel ?? (ariaLabel ? `${ariaLabel} search` : "Search clubs");
+  const selectAriaLabel =
+    ariaLabel ?? (selectIdProp ? undefined : "Select club");
 
   const loadOptions = useCallback(async () => {
     if (status === "loading" || status === "loaded") {
@@ -136,13 +159,17 @@ export default function ClubSelect({
   return (
     <div className={className} style={{ display: "grid", gap: "0.5rem" }}>
       <div style={{ display: "flex", gap: "0.5rem" }}>
+        <label htmlFor={searchInputId} className="sr-only">
+          {searchLabelText}
+        </label>
         <input
+          id={searchInputId}
           type="text"
           value={searchTerm}
           onChange={handleSearchChange}
           onFocus={handleFocus}
           placeholder={placeholder}
-          aria-label={ariaLabel ?? "Club search"}
+          aria-describedby={ariaDescribedBy}
           disabled={disabled}
           autoComplete="off"
           style={{ flex: 1 }}
@@ -156,12 +183,14 @@ export default function ClubSelect({
         </button>
       </div>
       <select
+        id={selectId}
         value={value}
         onChange={handleSelectChange}
         onFocus={handleFocus}
         disabled={disabled}
         style={{ width: "100%" }}
-        aria-label={ariaLabel ?? "Select club"}
+        aria-label={selectAriaLabel}
+        aria-describedby={ariaDescribedBy}
       >
         <option value="">No club selected</option>
         {optionList.length ? (
@@ -177,12 +206,21 @@ export default function ClubSelect({
         )}
       </select>
       {status === "loading" ? (
-        <span style={{ fontSize: "0.85rem", color: "#555" }}>
+        <span
+          id={loadingMessageId}
+          style={{ fontSize: "0.85rem", color: "#555" }}
+          role="status"
+          aria-live="polite"
+        >
           Loading clubs…
         </span>
       ) : null}
       {status === "error" ? (
-        <span style={{ fontSize: "0.85rem", color: "#b91c1c" }}>
+        <span
+          id={errorMessageId}
+          style={{ fontSize: "0.85rem", color: "#b91c1c" }}
+          role="alert"
+        >
           Failed to load clubs. Focus the field to try again.
         </span>
       ) : null}

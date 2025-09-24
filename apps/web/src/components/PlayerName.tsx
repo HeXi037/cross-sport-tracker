@@ -12,15 +12,15 @@ export default function PlayerName({ player }: { player: PlayerInfo }) {
       ? ensureAbsoluteApiUrl(player.photo_url)
       : null;
   return (
-    <span className="player-name" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+    <span className="player-name">
       {photoUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={photoUrl}
-          alt={player.name}
+          alt=""
           width={24}
           height={24}
-          style={{ borderRadius: '50%', objectFit: 'cover' }}
+          className="player-name__avatar"
         />
       )}
       {player.name}

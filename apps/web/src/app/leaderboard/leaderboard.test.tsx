@@ -15,6 +15,7 @@ describe("Leaderboard", () => {
   beforeEach(() => {
     mockPathname = "/leaderboard";
     replaceMock.mockReset();
+    window.history.replaceState(null, "", "/leaderboard");
   });
 
   afterEach(() => {
@@ -82,6 +83,32 @@ describe("Leaderboard", () => {
     );
   });
 
+  it("explains when a sport has no recorded matches", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<Leaderboard sport="disc_golf" />);
+
+    await screen.findByText(
+      "No Disc Golf matches have been recorded yet. Check back soon!",
+    );
+  });
+
+  it("mentions when no matches exist for the selected region", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<Leaderboard sport="badminton" country="SE" />);
+
+    await screen.findByText(
+      "No Badminton matches have been recorded for this region yet. Try clearing the filters or check back soon.",
+    );
+  });
+
   it("shows an error message when fetching fails", async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error("boom"));
     global.fetch = fetchMock as typeof fetch;
@@ -91,5 +118,19 @@ describe("Leaderboard", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     await screen.findByText("We couldn't load the leaderboard right now.");
+  });
+
+  it("normalizes a trailing slash when syncing filters", async () => {
+    window.history.replaceState(null, "", "/leaderboard/");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<Leaderboard sport="padel" />);
+
+    await waitFor(() =>
+      expect(replaceMock).toHaveBeenCalledWith("/leaderboard", { scroll: false })
+    );
   });
 });

@@ -1,11 +1,12 @@
 // apps/web/src/app/record/[sport]/page.tsx
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { flushSync } from "react-dom";
 import { useRouter, useParams } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
 import { useLocale } from "../../../lib/LocaleContext";
+import { getDatePlaceholder } from "../../../lib/i18n";
 import {
   summarizeBowlingInput,
   type BowlingSummaryResult,
@@ -201,6 +202,10 @@ export default function RecordSportPage() {
   const [doubles, setDoubles] = useState(isPadel);
   const [submitting, setSubmitting] = useState(false);
   const locale = useLocale();
+  const datePlaceholder = useMemo(
+    () => getDatePlaceholder(locale),
+    [locale],
+  );
 
   useEffect(() => {
     async function loadPlayers() {
@@ -569,18 +574,21 @@ export default function RecordSportPage() {
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 lang={locale}
+                placeholder={datePlaceholder}
+                aria-describedby="record-date-format"
               />
+              <span id="record-date-format" className="form-hint">
+                Format: {datePlaceholder}
+              </span>
             </label>
             <label className="form-field" htmlFor="record-time">
-              <span className="form-label" id="record-time-label">
-                Start time
-              </span>
+              <span className="form-label">Start time</span>
               <input
                 id="record-time"
                 type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                aria-labelledby="record-time-label"
+                lang={locale}
               />
             </label>
           </div>
@@ -683,7 +691,7 @@ export default function RecordSportPage() {
                                       className="bowling-roll-label"
                                       htmlFor={inputId}
                                     >
-                                      R{rollIdx + 1}
+                                      Roll {rollIdx + 1}
                                     </label>
                                     <input
                                       id={inputId}

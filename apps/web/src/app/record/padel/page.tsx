@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
 import { useLocale } from "../../../lib/LocaleContext";
+import { getDatePlaceholder } from "../../../lib/i18n";
 
 interface Player {
   id: string;
@@ -85,22 +86,10 @@ export default function RecordPadelPage() {
     setSetErrors((prev) => [...prev, ""]);
   };
 
-  const datePlaceholder = useMemo(() => {
-    const formatter = new Intl.DateTimeFormat(locale, {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-    const parts = formatter.formatToParts(new Date(2001, 10, 21));
-    return parts
-      .map((part) => {
-        if (part.type === "day") return "dd";
-        if (part.type === "month") return "mm";
-        if (part.type === "year") return "yyyy";
-        return part.value;
-      })
-      .join("");
-  }, [locale]);
+  const datePlaceholder = useMemo(
+    () => getDatePlaceholder(locale),
+    [locale],
+  );
 
   const validateSets = () => {
     const errors = sets.map(() => "");
@@ -233,15 +222,13 @@ export default function RecordPadelPage() {
               </span>
             </label>
             <label className="form-field" htmlFor="padel-time">
-              <span className="form-label" id="padel-time-label">
-                Start time
-              </span>
+              <span className="form-label">Start time</span>
               <input
                 id="padel-time"
                 type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                aria-labelledby="padel-time-label"
+                lang={locale}
               />
             </label>
           </div>

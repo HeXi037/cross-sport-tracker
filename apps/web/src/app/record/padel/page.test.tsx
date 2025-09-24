@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import RecordPadelPage from "./page";
+import * as LocaleContext from "../../../lib/LocaleContext";
 
 const router = { push: vi.fn() };
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -102,6 +103,27 @@ describe("RecordPadelPage", () => {
         { A: 6, B: 2 },
       ],
     });
+  });
+
+  it("shows an Australian date format when the locale is en-AU", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ players: [] }) });
+    global.fetch = fetchMock as typeof fetch;
+
+    const localeSpy = vi
+      .spyOn(LocaleContext, "useLocale")
+      .mockReturnValue("en-AU");
+
+    try {
+      render(<RecordPadelPage />);
+
+      const dateInput = await screen.findByLabelText(/date/i);
+      expect(dateInput).toHaveAttribute("placeholder", "dd/mm/yyyy");
+      expect(screen.getByText("Format: dd/mm/yyyy")).toBeInTheDocument();
+    } finally {
+      localeSpy.mockRestore();
+    }
   });
 
   it("rejects submission with empty sides", async () => {

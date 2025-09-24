@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import * as bowlingSummary from "../../../lib/bowlingSummary";
 import RecordSportPage from "./page";
+import * as LocaleContext from "../../../lib/LocaleContext";
 
 let sportParam = "padel";
 const router = { push: vi.fn() };
@@ -53,6 +54,28 @@ describe("RecordSportPage", () => {
       await screen.findByText("Please select unique players.")
     ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows an Australian date format when the locale is en-AU", async () => {
+    sportParam = "bowling";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ players: [] }) });
+    global.fetch = fetchMock as typeof fetch;
+
+    const localeSpy = vi
+      .spyOn(LocaleContext, "useLocale")
+      .mockReturnValue("en-AU");
+
+    try {
+      render(<RecordSportPage />);
+
+      const dateInput = await screen.findByLabelText(/date/i);
+      expect(dateInput).toHaveAttribute("placeholder", "dd/mm/yyyy");
+      expect(screen.getByText("Format: dd/mm/yyyy")).toBeInTheDocument();
+    } finally {
+      localeSpy.mockRestore();
+    }
   });
 
   it("clears partner ids when toggling back to singles", async () => {
@@ -259,6 +282,22 @@ describe("RecordSportPage", () => {
     } finally {
       summarizeSpy.mockRestore();
     }
+  });
+
+  it("renders descriptive labels for each bowling roll", async () => {
+    sportParam = "bowling";
+    const players = [{ id: "1", name: "Alice" }];
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ players }) });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordSportPage />);
+
+    await screen.findAllByText("Alice");
+
+    expect(screen.getAllByText("Roll 1").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Roll 2").length).toBeGreaterThan(0);
   });
 
   it("validates bowling frames as rolls are entered", async () => {

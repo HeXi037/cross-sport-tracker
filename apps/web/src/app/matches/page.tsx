@@ -184,17 +184,39 @@ export default async function MatchesPage(
           <ul className="match-list">
             {matches.map((m) => (
               <li key={m.id} className="card match-item">
-                <div style={{ fontWeight: 500 }}>
-                  {m.participants.map((side, i) => (
-                    <span key={i}>
-                      {side.map((pl, j) => (
-                        <span key={pl.id}>
-                          <PlayerName player={pl} />
-                          {j < side.length - 1 ? " & " : ""}
+                <div className="match-participants">
+                  {m.participants.map((side, sideIndex) => (
+                    <div
+                      key={sideIndex}
+                      className="match-participants__side-wrapper"
+                    >
+                      {sideIndex > 0 && (
+                        <span
+                          className="match-participants__versus"
+                          aria-label="versus"
+                        >
+                          vs
                         </span>
-                      ))}
-                      {i < m.participants.length - 1 ? " vs " : ""}
-                    </span>
+                      )}
+                      <div className="match-participants__side">
+                        {side.map((pl, playerIndex) => (
+                          <span
+                            key={pl.id}
+                            className="match-participants__entry"
+                          >
+                            {playerIndex > 0 && (
+                              <span
+                                className="match-participants__separator"
+                                aria-label="and"
+                              >
+                                &
+                              </span>
+                            )}
+                            <PlayerName player={pl} />
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
                 <div className="match-meta">

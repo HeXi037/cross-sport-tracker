@@ -110,6 +110,11 @@ img {
   font-weight: 600;
 }
 
+.form-hint {
+  font-size: 0.8rem;
+  color: rgba(10, 31, 68, 0.7);
+}
+
 input,
 select,
 textarea,

@@ -134,8 +134,10 @@ export default async function MatchDetailPage({
   const rulesetName = match.rulesetId
     ? rulesets.find((r) => r.id === match.rulesetId)?.name
     : undefined;
-  const sportLabel = sportName ?? match.sport ?? "sport";
-  const rulesetLabel = rulesetName ?? match.rulesetId ?? "rules";
+  const fallbackLabel = "—";
+  const sportLabel = sportName ?? match.sport ?? fallbackLabel;
+  const rulesetLabel = rulesetName ?? match.rulesetId ?? fallbackLabel;
+  const statusLabel = match.status?.trim() ? match.status : fallbackLabel;
 
   const playedAtDate = match.playedAt ? new Date(match.playedAt) : null;
   const playedAtStr = playedAtDate
@@ -171,7 +173,7 @@ export default async function MatchDetailPage({
         </h1>
         <p className="match-meta">
           {sportLabel} · {rulesetLabel} · {" "}
-          {match.status || "status"}
+          {statusLabel}
           {playedAtStr ? ` · ${playedAtStr}` : ""}
           {match.location ? ` · ${match.location}` : ""}
         </p>
@@ -179,6 +181,7 @@ export default async function MatchDetailPage({
       <LiveSummary
         mid={params.mid}
         sport={match.sport}
+        status={match.status}
         initialSummary={match.summary}
         initialConfig={summaryConfig}
       />

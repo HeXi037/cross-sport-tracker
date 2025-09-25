@@ -14,6 +14,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("RecordSportPage", () => {
+  beforeEach(() => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+  });
+
   afterEach(() => {
     router.push.mockReset();
     router.replace.mockReset();

@@ -27,6 +27,20 @@ describe('LocaleProvider', () => {
     expect(localeDisplay).toHaveTextContent('en-AU');
   });
 
+  it('uses the accept-language header when provided', async () => {
+    vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['en-US']);
+    vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('en-US');
+
+    render(
+      <LocaleProvider locale="en-US" acceptLanguage="en-AU,en;q=0.9">
+        <LocaleConsumer />
+      </LocaleProvider>,
+    );
+
+    const localeDisplay = await screen.findByTestId('locale-value');
+    expect(localeDisplay).toHaveTextContent('en-AU');
+  });
+
   it('falls back to navigator.language when languages is empty', async () => {
     vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue([]);
     vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('en-GB');

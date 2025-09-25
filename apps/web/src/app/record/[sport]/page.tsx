@@ -9,6 +9,7 @@ import { useLocale } from "../../../lib/LocaleContext";
 import { getDatePlaceholder } from "../../../lib/i18n";
 import {
   summarizeBowlingInput,
+  previewBowlingInput,
   type BowlingSummaryResult,
 } from "../../../lib/bowlingSummary";
 import {
@@ -18,6 +19,7 @@ import {
   normalizeRecordSportSlug,
 } from "../../../lib/recording";
 import { ensureTrailingSlash } from "../../../lib/routes";
+import { getSportCopy } from "../../../lib/sportCopy";
 
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 
@@ -264,6 +266,14 @@ export default function RecordSportPage() {
   const datePlaceholder = useMemo(
     () => getDatePlaceholder(locale),
     [locale],
+  );
+  const sportCopy = useMemo(
+    () => getSportCopy(sport, locale),
+    [locale, sport],
+  );
+  const timeHintId = useMemo(
+    () => `${sport || "record"}-time-hint`,
+    [sport],
   );
 
   useEffect(() => {
@@ -541,6 +551,13 @@ export default function RecordSportPage() {
           ];
     }
 
+    const confirmationMessage =
+      sportCopy.confirmationMessage ??
+      (isBowling ? "Save this bowling scorecard?" : "Save this match record?");
+    if (typeof window !== "undefined" && !window.confirm(confirmationMessage)) {
+      return;
+    }
+
     try {
       setSubmitting(true);
       const playedAt = date
@@ -624,6 +641,9 @@ export default function RecordSportPage() {
 
         <fieldset className="form-fieldset">
           <legend className="form-legend">Match details</legend>
+          {sportCopy.matchDetailsHint && (
+            <p className="form-hint">{sportCopy.matchDetailsHint}</p>
+          )}
           <div className="form-grid form-grid--two">
             <label className="form-field" htmlFor="record-date">
               <span className="form-label">Date</span>
@@ -648,7 +668,13 @@ export default function RecordSportPage() {
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
                 lang={locale}
+                aria-describedby={sportCopy.timeHint ? timeHintId : undefined}
               />
+              {sportCopy.timeHint && (
+                <span id={timeHintId} className="form-hint">
+                  {sportCopy.timeHint}
+                </span>
+              )}
             </label>
           </div>
           <label className="form-field" htmlFor="record-location">
@@ -666,24 +692,18 @@ export default function RecordSportPage() {
         {isBowling ? (
           <fieldset className="form-fieldset">
             <legend className="form-legend">Players and scores</legend>
-            <p className="form-hint">
-              Enter each roll per frame (use 0 for gutter balls). Leave roll 2
-              empty after a strike and roll 3 blank unless you earn it in the
-              final frame.
-            </p>
+            {sportCopy.playersHint && (
+              <p className="form-hint">{sportCopy.playersHint}</p>
+            )}
+            {sportCopy.scoringHint && (
+              <p className="form-hint">{sportCopy.scoringHint}</p>
+            )}
             <div className="form-stack">
               {bowlingEntries.map((entry, idx) => {
                 const playerLabel = getBowlingPlayerLabel(entry, idx, players);
                 const entryError = bowlingValidationErrors[idx] ?? null;
-                let summary: BowlingSummaryResult | null = null;
-                try {
-                  summary = summarizeBowlingInput(entry.frames, {
-                    playerLabel,
-                  });
-                } catch {
-                  summary = null;
-                }
-                const previewTotal = summary?.total ?? null;
+                const preview = previewBowlingInput(entry.frames);
+                const previewTotal = preview.total;
                 return (
                   <section key={idx} className="bowling-entry">
                     <div className="bowling-entry-header">
@@ -729,11 +749,7 @@ export default function RecordSportPage() {
                     )}
                     <div className="bowling-frames-grid">
                       {entry.frames.map((frame, frameIdx) => {
-                        const frameTotal =
-                          summary &&
-                          typeof summary.frameScores?.[frameIdx] === "number"
-                            ? summary.frameScores[frameIdx]
-                            : null;
+                        const frameTotal = preview.frameTotals[frameIdx] ?? null;
                         return (
                           <div key={frameIdx} className="bowling-frame-card">
                             <span className="bowling-frame-label">
@@ -808,6 +824,9 @@ export default function RecordSportPage() {
           <>
             <fieldset className="form-fieldset">
               <legend className="form-legend">Players</legend>
+              {sportCopy.playersHint && (
+                <p className="form-hint">{sportCopy.playersHint}</p>
+              )}
               <div className="form-grid form-grid--two">
                 <label className="form-field" htmlFor="record-player-a1">
                   <span className="form-label">Team A player 1</span>
@@ -878,6 +897,9 @@ export default function RecordSportPage() {
 
             <fieldset className="form-fieldset">
               <legend className="form-legend">Match score</legend>
+              {sportCopy.scoringHint && (
+                <p className="form-hint">{sportCopy.scoringHint}</p>
+              )}
               <div className="form-grid form-grid--two">
                 <label className="form-field" htmlFor="record-score-a">
                   <span className="form-label">Team A score</span>

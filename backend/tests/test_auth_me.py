@@ -111,6 +111,64 @@ def test_update_me_conflicting_player_name():
         assert resp.json()["detail"] == "player exists"
 
 
+def test_update_me_allows_claiming_current_player_name():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup", json={"username": "claimee", "password": "Str0ng!Pass!"}
+        )
+        assert resp.status_code == 200
+        token = resp.json()["access_token"]
+
+        async def rename_player():
+            async with db.AsyncSessionLocal() as session:
+                user = (
+                    await session.execute(
+                        select(User).where(User.username == "claimee")
+                    )
+                ).scalar_one()
+                player = (
+                    await session.execute(
+                        select(Player).where(Player.user_id == user.id)
+                    )
+                ).scalar_one()
+                player.name = "claimed"
+                await session.commit()
+
+        asyncio.run(rename_player())
+
+        resp = client.put(
+            "/auth/me",
+            json={"username": "claimed"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["access_token"]
+
+        me = client.get(
+            "/auth/me", headers={"Authorization": f"Bearer {data['access_token']}"}
+        )
+        assert me.status_code == 200
+        assert me.json()["username"] == "claimed"
+
+        async def fetch_player_name():
+            async with db.AsyncSessionLocal() as session:
+                user = (
+                    await session.execute(
+                        select(User).where(User.username == "claimed")
+                    )
+                ).scalar_one()
+                player = (
+                    await session.execute(
+                        select(Player).where(Player.user_id == user.id)
+                    )
+                ).scalar_one()
+                return player.name
+
+        player_name = asyncio.run(fetch_player_name())
+        assert player_name == "claimed"
+
 def test_upload_my_photo():
     auth.limiter.reset()
     with TestClient(app) as client:

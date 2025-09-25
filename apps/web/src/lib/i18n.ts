@@ -1,13 +1,67 @@
+type LocalePreference = {
+  locale: string;
+  quality: number;
+  order: number;
+};
+
 export function parseAcceptLanguage(
   header: string | null | undefined,
   defaultLocale = 'en-US',
 ): string {
   if (!header) return defaultLocale;
-  const locales = header
+
+  const preferences = header
     .split(',')
-    .map((part) => part.trim().split(';')[0])
-    .filter(Boolean);
-  return locales[0] ?? defaultLocale;
+    .map((part, index): LocalePreference | null => {
+      const [rawLocale, ...params] = part.trim().split(';').map((value) => value.trim());
+      if (!rawLocale) {
+        return null;
+      }
+
+      let quality = 1;
+      for (const param of params) {
+        if (!param.startsWith('q=')) continue;
+        const parsed = Number(param.slice(2));
+        if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+          quality = parsed;
+        }
+      }
+
+      const locale = rawLocale === '*' ? defaultLocale : rawLocale;
+
+      return {
+        locale,
+        quality,
+        order: index,
+      };
+    })
+    .filter((pref): pref is LocalePreference => Boolean(pref));
+
+  if (!preferences.length) {
+    return defaultLocale;
+  }
+
+  const australianPreference = preferences
+    .filter((pref) => pref.locale.toLowerCase().startsWith('en-au'))
+    .sort((a, b) => {
+      if (a.quality !== b.quality) {
+        return b.quality - a.quality;
+      }
+      return a.order - b.order;
+    })[0];
+
+  if (australianPreference) {
+    return australianPreference.locale;
+  }
+
+  const [topPreference] = preferences.sort((a, b) => {
+    if (a.quality !== b.quality) {
+      return b.quality - a.quality;
+    }
+    return a.order - b.order;
+  });
+
+  return topPreference?.locale ?? defaultLocale;
 }
 
 export function normalizeLocale(

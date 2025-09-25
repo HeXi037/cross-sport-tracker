@@ -31,6 +31,22 @@ export default function MatchParticipants<
 }: MatchParticipantsProps<T>) {
   const Component = (as ?? DEFAULT_ELEMENT) as ElementType;
   const classes = ['match-participants', className].filter(Boolean).join(' ');
+  const fallbackSeparatorText =
+    typeof separatorSymbol === 'string' && separatorSymbol.trim().length > 0
+      ? separatorSymbol.trim()
+      : 'and';
+  const separatorScreenReaderText =
+    typeof separatorLabel === 'string' && separatorLabel.trim().length > 0
+      ? separatorLabel
+      : fallbackSeparatorText;
+  const fallbackVersusText =
+    typeof versusSymbol === 'string' && versusSymbol.trim().length > 0
+      ? versusSymbol.trim()
+      : 'versus';
+  const versusScreenReaderText =
+    typeof versusLabel === 'string' && versusLabel.trim().length > 0
+      ? versusLabel
+      : fallbackVersusText;
 
   if (!sides.length) {
     return <Component className={classes} {...rest} />;
@@ -56,12 +72,10 @@ export default function MatchParticipants<
               key={`${player.id}-group-${playerIndex}`}
               className="match-participants__entry-group"
             >
-              <span
-                className="match-participants__separator"
-                aria-label={separatorLabel || undefined}
-              >
+              <span className="match-participants__separator" aria-hidden="true">
                 {` ${separatorSymbol} `}
               </span>
+              <span className="sr-only">{separatorScreenReaderText}</span>
               <span className="match-participants__entry">
                 <PlayerName player={player} />
               </span>
@@ -72,12 +86,12 @@ export default function MatchParticipants<
         return (
           <span key={sideIndex} className="match-participants__side-wrapper">
             {sideIndex > 0 && (
-              <span
-                className="match-participants__versus"
-                aria-label={versusLabel || undefined}
-              >
-                {` ${versusSymbol} `}
-              </span>
+              <>
+                <span className="match-participants__versus" aria-hidden="true">
+                  {` ${versusSymbol} `}
+                </span>
+                <span className="sr-only">{versusScreenReaderText}</span>
+              </>
             )}
             <span className="match-participants__side">{renderedSide}</span>
           </span>

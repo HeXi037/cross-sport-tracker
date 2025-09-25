@@ -7,6 +7,8 @@
   --color-bg: #f0f2f5; /* soft off-white to reduce glare */
   --color-surface: #ffffff;
   --color-text: #0a1f44; /* deep navy */
+  --color-success: #2e8b57;
+  --color-warning: #d97706;
 
   /* Accents */
   --color-accent-red: #ba0c2f;
@@ -219,6 +221,101 @@ textarea {
 
 .toast--error {
   border-left-color: var(--color-accent-red);
+}
+
+.toast--success {
+  border-left-color: var(--color-success);
+}
+
+.password-strength {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.25rem;
+}
+
+.password-strength__track {
+  position: relative;
+  height: 8px;
+  background: rgba(10, 31, 68, 0.12);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.password-strength__bar {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.password-strength__bar--empty {
+  background: transparent;
+}
+
+.password-strength__bar--weak {
+  background: var(--color-accent-red);
+}
+
+.password-strength__bar--fair {
+  background: var(--color-warning);
+}
+
+.password-strength__bar--strong {
+  background: var(--color-accent-blue);
+}
+
+.password-strength__bar--very-strong {
+  background: var(--color-success);
+}
+
+.password-strength__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.password-strength__helper {
+  font-size: 0.75rem;
+  color: rgba(10, 31, 68, 0.7);
+  margin: 0;
+}
+
+.password-guidelines {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.password-guidelines__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: rgba(10, 31, 68, 0.7);
+}
+
+.password-guidelines__item--met {
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.password-guidelines__status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.password-guidelines__item--met .password-guidelines__status {
+  background: var(--color-success);
+  color: var(--color-surface);
+  border-color: transparent;
 }
 
 .session-banner {

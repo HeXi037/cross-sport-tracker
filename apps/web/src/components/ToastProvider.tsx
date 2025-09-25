@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 
-export type ToastVariant = "info" | "error";
+export type ToastVariant = "info" | "error" | "success";
 
 export interface ToastOptions {
   message: string;

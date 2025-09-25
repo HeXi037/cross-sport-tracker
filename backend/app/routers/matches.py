@@ -125,6 +125,24 @@ async def create_match(
         session.add(mp)
 
     extra_details = dict(body.details) if body.details else None
+
+    if match.sport_id == "bowling" and isinstance(extra_details, dict):
+        players = extra_details.get("players")
+        if isinstance(players, list):
+            normalized_players: list[Any] = []
+            players_updated = False
+            for player in players:
+                if not isinstance(player, dict):
+                    normalized_players.append(player)
+                    continue
+                player_payload = dict(player)
+                if "scores" not in player_payload and "frameScores" in player_payload:
+                    player_payload["scores"] = player_payload["frameScores"]
+                    players_updated = True
+                normalized_players.append(player_payload)
+            if players_updated:
+                extra_details = dict(extra_details)
+                extra_details["players"] = normalized_players
     summary: dict[str, Any] | None = None
     set_pairs: list[tuple[int, int]] = []
     score_events: list[dict[str, Any]] = []

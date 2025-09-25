@@ -33,10 +33,7 @@ interface PlayerStats {
 
 const STATS_ERROR_MESSAGE =
   "Could not load stats – please try again later.";
-const PLAYERS_LOAD_ERROR_MESSAGE =
-  "Could not load players. Please refresh the page or try again later.";
-const PLAYERS_NETWORK_ERROR_MESSAGE =
-  "Could not reach the server. Check your connection and try again.";
+const PLAYERS_ERROR_MESSAGE = "Failed to load players.";
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -102,18 +99,15 @@ export default function PlayersPage() {
         setPlayers(normalized);
         setPlayersLoadError(null);
       } else {
-        setPlayersLoadError(PLAYERS_LOAD_ERROR_MESSAGE);
-        setError(PLAYERS_LOAD_ERROR_MESSAGE);
-        showToast({ message: PLAYERS_LOAD_ERROR_MESSAGE, variant: "error" });
+        setPlayersLoadError(PLAYERS_ERROR_MESSAGE);
+        setError(PLAYERS_ERROR_MESSAGE);
+        showToast({ message: PLAYERS_ERROR_MESSAGE, variant: "error" });
       }
     } catch (err) {
-      const message =
-        err && typeof err === "object" && "status" in err
-          ? PLAYERS_LOAD_ERROR_MESSAGE
-          : PLAYERS_NETWORK_ERROR_MESSAGE;
-      setPlayersLoadError(message);
-      setError(message);
-      showToast({ message, variant: "error" });
+      console.warn("Failed to fetch players", err);
+      setPlayersLoadError(PLAYERS_ERROR_MESSAGE);
+      setError(PLAYERS_ERROR_MESSAGE);
+      showToast({ message: PLAYERS_ERROR_MESSAGE, variant: "error" });
     } finally {
       setLoading(false);
     }

@@ -59,14 +59,17 @@ describe("PlayersPage", () => {
     expect(screen.getByText(/loading players/i)).toBeTruthy();
   });
 
-  it("surfaces a toast and inline error when loading players fails", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce(
-      new Response(JSON.stringify({}), {
-        status: 500,
-        statusText: "Server error",
-        headers: { "Content-Type": "application/json" },
-      })
-    );
+  it("shows a retryable error when loading players fails", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({}), {
+          status: 500,
+          statusText: "Server error",
+          headers: { "Content-Type": "application/json" },
+        })
+      )
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
@@ -74,9 +77,15 @@ describe("PlayersPage", () => {
     });
 
     const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toMatch(/could not load players/i);
+    expect(alert.textContent).toMatch(/failed to load players/i);
+    const retry = screen.getByRole("button", { name: /retry/i });
+    await act(async () => {
+      fireEvent.click(retry);
+      await Promise.resolve();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     const toast = await screen.findByTestId("toast");
-    expect(toast.textContent).toMatch(/could not load players/i);
+    expect(toast.textContent).toMatch(/failed to load players/i);
   });
 
   it("disables add button for blank names", async () => {

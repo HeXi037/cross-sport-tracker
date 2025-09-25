@@ -9,6 +9,12 @@ export interface RecordSportMeta {
 }
 
 const RECORD_SPORTS: Record<string, RecordSportMeta> = {
+  badminton: {
+    id: "badminton",
+    slug: "badminton",
+    form: "dynamic",
+    implemented: false,
+  },
   bowling: {
     id: "bowling",
     slug: "bowling",

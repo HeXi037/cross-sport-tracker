@@ -84,10 +84,15 @@ export function getImplementedRecordSportIds(): string[] {
     .map((meta) => meta.id);
 }
 
-export function buildComingSoonHref(slugOrId: string): string {
+export function buildComingSoonHref(
+  slugOrId: string,
+  existingQuery?: string | null,
+): string {
   const slug = slugOrId.includes("-")
     ? slugOrId
     : canonicalRecordSportSlug(slugOrId);
-  const params = new URLSearchParams({ sport: slug });
-  return `/record/coming-soon?${params.toString()}`;
+  const params = new URLSearchParams(existingQuery ?? undefined);
+  params.set("sport", slug);
+  const query = params.toString();
+  return query ? `/record/coming-soon?${query}` : "/record/coming-soon";
 }

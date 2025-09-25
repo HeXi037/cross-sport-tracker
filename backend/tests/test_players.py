@@ -168,6 +168,53 @@ def test_delete_player_soft_delete() -> None:
     asyncio.run(check_deleted())
 
 
+def test_create_my_player_conflict_with_dormant(async_client) -> None:
+    client, loop = async_client
+
+    async def scenario() -> None:
+        auth.limiter.reset()
+
+        admin_token_value = await async_admin_token(client)
+
+        signup_resp = await client.post(
+            "/auth/signup",
+            json={"username": "dupeuser", "password": "Str0ng!Pass!"},
+        )
+        assert signup_resp.status_code == 200
+        user_token = signup_resp.json()["access_token"]
+        user_headers = {"Authorization": f"Bearer {user_token}"}
+
+        me_resp = await client.get("/players/me", headers=user_headers)
+        assert me_resp.status_code == 200
+        player_id = me_resp.json()["id"]
+
+        async with db.AsyncSessionLocal() as session:
+            player = await session.get(Player, player_id)
+            player.name = "archived-dupeuser"
+            await session.commit()
+
+        admin_headers = {"Authorization": f"Bearer {admin_token_value}"}
+        delete_resp = await client.delete(
+            f"/players/{player_id}", headers=admin_headers
+        )
+        assert delete_resp.status_code == 204
+
+        conflict_resp = await client.post(
+            "/players",
+            json={"name": "dupeuser"},
+            headers=admin_headers,
+        )
+        assert conflict_resp.status_code == 200
+
+        recreate_resp = await client.post("/players/me", headers=user_headers)
+        assert recreate_resp.status_code == 400
+        problem = recreate_resp.json()
+        assert problem["title"] == "Player exists"
+        assert "dupeuser" in problem["detail"]
+
+    loop.run_until_complete(scenario())
+
+
 def test_player_social_links_crud(async_client) -> None:
     client, loop = async_client
 

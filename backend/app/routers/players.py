@@ -209,6 +209,17 @@ async def create_my_player(
         )
     ).scalar_one_or_none()
     if dormant_player:
+        conflict = (
+            await session.execute(
+                select(Player.id).where(
+                    func.lower(Player.name) == normalized,
+                    Player.id != dormant_player.id,
+                    Player.deleted_at.is_(None),
+                )
+            )
+        ).scalar_one_or_none()
+        if conflict:
+            raise PlayerAlreadyExists(username)
         dormant_player.deleted_at = None
         dormant_player.name = username
         await session.commit()

@@ -42,6 +42,36 @@ describe("summarizeBowlingInput", () => {
     expect(result.frameScores).toEqual([9, 22, 29, 29, 29, 29, 29, 29, 29, 29]);
     expect(result.total).toBe(29);
   });
+
+  it("fills missing rolls with zeros when normalization is requested", () => {
+    const frames: string[][] = Array.from({ length: 9 }, () => ["", ""]);
+    frames.push(["", "", ""]);
+
+    const result = summarizeBowlingInput(frames, {
+      playerLabel: "Test",
+      normalizeIncompleteFrames: true,
+    });
+
+    expect(result.frames).toEqual(
+      Array.from({ length: 10 }, () => [0, 0]),
+    );
+    expect(result.frameScores).toEqual(Array.from({ length: 10 }, () => 0));
+    expect(result.total).toBe(0);
+  });
+
+  it("normalizes tenth frame bonuses when they are missing", () => {
+    const frames: string[][] = Array.from({ length: 9 }, () => ["", ""]);
+    frames.push(["10", "", ""]);
+
+    const result = summarizeBowlingInput(frames, {
+      playerLabel: "Test",
+      normalizeIncompleteFrames: true,
+    });
+
+    expect(result.frames[9]).toEqual([10, 0, 0]);
+    expect(result.frameScores[9]).toBe(10);
+    expect(result.total).toBe(10);
+  });
 });
 
 describe("previewBowlingInput", () => {

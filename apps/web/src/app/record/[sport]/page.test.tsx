@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import * as bowlingSummary from "../../../lib/bowlingSummary";
 import * as LocaleContext from "../../../lib/LocaleContext";
 import RecordSportForm from "./RecordSportForm";
-import { resolveRecordSportRoute } from "./page";
+import { resolveRecordSportRoute } from "./resolveRecordSportRoute";
 
 const router = { push: vi.fn() };
 

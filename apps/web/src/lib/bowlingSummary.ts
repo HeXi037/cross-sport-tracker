@@ -4,6 +4,11 @@ export interface BowlingSummaryResult {
   total: number;
 }
 
+export interface BowlingPreviewResult {
+  frameTotals: (number | null)[];
+  total: number | null;
+}
+
 const FRAME_COUNT = 10;
 
 function parsePins(
@@ -180,4 +185,138 @@ export function summarizeBowlingInput(
     frameScores.push(total);
   }
   return { frames, frameScores, total };
+}
+
+function parseOptionalRoll(value: string | undefined): number | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const pins = Number(trimmed);
+  if (!Number.isFinite(pins)) {
+    return null;
+  }
+  return pins;
+}
+
+function collectBonusRolls(
+  inputs: string[][],
+  startFrame: number,
+  required: number,
+): number[] {
+  const rolls: number[] = [];
+  for (let frameIndex = startFrame + 1; frameIndex < FRAME_COUNT; frameIndex += 1) {
+    const frame = inputs[frameIndex] ?? [];
+    const first = parseOptionalRoll(frame[0]);
+    if (first === null) {
+      return rolls;
+    }
+    rolls.push(first);
+    if (rolls.length >= required) {
+      break;
+    }
+
+    const isTenthFrame = frameIndex === FRAME_COUNT - 1;
+    const second = parseOptionalRoll(frame[1]);
+    if (isTenthFrame || (first !== 10 && second !== null)) {
+      if (second === null) {
+        return rolls;
+      }
+      rolls.push(second);
+      if (rolls.length >= required) {
+        break;
+      }
+    }
+
+    if (isTenthFrame) {
+      const third = parseOptionalRoll(frame[2]);
+      if (third === null) {
+        return rolls;
+      }
+      rolls.push(third);
+      if (rolls.length >= required) {
+        break;
+      }
+    }
+  }
+  return rolls;
+}
+
+function previewFrameScore(
+  inputs: string[][],
+  frameIndex: number,
+  tenthFrameBonus: boolean,
+): number | null {
+  const frame = inputs[frameIndex] ?? [];
+  const first = parseOptionalRoll(frame[0]);
+  if (first === null) {
+    return null;
+  }
+
+  if (frameIndex === FRAME_COUNT - 1) {
+    const second = parseOptionalRoll(frame[1]);
+    if (second === null) {
+      return null;
+    }
+    if (!tenthFrameBonus) {
+      return first + second;
+    }
+    if (first === 10 || first + second === 10) {
+      const third = parseOptionalRoll(frame[2]);
+      if (third === null) {
+        return null;
+      }
+      return first + second + third;
+    }
+    return first + second;
+  }
+
+  if (first === 10) {
+    const bonus = collectBonusRolls(inputs, frameIndex, 2);
+    if (bonus.length < 2) {
+      return null;
+    }
+    return 10 + bonus[0]! + bonus[1]!;
+  }
+
+  const second = parseOptionalRoll(frame[1]);
+  if (second === null) {
+    return null;
+  }
+
+  if (first + second === 10) {
+    const bonus = collectBonusRolls(inputs, frameIndex, 1);
+    if (bonus.length < 1) {
+      return null;
+    }
+    return 10 + bonus[0]!;
+  }
+
+  return first + second;
+}
+
+export function previewBowlingInput(
+  frameInputs: string[][],
+  options: { tenthFrameBonus?: boolean } = {},
+): BowlingPreviewResult {
+  const tenthFrameBonus = options.tenthFrameBonus ?? true;
+  const frameTotals: (number | null)[] = Array.from({ length: FRAME_COUNT }, () => null);
+  let runningTotal = 0;
+
+  for (let i = 0; i < FRAME_COUNT; i += 1) {
+    const frameScoreValue = previewFrameScore(frameInputs, i, tenthFrameBonus);
+    if (frameScoreValue === null) {
+      frameTotals[i] = null;
+      continue;
+    }
+    runningTotal += frameScoreValue;
+    frameTotals[i] = runningTotal;
+  }
+
+  const total = [...frameTotals].reverse().find((value) => value !== null) ?? null;
+
+  return { frameTotals, total };
 }

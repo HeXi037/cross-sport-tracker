@@ -25,7 +25,7 @@ export default function RootLayout({
   return (
     <html lang={locale}>
       <body>
-        <LocaleProvider locale={locale}>
+        <LocaleProvider locale={locale} acceptLanguage={acceptLanguage}>
           <ToastProvider>
             <ChunkErrorReload />
             <Header />

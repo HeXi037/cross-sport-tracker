@@ -1,30 +1,49 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { normalizeLocale } from './i18n';
+import { normalizeLocale, parseAcceptLanguage } from './i18n';
 
 const LocaleContext = createContext('en-US');
 
-function getBrowserLocale(fallback: string): string {
-  if (typeof navigator === 'undefined') {
-    return fallback;
+function resolveLocaleCandidates(
+  fallback: string,
+  acceptLanguage?: string | null,
+): string[] {
+  const normalizedFallback = normalizeLocale(fallback);
+  const candidates: string[] = [];
+
+  if (acceptLanguage) {
+    const parsed = parseAcceptLanguage(acceptLanguage, normalizedFallback);
+    if (parsed) {
+      candidates.push(parsed);
+    }
   }
 
-  const languages = Array.isArray(navigator.languages)
-    ? navigator.languages
-    : [];
-  const preferred = languages.find((lang) => typeof lang === 'string' && lang.length > 0);
-  const candidate = preferred ?? navigator.language;
+  if (typeof navigator !== 'undefined') {
+    const browserLanguages = Array.isArray(navigator.languages)
+      ? navigator.languages.filter(
+          (lang): lang is string => typeof lang === 'string' && lang.length > 0,
+        )
+      : [];
+    candidates.push(...browserLanguages);
 
-  return normalizeLocale(candidate, fallback);
+    if (typeof navigator.language === 'string' && navigator.language.length > 0) {
+      candidates.push(navigator.language);
+    }
+  }
+
+  candidates.push(normalizedFallback);
+
+  return candidates;
 }
 
 interface ProviderProps {
   locale: string;
+  acceptLanguage?: string | null;
   children: React.ReactNode;
 }
 
-export function LocaleProvider({ locale, children }: ProviderProps) {
+export function LocaleProvider({ locale, acceptLanguage, children }: ProviderProps) {
   const [currentLocale, setCurrentLocale] = useState(() => normalizeLocale(locale));
 
   useEffect(() => {
@@ -35,22 +54,24 @@ export function LocaleProvider({ locale, children }: ProviderProps) {
   }, [locale]);
 
   useEffect(() => {
-    const applyBrowserLocale = () => {
-      const browserLocale = getBrowserLocale(locale);
-      setCurrentLocale((prev) => (prev === browserLocale ? prev : browserLocale));
+    const applyResolvedLocale = () => {
+      const fallback = normalizeLocale(locale);
+      const candidates = resolveLocaleCandidates(fallback, acceptLanguage);
+      const nextLocale = normalizeLocale(candidates[0], fallback);
+      setCurrentLocale((prev) => (prev === nextLocale ? prev : nextLocale));
     };
 
-    applyBrowserLocale();
+    applyResolvedLocale();
 
     if (typeof window === 'undefined') {
       return;
     }
 
-    window.addEventListener('languagechange', applyBrowserLocale);
+    window.addEventListener('languagechange', applyResolvedLocale);
     return () => {
-      window.removeEventListener('languagechange', applyBrowserLocale);
+      window.removeEventListener('languagechange', applyResolvedLocale);
     };
-  }, [locale]);
+  }, [acceptLanguage, locale]);
 
   return <LocaleContext.Provider value={currentLocale}>{children}</LocaleContext.Provider>;
 }

@@ -9,10 +9,12 @@ import {
   apiFetch,
   fetchMyPlayer,
   updateMyPlayerLocation,
+  createMyPlayer,
   createMySocialLink,
   updateMySocialLink,
   deleteMySocialLink,
   type PlayerSocialLink,
+  type PlayerMe,
   type UserMe,
   ensureAbsoluteApiUrl,
   persistSession,
@@ -108,6 +110,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,6 +119,7 @@ export default function ProfilePage() {
   const [countryCode, setCountryCode] = useState("");
   const [clubId, setClubId] = useState("");
   const [bio, setBio] = useState("");
+  const [hasPlayer, setHasPlayer] = useState(true);
   const [initialCountryCode, setInitialCountryCode] = useState("");
   const [initialClubId, setInitialClubId] = useState("");
   const [initialBio, setInitialBio] = useState("");
@@ -140,6 +144,7 @@ export default function ProfilePage() {
   const [preferencesSaving, setPreferencesSaving] = useState(false);
   const [preferencesFeedback, setPreferencesFeedback] =
     useState<SaveFeedback>(null);
+  const [creatingPlayer, setCreatingPlayer] = useState(false);
 
   const clearFeedback = () => {
     setError(null);
@@ -155,6 +160,20 @@ export default function ProfilePage() {
         links.map((link) => [link.id, { label: link.label, url: link.url }])
       ) as Record<string, { label: string; url: string }>
     );
+  };
+
+  const applyPlayerDetails = (player: PlayerMe | null) => {
+    const nextCountry = player?.country_code ?? "";
+    const nextClub = player?.club_id ?? "";
+    const nextBio = player?.bio ?? "";
+    const nextLinks = player?.social_links ?? [];
+    setCountryCode(nextCountry);
+    setClubId(nextClub);
+    setBio(nextBio);
+    setInitialCountryCode(nextCountry);
+    setInitialClubId(nextClub);
+    setInitialBio(nextBio);
+    resetSocialLinkState(nextLinks);
   };
 
   useEffect(() => {
@@ -176,17 +195,8 @@ export default function ProfilePage() {
         try {
           const player = await fetchMyPlayer();
           if (!active) return;
-          const nextCountry = player.country_code ?? "";
-          const nextClub = player.club_id ?? "";
-          const nextBio = player.bio ?? "";
-          const nextLinks = player.social_links ?? [];
-          setCountryCode(nextCountry);
-          setClubId(nextClub);
-          setBio(nextBio);
-          setInitialCountryCode(nextCountry);
-          setInitialClubId(nextClub);
-          setInitialBio(nextBio);
-          resetSocialLinkState(nextLinks);
+          setHasPlayer(true);
+          applyPlayerDetails(player);
         } catch (playerErr) {
           if (!active) return;
           const status = (playerErr as Error & { status?: number }).status;
@@ -195,13 +205,8 @@ export default function ProfilePage() {
             return;
           }
           if (status === 404) {
-            setCountryCode("");
-            setInitialCountryCode("");
-            setClubId("");
-            setInitialClubId("");
-            setBio("");
-            setInitialBio("");
-            resetSocialLinkState([]);
+            setHasPlayer(false);
+            applyPlayerDetails(null);
           } else {
             console.error("Failed to load player profile", playerErr);
             setError("Failed to load profile");
@@ -277,55 +282,68 @@ export default function ProfilePage() {
       });
       return;
     }
-    const normalizedCountry = countryCode.trim().toUpperCase();
-    const trimmedClubId = clubId.trim();
-
-    const hasValidCountry =
-      !normalizedCountry ||
-      COUNTRY_OPTIONS.some((option) => option.code === normalizedCountry);
-    if (!hasValidCountry) {
+    if (password && password !== confirmPassword) {
       setSaveFeedback({
         type: "error",
-        message: "Please select a valid country.",
+        message: "Passwords do not match.",
       });
       return;
     }
 
-    const continentCode = normalizedCountry
-      ? getContinentForCountry(normalizedCountry)
-      : undefined;
+    const normalizedCountry = countryCode.trim().toUpperCase();
+    const trimmedClubId = clubId.trim();
     const trimmedBio = bio.trim();
     const initialBioTrimmed = initialBio.trim();
 
-    setUsername(trimmedUsername);
-    setCountryCode(normalizedCountry);
-    setClubId(trimmedClubId);
+    if (hasPlayer) {
+      const hasValidCountry =
+        !normalizedCountry ||
+        COUNTRY_OPTIONS.some((option) => option.code === normalizedCountry);
+      if (!hasValidCountry) {
+        setSaveFeedback({
+          type: "error",
+          message: "Please select a valid country.",
+        });
+        return;
+      }
+    }
 
-    const countryChanged = normalizedCountry !== initialCountryCode;
-    const clubChanged = trimmedClubId !== initialClubId;
-    const bioChanged = trimmedBio !== initialBioTrimmed;
+    setUsername(trimmedUsername);
 
     const payload: PlayerLocationPayload = {};
 
-    if (countryChanged) {
-      payload.country_code = normalizedCountry ? normalizedCountry : null;
-      payload.location = normalizedCountry ? normalizedCountry : null;
-      payload.region_code = normalizedCountry
-        ? continentCode ?? null
-        : null;
-    }
+    if (hasPlayer) {
+      setCountryCode(normalizedCountry);
+      setClubId(trimmedClubId);
+      setBio(trimmedBio);
 
-    if (clubChanged) {
-      payload.club_id = trimmedClubId ? trimmedClubId : null;
-    }
+      const countryChanged = normalizedCountry !== initialCountryCode;
+      const clubChanged = trimmedClubId !== initialClubId;
+      const bioChanged = trimmedBio !== initialBioTrimmed;
 
-    if (bioChanged) {
-      payload.bio = trimmedBio ? trimmedBio : null;
+      if (countryChanged) {
+        const continentCode = normalizedCountry
+          ? getContinentForCountry(normalizedCountry)
+          : undefined;
+        payload.country_code = normalizedCountry ? normalizedCountry : null;
+        payload.location = normalizedCountry ? normalizedCountry : null;
+        payload.region_code = normalizedCountry
+          ? continentCode ?? null
+          : null;
+      }
+
+      if (clubChanged) {
+        payload.club_id = trimmedClubId ? trimmedClubId : null;
+      }
+
+      if (bioChanged) {
+        payload.bio = trimmedBio ? trimmedBio : null;
+      }
     }
 
     setSaving(true);
     try {
-      if (Object.keys(payload).length > 0) {
+      if (hasPlayer && Object.keys(payload).length > 0) {
         try {
           const updatedPlayer = await updateMyPlayerLocation(payload);
           const nextCountry = updatedPlayer.country_code ?? "";
@@ -354,7 +372,7 @@ export default function ProfilePage() {
           }
           return;
         }
-      } else {
+      } else if (hasPlayer) {
         setInitialCountryCode(normalizedCountry);
         setInitialClubId(trimmedClubId);
         setBio(trimmedBio);
@@ -386,12 +404,31 @@ export default function ProfilePage() {
       }
 
       setPassword("");
+      setConfirmPassword("");
       setSaveFeedback({
         type: "success",
         message: "Profile saved successfully.",
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCreatePlayer = async () => {
+    clearFeedback();
+    setCreatingPlayer(true);
+    try {
+      const created = await createMyPlayer();
+      setHasPlayer(true);
+      applyPlayerDetails(created);
+      setMessage(
+        "Player profile created. You can now update your club, country, and bio."
+      );
+    } catch (err) {
+      const message = extractErrorMessage(err);
+      setError(message ?? "Failed to create player profile.");
+    } finally {
+      setCreatingPlayer(false);
     }
   };
 
@@ -425,8 +462,9 @@ export default function ProfilePage() {
     }
   };
 
-  const continentCode = getContinentForCountry(countryCode);
-  const continentLabel = continentCode ? CONTINENT_LABELS[continentCode] : null;
+  const continentCode = hasPlayer ? getContinentForCountry(countryCode) : null;
+  const continentLabel =
+    hasPlayer && continentCode ? CONTINENT_LABELS[continentCode] : null;
   const newLinkLabelError =
     error === SOCIAL_LINK_LABEL_REQUIRED_MESSAGE && !newLinkLabel.trim();
   const newLinkUrlError =
@@ -497,95 +535,145 @@ export default function ProfilePage() {
             autoComplete="new-password"
           />
         </label>
-        <label className="form-field" htmlFor="profile-country">
-          <span className="form-label">Country</span>
-          <select
-            id="profile-country"
-            value={countryCode}
+        <label className="form-field" htmlFor="profile-confirm-password">
+          <span className="form-label">Confirm new password</span>
+          <input
+            id="profile-confirm-password"
+            type="password"
+            placeholder="Re-enter new password"
+            value={confirmPassword}
             onChange={(e) => {
               setSaveFeedback(null);
-              setCountryCode(e.target.value);
+              setConfirmPassword(e.target.value);
             }}
-          >
-            <option value="">Select a country</option>
-            {COUNTRY_OPTIONS.map((option) => (
-              <option key={option.code} value={option.code}>
-                {option.name}
-              </option>
-            ))}
-          </select>
+            autoComplete="new-password"
+          />
         </label>
-        <p
-          style={{ fontSize: "0.85rem", color: "#555", margin: "-0.25rem 0 0.75rem" }}
-        >
-          Selecting a country automatically fills your continent.
-        </p>
-        {continentLabel ? (
+        {hasPlayer ? (
+          <>
+            <label className="form-field" htmlFor="profile-country">
+              <span className="form-label">Country</span>
+              <select
+                id="profile-country"
+                value={countryCode}
+                onChange={(e) => {
+                  setSaveFeedback(null);
+                  setCountryCode(e.target.value);
+                }}
+              >
+                <option value="">Select a country</option>
+                {COUNTRY_OPTIONS.map((option) => (
+                  <option key={option.code} value={option.code}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p
+              style={{
+                fontSize: "0.85rem",
+                color: "#555",
+                margin: "-0.25rem 0 0.75rem",
+              }}
+            >
+              Selecting a country automatically fills your continent.
+            </p>
+            {continentLabel ? (
+              <div
+                className="form-field"
+                aria-live="polite"
+                style={{ gap: "0.25rem" }}
+              >
+                <span className="form-label">Continent</span>
+                <div
+                  data-testid="continent-display"
+                  style={{ fontSize: "0.95rem", fontWeight: 500 }}
+                >
+                  {continentLabel}
+                </div>
+                <span style={{ fontSize: "0.85rem", color: "#555" }}>
+                  This is set automatically based on your selected country.
+                </span>
+              </div>
+            ) : null}
+            <div className="form-field">
+              <label className="form-label" htmlFor="profile-club-select">
+                Favorite club
+              </label>
+              <ClubSelect
+                value={clubId}
+                onChange={(next) => {
+                  setSaveFeedback(null);
+                  setClubId(next);
+                }}
+                placeholder="Search for a club"
+                searchInputId="profile-club-search"
+                selectId="profile-club-select"
+                searchLabel="Favorite club"
+                name="club_id"
+              />
+            </div>
+            <p
+              style={{
+                fontSize: "0.85rem",
+                color: "#555",
+                margin: "-0.25rem 0 0.75rem",
+              }}
+            >
+              Leave blank if you do not want to show a favorite club.
+            </p>
+            <label
+              style={{ display: "grid", gap: "0.5rem", width: "100%" }}
+              htmlFor="profile-bio"
+            >
+              <span>Biography</span>
+              <textarea
+                id="profile-bio"
+                value={bio}
+                onChange={(e) => {
+                  setSaveFeedback(null);
+                  setBio(e.target.value);
+                }}
+                rows={4}
+                maxLength={2000}
+                placeholder="Tell other players about yourself"
+                style={{
+                  width: "100%",
+                  minHeight: "6rem",
+                  padding: "0.5rem",
+                  fontFamily: "inherit",
+                  fontSize: "1rem",
+                  lineHeight: 1.4,
+                  resize: "vertical",
+                }}
+              />
+            </label>
+          </>
+        ) : (
           <div
             className="form-field"
-            aria-live="polite"
-            style={{ gap: "0.25rem" }}
-          >
-            <span className="form-label">Continent</span>
-            <div
-              data-testid="continent-display"
-              style={{ fontSize: "0.95rem", fontWeight: 500 }}
-            >
-              {continentLabel}
-            </div>
-            <span style={{ fontSize: "0.85rem", color: "#555" }}>
-              This is set automatically based on your selected country.
-            </span>
-          </div>
-        ) : null}
-        <div className="form-field">
-          <label className="form-label" htmlFor="profile-club-select">
-            Favorite club
-          </label>
-          <ClubSelect
-            value={clubId}
-            onChange={(next) => {
-              setSaveFeedback(null);
-              setClubId(next);
-            }}
-            placeholder="Search for a club"
-            searchInputId="profile-club-search"
-            selectId="profile-club-select"
-            searchLabel="Favorite club"
-            name="club_id"
-          />
-        </div>
-        <p
-          style={{ fontSize: "0.85rem", color: "#555", margin: "-0.25rem 0 0.75rem" }}
-        >
-          Leave blank if you do not want to show a favorite club.
-        </p>
-        <label
-          style={{ display: "grid", gap: "0.5rem", width: "100%" }}
-          htmlFor="profile-bio"
-        >
-          <span>Biography</span>
-          <textarea
-            id="profile-bio"
-            value={bio}
-            onChange={(e) => {
-              setSaveFeedback(null);
-              setBio(e.target.value);
-            }}
-            rows={4}
-            maxLength={2000}
-            placeholder="Tell other players about yourself"
             style={{
-              width: "100%",
-              minHeight: "6rem",
-              padding: "0.5rem",
-              fontFamily: "inherit",
-              fontSize: "1rem",
-              lineHeight: 1.4,
-              resize: "vertical",
+              display: "grid",
+              gap: "0.5rem",
+              border: "1px solid #d1d5db",
+              padding: "0.75rem",
+              borderRadius: "0.5rem",
+              background: "#f9fafb",
             }}
-          />
-        </label>
+          >
+            <p style={{ margin: 0, color: "#374151", lineHeight: 1.4 }}>
+              You don’t have a player profile yet. Create one to set your
+              country, favorite club, bio, and social links.
+            </p>
+            <button
+              type="button"
+              onClick={handleCreatePlayer}
+              disabled={creatingPlayer}
+            >
+              {creatingPlayer ? "Creating player…" : "Create my player profile"}
+            </button>
+          </div>
+        )}
         <button type="submit" disabled={saving}>
           {saving ? "Saving…" : "Save"}
         </button>
@@ -735,8 +823,10 @@ export default function ProfilePage() {
         <h2 id="social-links-heading" className="heading" style={{ fontSize: "1.25rem" }}>
           Social links
         </h2>
-        {socialLinks.length ? (
-          socialLinks.map((link) => {
+        {hasPlayer ? (
+          <>
+            {socialLinks.length ? (
+              socialLinks.map((link) => {
             const draft = linkDrafts[link.id] ?? { label: "", url: "" };
             const trimmedLabel = draft.label.trim();
             const trimmedUrl = draft.url.trim();
@@ -750,7 +840,7 @@ export default function ProfilePage() {
               error === SOCIAL_LINK_LABEL_REQUIRED_MESSAGE && !trimmedLabel;
             const urlHasError =
               error === INVALID_SOCIAL_URL_MESSAGE && !isValidHttpUrl(trimmedUrl);
-            return (
+                return (
               <div
                 key={link.id}
                 style={{
@@ -864,13 +954,13 @@ export default function ProfilePage() {
                   </button>
                 </div>
               </div>
-            );
-          })
-        ) : (
-          <p style={{ marginBottom: "1rem" }}>No social links yet.</p>
-        )}
-        <form
-          onSubmit={async (e) => {
+                );
+              })
+            ) : (
+              <p style={{ marginBottom: "1rem" }}>No social links yet.</p>
+            )}
+            <form
+              onSubmit={async (e) => {
             e.preventDefault();
             clearFeedback();
             const label = newLinkLabel.trim();
@@ -887,59 +977,83 @@ export default function ProfilePage() {
               setSaveFeedback(null);
               return;
             }
-            setLinkSubmitting(true);
-            try {
-              const created = await createMySocialLink({ label, url });
-              const nextLinks = [...socialLinks, created];
-              resetSocialLinkState(nextLinks);
-              setNewLinkLabel("");
-              setNewLinkUrl("");
-              setMessage("Social link added");
-              setSaveFeedback(null);
-            } catch (err) {
-              const message = extractErrorMessage(err);
-              setError(message ?? "Failed to add social link");
-              setPreferencesFeedback(null);
-              setSaveFeedback(null);
-            } finally {
-              setLinkSubmitting(false);
-            }
-          }}
-          style={{ display: "grid", gap: "0.5rem" }}
-        >
-          <label className="sr-only" htmlFor="social-link-new-label">
-            New social link label
-          </label>
-          <input
-            id="social-link-new-label"
-            type="text"
-            value={newLinkLabel}
-            onChange={(e) => setNewLinkLabel(e.target.value)}
-            placeholder="Label"
-            aria-invalid={newLinkLabelError ? true : undefined}
-          />
-          <label className="sr-only" htmlFor="social-link-new-url">
-            New social link URL
-          </label>
-          <input
-            id="social-link-new-url"
-            type="url"
-            value={newLinkUrl}
-            onChange={(e) => setNewLinkUrl(e.target.value)}
-            placeholder="https://example.com"
-            aria-invalid={newLinkUrlError ? true : undefined}
-            aria-describedby="social-link-url-hint"
-          />
-          <button type="submit" disabled={linkSubmitting}>
-            Add link
-          </button>
-        </form>
-        <p
-          id="social-link-url-hint"
-          style={{ fontSize: "0.85rem", color: "#555" }}
-        >
-          URLs must include http:// or https:// and a valid hostname.
-        </p>
+                setLinkSubmitting(true);
+                try {
+                  const created = await createMySocialLink({ label, url });
+                  const nextLinks = [...socialLinks, created];
+                  resetSocialLinkState(nextLinks);
+                  setNewLinkLabel("");
+                  setNewLinkUrl("");
+                  setMessage("Social link added");
+                  setSaveFeedback(null);
+                } catch (err) {
+                  const message = extractErrorMessage(err);
+                  setError(message ?? "Failed to add social link");
+                  setPreferencesFeedback(null);
+                  setSaveFeedback(null);
+                } finally {
+                  setLinkSubmitting(false);
+                }
+              }}
+              style={{ display: "grid", gap: "0.5rem" }}
+            >
+              <label className="sr-only" htmlFor="social-link-new-label">
+                New social link label
+              </label>
+              <input
+                id="social-link-new-label"
+                type="text"
+                value={newLinkLabel}
+                onChange={(e) => setNewLinkLabel(e.target.value)}
+                placeholder="Label"
+                aria-invalid={newLinkLabelError ? true : undefined}
+              />
+              <label className="sr-only" htmlFor="social-link-new-url">
+                New social link URL
+              </label>
+              <input
+                id="social-link-new-url"
+                type="url"
+                value={newLinkUrl}
+                onChange={(e) => setNewLinkUrl(e.target.value)}
+                placeholder="https://example.com"
+                aria-invalid={newLinkUrlError ? true : undefined}
+                aria-describedby="social-link-url-hint"
+              />
+              <button type="submit" disabled={linkSubmitting}>
+                Add link
+              </button>
+            </form>
+            <p
+              id="social-link-url-hint"
+              style={{ fontSize: "0.85rem", color: "#555" }}
+            >
+              URLs must include http:// or https:// and a valid hostname.
+            </p>
+          </>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gap: "0.5rem",
+              border: "1px solid #d1d5db",
+              padding: "0.75rem",
+              borderRadius: "0.5rem",
+              background: "#f9fafb",
+            }}
+          >
+            <p style={{ margin: 0, color: "#374151", lineHeight: 1.4 }}>
+              Create your player profile to share social links with other players.
+            </p>
+            <button
+              type="button"
+              onClick={handleCreatePlayer}
+              disabled={creatingPlayer}
+            >
+              {creatingPlayer ? "Creating player…" : "Create my player profile"}
+            </button>
+          </div>
+        )}
       </section>
     </main>
   );

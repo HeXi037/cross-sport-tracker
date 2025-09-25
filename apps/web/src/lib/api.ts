@@ -498,6 +498,12 @@ export async function fetchMyPlayer(): Promise<PlayerMe> {
   return withAbsolutePhotoUrl(data);
 }
 
+export async function createMyPlayer(): Promise<PlayerMe> {
+  const res = await apiFetch("/v0/players/me", { method: "POST" });
+  const data = (await res.json()) as PlayerMe;
+  return withAbsolutePhotoUrl(data);
+}
+
 export async function updateMyPlayerLocation(
   data: PlayerLocationPayload
 ): Promise<PlayerMe> {

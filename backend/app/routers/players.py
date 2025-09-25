@@ -185,6 +185,59 @@ async def get_my_player(
     return await get_player(player.id, session)
 
 
+@router.post("/me", response_model=PlayerOut, status_code=201)
+async def create_my_player(
+    current: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    existing_player = await _get_active_player_for_user(session, current.id)
+    if existing_player:
+        raise HTTPException(status_code=400, detail="player already exists")
+
+    username = current.username.strip()
+    if not username:
+        raise HTTPException(status_code=400, detail="username required")
+
+    normalized = username.lower()
+
+    dormant_player = (
+        await session.execute(
+            select(Player).where(
+                Player.user_id == current.id,
+                Player.deleted_at.is_not(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if dormant_player:
+        dormant_player.deleted_at = None
+        dormant_player.name = username
+        await session.commit()
+        await player_stats_cache.invalidate_players([dormant_player.id])
+        return await get_player(dormant_player.id, session)
+
+    name_match = (
+        await session.execute(
+            select(Player).where(func.lower(Player.name) == normalized)
+        )
+    ).scalar_one_or_none()
+    if name_match:
+        if name_match.deleted_at is None:
+            raise PlayerAlreadyExists(username)
+        name_match.deleted_at = None
+        name_match.user_id = current.id
+        name_match.name = username
+        await session.commit()
+        await player_stats_cache.invalidate_players([name_match.id])
+        return await get_player(name_match.id, session)
+
+    player_id = uuid.uuid4().hex
+    player = Player(id=player_id, user_id=current.id, name=username)
+    session.add(player)
+    await session.commit()
+    await player_stats_cache.invalidate_players([player_id])
+    return await get_player(player.id, session)
+
+
 async def _get_active_player_for_user(
     session: AsyncSession, user_id: str
 ) -> Player | None:

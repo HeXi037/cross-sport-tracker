@@ -8,6 +8,8 @@ const apiMocks = vi.hoisted(() => ({
   isLoggedIn: vi.fn(),
   apiFetch: vi.fn(),
   fetchMyPlayer: vi.fn(),
+  fetchClubs: vi.fn(),
+  createMyPlayer: vi.fn(),
   updateMyPlayerLocation: vi.fn(),
   createMySocialLink: vi.fn(),
   updateMySocialLink: vi.fn(),
@@ -31,6 +33,8 @@ vi.mock("../../lib/api", async () => {
     isLoggedIn: apiMocks.isLoggedIn,
     apiFetch: apiMocks.apiFetch,
     fetchMyPlayer: apiMocks.fetchMyPlayer,
+    fetchClubs: apiMocks.fetchClubs,
+    createMyPlayer: apiMocks.createMyPlayer,
     updateMyPlayerLocation: apiMocks.updateMyPlayerLocation,
     createMySocialLink: apiMocks.createMySocialLink,
     updateMySocialLink: apiMocks.updateMySocialLink,
@@ -49,6 +53,8 @@ describe("ProfilePage", () => {
     apiMocks.isLoggedIn.mockReset();
     apiMocks.apiFetch.mockReset();
     apiMocks.fetchMyPlayer.mockReset();
+    apiMocks.createMyPlayer.mockReset();
+    apiMocks.fetchClubs.mockReset();
     apiMocks.updateMyPlayerLocation.mockReset();
     apiMocks.createMySocialLink.mockReset();
     apiMocks.updateMySocialLink.mockReset();
@@ -70,6 +76,10 @@ describe("ProfilePage", () => {
       bio: "",
       social_links: [],
     });
+    apiMocks.fetchClubs.mockResolvedValue([
+      { id: "club-old", name: "Club Old" },
+      { id: "club-new", name: "Club New" },
+    ]);
     window.localStorage.clear();
   });
 
@@ -104,7 +114,7 @@ describe("ProfilePage", () => {
     expect(continentDisplay).toHaveTextContent("North America");
     const favoriteClubFields = await screen.findAllByLabelText("Favorite club");
     const clubSearchInput = favoriteClubFields[0] as HTMLInputElement;
-    expect(clubSearchInput).toHaveValue("club-old");
+    expect(clubSearchInput).toHaveValue("Club Old");
   });
 
   it("normalizes relative profile photo URLs", async () => {
@@ -238,6 +248,114 @@ describe("ProfilePage", () => {
       region_code: null,
       club_id: null,
     });
+  });
+
+  it("hides player fields and shows a create button when no player exists", async () => {
+    const notFound = Object.assign(new Error("HTTP 404: player not found"), {
+      status: 404,
+    });
+    apiMocks.fetchMyPlayer.mockRejectedValueOnce(notFound);
+
+    await act(async () => {
+      render(<ProfilePage />);
+    });
+
+    const createButtons = await screen.findAllByRole("button", {
+      name: /create my player profile/i,
+    });
+    expect(createButtons.length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText("Country")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("New social link label", { selector: "input" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("creates a player record on demand", async () => {
+    const notFound = Object.assign(new Error("HTTP 404: player not found"), {
+      status: 404,
+    });
+    apiMocks.fetchMyPlayer.mockRejectedValueOnce(notFound);
+    apiMocks.createMyPlayer.mockResolvedValue({
+      id: "player-created",
+      name: "Created Player",
+      location: null,
+      country_code: "SE",
+      region_code: "EU",
+      club_id: null,
+      bio: "",
+      social_links: [],
+    });
+
+    await act(async () => {
+      render(<ProfilePage />);
+    });
+
+    const createButtons = await screen.findAllByRole("button", {
+      name: /create my player profile/i,
+    });
+
+    await act(async () => {
+      fireEvent.click(createButtons[0]);
+    });
+
+    expect(apiMocks.createMyPlayer).toHaveBeenCalledTimes(1);
+    const success = await screen.findByText(/Player profile created/i);
+    expect(success).toBeInTheDocument();
+    const countrySelect = await screen.findByLabelText("Country");
+    expect((countrySelect as HTMLSelectElement).value).toBe("SE");
+  });
+
+  it("requires matching confirm password when updating the password", async () => {
+    apiMocks.updateMe.mockResolvedValue({});
+
+    await act(async () => {
+      render(<ProfilePage />);
+    });
+
+    const passwordInput = await screen.findByLabelText("New password");
+    const confirmInput = await screen.findByLabelText("Confirm new password");
+
+    fireEvent.change(passwordInput, {
+      target: { value: "StrongPass12!" },
+    });
+    fireEvent.change(confirmInput, {
+      target: { value: "Mismatch12!" },
+    });
+
+    const saveButton = await screen.findByRole("button", { name: /^save$/i });
+
+    await act(async () => {
+      fireEvent.click(saveButton);
+    });
+
+    expect(apiMocks.updateMe).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText(/Passwords do not match\./i)
+    ).toBeInTheDocument();
+  });
+
+  it("saves account details even when no player record exists", async () => {
+    const notFound = Object.assign(new Error("HTTP 404: player not found"), {
+      status: 404,
+    });
+    apiMocks.fetchMyPlayer.mockRejectedValueOnce(notFound);
+    apiMocks.updateMe.mockResolvedValue({});
+
+    await act(async () => {
+      render(<ProfilePage />);
+    });
+
+    const displayNameInput = await screen.findByLabelText("Display name");
+    fireEvent.change(displayNameInput, { target: { value: "  new-name  " } });
+
+    const saveButton = await screen.findByRole("button", { name: /^save$/i });
+
+    await act(async () => {
+      fireEvent.click(saveButton);
+    });
+
+    expect(apiMocks.updateMyPlayerLocation).not.toHaveBeenCalled();
+    expect(apiMocks.updateMe).toHaveBeenCalledWith({ username: "new-name" });
   });
 
   it("loads stored user settings and saves updates", async () => {

@@ -129,6 +129,15 @@ export default function ClubSelect({
   }, [options, searchTerm, value]);
 
   useEffect(() => {
+    if (disabled) {
+      return;
+    }
+    if (status === "idle") {
+      void loadOptions();
+    }
+  }, [disabled, loadOptions, status]);
+
+  useEffect(() => {
     if (dirtySearch) {
       return;
     }

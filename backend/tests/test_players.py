@@ -753,3 +753,57 @@ def test_players_me_endpoints_return_404_when_player_missing() -> None:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 404
+
+
+def test_create_players_me_creates_player_when_missing() -> None:
+    with TestClient(app) as client:
+        auth.limiter.reset()
+        signup = client.post(
+            "/auth/signup",
+            json={"username": "needs-player", "password": "Str0ng!Pass!"},
+        )
+        assert signup.status_code == 200
+        token = signup.json()["access_token"]
+
+        listing = client.get("/players", params={"q": "needs-player"})
+        assert listing.status_code == 200
+        player_id = listing.json()["players"][0]["id"]
+
+        admin = admin_token(client)
+        delete_resp = client.delete(
+            f"/players/{player_id}",
+            headers={"Authorization": f"Bearer {admin}"},
+        )
+        assert delete_resp.status_code == 204
+
+        create_resp = client.post(
+            "/players/me", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert create_resp.status_code == 201
+        created = create_resp.json()
+        assert created["name"] == "needs-player"
+        assert created["id"]
+
+        me_resp = client.get(
+            "/players/me", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert me_resp.status_code == 200
+        assert me_resp.json()["id"] == created["id"]
+
+
+def test_create_players_me_requires_missing_player() -> None:
+    with TestClient(app) as client:
+        auth.limiter.reset()
+        signup = client.post(
+            "/auth/signup",
+            json={"username": "already-has", "password": "Str0ng!Pass!"},
+        )
+        assert signup.status_code == 200
+        token = signup.json()["access_token"]
+
+        resp = client.post(
+            "/players/me", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert resp.status_code == 400
+
+

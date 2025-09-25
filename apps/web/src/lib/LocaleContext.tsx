@@ -15,8 +15,25 @@ function getBrowserLocale(fallback: string): string {
     : [];
   const preferred = languages.find((lang) => typeof lang === 'string' && lang.length > 0);
   const candidate = preferred ?? navigator.language;
+  const normalizedFallback = normalizeLocale(fallback);
+  const normalizedCandidate = normalizeLocale(candidate, normalizedFallback);
 
-  return normalizeLocale(candidate, fallback);
+  if (!candidate) {
+    return normalizedFallback;
+  }
+
+  const fallbackLower = normalizedFallback.toLowerCase();
+  const candidateLower = normalizedCandidate.toLowerCase();
+
+  if (fallbackLower !== 'en-us' && fallbackLower !== candidateLower) {
+    const fallbackBase = fallbackLower.split('-')[0] ?? fallbackLower;
+    const candidateBase = candidateLower.split('-')[0] ?? candidateLower;
+    if (fallbackBase === candidateBase) {
+      return normalizedFallback;
+    }
+  }
+
+  return normalizedCandidate;
 }
 
 interface ProviderProps {

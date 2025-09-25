@@ -1,7 +1,7 @@
 // apps/web/src/app/record/[sport]/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, useId, type FormEvent } from "react";
 import { flushSync } from "react-dom";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
@@ -13,6 +13,7 @@ import {
 } from "../../../lib/bowlingSummary";
 import {
   buildComingSoonHref,
+  getRecordSportHelpText,
   getRecordSportMetaBySlug,
   isSportHandledByDynamicRecordForm,
   normalizeRecordSportSlug,
@@ -265,6 +266,11 @@ export default function RecordSportPage() {
     () => getDatePlaceholder(locale),
     [locale],
   );
+  const sportHelpText = useMemo(
+    () => getRecordSportHelpText(sport, locale),
+    [locale, sport],
+  );
+  const helpTextId = useId();
 
   useEffect(() => {
     async function loadPlayers() {
@@ -479,6 +485,7 @@ export default function RecordSportPage() {
         side: string;
         summary: BowlingSummaryResult;
         playerName?: string;
+        displayName: string;
       }[] = [];
       for (let i = 0; i < bowlingData.length; i += 1) {
         const entry = bowlingData[i];
@@ -495,16 +502,32 @@ export default function RecordSportPage() {
             side: String.fromCharCode(65 + i),
             summary,
             playerName: player?.name,
+            displayName: label,
           });
         } catch (err) {
           const message =
             err instanceof Error
               ? err.message
-              : "Please review bowling frames and try again.";
+            : "Please review bowling frames and try again.";
           setError(message);
           return;
         }
       }
+
+      if (typeof window !== "undefined" && normalized.length > 0) {
+        const confirmLines = normalized
+          .map((entry) => `${entry.displayName}: ${entry.summary.total}`)
+          .join("\n");
+        const heading =
+          normalized.length === 1
+            ? "Save this bowling score?"
+            : "Save these bowling scores?";
+        const confirmed = window.confirm(`${heading}\n\n${confirmLines}`);
+        if (!confirmed) {
+          return;
+        }
+      }
+
       participants = normalized.map((entry) => ({
         side: entry.side,
         playerIds: [entry.id],
@@ -648,6 +671,7 @@ export default function RecordSportPage() {
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
                 lang={locale}
+                placeholder="hh:mm"
               />
             </label>
           </div>
@@ -664,13 +688,16 @@ export default function RecordSportPage() {
         </fieldset>
 
         {isBowling ? (
-          <fieldset className="form-fieldset">
+          <fieldset
+            className="form-fieldset"
+            aria-describedby={sportHelpText ? helpTextId : undefined}
+          >
             <legend className="form-legend">Players and scores</legend>
-            <p className="form-hint">
-              Enter each roll per frame (use 0 for gutter balls). Leave roll 2
-              empty after a strike and roll 3 blank unless you earn it in the
-              final frame.
-            </p>
+            {sportHelpText && (
+              <p id={helpTextId} className="form-hint">
+                {sportHelpText}
+              </p>
+            )}
             <div className="form-stack">
               {bowlingEntries.map((entry, idx) => {
                 const playerLabel = getBowlingPlayerLabel(entry, idx, players);
@@ -876,7 +903,16 @@ export default function RecordSportPage() {
               </div>
             </fieldset>
 
-            <fieldset className="form-fieldset">
+            {sportHelpText && (
+              <p id={helpTextId} className="form-hint">
+                {sportHelpText}
+              </p>
+            )}
+
+            <fieldset
+              className="form-fieldset"
+              aria-describedby={sportHelpText ? helpTextId : undefined}
+            >
               <legend className="form-legend">Match score</legend>
               <div className="form-grid form-grid--two">
                 <label className="form-field" htmlFor="record-score-a">

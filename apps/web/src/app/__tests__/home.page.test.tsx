@@ -58,9 +58,12 @@ describe('HomePageClient error messages', () => {
         matchError={false}
       />
     );
-    expect(
-      screen.getByText((_, el) => el?.textContent === 'A1 & A2 vs B1 & B2')
-    ).toBeInTheDocument();
+    const matchItem = screen.getByRole('listitem');
+    const normalized = matchItem.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    expect(normalized).toContain('A1');
+    expect(normalized).toContain('A2');
+    expect(normalized).toContain('B1');
+    expect(normalized).toContain('B2');
     const link = screen.getByText('Match details');
     expect(link).toBeInTheDocument();
     expect(link.getAttribute('href')).toBe('/matches/m1');

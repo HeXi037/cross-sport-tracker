@@ -7,6 +7,7 @@ import * as LocaleContext from "../../../lib/LocaleContext";
 let sportParam = "padel";
 let searchParamString = "";
 const router = { push: vi.fn(), replace: vi.fn() };
+let confirmSpy: ReturnType<typeof vi.spyOn>;
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
   useParams: () => ({ sport: sportParam }),
@@ -14,9 +15,16 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("RecordSportPage", () => {
+  beforeEach(() => {
+    confirmSpy = vi
+      .spyOn(window, "confirm")
+      .mockImplementation(() => true);
+  });
+
   afterEach(() => {
     router.push.mockReset();
     router.replace.mockReset();
+    confirmSpy.mockRestore();
     vi.clearAllMocks();
     searchParamString = "";
   });

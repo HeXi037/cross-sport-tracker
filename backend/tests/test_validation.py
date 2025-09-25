@@ -6,6 +6,13 @@ def test_accepts_valid_sets() -> None:
     validate_set_scores([{"A": 11, "B": 9}, {"A": 9, "B": 11}])
 
 
+def test_accepts_ties_when_allowed() -> None:
+    validate_set_scores(
+        [{"A": 120, "B": 120}],
+        allow_ties=True,
+    )
+
+
 @pytest.mark.parametrize(
     "sets, msg",
     [
@@ -36,4 +43,11 @@ def test_rejects_invalid_sets(sets, msg) -> None:
 def test_rejects_too_many_sets() -> None:
     with pytest.raises(ValidationError):
         validate_set_scores([{"A": 1, "B": 0}] * 6, max_sets=5)
+
+
+def test_allows_unbounded_set_counts_when_max_not_set() -> None:
+    validate_set_scores(
+        [{"A": 1, "B": 0}] * 6,
+        max_sets=None,
+    )
 

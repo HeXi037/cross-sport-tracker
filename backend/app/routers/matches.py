@@ -3,6 +3,8 @@ import uuid
 import importlib
 from collections import Counter
 from datetime import datetime
+from typing import Any, Sequence
+
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -96,6 +98,7 @@ async def create_match(
     session.add(match)
 
     player_sides: dict[str, str] = {}
+    side_players: dict[str, list[str]] = {}
     all_player_ids: list[str] = []
     for part in body.participants:
         for pid in part.playerIds:
@@ -103,6 +106,7 @@ async def create_match(
                 raise HTTPException(400, "duplicate players")
             player_sides[pid] = part.side
             all_player_ids.append(pid)
+            side_players.setdefault(part.side, []).append(pid)
 
     if not user.is_admin:
         player_ids = (
@@ -121,18 +125,127 @@ async def create_match(
         session.add(mp)
 
     extra_details = dict(body.details) if body.details else None
+    summary: dict[str, Any] | None = None
+    set_pairs: list[tuple[int, int]] = []
+    score_events: list[dict[str, Any]] = []
+
     if body.sets:
-        totals = [sum(s) for s in body.sets]
-        score_detail = {"score": {chr(65 + i): t for i, t in enumerate(totals)}}
-        match.details = {**(extra_details or {}), **score_detail}
+        normalized_sets: list[dict[str, int]] = []
+        try:
+            # ``MatchCreate.sets`` may be provided either as a list of per-set
+            # pairs (e.g. ``[[6, 4], [5, 7]]``) or transposed by side (e.g.
+            # ``[[6, 5], [4, 7]]``). Accept both formats.
+            candidate_pairs: list[Sequence[int]]
+            if all(isinstance(s, (list, tuple)) and len(s) == 2 for s in body.sets):
+                candidate_pairs = [tuple(s) for s in body.sets]  # type: ignore[arg-type]
+            else:
+                transposed = list(zip(*body.sets))
+                if not transposed:
+                    raise ValidationError("At least one set is required.")
+                candidate_pairs = [tuple(scores) for scores in transposed]
+            if any(len(pair) != 2 for pair in candidate_pairs):
+                raise ValidationError("Set scores must include values for sides A and B.")
+            for pair in candidate_pairs:
+                normalized_sets.append({"A": pair[0], "B": pair[1]})
+            validate_set_scores(normalized_sets)
+        except ValidationError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except Exception:
+            raise HTTPException(status_code=422, detail="Invalid set scores provided.")
+
+        set_pairs = [(int(s["A"]), int(s["B"])) for s in normalized_sets]
+        config: dict[str, Any] = {}
+        if match.best_of:
+            config["sets"] = match.best_of
+
+        if match.sport_id in ("padel", "tennis"):
+            engine = padel_engine if match.sport_id == "padel" else tennis_engine
+            state = engine.init_state(config)
+            score_events, state = engine.record_sets(set_pairs, state)
+            summary = engine.summary(state)
+        else:
+            summary = {
+                "sets": {
+                    "A": sum(1 for a, b in set_pairs if a > b),
+                    "B": sum(1 for a, b in set_pairs if b > a),
+                },
+                "set_scores": [{"A": a, "B": b} for a, b in set_pairs],
+            }
+            if config:
+                summary["config"] = config
+
+        if summary is not None:
+            set_scores_obj = summary.get("set_scores") if isinstance(summary, dict) else None
+            if not isinstance(set_scores_obj, list) or not set_scores_obj:
+                summary["set_scores"] = [{"A": a, "B": b} for a, b in set_pairs]
+                set_scores_obj = summary["set_scores"]
+            totals = {
+                "A": sum(int((s or {}).get("A", 0)) for s in set_scores_obj),
+                "B": sum(int((s or {}).get("B", 0)) for s in set_scores_obj),
+            }
+            summary["score"] = totals
+
+    details_payload: dict[str, Any] = dict(extra_details or {})
+
+    if summary is not None:
+        details_payload.update(summary)
     elif body.score:
         score_detail = {"score": {chr(65 + i): s for i, s in enumerate(body.score)}}
-        match.details = {**(extra_details or {}), **score_detail}
-    elif extra_details:
-        match.details = extra_details
+        details_payload.update(score_detail)
+
+    if details_payload:
+        match.details = details_payload
+
+    for payload in score_events:
+        e = ScoreEvent(
+            id=uuid.uuid4().hex,
+            match_id=mid,
+            type=payload.get("type", "POINT"),
+            payload=payload,
+        )
+        session.add(e)
+
+    players_a = side_players.get("A", [])
+    players_b = side_players.get("B", [])
+    if summary and players_a and players_b:
+        sets_record = summary.get("sets") if isinstance(summary, dict) else None
+        try:
+            a_sets = int(sets_record.get("A")) if sets_record else None
+            b_sets = int(sets_record.get("B")) if sets_record else None
+        except (TypeError, ValueError):
+            a_sets = b_sets = None
+
+        if a_sets is not None and b_sets is not None:
+            if a_sets == b_sets:
+                draws = players_a + players_b
+                try:
+                    await update_ratings(
+                        session,
+                        match.sport_id,
+                        players_a,
+                        players_b,
+                        draws=draws,
+                        match_id=mid,
+                    )
+                except Exception:
+                    pass
+                await update_player_metrics(session, match.sport_id, [], [], draws)
+            else:
+                winner_side = "A" if a_sets > b_sets else "B"
+                winners = players_a if winner_side == "A" else players_b
+                losers = players_b if winner_side == "A" else players_a
+                try:
+                    await update_ratings(
+                        session, match.sport_id, winners, losers, match_id=mid
+                    )
+                except Exception:
+                    pass
+                await update_player_metrics(session, match.sport_id, winners, losers)
 
     await session.commit()
     await player_stats_cache.invalidate_players(all_player_ids)
+    if summary is not None:
+        await broadcast(mid, {"summary": match.details})
     return MatchIdOut(id=mid)
 
 

@@ -451,6 +451,8 @@ textarea {
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
+  font-size: 0;
+  color: transparent;
 }
 
 .match-participants {

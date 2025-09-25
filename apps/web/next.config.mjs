@@ -1,9 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Keep URLs canonical (no trailing slash) so both `/players` and `/players/`
-  // hit the same route even on static hosts.
-  trailingSlash: false,
+  // Generate routes with a trailing slash so static hosts can resolve nested
+  // paths like `/players/` without relying on custom rewrites.
+  trailingSlash: true,
   async redirects() {
     return [
       {
@@ -14,13 +14,6 @@ const nextConfig = {
       {
         source: '/index/',
         destination: '/',
-        permanent: true,
-      },
-      {
-        // Use a catch-all pattern so nested segments like `/players/123/`
-        // also redirect to their non-trailing-slash form.
-        source: '/:path((?!_next|api).*)/',
-        destination: '/:path',
         permanent: true,
       },
     ];

@@ -5,6 +5,7 @@ import LiveSummary from "./live-summary";
 import MatchParticipants from "../../../components/MatchParticipants";
 import { PlayerInfo } from "../../../components/PlayerName";
 import { formatDateTime, parseAcceptLanguage } from "../../../lib/i18n";
+import { ensureTrailingSlash } from "../../../lib/routes";
 import {
   type SummaryData,
   type ScoreEvent,
@@ -325,7 +326,10 @@ export default async function MatchDetailPage({
     return (
       <main className="container">
         <div className="text-sm">
-          <Link href="/matches" className="underline underline-offset-2">
+          <Link
+            href={ensureTrailingSlash('/matches')}
+            className="underline underline-offset-2"
+          >
             ← Back to matches
           </Link>
         </div>
@@ -334,10 +338,13 @@ export default async function MatchDetailPage({
           {matchError ?? MATCH_LOAD_ERROR_MESSAGE}
         </p>
         <div className="mt-4 flex flex-col items-start gap-3 md:flex-row md:items-center">
-          <Link href={`/matches/${params.mid}`} className="button">
+          <Link
+            href={ensureTrailingSlash(`/matches/${params.mid}`)}
+            className="button"
+          >
             Try again
           </Link>
-          <Link href="/matches" className="underline">
+          <Link href={ensureTrailingSlash('/matches')} className="underline">
             Back to matches
           </Link>
         </div>
@@ -426,7 +433,10 @@ export default async function MatchDetailPage({
   return (
     <main className="container">
       <div className="text-sm">
-        <Link href="/matches" className="underline underline-offset-2">
+        <Link
+          href={ensureTrailingSlash('/matches')}
+          className="underline underline-offset-2"
+        >
           ← Back to matches
         </Link>
       </div>

@@ -5,6 +5,7 @@ import Pager from "./pager";
 import { PlayerInfo } from "../../components/PlayerName";
 import MatchParticipants from "../../components/MatchParticipants";
 import { formatDate, parseAcceptLanguage } from "../../lib/i18n";
+import { ensureTrailingSlash } from "../../lib/routes";
 
 export const dynamic = "force-dynamic";
 
@@ -194,7 +195,9 @@ export default async function MatchesPage(
                   {m.location ?? "—"}
                 </div>
                 <div>
-                  <Link href={`/matches/${m.id}`}>More info</Link>
+                  <Link href={ensureTrailingSlash(`/matches/${m.id}`)}>
+                    More info
+                  </Link>
                 </div>
               </li>
             ))}

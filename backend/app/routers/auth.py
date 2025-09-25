@@ -244,10 +244,12 @@ async def update_me(
 
     existing_player = (
         await session.execute(
-            select(Player).where(func.lower(Player.name) == new_username)
+            select(Player)
+            .where(func.lower(Player.name) == new_username)
+            .where(Player.deleted_at.is_(None))
         )
     ).scalar_one_or_none()
-    if existing_player:
+    if existing_player and existing_player.user_id not in {None, current.id}:
       raise HTTPException(status_code=400, detail="player exists")
 
     current.username = new_username

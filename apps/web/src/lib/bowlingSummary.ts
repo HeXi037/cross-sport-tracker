@@ -164,23 +164,85 @@ function frameScore(
   return first + second;
 }
 
+function normalizeRollValue(value: string | undefined): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = Number(trimmed);
+  if (
+    !Number.isFinite(parsed) ||
+    !Number.isInteger(parsed) ||
+    parsed < 0 ||
+    parsed > 10
+  ) {
+    return null;
+  }
+  return String(parsed);
+}
+
+function normalizeRegularFrameForSummary(frame: string[] | undefined): string[] {
+  const normalizedFirst = normalizeRollValue(frame?.[0]) ?? "0";
+  const firstPins = Number(normalizedFirst);
+  if (firstPins === 10) {
+    return [normalizedFirst];
+  }
+  const normalizedSecond = normalizeRollValue(frame?.[1]) ?? "0";
+  return [normalizedFirst, normalizedSecond];
+}
+
+function normalizeFinalFrameForSummary(frame: string[] | undefined): string[] {
+  const normalizedFirst = normalizeRollValue(frame?.[0]) ?? "0";
+  const normalizedSecond = normalizeRollValue(frame?.[1]) ?? "0";
+  const firstPins = Number(normalizedFirst);
+  const secondPins = Number(normalizedSecond);
+
+  const result: string[] = [normalizedFirst, normalizedSecond];
+
+  if (firstPins === 10 || firstPins + secondPins === 10) {
+    const normalizedThird = normalizeRollValue(frame?.[2]) ?? "0";
+    result.push(normalizedThird);
+  }
+
+  return result;
+}
+
+function normalizeInputsForSummary(frameInputs: string[][]): string[][] {
+  return frameInputs.map((frame, index) =>
+    index === FRAME_COUNT - 1
+      ? normalizeFinalFrameForSummary(frame)
+      : normalizeRegularFrameForSummary(frame),
+  );
+}
+
 export function summarizeBowlingInput(
   frameInputs: string[][],
-  options: { playerLabel: string; tenthFrameBonus?: boolean }
+  options: {
+    playerLabel: string;
+    tenthFrameBonus?: boolean;
+    normalizeIncompleteFrames?: boolean;
+  },
 ): BowlingSummaryResult {
+  const { playerLabel, tenthFrameBonus = true, normalizeIncompleteFrames } = options;
+  const inputs = normalizeIncompleteFrames
+    ? normalizeInputsForSummary(frameInputs)
+    : frameInputs;
+
   const frames: number[][] = [];
   for (let i = 0; i < FRAME_COUNT; i += 1) {
     if (i === FRAME_COUNT - 1) {
-      frames.push(parseFinalFrame(frameInputs[i], options.playerLabel));
+      frames.push(parseFinalFrame(inputs[i], playerLabel));
     } else {
-      frames.push(parseRegularFrame(frameInputs[i], i, options.playerLabel));
+      frames.push(parseRegularFrame(inputs[i], i, playerLabel));
     }
   }
-  const tenthBonus = options.tenthFrameBonus ?? true;
   const frameScores: number[] = [];
   let total = 0;
   for (let i = 0; i < FRAME_COUNT; i += 1) {
-    const score = frameScore(frames, i, tenthBonus);
+    const score = frameScore(frames, i, tenthFrameBonus);
     total += score;
     frameScores.push(total);
   }

@@ -29,7 +29,8 @@ const redirectToLeaderboard = (
   clubId?: string,
 ): never => {
   const params = new URLSearchParams();
-  if (sport && sport !== ALL_SPORTS) params.set("sport", sport);
+  const nextSport = sport ?? ALL_SPORTS;
+  params.set("sport", nextSport);
   if (country) params.set("country", country);
   if (clubId) params.set("clubId", clubId);
   const query = params.toString();
@@ -49,24 +50,23 @@ export default function LeaderboardIndexPage({
   const sportParam = parseSportParam(rawSport);
   const tabParam = parseSportParam(rawTab);
 
-  if (sportParam === null) {
+  if (rawTab) {
     if (tabParam) {
       redirectToLeaderboard(tabParam, country, clubId);
+    } else {
+      redirectToLeaderboard(ALL_SPORTS, country, clubId);
     }
-    redirectToLeaderboard(undefined, country, clubId);
   }
 
-  if (tabParam === null) {
-    redirectToLeaderboard(sportParam ?? undefined, country, clubId);
+  if (sportParam === null) {
+    redirectToLeaderboard(ALL_SPORTS, country, clubId);
   }
 
-  if (sportParam && rawTab) {
-    redirectToLeaderboard(sportParam, country, clubId);
-  } else if (!sportParam && tabParam) {
-    redirectToLeaderboard(tabParam, country, clubId);
+  if (!rawSport) {
+    redirectToLeaderboard(ALL_SPORTS, country, clubId);
   }
 
-  const sport = sportParam ?? tabParam ?? ALL_SPORTS;
+  const sport = sportParam ?? ALL_SPORTS;
 
   return (
     <Leaderboard sport={sport} country={country} clubId={clubId} />

@@ -58,9 +58,10 @@ describe('HomePageClient error messages', () => {
         matchError={false}
       />
     );
-    expect(
-      screen.getByText((_, el) => el?.textContent === 'A1 & A2 vs B1 & B2')
-    ).toBeInTheDocument();
+    expect(screen.getByText('A1')).toBeInTheDocument();
+    expect(screen.getByText('A2')).toBeInTheDocument();
+    expect(screen.getByText('B1')).toBeInTheDocument();
+    expect(screen.getByText('B2')).toBeInTheDocument();
     const link = screen.getByText('Match details');
     expect(link).toBeInTheDocument();
     expect(link.getAttribute('href')).toBe('/matches/m1');

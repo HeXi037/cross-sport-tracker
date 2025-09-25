@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 class ValidationError(Exception):
     """Raised when submitted set scores are invalid."""
@@ -8,20 +8,25 @@ class ValidationError(Exception):
         self.detail = detail
 
 
-def validate_set_scores(sets: List[Dict[str, Any]], max_sets: int = 5) -> None:
+def validate_set_scores(
+    sets: List[Dict[str, Any]],
+    *,
+    max_sets: Optional[int] = 5,
+    allow_ties: bool = False,
+) -> None:
     """Validate a list of set score dictionaries.
 
     Rules:
     - At least one set is required
-    - Number of sets must be <= ``max_sets``
+    - Number of sets must be <= ``max_sets`` (if provided)
     - Each set must be an object ``{A, B}``
     - ``A`` and ``B`` must be integers >= 0 (booleans are rejected)
-    - Ties are not allowed (``A`` != ``B``)
+    - Ties are not allowed (``A`` != ``B``) unless ``allow_ties`` is ``True``
     """
 
     if not isinstance(sets, list) or len(sets) == 0:
         raise ValidationError("At least one set is required.")
-    if len(sets) > max_sets:
+    if max_sets is not None and len(sets) > max_sets:
         raise ValidationError(f"Too many sets. Max allowed is {max_sets}.")
 
     for i, s in enumerate(sets, start=1):
@@ -44,7 +49,7 @@ def validate_set_scores(sets: List[Dict[str, Any]], max_sets: int = 5) -> None:
 
         if a < 0 or b < 0:
             raise ValidationError(f"Set #{i} scores must be >= 0.")
-        if a == b:
+        if not allow_ties and a == b:
             raise ValidationError(f"Set #{i} cannot be a tie.")
 
     return None

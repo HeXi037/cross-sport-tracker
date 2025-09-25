@@ -147,7 +147,13 @@ async def create_match(
                 raise ValidationError("Set scores must include values for sides A and B.")
             for pair in candidate_pairs:
                 normalized_sets.append({"A": pair[0], "B": pair[1]})
-            validate_set_scores(normalized_sets)
+            is_racket_sport = match.sport_id in ("padel", "tennis")
+            max_sets = match.best_of if match.best_of else (5 if is_racket_sport else None)
+            validate_set_scores(
+                normalized_sets,
+                max_sets=max_sets,
+                allow_ties=not is_racket_sport,
+            )
         except ValidationError as e:
             raise HTTPException(status_code=422, detail=str(e))
         except Exception:

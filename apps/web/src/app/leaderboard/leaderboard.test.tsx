@@ -94,7 +94,7 @@ describe("Leaderboard", () => {
     render(<Leaderboard sport="disc_golf" />);
 
     await screen.findByText(
-      "No Disc Golf matches have been recorded yet. Check back soon!",
+      "No Disc Golf matches recorded yet. Check back soon!",
     );
   });
 
@@ -107,7 +107,7 @@ describe("Leaderboard", () => {
     render(<Leaderboard sport="badminton" country="SE" />);
 
     await screen.findByText(
-      "No Badminton matches have been recorded for this region yet. Try clearing the filters or check back soon.",
+      "No Badminton matches recorded yet for this region. Try clearing the filters or check back soon.",
     );
   });
 
@@ -150,7 +150,7 @@ describe("Leaderboard", () => {
       .mockResolvedValue({ ok: true, json: async () => [] });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<Leaderboard sport="all" />);
+    const view = render(<Leaderboard sport="all" />);
 
     await waitFor(() =>
       expect(replaceMock).toHaveBeenCalledWith(
@@ -158,6 +158,9 @@ describe("Leaderboard", () => {
         { scroll: false },
       ),
     );
+
+    window.history.replaceState(null, "", "/leaderboard?sport=padel&country=SE");
+    view.rerender(<Leaderboard sport="padel" />);
 
     const countryInput = (await screen.findByLabelText("Country")) as HTMLInputElement;
     expect(countryInput.value).toBe("SE");

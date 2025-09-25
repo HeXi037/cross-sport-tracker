@@ -16,7 +16,7 @@ export default function AllSportsRedirect({
   const country = toSingleValue(searchParams?.country);
   const clubId = toSingleValue(searchParams?.clubId);
 
-  const params = new URLSearchParams();
+  const params = new URLSearchParams({ sport: "all" });
   if (country) params.set("country", country);
   if (clubId) params.set("clubId", clubId);
 

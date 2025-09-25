@@ -64,27 +64,27 @@ const getEmptyStateMessage = (
 ) => {
   if (hasAppliedFilters) {
     if (sport === MASTER_SPORT) {
-      return "The master leaderboard has no results for this region yet. Try clearing the filters or check back soon.";
+      return "No matches recorded yet for this region on the master leaderboard. Try clearing the filters or check back soon.";
     }
     if (sport === ALL_SPORTS) {
-      return "No matches have been recorded with these filters yet. Try adjusting the filters or check back soon.";
+      return "No matches recorded yet for this region. Try adjusting the filters or check back soon.";
     }
     return `No ${formatSportLabel(
       sport,
-    )} matches have been recorded for this region yet. Try clearing the filters or check back soon.`;
+    )} matches recorded yet for this region. Try clearing the filters or check back soon.`;
   }
 
   if (sport === MASTER_SPORT) {
-    return "The master leaderboard doesn't have any results yet. Check back soon!";
+    return "No matches recorded yet on the master leaderboard. Check back soon!";
   }
 
   if (sport === ALL_SPORTS) {
-    return "No matches have been recorded yet. Check back soon!";
+    return "No matches recorded yet. Check back soon!";
   }
 
   return `No ${formatSportLabel(
     sport,
-  )} matches have been recorded yet. Check back soon!`;
+  )} matches recorded yet. Check back soon!`;
 };
 
 export default function Leaderboard({ sport, country, clubId }: Props) {
@@ -205,7 +205,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     [appliedCountry, appliedClubId],
   );
 
-  const supportsFilters = sport !== MASTER_SPORT;
+  const supportsFilters = SPORTS.includes(
+    sport as (typeof SPORTS)[number],
+  );
 
   const regionQueryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -374,7 +376,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         </div>
         <nav style={{ display: "flex", gap: "0.5rem", fontSize: "0.9rem" }}>
           <Link
-            href={withRegion("/leaderboard")}
+            href={withRegion("/leaderboard?sport=all")}
             style={{ textDecoration: sport === ALL_SPORTS ? "underline" : "none" }}
           >
             All sports (combined)

@@ -74,7 +74,7 @@ export default function Header() {
           </li>
           <li>
             <Link
-              href={ensureTrailingSlash('/leaderboard')}
+              href={ensureTrailingSlash('/leaderboard?sport=all')}
               onClick={() => setOpen(false)}
             >
               Leaderboards

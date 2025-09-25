@@ -19,7 +19,8 @@ const redirectToLeaderboard = (
   clubId?: string,
 ): never => {
   const params = new URLSearchParams();
-  if (sport && sport !== ALL_SPORTS) params.set("sport", sport);
+  const nextSport = sport ?? ALL_SPORTS;
+  params.set("sport", nextSport);
   if (country) params.set("country", country);
   if (clubId) params.set("clubId", clubId);
   const query = params.toString();
@@ -41,5 +42,5 @@ export default function LeaderboardSportPage({
     redirectToLeaderboard(sport, country, clubId);
   }
 
-  redirectToLeaderboard(undefined, country, clubId);
+  redirectToLeaderboard(ALL_SPORTS, country, clubId);
 }

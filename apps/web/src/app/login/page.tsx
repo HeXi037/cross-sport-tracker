@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, useId, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   apiFetch,
@@ -8,14 +8,20 @@ import {
   logout,
   persistSession,
 } from "../../lib/api";
+import { useToast } from "../../components/ToastProvider";
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_REGEX = /^[A-Za-z0-9_.-]+$/;
 
 const SIGNUP_ERROR_DETAILS: Record<string, string> = {
-  "username exists": "That username is already in use.",
-  "player exists": "That player already has an account.",
+  "username exists": "Username already taken.",
+  "username already exists": "Username already taken.",
+  "username already taken": "Username already taken.",
+  "user already exists": "Username already taken.",
+  "email exists": "That email address is already registered.",
+  "player exists": "This player already has an account.",
+  "player already registered": "This player already has an account.",
   "invalid admin secret": "Invalid admin secret provided.",
   "too many requests": "Too many signup attempts. Please try again later.",
 };
@@ -38,6 +44,96 @@ function humanizeSignupDetail(message: string): string {
     return mapped;
   }
   return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
+
+interface PasswordRequirement {
+  id: string;
+  label: string;
+  met: boolean;
+}
+
+interface PasswordStrengthResult {
+  score: number;
+  label: string;
+  helper: string;
+  variant: "empty" | "weak" | "fair" | "strong" | "very-strong";
+  checks: PasswordRequirement[];
+}
+
+function getPasswordStrength(password: string): PasswordStrengthResult {
+  const trimmed = password.trim();
+  const length = trimmed.length;
+  const hasLower = /[a-z]/.test(trimmed);
+  const hasUpper = /[A-Z]/.test(trimmed);
+  const hasLetter = /[A-Za-z]/.test(trimmed);
+  const hasNumber = /\d/.test(trimmed);
+  const hasSymbol = /[^A-Za-z0-9]/.test(trimmed);
+  const hasMixedCase = hasLower && hasUpper;
+
+  const checks: PasswordRequirement[] = [
+    { id: "length", label: "At least 12 characters", met: length >= 12 },
+    { id: "letter", label: "Includes a letter", met: hasLetter },
+    { id: "number", label: "Includes a number", met: hasNumber },
+    { id: "symbol", label: "Includes a symbol", met: hasSymbol },
+  ];
+
+  if (!trimmed) {
+    return {
+      score: 0,
+      label: "Start typing a password",
+      helper: "Use at least 12 characters with letters, numbers, and symbols.",
+      variant: "empty",
+      checks,
+    };
+  }
+
+  let score = 0;
+  if (length >= 8) {
+    score = 1;
+  }
+  if (length >= 12 && hasLetter && hasNumber) {
+    score = 2;
+  }
+  if (length >= 12 && hasLetter && hasNumber && hasSymbol) {
+    score = 3;
+  }
+  if (length >= 16 && hasLetter && hasNumber && hasSymbol && hasMixedCase) {
+    score = 4;
+  }
+
+  let label = "Too weak";
+  let helper = "Use at least 12 characters with letters, numbers, and symbols.";
+  let variant: PasswordStrengthResult["variant"] = "weak";
+
+  switch (score) {
+    case 0:
+      label = "Too weak";
+      helper = "Keep going – add more characters to strengthen your password.";
+      variant = "weak";
+      break;
+    case 1:
+      label = "Weak";
+      helper = "Add more characters and mix in numbers and symbols.";
+      variant = "weak";
+      break;
+    case 2:
+      label = "Fair";
+      helper = "Add a symbol or mix uppercase and lowercase letters for extra strength.";
+      variant = "fair";
+      break;
+    case 3:
+      label = "Strong";
+      helper = "Great! This password meets the recommended requirements.";
+      variant = "strong";
+      break;
+    default:
+      label = "Very strong";
+      helper = "Excellent! This password is very strong.";
+      variant = "very-strong";
+      break;
+  }
+
+  return { score, label, helper, variant, checks };
 }
 
 async function extractSignupErrors(response: Response): Promise<string[]> {
@@ -112,11 +208,12 @@ async function extractSignupErrors(response: Response): Promise<string[]> {
     // Ignore body read errors and fall back to generic message.
   }
 
-  return ["Signup failed. Please try again."];
+  return ["We couldn't create your account. Please try again."];
 }
 
 export default function LoginPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [user, setUser] = useState(currentUsername());
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -124,12 +221,16 @@ export default function LoginPage() {
   const [newPass, setNewPass] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
-  const [signupMessage, setSignupMessage] = useState<string | null>(null);
+  const passwordStrengthLabelId = useId();
+  const passwordStrengthHelperId = useId();
+  const passwordStrength = useMemo(
+    () => getPasswordStrength(newPass),
+    [newPass]
+  );
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setErrors([]);
-    setSignupMessage(null);
     try {
       const res = await apiFetch("/v0/auth/login", {
         method: "POST",
@@ -151,7 +252,6 @@ export default function LoginPage() {
   const handleSignup = async (e: FormEvent) => {
     e.preventDefault();
     setErrors([]);
-    setSignupMessage(null);
     const trimmedUser = newUser.trim();
     const validationErrors: string[] = [];
 
@@ -194,20 +294,28 @@ export default function LoginPage() {
       if (res.ok) {
         const data = await res.json();
         persistSession(data);
-        setSignupMessage("Account created successfully! Redirecting...");
+        showToast({
+          message: "Account created successfully!",
+          variant: "success",
+        });
         setErrors([]);
+        setNewUser("");
         setNewPass("");
         setConfirmPass("");
+        setUsername("");
+        setPassword("");
         router.push("/");
       } else {
         const messages = await extractSignupErrors(res);
-        const contextualized = messages.map((msg) =>
-          msg.toLowerCase().startsWith("signup") ? msg : `Signup failed: ${msg}`
-        );
-        setErrors(contextualized);
+        setErrors(messages);
       }
     } catch (err) {
-      setErrors([normalizeErrorMessage(err, "Signup failed. Please try again.")]);
+      setErrors([
+        normalizeErrorMessage(
+          err,
+          "We couldn't create your account. Please try again."
+        ),
+      ]);
     }
   };
 
@@ -287,6 +395,42 @@ export default function LoginPage() {
             autoComplete="new-password"
             required
           />
+          <div className="password-strength" aria-live="polite">
+            <div
+              className="password-strength__track"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={4}
+              aria-valuenow={passwordStrength.score}
+              aria-describedby={`${passwordStrengthLabelId} ${passwordStrengthHelperId}`}
+            >
+              <div
+                className={`password-strength__bar password-strength__bar--${passwordStrength.variant}`}
+                style={{ width: `${(passwordStrength.score / 4) * 100}%` }}
+              />
+            </div>
+            <div id={passwordStrengthLabelId} className="password-strength__label">
+              Password strength: {passwordStrength.label}
+            </div>
+            <p id={passwordStrengthHelperId} className="password-strength__helper">
+              {passwordStrength.helper}
+            </p>
+          </div>
+          <ul className="password-guidelines">
+            {passwordStrength.checks.map((check) => (
+              <li
+                key={check.id}
+                className={`password-guidelines__item${
+                  check.met ? " password-guidelines__item--met" : ""
+                }`}
+              >
+                <span className="password-guidelines__status" aria-hidden="true">
+                  {check.met ? "✓" : "•"}
+                </span>
+                {check.label}
+              </li>
+            ))}
+          </ul>
         </div>
         <div className="form-field">
           <label htmlFor="signup-confirm-password" className="form-label">
@@ -303,12 +447,6 @@ export default function LoginPage() {
         </div>
         <button type="submit">Sign Up</button>
       </form>
-
-      {signupMessage && (
-        <div role="status" className="success">
-          {signupMessage}
-        </div>
-      )}
 
       {errors.length > 0 && (
         <div role="alert" className="error">

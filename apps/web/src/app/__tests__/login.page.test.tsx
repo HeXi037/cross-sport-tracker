@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import '@testing-library/jest-dom';
 import LoginPage from '../login/page';
 import { apiFetch, currentUsername, persistSession } from '../../lib/api';
+import ToastProvider from '../../components/ToastProvider';
 
 vi.mock('../../lib/api', async () => {
   const actual = await vi.importActual<typeof import('../../lib/api')>(
@@ -34,6 +35,8 @@ const mockedApiFetch = vi.mocked(apiFetch);
 const mockedCurrentUsername = vi.mocked(currentUsername);
 const mockedPersistSession = vi.mocked(persistSession);
 
+const renderWithToast = (ui: JSX.Element) => render(<ToastProvider>{ui}</ToastProvider>);
+
 const makeResponse = (
   body: unknown,
   init: { ok?: boolean; status?: number } = {}
@@ -65,7 +68,7 @@ describe('LoginPage signup feedback', () => {
       makeResponse({ access_token: 'token', refresh_token: 'refresh' })
     );
 
-    render(<LoginPage />);
+    renderWithToast(<LoginPage />);
 
     const [, signupUsername] = screen.getAllByLabelText('Username');
     const signupPassword = screen.getAllByLabelText('Password')[1];
@@ -90,9 +93,8 @@ describe('LoginPage signup feedback', () => {
     });
     expect(pushMock).toHaveBeenCalledWith('/');
 
-    expect(
-      await screen.findByText(/Account created successfully! Redirecting.../i)
-    ).toBeInTheDocument();
+    const toast = await screen.findByTestId('toast');
+    expect(toast).toHaveTextContent(/Account created successfully!/i);
   });
 
   it('surfaces signup failure reasons from the server', async () => {
@@ -103,7 +105,7 @@ describe('LoginPage signup feedback', () => {
       )
     );
 
-    render(<LoginPage />);
+    renderWithToast(<LoginPage />);
 
     const [, signupUsername] = screen.getAllByLabelText('Username');
     const signupPassword = screen.getAllByLabelText('Password')[1];
@@ -117,7 +119,7 @@ describe('LoginPage signup feedback', () => {
 
     const alert = await screen.findByRole('alert');
     expect(
-      within(alert).getByText(/Signup failed: That username is already in use\./i)
+      within(alert).getByText(/Username already taken\./i)
     ).toBeInTheDocument();
     expect(mockedPersistSession).not.toHaveBeenCalled();
     expect(pushMock).not.toHaveBeenCalled();

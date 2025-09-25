@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { flushSync } from "react-dom";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
 import { useLocale } from "../../../lib/LocaleContext";
 import { getDatePlaceholder } from "../../../lib/i18n";
@@ -186,6 +186,7 @@ function validateBowlingFrameInput(
 export default function RecordSportPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const rawSport = typeof params.sport === "string" ? params.sport : "";
   const normalizedSport = normalizeRecordSportSlug(rawSport);
   const sportMeta = rawSport ? getRecordSportMetaBySlug(rawSport) : null;
@@ -193,6 +194,7 @@ export default function RecordSportPage() {
   const isDynamicSport = sportMeta
     ? isSportHandledByDynamicRecordForm(sportMeta.id)
     : false;
+  const search = searchParams.toString();
 
   useEffect(() => {
     if (!rawSport) {
@@ -200,7 +202,7 @@ export default function RecordSportPage() {
     }
 
     if (!sportMeta || !sportMeta.implemented) {
-      router.replace(buildComingSoonHref(rawSport));
+      router.replace(buildComingSoonHref(rawSport, search));
       return;
     }
 
@@ -208,14 +210,27 @@ export default function RecordSportPage() {
       const target = ensureTrailingSlash(
         sportMeta.redirectPath ?? `/record/${sportMeta.slug}`,
       );
-      router.replace(target);
+      const nextUrl =
+        search && target.includes("?")
+          ? `${target}&${search}`
+          : search
+            ? `${target}?${search}`
+            : target;
+      router.replace(nextUrl);
       return;
     }
 
     if (sportMeta.slug !== rawSport) {
-      router.replace(ensureTrailingSlash(`/record/${sportMeta.slug}`));
+      const target = ensureTrailingSlash(`/record/${sportMeta.slug}`);
+      const nextUrl =
+        search && target.includes("?")
+          ? `${target}&${search}`
+          : search
+            ? `${target}?${search}`
+            : target;
+      router.replace(nextUrl);
     }
-  }, [rawSport, router, sportMeta]);
+  }, [rawSport, router, search, sportMeta]);
 
   if (!sportMeta || !sportMeta.implemented || !isDynamicSport) {
     return null;

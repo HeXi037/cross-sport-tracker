@@ -5,10 +5,12 @@ import RecordSportPage from "./page";
 import * as LocaleContext from "../../../lib/LocaleContext";
 
 let sportParam = "padel";
+let searchParamString = "";
 const router = { push: vi.fn(), replace: vi.fn() };
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
   useParams: () => ({ sport: sportParam }),
+  useSearchParams: () => new URLSearchParams(searchParamString),
 }));
 
 describe("RecordSportPage", () => {
@@ -16,6 +18,7 @@ describe("RecordSportPage", () => {
     router.push.mockReset();
     router.replace.mockReset();
     vi.clearAllMocks();
+    searchParamString = "";
   });
 
   it("redirects to the coming soon page when a sport is not implemented", async () => {
@@ -33,15 +36,16 @@ describe("RecordSportPage", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("redirects to the disc golf form when the slug uses underscores", async () => {
+  it("redirects to the disc golf form when the slug uses underscores, preserving query params", async () => {
     sportParam = "disc_golf";
+    searchParamString = "mid=123";
     const fetchMock = vi.fn();
     global.fetch = fetchMock as typeof fetch;
 
     render(<RecordSportPage />);
 
     await waitFor(() => {
-      expect(router.replace).toHaveBeenCalledWith("/record/disc-golf/");
+      expect(router.replace).toHaveBeenCalledWith("/record/disc-golf/?mid=123");
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });

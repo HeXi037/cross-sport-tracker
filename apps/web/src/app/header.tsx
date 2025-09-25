@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { currentUsername, isAdmin, logout } from '../lib/api';
+import { ensureTrailingSlash } from '../lib/routes';
 
 export default function Header() {
   const [open, setOpen] = useState(false);
@@ -48,34 +49,52 @@ export default function Header() {
             </Link>
           </li>
           <li>
-            <Link href="/players" onClick={() => setOpen(false)}>
+            <Link
+              href={ensureTrailingSlash('/players')}
+              onClick={() => setOpen(false)}
+            >
               Players
             </Link>
           </li>
           <li>
-            <Link href="/matches" onClick={() => setOpen(false)}>
+            <Link
+              href={ensureTrailingSlash('/matches')}
+              onClick={() => setOpen(false)}
+            >
               Matches
             </Link>
           </li>
           <li>
-            <Link href="/record" onClick={() => setOpen(false)}>
+            <Link
+              href={ensureTrailingSlash('/record')}
+              onClick={() => setOpen(false)}
+            >
               Record
             </Link>
           </li>
           <li>
-            <Link href="/leaderboard" onClick={() => setOpen(false)}>
+            <Link
+              href={ensureTrailingSlash('/leaderboard')}
+              onClick={() => setOpen(false)}
+            >
               Leaderboards
             </Link>
           </li>
           {admin && (
             <>
               <li>
-                <Link href="/admin/matches" onClick={() => setOpen(false)}>
+                <Link
+                  href={ensureTrailingSlash('/admin/matches')}
+                  onClick={() => setOpen(false)}
+                >
                   Admin Matches
                 </Link>
               </li>
               <li>
-                <Link href="/admin/badges" onClick={() => setOpen(false)}>
+                <Link
+                  href={ensureTrailingSlash('/admin/badges')}
+                  onClick={() => setOpen(false)}
+                >
                   Admin Badges
                 </Link>
               </li>
@@ -84,7 +103,10 @@ export default function Header() {
           {user ? (
             <>
               <li>
-                <Link href="/profile" onClick={() => setOpen(false)}>
+                <Link
+                  href={ensureTrailingSlash('/profile')}
+                  onClick={() => setOpen(false)}
+                >
                   Profile
                 </Link>
               </li>
@@ -95,7 +117,10 @@ export default function Header() {
             </>
           ) : (
             <li>
-              <Link href="/login" onClick={() => setOpen(false)}>
+              <Link
+                href={ensureTrailingSlash('/login')}
+                onClick={() => setOpen(false)}
+              >
                 Login
               </Link>
             </li>

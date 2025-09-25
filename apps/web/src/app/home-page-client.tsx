@@ -6,6 +6,7 @@ import { apiFetch } from '../lib/api';
 import { enrichMatches, type MatchRow, type EnrichedMatch } from '../lib/matches';
 import MatchParticipants from '../components/MatchParticipants';
 import { useLocale } from '../lib/LocaleContext';
+import { ensureTrailingSlash, recordPathForSport } from '../lib/routes';
 
 interface Sport { id: string; name: string }
 
@@ -17,8 +18,6 @@ const sportIcons: Record<string, string> = {
   badminton: '🏸',
   table_tennis: '🏓',
 };
-
-const toRecordPath = (sportId: string) => `/record/${sportId.replace(/_/g, '-')}`;
 
 interface Props {
   sports: Sport[];
@@ -118,7 +117,7 @@ export default function HomePageClient({
           <ul className="sport-list" role="list">
             {sports.map((s) => {
               const icon = sportIcons[s.id];
-              const href = toRecordPath(s.id);
+              const href = recordPathForSport(s.id);
               return (
                 <li key={s.id} className="sport-item">
                   <Link href={href} className="sport-link">
@@ -175,7 +174,9 @@ export default function HomePageClient({
                   {m.location ? ` · ${m.location}` : ''}
                 </div>
                 <div>
-                  <Link href={`/matches/${m.id}`}>Match details</Link>
+                  <Link href={ensureTrailingSlash(`/matches/${m.id}`)}>
+                    Match details
+                  </Link>
                 </div>
               </li>
             ))}

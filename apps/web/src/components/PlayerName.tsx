@@ -21,6 +21,8 @@ export default function PlayerName({ player }: { player: PlayerInfo }) {
           width={24}
           height={24}
           className="player-name__avatar"
+          aria-hidden="true"
+          role="presentation"
         />
       )}
       {player.name}

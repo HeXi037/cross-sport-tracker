@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { apiUrl } from "../../lib/api";
+import { ensureTrailingSlash } from "../../lib/routes";
 import { loadUserSettings } from "../user-settings";
 import {
   ALL_SPORTS,
@@ -213,10 +214,12 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     return params.toString();
   }, [appliedCountry, appliedClubId]);
 
-  const withRegion = (base: string) =>
-    regionQueryString
-      ? `${base}${base.includes("?") ? "&" : "?"}${regionQueryString}`
-      : base;
+  const withRegion = (base: string) => {
+    const normalizedBase = ensureTrailingSlash(base);
+    return regionQueryString
+      ? `${normalizedBase}${normalizedBase.includes("?") ? "&" : "?"}${regionQueryString}`
+      : normalizedBase;
+  };
 
   const regionDescription = useMemo(() => {
     if (sport === MASTER_SPORT) {
@@ -347,7 +350,10 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   return (
     <main className="container">
       <div style={{ marginBottom: "1rem", fontSize: "0.9rem" }}>
-        <Link href="/matches" style={{ textDecoration: "underline" }}>
+        <Link
+          href={ensureTrailingSlash("/matches")}
+          style={{ textDecoration: "underline" }}
+        >
           ← Back to matches
         </Link>
       </div>

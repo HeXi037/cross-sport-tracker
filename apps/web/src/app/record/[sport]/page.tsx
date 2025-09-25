@@ -11,6 +11,13 @@ import {
   summarizeBowlingInput,
   type BowlingSummaryResult,
 } from "../../../lib/bowlingSummary";
+import {
+  buildComingSoonHref,
+  getRecordSportMetaBySlug,
+  isSportHandledByDynamicRecordForm,
+  normalizeRecordSportSlug,
+} from "../../../lib/recording";
+import { ensureTrailingSlash } from "../../../lib/routes";
 
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 
@@ -180,7 +187,44 @@ export default function RecordSportPage() {
   const router = useRouter();
   const params = useParams();
   const rawSport = typeof params.sport === "string" ? params.sport : "";
-  const sport = rawSport.replace(/-/g, "_");
+  const normalizedSport = normalizeRecordSportSlug(rawSport);
+  const sportMeta = rawSport ? getRecordSportMetaBySlug(rawSport) : null;
+  const sport = sportMeta?.id ?? normalizedSport;
+  const isDynamicSport = sportMeta
+    ? isSportHandledByDynamicRecordForm(sportMeta.id)
+    : false;
+
+  useEffect(() => {
+    if (!rawSport) {
+      return;
+    }
+
+    if (!sportMeta || !sportMeta.implemented) {
+      router.replace(buildComingSoonHref(rawSport));
+      return;
+    }
+
+    if (sportMeta.form === "custom") {
+      const target = ensureTrailingSlash(
+        sportMeta.redirectPath ?? `/record/${sportMeta.slug}`,
+      );
+      router.replace(target);
+      return;
+    }
+
+    if (sportMeta.slug !== rawSport) {
+      router.replace(ensureTrailingSlash(`/record/${sportMeta.slug}`));
+    }
+  }, [rawSport, router, sportMeta]);
+
+  if (!sportMeta || !sportMeta.implemented || !isDynamicSport) {
+    return null;
+  }
+
+  if (sportMeta.slug !== rawSport) {
+    return null;
+  }
+
   const isPadel = sport === "padel";
   const isPickleball = sport === "pickleball";
   const isBowling = sport === "bowling";

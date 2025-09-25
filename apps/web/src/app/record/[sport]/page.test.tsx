@@ -5,7 +5,7 @@ import RecordSportPage from "./page";
 import * as LocaleContext from "../../../lib/LocaleContext";
 
 let sportParam = "padel";
-const router = { push: vi.fn() };
+const router = { push: vi.fn(), replace: vi.fn() };
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
   useParams: () => ({ sport: sportParam }),
@@ -14,7 +14,36 @@ vi.mock("next/navigation", () => ({
 describe("RecordSportPage", () => {
   afterEach(() => {
     router.push.mockReset();
+    router.replace.mockReset();
     vi.clearAllMocks();
+  });
+
+  it("redirects to the coming soon page when a sport is not implemented", async () => {
+    sportParam = "badminton";
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordSportPage />);
+
+    await waitFor(() => {
+      expect(router.replace).toHaveBeenCalledWith(
+        "/record/coming-soon?sport=badminton",
+      );
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("redirects to the disc golf form when the slug uses underscores", async () => {
+    sportParam = "disc_golf";
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordSportPage />);
+
+    await waitFor(() => {
+      expect(router.replace).toHaveBeenCalledWith("/record/disc-golf/");
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("rejects duplicate player selections", async () => {

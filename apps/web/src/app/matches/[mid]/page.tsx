@@ -74,13 +74,24 @@ type MatchDetail = {
   events?: ScoreEvent[] | null;
 };
 
+const PLACEHOLDER_LABELS = new Set(["-", "–", "—", "n/a", "na"]);
+
 function normalizeLabel(value: unknown): string | undefined {
   if (typeof value === "number" && Number.isFinite(value)) {
     return `${value}`;
   }
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
-  return trimmed ? trimmed : undefined;
+  if (!trimmed) return undefined;
+  const normalized = trimmed.replace(/\s+/g, " ");
+  const normalizedLower = normalized.toLowerCase();
+  if (
+    PLACEHOLDER_LABELS.has(normalized) ||
+    PLACEHOLDER_LABELS.has(normalizedLower)
+  ) {
+    return undefined;
+  }
+  return normalized;
 }
 
 function pickFirstString(
@@ -391,13 +402,17 @@ export default async function MatchDetailPage({
   const resolvedRulesetId = resolveRulesetIdentifier(match);
 
   const sportLabel =
-    match.sportName ?? sportName ?? match.sport ?? fallbackLabel;
-  const rulesetLabel =
-    resolvedRulesetName ??
-    rulesetNameFromLookup ??
-    resolvedRulesetId ??
+    normalizeLabel(match.sportName) ??
+    normalizeLabel(sportName) ??
+    normalizeLabel(match.sport) ??
     fallbackLabel;
-  const statusLabel = statusText ?? fallbackLabel;
+  const resolvedRulesetLabel =
+    resolvedRulesetName ?? rulesetNameFromLookup ?? resolvedRulesetId;
+  const rulesetLabel =
+    normalizeLabel(resolvedRulesetLabel) ?? fallbackLabel;
+  const resolvedStatusLabel =
+    normalizeLabel(statusText) ?? normalizeLabel(statusCode);
+  const statusLabel = resolvedStatusLabel ?? fallbackLabel;
 
   const playedAtDate = match.playedAt ? new Date(match.playedAt) : null;
   const playedAtStr = playedAtDate
@@ -410,8 +425,9 @@ export default async function MatchDetailPage({
     : null;
 
   const finishedStatus = statusCode ?? statusText;
+  const isFinished = isFinishedStatus(finishedStatus);
 
-  if (isRacketSport(match.sport) && isFinishedStatus(finishedStatus)) {
+  if (isRacketSport(match.sport) && isFinished) {
     const needsRebuild =
       shouldRebuildRacketSummary(initialSummary) || !summaryRecord;
     if (needsRebuild) {
@@ -483,6 +499,7 @@ export default async function MatchDetailPage({
         statusCode={statusCode}
         initialSummary={initialSummary}
         initialEvents={match.events ?? []}
+        initiallyFinished={isFinished}
       />
     </main>
   );

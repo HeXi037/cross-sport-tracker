@@ -38,33 +38,51 @@ export default function MatchParticipants<
 
   return (
     <Component className={classes} {...rest}>
-      {sides.map((side, sideIndex) => (
-        <span key={sideIndex} className="match-participants__side-wrapper">
-          {sideIndex > 0 && (
-            <span
-              className="match-participants__versus"
-              aria-label={versusLabel || undefined}
-            >
-              {` ${versusSymbol} `}
-            </span>
-          )}
-          <span className="match-participants__side">
-            {side.map((player, playerIndex) => (
+      {sides.map((side, sideIndex) => {
+        const renderedSide: Array<JSX.Element> = [];
+
+        side.forEach((player, playerIndex) => {
+          if (playerIndex === 0) {
+            renderedSide.push(
               <span key={player.id} className="match-participants__entry">
-                {playerIndex > 0 && (
-                  <span
-                    className="match-participants__separator"
-                    aria-label={separatorLabel || undefined}
-                  >
-                    {` ${separatorSymbol} `}
-                  </span>
-                )}
                 <PlayerName player={player} />
               </span>
-            ))}
+            );
+            return;
+          }
+
+          renderedSide.push(
+            <span
+              key={`${player.id}-group-${playerIndex}`}
+              className="match-participants__entry-group"
+            >
+              <span
+                className="match-participants__separator"
+                aria-label={separatorLabel || undefined}
+              >
+                {` ${separatorSymbol} `}
+              </span>
+              <span className="match-participants__entry">
+                <PlayerName player={player} />
+              </span>
+            </span>
+          );
+        });
+
+        return (
+          <span key={sideIndex} className="match-participants__side-wrapper">
+            {sideIndex > 0 && (
+              <span
+                className="match-participants__versus"
+                aria-label={versusLabel || undefined}
+              >
+                {` ${versusSymbol} `}
+              </span>
+            )}
+            <span className="match-participants__side">{renderedSide}</span>
           </span>
-        </span>
-      ))}
+        );
+      })}
     </Component>
   );
 }

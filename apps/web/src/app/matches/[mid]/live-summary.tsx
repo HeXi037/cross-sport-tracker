@@ -14,6 +14,8 @@ import {
 import { useMatchStream } from "../../../lib/useMatchStream";
 import MatchScoreboard from "./MatchScoreboard";
 
+const PLACEHOLDER_STATUS_VALUES = new Set(["-", "–", "—", "n/a", "na"]);
+
 type LiveSummaryProps = {
   mid: string;
   sport?: string | null;
@@ -21,21 +23,30 @@ type LiveSummaryProps = {
   statusCode?: string | null;
   initialSummary?: SummaryData | null;
   initialEvents?: ScoreEvent[] | null;
+  initiallyFinished?: boolean;
 };
 
 function sanitizeStatus(value?: string | null): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
-  return trimmed ? trimmed : undefined;
+  if (!trimmed) return undefined;
+  const normalized = trimmed.replace(/\s+/g, " ");
+  const normalizedLower = normalized.toLowerCase();
+  if (
+    PLACEHOLDER_STATUS_VALUES.has(normalized) ||
+    PLACEHOLDER_STATUS_VALUES.has(normalizedLower)
+  ) {
+    return undefined;
+  }
+  return normalized;
 }
 
 function normalizeStatusValue(value: unknown): string | undefined {
   if (typeof value === "number" && Number.isFinite(value)) {
-    return `${value}`;
+    return sanitizeStatus(`${value}`);
   }
   if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed ? trimmed : undefined;
+  return sanitizeStatus(value);
 }
 
 function pickFirstStatusString(
@@ -370,6 +381,7 @@ export default function LiveSummary({
   statusCode,
   initialSummary = null,
   initialEvents = null,
+  initiallyFinished = false,
 }: LiveSummaryProps) {
   const { event, connected, fallback } = useMatchStream(mid);
   const [summary, setSummary] = useState<SummaryData>(initialSummary ?? null);
@@ -407,7 +419,7 @@ export default function LiveSummary({
 
   useEffect(() => {
     if (!isRecord(summary)) return;
-    if (isFinishedStatus(statusValue ?? statusLabel)) return;
+    if (initiallyFinished || isFinishedStatus(statusValue ?? statusLabel)) return;
     const maybePoints = (summary as RacketSummary).points;
     if (
       maybePoints !== null &&
@@ -416,7 +428,7 @@ export default function LiveSummary({
     ) {
       setPointTotals(null);
     }
-  }, [summary, statusLabel, statusValue]);
+  }, [initiallyFinished, summary, statusLabel, statusValue]);
 
   useEffect(() => {
     if (!event) return;
@@ -473,35 +485,34 @@ export default function LiveSummary({
     [enrichedSummary, pointTotals]
   );
   const scoreline = useMemo(() => formatScoreline(effectiveSummary), [effectiveSummary]);
-  const finished = isFinishedStatus(statusValue ?? statusLabel);
+  const finished = initiallyFinished || isFinishedStatus(statusValue ?? statusLabel);
   const statusHeading = finished ? "Final score" : "Live summary";
-  const indicatorLabel = finished
-    ? statusLabel ?? "Final"
-    : connected
-      ? "Live"
-      : fallback
-        ? "Polling"
-        : "Offline";
-  const indicatorDotClass = finished
-    ? "dot-final"
-    : connected
-      ? "dot-live"
-      : "dot-polling";
-  const normalizedStatusLabel = statusLabel ?? "";
+  const indicatorLabel = connected
+    ? "Live"
+    : fallback
+      ? "Polling"
+      : "Offline";
+  const indicatorDotClass = connected ? "dot-live" : "dot-polling";
+  const normalizedStatusLabel = statusLabel ?? statusValue ?? "";
   const showStatusSuffix =
     normalizedStatusLabel &&
     !(finished && normalizedStatusLabel.toLowerCase() === "final")
       ? ` · ${normalizedStatusLabel}`
       : "";
+  const finalStatusLabel = statusLabel ?? statusValue ?? "Final score";
 
   return (
     <section className="live-summary-card" aria-labelledby="live-summary-heading">
       <div className="live-summary-header">
         <span id="live-summary-heading">{`${statusHeading}${showStatusSuffix}`}</span>
-        <span className="connection-indicator" aria-live="polite">
-          <span className={`dot ${indicatorDotClass}`} aria-hidden="true" />
-          <span>{indicatorLabel}</span>
-        </span>
+        {finished ? (
+          <span className="live-summary-final-label">{finalStatusLabel}</span>
+        ) : (
+          <span className="connection-indicator" aria-live="polite">
+            <span className={`dot ${indicatorDotClass}`} aria-hidden="true" />
+            <span>{indicatorLabel}</span>
+          </span>
+        )}
       </div>
 
       <p className="live-summary-overall">{scoreline}</p>

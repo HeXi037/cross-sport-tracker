@@ -476,6 +476,13 @@ textarea {
   gap: 0.35rem;
 }
 
+.match-participants__entry-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
 .match-participants__entry {
   display: inline-flex;
   align-items: center;
@@ -487,6 +494,7 @@ textarea {
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .match-participants__separator {
@@ -588,6 +596,14 @@ textarea {
   justify-content: space-between;
   gap: 12px;
   font-weight: 600;
+}
+
+.live-summary-final-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  color: rgba(10, 31, 68, 0.7);
 }
 
 .live-summary-overall {

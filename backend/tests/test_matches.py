@@ -228,7 +228,10 @@ async def test_create_match_with_sets(tmp_path):
     admin = User(id="u1", username="admin", password_hash="", is_admin=True)
     resp = await create_match(body, session, user=admin)
     m = await session.get(Match, resp.id)
-    assert m.details == {"score": {"A": 120, "B": 100}}
+    assert m.details is not None
+    assert m.details.get("score") == {"A": 120, "B": 100}
+    assert m.details.get("set_scores") == [{"A": 120, "B": 100}]
+    assert m.details.get("sets") == {"A": 1, "B": 0}
 
 
 @pytest.mark.anyio
@@ -297,7 +300,10 @@ async def test_create_match_by_name_with_sets(tmp_path):
     admin = User(id="u1", username="admin", password_hash="", is_admin=True)
     resp = await create_match_by_name(body, session, user=admin)
     m = await session.get(Match, resp.id)
-    assert m.details == {"score": {"A": 120, "B": 100}}
+    assert m.details is not None
+    assert m.details.get("score") == {"A": 120, "B": 100}
+    assert m.details.get("set_scores") == [{"A": 120, "B": 100}]
+    assert m.details.get("sets") == {"A": 1, "B": 0}
 
 
 @pytest.mark.anyio

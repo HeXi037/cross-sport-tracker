@@ -1,61 +1,88 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import * as bowlingSummary from "../../../lib/bowlingSummary";
-import RecordSportPage from "./page";
 import * as LocaleContext from "../../../lib/LocaleContext";
+import RecordSportForm from "./RecordSportForm";
+import { resolveRecordSportRoute } from "./page";
 
-let sportParam = "padel";
-let searchParamString = "";
-const router = { push: vi.fn(), replace: vi.fn() };
+const router = { push: vi.fn() };
+
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
-  useParams: () => ({ sport: sportParam }),
-  useSearchParams: () => new URLSearchParams(searchParamString),
 }));
 
-describe("RecordSportPage", () => {
+describe("resolveRecordSportRoute", () => {
+  afterEach(() => {
+    router.push.mockReset();
+  });
+
+  it("redirects to the coming soon page when a sport is not implemented", () => {
+    const result = resolveRecordSportRoute({
+      params: { sport: "badminton" },
+      searchParams: { mid: "123" },
+    });
+
+    expect(result.type).toBe("redirect");
+    if (result.type === "redirect") {
+      const url = new URL(result.destination, "https://example.com");
+      expect(url.pathname).toBe("/record/coming-soon");
+      expect(url.searchParams.get("sport")).toBe("badminton");
+      expect(url.searchParams.get("mid")).toBe("123");
+    }
+  });
+
+  it("redirects to the canonical slug when underscores are used, preserving query params", () => {
+    const result = resolveRecordSportRoute({
+      params: { sport: "disc_golf" },
+      searchParams: { mid: "123" },
+    });
+
+    expect(result).toEqual({
+      type: "redirect",
+      destination: "/record/disc-golf/?mid=123",
+    });
+  });
+
+  it("redirects disc golf requests to the custom form", () => {
+    const result = resolveRecordSportRoute({
+      params: { sport: "disc-golf" },
+      searchParams: { mid: "7" },
+    });
+
+    expect(result).toEqual({
+      type: "redirect",
+      destination: "/record/disc-golf/?mid=7",
+    });
+  });
+
+  it("returns not-found for an unknown sport", () => {
+    const result = resolveRecordSportRoute({
+      params: { sport: "archery" },
+    });
+
+    expect(result).toEqual({ type: "not-found" });
+  });
+
+  it("renders the dynamic form for implemented sports", () => {
+    const result = resolveRecordSportRoute({
+      params: { sport: "padel" },
+    });
+
+    expect(result).toEqual({ type: "render", sportId: "padel" });
+  });
+});
+
+describe("RecordSportForm", () => {
   beforeEach(() => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
   });
 
   afterEach(() => {
     router.push.mockReset();
-    router.replace.mockReset();
     vi.clearAllMocks();
-    searchParamString = "";
-  });
-
-  it("redirects to the coming soon page when a sport is not implemented", async () => {
-    sportParam = "badminton";
-    const fetchMock = vi.fn();
-    global.fetch = fetchMock as typeof fetch;
-
-    render(<RecordSportPage />);
-
-    await waitFor(() => {
-      expect(router.replace).toHaveBeenCalledWith(
-        "/record/coming-soon?sport=badminton",
-      );
-    });
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("redirects to the disc golf form when the slug uses underscores, preserving query params", async () => {
-    sportParam = "disc_golf";
-    searchParamString = "mid=123";
-    const fetchMock = vi.fn();
-    global.fetch = fetchMock as typeof fetch;
-
-    render(<RecordSportPage />);
-
-    await waitFor(() => {
-      expect(router.replace).toHaveBeenCalledWith("/record/disc-golf/?mid=123");
-    });
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("rejects duplicate player selections", async () => {
-    sportParam = "padel";
     const players = [
       { id: "1", name: "Alice" },
       { id: "2", name: "Bob" },
@@ -68,7 +95,7 @@ describe("RecordSportPage", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<RecordSportPage />);
+    render(<RecordSportForm sportId="padel" />);
 
     await screen.findAllByText("Alice");
 
@@ -88,13 +115,12 @@ describe("RecordSportPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     expect(
-      await screen.findByText("Please select unique players.")
+      await screen.findByText("Please select unique players."),
     ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("shows an Australian date format when the locale is en-AU", async () => {
-    sportParam = "bowling";
     const fetchMock = vi
       .fn()
       .mockResolvedValue({ ok: true, json: async () => ({ players: [] }) });
@@ -105,7 +131,7 @@ describe("RecordSportPage", () => {
       .mockReturnValue("en-AU");
 
     try {
-      render(<RecordSportPage />);
+      render(<RecordSportForm sportId="bowling" />);
 
       const dateInput = await screen.findByLabelText(/date/i);
       expect(dateInput).toHaveAttribute("placeholder", "dd/mm/yyyy");
@@ -116,8 +142,6 @@ describe("RecordSportPage", () => {
   });
 
   it("clears partner ids when toggling back to singles", async () => {
-    sportParam = "pickleball";
-
     const players = [
       { id: "1", name: "Alice" },
       { id: "2", name: "Bob" },
@@ -131,7 +155,7 @@ describe("RecordSportPage", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<RecordSportPage />);
+    render(<RecordSportForm sportId="pickleball" />);
 
     await screen.findAllByText("Alice");
 
@@ -164,7 +188,6 @@ describe("RecordSportPage", () => {
   });
 
   it("submits numeric scores", async () => {
-    sportParam = "padel";
     const players = [
       { id: "1", name: "Alice" },
       { id: "2", name: "Bob" },
@@ -178,7 +201,7 @@ describe("RecordSportPage", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<RecordSportPage />);
+    render(<RecordSportForm sportId="padel" />);
 
     await screen.findAllByText("Alice");
 
@@ -205,7 +228,6 @@ describe("RecordSportPage", () => {
   });
 
   it("sends the canonical sport id when the route uses a dashed slug", async () => {
-    sportParam = "table-tennis";
     const players = [
       { id: "1", name: "Alice" },
       { id: "2", name: "Bob" },
@@ -219,7 +241,7 @@ describe("RecordSportPage", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<RecordSportPage />);
+    render(<RecordSportForm sportId="table_tennis" />);
 
     await screen.findAllByText("Alice");
 
@@ -245,7 +267,6 @@ describe("RecordSportPage", () => {
   });
 
   it("allows recording multiple bowling players", async () => {
-    sportParam = "bowling";
     const players = [
       { id: "1", name: "Alice" },
       { id: "2", name: "Bob" },
@@ -275,7 +296,7 @@ describe("RecordSportPage", () => {
         .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
       global.fetch = fetchMock as typeof fetch;
 
-      render(<RecordSportPage />);
+      render(<RecordSportForm sportId="bowling" />);
 
       await screen.findAllByText("Alice");
 
@@ -322,14 +343,13 @@ describe("RecordSportPage", () => {
   });
 
   it("renders descriptive labels for each bowling roll", async () => {
-    sportParam = "bowling";
     const players = [{ id: "1", name: "Alice" }];
     const fetchMock = vi
       .fn()
       .mockResolvedValue({ ok: true, json: async () => ({ players }) });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<RecordSportPage />);
+    render(<RecordSportForm sportId="bowling" />);
 
     await screen.findAllByText("Alice");
 
@@ -338,7 +358,6 @@ describe("RecordSportPage", () => {
   });
 
   it("validates bowling frames as rolls are entered", async () => {
-    sportParam = "bowling";
     const players = [{ id: "1", name: "Alice" }];
 
     const fetchMock = vi
@@ -346,7 +365,7 @@ describe("RecordSportPage", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<RecordSportPage />);
+    render(<RecordSportForm sportId="bowling" />);
 
     await screen.findAllByText("Alice");
 
@@ -354,12 +373,8 @@ describe("RecordSportPage", () => {
     fireEvent.change(select, { target: { value: "1" } });
 
     const playerName = players[0].name;
-    const firstRoll = screen.getByLabelText(
-      `${playerName} frame 1 roll 1`
-    );
-    const secondRoll = screen.getByLabelText(
-      `${playerName} frame 1 roll 2`
-    );
+    const firstRoll = screen.getByLabelText(`${playerName} frame 1 roll 1`);
+    const secondRoll = screen.getByLabelText(`${playerName} frame 1 roll 2`);
 
     fireEvent.change(firstRoll, { target: { value: "10" } });
     expect((secondRoll as HTMLInputElement).value).toBe("");
@@ -369,8 +384,8 @@ describe("RecordSportPage", () => {
     expect((secondRoll as HTMLInputElement).value).toBe("");
     expect(
       screen.getByText(
-        `${playerName} – Frame 1: leave roll 2 empty after a strike.`
-      )
+        `${playerName} – Frame 1: leave roll 2 empty after a strike.`,
+      ),
     ).toBeInTheDocument();
 
     fireEvent.change(firstRoll, { target: { value: "4" } });
@@ -379,14 +394,13 @@ describe("RecordSportPage", () => {
     await waitFor(() =>
       expect(
         screen.queryByText(
-          `${playerName} – Frame 1: leave roll 2 empty after a strike.`
-        )
-      ).not.toBeInTheDocument()
+          `${playerName} – Frame 1: leave roll 2 empty after a strike.`,
+        ),
+      ).not.toBeInTheDocument(),
     );
   });
 
   it("shows bowling frame totals once all rolls are complete", async () => {
-    sportParam = "bowling";
     const players = [{ id: "1", name: "Alice" }];
 
     const fetchMock = vi
@@ -394,7 +408,7 @@ describe("RecordSportPage", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<RecordSportPage />);
+    render(<RecordSportForm sportId="bowling" />);
 
     await screen.findAllByText("Alice");
 
@@ -404,22 +418,14 @@ describe("RecordSportPage", () => {
     const playerName = players[0].name;
 
     for (let frame = 1; frame <= 9; frame += 1) {
-      const roll1 = screen.getByLabelText(
-        `${playerName} frame ${frame} roll 1`
-      );
-      const roll2 = screen.getByLabelText(
-        `${playerName} frame ${frame} roll 2`
-      );
+      const roll1 = screen.getByLabelText(`${playerName} frame ${frame} roll 1`);
+      const roll2 = screen.getByLabelText(`${playerName} frame ${frame} roll 2`);
       fireEvent.change(roll1, { target: { value: "3" } });
       fireEvent.change(roll2, { target: { value: "4" } });
     }
 
-    const finalRoll1 = screen.getByLabelText(
-      `${playerName} frame 10 roll 1`
-    );
-    const finalRoll2 = screen.getByLabelText(
-      `${playerName} frame 10 roll 2`
-    );
+    const finalRoll1 = screen.getByLabelText(`${playerName} frame 10 roll 1`);
+    const finalRoll2 = screen.getByLabelText(`${playerName} frame 10 roll 2`);
     fireEvent.change(finalRoll1, { target: { value: "3" } });
     fireEvent.change(finalRoll2, { target: { value: "4" } });
 
@@ -434,7 +440,7 @@ describe("RecordSportPage", () => {
     expect(finalFrameTotal).toHaveTextContent("Total: 70");
 
     expect(
-      screen.getByText("Total: 70", { selector: ".bowling-total-preview" })
+      screen.getByText("Total: 70", { selector: ".bowling-total-preview" }),
     ).toBeInTheDocument();
   });
 });

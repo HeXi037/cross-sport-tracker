@@ -1,12 +1,19 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+} from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 import RecordDiscGolfPage from "./page";
 
 const useSearchParamsMock = vi.fn<URLSearchParams, []>();
+const pushMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useSearchParams: () => useSearchParamsMock(),
+  useRouter: () => ({ push: pushMock }),
 }));
 
 const originalFetch = global.fetch;
@@ -18,13 +25,13 @@ describe("RecordDiscGolfPage", () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    pushMock.mockReset();
     if (originalFetch) {
       global.fetch = originalFetch;
     } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (global as any).fetch;
     }
-    useSearchParamsMock.mockReset();
   });
 
   it("posts hole events", async () => {
@@ -84,16 +91,109 @@ describe("RecordDiscGolfPage", () => {
     expect(screen.getByPlaceholderText("B")).toHaveDisplayValue("5");
   });
 
-  it("disables recording guidance when no match id is provided", () => {
+  it("disables recording guidance when no match id is provided", async () => {
     useSearchParamsMock.mockReturnValue(new URLSearchParams());
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] as const });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordDiscGolfPage />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    expect(
+      await screen.findByText(
+        /start a new match or choose an existing disc golf match before recording hole scores\./i
+      )
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: /start new match/i })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /record hole/i })).toBeDisabled();
+  });
+
+  it("creates a new match and enables scoring when requested", async () => {
+    useSearchParamsMock.mockReturnValue(new URLSearchParams());
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: "m-existing", sport: "disc_golf" },
+          { id: "padel-1", sport: "padel" },
+        ],
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "new-match" }) });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordDiscGolfPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /start new match/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/v0/matches",
+        expect.objectContaining({ method: "POST" })
+      );
+    });
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/record/disc-golf/?mid=new-match");
+    });
+
+    expect(
+      screen.getByLabelText<HTMLInputElement>(/player a strokes/i)
+    ).not.toBeDisabled();
+    expect(
+      screen.getByLabelText<HTMLInputElement>(/player b strokes/i)
+    ).not.toBeDisabled();
+  });
+
+  it("allows selecting an existing match to enable recording", async () => {
+    useSearchParamsMock.mockReturnValue(new URLSearchParams());
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({
+        ok: true,
+        json: async () => [
+          { id: "m-existing", sport: "disc_golf" },
+          { id: "other", sport: "padel" },
+        ],
+      });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordDiscGolfPage />);
+
+    const select = await screen.findByLabelText<HTMLSelectElement>(/existing match/i);
+    fireEvent.change(select, { target: { value: "m-existing" } });
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/record/disc-golf/?mid=m-existing");
+    });
+
+    expect(
+      screen.getByLabelText<HTMLInputElement>(/player a strokes/i)
+    ).not.toBeDisabled();
+    expect(
+      screen.getByLabelText<HTMLInputElement>(/player b strokes/i)
+    ).not.toBeDisabled();
+  });
+
+  it("keeps the form interactive when an existing match id is provided", () => {
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock as typeof fetch;
 
     render(<RecordDiscGolfPage />);
 
     expect(
-      screen.getByText(
-        /select a match before recording scores\. open this page from a match scoreboard or include a match id in the link\./i
-      )
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /record hole/i })).toBeDisabled();
+      screen.getByLabelText<HTMLInputElement>(/player a strokes/i)
+    ).not.toBeDisabled();
+    expect(
+      screen.getByLabelText<HTMLInputElement>(/player b strokes/i)
+    ).not.toBeDisabled();
+    expect(pushMock).not.toHaveBeenCalled();
   });
 });

@@ -265,4 +265,55 @@ describe("Leaderboard", () => {
     expect(url.searchParams.has("country")).toBe(false);
     expect(url.searchParams.has("clubId")).toBe(false);
   });
+
+  it("annotates the leaderboard table for accessibility", async () => {
+    const response = [
+      {
+        rank: 1,
+        playerId: "1",
+        playerName: "Player One",
+        rating: 1200,
+        setsWon: 5,
+        setsLost: 2,
+      },
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => response });
+    global.fetch = fetchMock as typeof fetch;
+    updateMockLocation("/leaderboard/padel");
+
+    render(<Leaderboard sport="padel" />);
+
+    const table = await screen.findByRole("table");
+    expect(table).toHaveAttribute("id", "leaderboard-results");
+
+    const headers = screen.getAllByRole("columnheader");
+    headers.forEach((header) => {
+      expect(header).toHaveAttribute("scope", "col");
+    });
+
+    expect(screen.getByRole("columnheader", { name: "#" })).toHaveAttribute(
+      "aria-sort",
+      "ascending",
+    );
+
+    expect(
+      screen.getByRole("navigation", { name: "Leaderboard sports" }),
+    ).toHaveAttribute("aria-controls", "leaderboard-results");
+
+    expect(
+      screen.getByRole("form", { name: "Leaderboard filters" }),
+    ).toHaveAttribute("aria-controls", "leaderboard-results");
+
+    expect(screen.getByRole("button", { name: "Apply" })).toHaveAttribute(
+      "aria-controls",
+      "leaderboard-results",
+    );
+
+    expect(screen.getByRole("button", { name: "Clear" })).toHaveAttribute(
+      "aria-controls",
+      "leaderboard-results",
+    );
+  });
 });

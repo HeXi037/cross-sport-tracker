@@ -6,6 +6,7 @@ import {
   isAdmin,
   updatePlayerLocation,
   withAbsolutePhotoUrl,
+  type ApiError,
 } from "../../lib/api";
 import { COUNTRY_OPTIONS } from "../../lib/countries";
 import PlayerName, { PlayerInfo } from "../../components/PlayerName";
@@ -40,6 +41,12 @@ const PLAYERS_SERVER_ERROR_MESSAGE =
   "Failed to load players due to a server error. Please try again later.";
 const PLAYERS_NETWORK_ERROR_MESSAGE =
   "Failed to load players because we couldn't reach the network. Check your connection and retry.";
+const PLAYERS_FORBIDDEN_MESSAGE =
+  "You do not have permission to view hidden players.";
+
+const PLAYER_ERROR_COPY: Record<string, string> = {
+  players_include_hidden_forbidden: PLAYERS_FORBIDDEN_MESSAGE,
+};
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -129,14 +136,41 @@ export default function PlayersPage() {
       if (loadRequestId.current !== requestId) {
         return;
       }
-      let message = PLAYERS_ERROR_MESSAGE;
-      const errorWithStatus = err as { status?: number };
-      if (typeof errorWithStatus?.status === "number") {
-        if (errorWithStatus.status >= 500) {
-          message = PLAYERS_SERVER_ERROR_MESSAGE;
+      const apiError = err as ApiError | null;
+      const code = typeof apiError?.code === "string" ? apiError.code : null;
+      let message: string | null = null;
+
+      if (code) {
+        message = PLAYER_ERROR_COPY[code] ?? null;
+        if (!message) {
+          console.error(
+            "Unhandled players fetch error code",
+            code,
+            apiError?.parsedMessage ?? apiError?.message ?? null
+          );
         }
-      } else {
-        message = PLAYERS_NETWORK_ERROR_MESSAGE;
+      }
+
+      if (!message) {
+        if (typeof apiError?.status === "number") {
+          if (apiError.status === 403) {
+            message = PLAYERS_FORBIDDEN_MESSAGE;
+          } else if (apiError.status >= 500) {
+            message = PLAYERS_SERVER_ERROR_MESSAGE;
+          }
+        } else {
+          message = PLAYERS_NETWORK_ERROR_MESSAGE;
+        }
+      }
+
+      if (!message) {
+        if (apiError?.parsedMessage) {
+          console.error(
+            "Unhandled players fetch error message",
+            apiError.parsedMessage
+          );
+        }
+        message = PLAYERS_ERROR_MESSAGE;
       }
       setPlayersLoadError(message);
       setError(message);

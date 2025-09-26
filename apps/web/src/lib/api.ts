@@ -264,6 +264,12 @@ export function withAbsolutePhotoUrl<T extends { photo_url?: string | null }>(
   return { ...entity, photo_url: normalized } as T;
 }
 
+export type ApiError = Error & {
+  status?: number;
+  code?: string;
+  parsedMessage?: string;
+};
+
 async function executeFetch(
   path: string,
   init: RequestInit | undefined,
@@ -299,11 +305,17 @@ async function executeFetch(
   }
 
   let problemMessage: string | undefined;
+  let errorCode: string | undefined;
   try {
     const data = await res.clone().json();
     if (data && typeof data === "object") {
-      const detail = (data as Record<string, unknown>).detail;
-      const title = (data as Record<string, unknown>).title;
+      const record = data as Record<string, unknown>;
+      const detail = record.detail;
+      const title = record.title;
+      const code = record.code;
+      if (typeof code === "string" && code.length > 0) {
+        errorCode = code;
+      }
       if (typeof detail === "string" && detail.length > 0) {
         problemMessage = detail;
       } else if (typeof title === "string" && title.length > 0) {
@@ -319,7 +331,8 @@ async function executeFetch(
     text = await res.text();
   }
 
-  const message = problemMessage ?? text ?? res.statusText ?? "Unknown error";
+  const parsedMessage = problemMessage ?? text;
+  const message = parsedMessage ?? res.statusText ?? "Unknown error";
   const logoutSource = (problemMessage ?? text ?? "").toLowerCase();
 
   if (res.status === 401) {
@@ -335,10 +348,14 @@ async function executeFetch(
     }
   }
 
-  const err: Error & { status?: number } = new Error(
-    `HTTP ${res.status}: ${message}`
-  );
+  const err: ApiError = new Error(`HTTP ${res.status}: ${message}`);
   err.status = res.status;
+  if (errorCode) {
+    err.code = errorCode;
+  }
+  if (typeof parsedMessage === "string" && parsedMessage.length > 0) {
+    err.parsedMessage = parsedMessage;
+  }
   throw err;
 }
 

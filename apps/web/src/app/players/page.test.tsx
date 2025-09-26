@@ -68,7 +68,7 @@ describe("PlayersPage", () => {
     expect(screen.getByText(/loading players/i)).toBeTruthy();
   });
 
-  it("shows a retryable error when loading players fails", async () => {
+  it("shows server specific messaging and recovery links when loading players fails", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -86,15 +86,43 @@ describe("PlayersPage", () => {
     });
 
     const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toMatch(/failed to load players/i);
-    const retry = screen.getByRole("button", { name: /retry/i });
+    expect(alert.textContent).toMatch(/server error/i);
+    const navigation = screen.getByRole("navigation", {
+      name: /player loading recovery options/i,
+    });
+    expect(screen.getByRole("link", { name: /go back home/i })).toBeTruthy();
+    const retry = screen.getByRole("button", {
+      name: /retry loading players/i,
+    });
     await act(async () => {
       fireEvent.click(retry);
       await Promise.resolve();
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const toast = await screen.findByTestId("toast");
-    expect(toast.textContent).toMatch(/failed to load players/i);
+    expect(toast.textContent).toMatch(/server error/i);
+    expect(navigation).toBeTruthy();
+  });
+
+  it("shows network specific messaging when loading players fails due to connectivity", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("Network request failed"))
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      renderWithProviders(<PlayersPage />);
+    });
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/network/i);
+    expect(
+      screen.getByRole("button", { name: /retry loading players/i })
+    ).toBeTruthy();
+    expect(screen.getByRole("link", { name: /go back home/i })).toBeTruthy();
+    const toast = await screen.findByTestId("toast");
+    expect(toast.textContent).toMatch(/network/i);
   });
 
   it("disables add button for blank names", async () => {
@@ -179,6 +207,71 @@ describe("PlayersPage", () => {
     expect(screen.getByText("Bob")).toBeTruthy();
     expect(screen.getByText("2-3 (40%)")).toBeTruthy();
     vi.useRealTimers();
+  });
+
+  it("guides users when their search returns no players", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ players: [{ id: "1", name: "Alice" }] }),
+      })
+      .mockResolvedValueOnce(
+        mockStatsResponse({
+          playerId: "1",
+          wins: 3,
+          losses: 1,
+          winPct: 0.75,
+        })
+      )
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ players: [] }),
+      });
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      renderWithProviders(<PlayersPage />);
+    });
+
+    const search = screen.getByPlaceholderText(/search players/i);
+    fireEvent.change(search, { target: { value: "Zo" } });
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+      await Promise.resolve();
+    });
+
+    const statuses = screen.getAllByRole("status");
+    const status = statuses.find((el) =>
+      el.textContent?.includes("No players match your search")
+    );
+    expect(status).toBeTruthy();
+    expect(status?.textContent).toMatch(/no players match your search/i);
+    expect(status?.textContent).toMatch(/remove filters/i);
+    vi.useRealTimers();
+  });
+
+  it("offers a CTA when the roster is empty", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      renderWithProviders(<PlayersPage />);
+    });
+
+    const statuses = await screen.findAllByRole("status");
+    const status = statuses.find((el) =>
+      el.textContent?.includes("No players have been added yet")
+    );
+    expect(status).toBeTruthy();
+    expect(status?.textContent).toMatch(/no players have been added yet/i);
+    const cta = screen.getByRole("link", {
+      name: /record a match to start building the roster/i,
+    });
+    expect(cta.getAttribute("href")).toBe("/record");
   });
 
   it("debounces player search requests", async () => {
@@ -336,7 +429,11 @@ describe("PlayersPage", () => {
           losses: 5,
           winPct: 0.5,
         })
-      );
+      )
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ players: [] }),
+      });
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
@@ -349,7 +446,13 @@ describe("PlayersPage", () => {
     await act(async () => {
       vi.advanceTimersByTime(300);
     });
-    expect(screen.getByText(/no players found/i)).toBeTruthy();
+    const statuses = screen.getAllByRole("status");
+    const status = statuses.find((el) =>
+      el.textContent?.includes("No players match your search")
+    );
+    expect(status).toBeTruthy();
+    expect(status?.textContent).toMatch(/no players match your search/i);
+    expect(status?.textContent).toMatch(/remove filters/i);
     vi.useRealTimers();
   });
 

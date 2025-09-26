@@ -10,7 +10,7 @@ const defaultProps = {
   matches: [],
   sportError: false,
   matchError: false,
-  initialLocale: 'en-US',
+  initialLocale: 'en-GB',
   initialHasMore: false,
   initialNextOffset: null,
   initialPageSize: 5,
@@ -75,22 +75,17 @@ describe('HomePageClient error messages', () => {
       .spyOn(apiModule, 'apiFetch')
       .mockResolvedValue({
         ok: true,
-        json: async () => ({
-          items: [
-            {
-              id: 'm2',
-              sport: 'padel',
-              bestOf: 3,
-              playedAt: null,
-              location: null,
-              isFriendly: false,
-            },
-          ],
-          limit: 5,
-          offset: 5,
-          hasMore: false,
-          nextOffset: null,
-        }),
+        json: async () => [
+          {
+            id: 'm2',
+            sport: 'padel',
+            bestOf: 3,
+            playedAt: null,
+            location: null,
+            isFriendly: false,
+          },
+        ],
+        headers: new Headers({ 'X-Limit': '5', 'X-Has-More': 'false' }),
       } as unknown as Response);
 
     vi.spyOn(matchesModule, 'enrichMatches').mockImplementation(async (rows) =>

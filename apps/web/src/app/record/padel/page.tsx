@@ -6,7 +6,9 @@ import { apiFetch } from "../../../lib/api";
 import { ensureTrailingSlash } from "../../../lib/routes";
 import { useLocale } from "../../../lib/LocaleContext";
 import {
+  getDateExample,
   getDatePlaceholder,
+  getTimeExample,
   usesTwentyFourHourClock,
 } from "../../../lib/i18n";
 import { buildPlayedAtISOString } from "../../../lib/datetime";
@@ -101,11 +103,17 @@ export default function RecordPadelPage() {
   };
 
   const datePlaceholder = useMemo(() => getDatePlaceholder(locale), [locale]);
+  const dateExample = useMemo(() => getDateExample(locale), [locale]);
   const uses24HourTime = useMemo(
     () => usesTwentyFourHourClock(locale),
     [locale],
   );
-  const timePlaceholder = uses24HourTime ? "HH:MM" : undefined;
+  const timeExample = useMemo(() => getTimeExample(locale), [locale]);
+  const timeHintId = useMemo(() => 'padel-time-hint', []);
+  const timeHintText = useMemo(
+    () => `Example: ${timeExample}.`,
+    [timeExample],
+  );
 
   const validateSets = () => {
     const errors = sets.map(() => "");
@@ -264,7 +272,7 @@ export default function RecordPadelPage() {
                 aria-describedby="padel-date-format"
               />
               <span id="padel-date-format" className="form-hint">
-                Format: {datePlaceholder}
+                Example: {dateExample}
               </span>
             </label>
             <label className="form-field" htmlFor="padel-time">
@@ -275,13 +283,16 @@ export default function RecordPadelPage() {
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
                 lang={locale}
+                aria-describedby={timeHintId}
                 step={60}
                 inputMode={uses24HourTime ? "numeric" : undefined}
                 pattern={
                   uses24HourTime ? "([01][0-9]|2[0-3]):[0-5][0-9]" : undefined
                 }
-                placeholder={timePlaceholder}
               />
+              <span id={timeHintId} className="form-hint">
+                {timeHintText}
+              </span>
             </label>
           </div>
           <label className="form-field" htmlFor="padel-location">

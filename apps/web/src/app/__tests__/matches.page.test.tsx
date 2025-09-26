@@ -15,7 +15,7 @@ vi.mock('../../lib/api', async () => {
 
 vi.mock('next/headers', () => ({
   headers: () => ({
-    get: () => 'en-US',
+    get: () => 'en-GB',
   }),
 }));
 

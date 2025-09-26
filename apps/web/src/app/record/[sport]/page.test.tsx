@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import * as bowlingSummary from "../../../lib/bowlingSummary";
 import * as LocaleContext from "../../../lib/LocaleContext";
+import { getDateExample, getTimeExample } from "../../../lib/i18n";
 import RecordSportForm from "./RecordSportForm";
 import { resolveRecordSportRoute } from "./resolveRecordSportRoute";
 
@@ -135,7 +136,17 @@ describe("RecordSportForm", () => {
 
       const dateInput = await screen.findByLabelText(/date/i);
       expect(dateInput).toHaveAttribute("placeholder", "DD/MM/YYYY");
-      expect(screen.getByText("Format: DD/MM/YYYY")).toBeInTheDocument();
+      const expectedDateExample = getDateExample("en-AU");
+      expect(
+        screen.getByText(`Example: ${expectedDateExample}`)
+      ).toBeInTheDocument();
+
+      const expectedTimeExample = getTimeExample("en-AU");
+      expect(
+        screen.getByText((content) =>
+          content.includes(`Example: ${expectedTimeExample}`)
+        )
+      ).toBeInTheDocument();
     } finally {
       localeSpy.mockRestore();
     }
@@ -156,16 +167,25 @@ describe("RecordSportForm", () => {
 
       const dateInput = await screen.findByLabelText(/date/i);
       expect(dateInput).toHaveAttribute("placeholder", "DD/MM/YYYY");
-      expect(screen.getByText("Format: DD/MM/YYYY")).toBeInTheDocument();
+      const expectedDateExample = getDateExample("de-DE");
+      expect(
+        screen.getByText(`Example: ${expectedDateExample}`)
+      ).toBeInTheDocument();
 
       const timeInput = await screen.findByLabelText(/start time/i);
-      expect(timeInput).toHaveAttribute("placeholder", "HH:MM");
+      expect(timeInput).not.toHaveAttribute("placeholder");
       expect(timeInput).toHaveAttribute("inputmode", "numeric");
       expect(timeInput).toHaveAttribute(
         "pattern",
         "([01][0-9]|2[0-3]):[0-5][0-9]",
       );
       expect(timeInput).toHaveAttribute("step", "60");
+      const expectedTimeExample = getTimeExample("de-DE");
+      expect(
+        screen.getByText((content) =>
+          content.includes(`Example: ${expectedTimeExample}`)
+        )
+      ).toBeInTheDocument();
     } finally {
       localeSpy.mockRestore();
     }

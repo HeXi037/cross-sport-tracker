@@ -1,3 +1,5 @@
+export const NEUTRAL_FALLBACK_LOCALE = 'en-GB';
+
 type LocalePreference = {
   locale: string;
   quality: number;
@@ -6,7 +8,7 @@ type LocalePreference = {
 
 export function parseAcceptLanguage(
   header: string | null | undefined,
-  defaultLocale = 'en-US',
+  defaultLocale = NEUTRAL_FALLBACK_LOCALE,
 ): string {
   if (!header) return defaultLocale;
 
@@ -66,7 +68,7 @@ export function parseAcceptLanguage(
 
 export function normalizeLocale(
   locale: string | null | undefined,
-  fallback = 'en-US',
+  fallback = NEUTRAL_FALLBACK_LOCALE,
 ): string {
   if (typeof locale !== 'string') {
     return fallback;
@@ -77,7 +79,6 @@ export function normalizeLocale(
 
 export const LOCALE_STORAGE_KEY = 'cst:locale';
 export const LOCALE_COOKIE_KEY = 'cst-preferred-locale';
-export const NEUTRAL_FALLBACK_LOCALE = 'en-GB';
 
 export function getStoredLocale(): string | null {
   if (typeof window === 'undefined') {
@@ -161,11 +162,12 @@ export function clearStoredLocale(): void {
 
 const SAMPLE_DATE = new Date(2001, 10, 21);
 const SAMPLE_TIME = new Date(Date.UTC(2001, 10, 21, 9, 0));
+const SAMPLE_DISPLAY_MOMENT = new Date(Date.UTC(2025, 8, 25, 12, 30));
 
 export function getDatePlaceholder(
   locale: string | null | undefined,
 ): string {
-  const normalized = normalizeLocale(locale);
+  const normalized = normalizeLocale(locale, NEUTRAL_FALLBACK_LOCALE);
   const lower = normalized.toLowerCase();
   const isAustralian = lower === 'en-au' || lower.startsWith('en-au-');
   const australianFallback = 'DD/MM/YYYY';
@@ -225,57 +227,121 @@ export function usesTwentyFourHourClock(
   }
 }
 
+function ensureOptions(
+  options: Intl.DateTimeFormatOptions | undefined,
+  fallback: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormatOptions {
+  if (!options) {
+    return fallback;
+  }
+  if (Object.keys(options).length === 0) {
+    return fallback;
+  }
+  return options;
+}
+
+const DATE_TIME_PRESETS = {
+  default: { dateStyle: 'medium', timeStyle: 'short' } as const,
+  compact: { dateStyle: 'short', timeStyle: 'short' } as const,
+};
+
+type DateTimePreset = keyof typeof DATE_TIME_PRESETS;
+
 export function formatDate(
   value: Date | string | number | null | undefined,
   locale: string,
-  options: Intl.DateTimeFormatOptions = { dateStyle: 'medium' },
+  options?: Intl.DateTimeFormatOptions,
 ): string {
   if (!value) return '—';
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
   const normalizedLocale = normalizeLocale(locale, '');
-
-  if (normalizedLocale) {
-    try {
-      return new Intl.DateTimeFormat(normalizedLocale, options).format(date);
-    } catch {
-      // Fall through to neutral formatting.
-    }
-  }
-
-  const usesStyles = 'dateStyle' in options || 'timeStyle' in options;
-  const fallbackOptions: Intl.DateTimeFormatOptions = usesStyles
-    ? {
-        dateStyle: 'medium',
-        ...(options.timeStyle ? { timeStyle: 'short' } : {}),
-      }
-    : { day: '2-digit', month: 'short', year: 'numeric' };
+  const formatterOptions = ensureOptions(options, { dateStyle: 'medium' });
+  const localeForFormatter = normalizedLocale || undefined;
 
   try {
-    return new Intl.DateTimeFormat(NEUTRAL_FALLBACK_LOCALE, fallbackOptions).format(date);
+    return new Intl.DateTimeFormat(localeForFormatter, formatterOptions).format(date);
   } catch {
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = date
-      .toLocaleString('en-US', { month: 'short' })
-      .replace('.', '');
-    const year = date.getFullYear();
-    const datePart = `${day} ${month} ${year}`;
-    if (options.timeStyle) {
+    // Fall through to neutral formatting.
+  }
+
+  try {
+    return new Intl.DateTimeFormat(NEUTRAL_FALLBACK_LOCALE, formatterOptions).format(date);
+  } catch {
+    const includesDate =
+      'dateStyle' in formatterOptions ||
+      formatterOptions.day !== undefined ||
+      formatterOptions.month !== undefined ||
+      formatterOptions.year !== undefined;
+    const includesTime =
+      'timeStyle' in formatterOptions ||
+      formatterOptions.hour !== undefined ||
+      formatterOptions.minute !== undefined ||
+      formatterOptions.second !== undefined;
+
+    const parts: string[] = [];
+    if (includesDate) {
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = date
+        .toLocaleString(NEUTRAL_FALLBACK_LOCALE, { month: 'short' })
+        .replace('.', '');
+      const year = date.getFullYear();
+      parts.push(`${day} ${month} ${year}`);
+    }
+
+    if (includesTime) {
       const hours = String(date.getHours()).padStart(2, '0');
       const minutes = String(date.getMinutes()).padStart(2, '0');
-      return `${datePart}, ${hours}:${minutes}`;
+      const timePart = `${hours}:${minutes}`;
+      if (parts.length) {
+        parts[parts.length - 1] = `${parts[parts.length - 1]}, ${timePart}`;
+      } else {
+        parts.push(timePart);
+      }
     }
-    return datePart;
+
+    if (!parts.length) {
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = date
+        .toLocaleString(NEUTRAL_FALLBACK_LOCALE, { month: 'short' })
+        .replace('.', '');
+      const year = date.getFullYear();
+      parts.push(`${day} ${month} ${year}`);
+    }
+
+    return parts.join(' ');
   }
 }
 
 export function formatDateTime(
   value: Date | string | number | null | undefined,
   locale: string,
-  options: Intl.DateTimeFormatOptions = {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  },
+  options: Intl.DateTimeFormatOptions | DateTimePreset = 'default',
 ): string {
-  return formatDate(value, locale, options);
+  const resolvedOptions =
+    typeof options === 'string'
+      ? DATE_TIME_PRESETS[options]
+      : ensureOptions(options, DATE_TIME_PRESETS.default);
+  return formatDate(value, locale, resolvedOptions);
+}
+
+export function formatTime(
+  value: Date | string | number | null | undefined,
+  locale: string,
+  options: Intl.DateTimeFormatOptions = { timeStyle: 'short' },
+): string {
+  const resolvedOptions = ensureOptions(options, { timeStyle: 'short' });
+  return formatDate(value, locale, resolvedOptions);
+}
+
+export function getDateExample(locale: string, preset: DateTimePreset = 'default'): string {
+  const options =
+    preset === 'default'
+      ? { dateStyle: 'medium' as const }
+      : { dateStyle: 'short' as const };
+  return formatDate(SAMPLE_DISPLAY_MOMENT, locale, options);
+}
+
+export function getTimeExample(locale: string): string {
+  return formatTime(SAMPLE_TIME, locale);
 }

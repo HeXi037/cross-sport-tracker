@@ -467,6 +467,14 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
     assert ids == sorted_ids
     assert resp.headers.get("x-has-more") == "false"
     assert resp.headers.get("x-next-offset") is None
+    assert all(
+        (
+            m["playedAt"] is None
+            or str(m["playedAt"]).endswith("Z")
+            or str(m["playedAt"]).endswith("+00:00")
+        )
+        for m in matches
+    )
 
 
 @pytest.mark.anyio

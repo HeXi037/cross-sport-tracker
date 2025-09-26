@@ -38,9 +38,8 @@ router = APIRouter(prefix="/matches", tags=["matches"])
 def _serialize_played_at(value: datetime | None) -> datetime | None:
     if value is None:
         return None
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+    aware = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return aware.astimezone(timezone.utc)
 
 # GET /api/v0/matches
 @router.get("", response_model=list[MatchSummaryOut])

@@ -4,7 +4,8 @@ import { apiFetch, withAbsolutePhotoUrl, type ApiError } from "../../lib/api";
 import Pager from "./pager";
 import { PlayerInfo } from "../../components/PlayerName";
 import MatchParticipants from "../../components/MatchParticipants";
-import { formatDate, parseAcceptLanguage } from "../../lib/i18n";
+import { formatDate, formatDateTime, parseAcceptLanguage } from "../../lib/i18n";
+import { hasTimeComponent } from "../../lib/datetime";
 import { ensureTrailingSlash } from "../../lib/routes";
 
 export const dynamic = "force-dynamic";
@@ -227,12 +228,16 @@ export default async function MatchesPage(
           <ul className="match-list">
             {matches.map((m) => {
               const summaryText = formatSummary(m.summary);
+              const playedAtText =
+                m.playedAt && hasTimeComponent(m.playedAt)
+                  ? formatDateTime(m.playedAt, locale, 'compact')
+                  : formatDate(m.playedAt, locale, { dateStyle: 'medium' });
               const metadataText = formatMatchMetadata(
                 [
                   m.isFriendly ? "Friendly" : null,
                   m.sport,
                   m.bestOf != null ? `Best of ${m.bestOf}` : null,
-                  formatDate(m.playedAt, locale),
+                  playedAtText,
                   m.location,
                 ],
                 locale

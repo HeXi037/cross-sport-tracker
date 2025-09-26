@@ -490,7 +490,7 @@ export default function LiveSummary({
   const indicatorLabel = connected
     ? "Live"
     : fallback
-      ? "Polling"
+      ? "Live updates unavailable"
       : "Offline";
   const indicatorDotClass = connected ? "dot-live" : "dot-polling";
   const normalizedStatusLabel = statusLabel ?? statusValue ?? "";
@@ -523,9 +523,7 @@ export default function LiveSummary({
         <p className="match-meta">Latest update: {latestEvent}</p>
       ) : null}
       {fallback && !connected ? (
-        <p className="match-meta">
-          Realtime connection unavailable. Refreshing every few seconds.
-        </p>
+        <p className="match-meta">Live updates unavailable.</p>
       ) : null}
     </section>
   );

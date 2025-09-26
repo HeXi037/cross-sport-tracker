@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { apiUrl } from "../../lib/api";
-import { ensureTrailingSlash } from "../../lib/routes";
+import { ensureTrailingSlash, recordPathForSport } from "../../lib/routes";
 import { loadUserSettings } from "../user-settings";
 import {
   ALL_SPORTS,
@@ -58,34 +58,71 @@ const canonicalizePathname = (pathname: string) => {
   return pathname.replace(/\/+$/, "") || "/";
 };
 
-const getEmptyStateMessage = (
-  sport: LeaderboardSport,
-  hasAppliedFilters: boolean,
-) => {
-  if (hasAppliedFilters) {
-    if (sport === MASTER_SPORT) {
-      return "No matches recorded yet for this region on the master leaderboard. Try clearing the filters or check back soon.";
-    }
-    if (sport === ALL_SPORTS) {
-      return "No matches recorded yet for this region. Try adjusting the filters or check back soon.";
-    }
-    return `No ${formatSportLabel(
-      sport,
-    )} matches recorded yet for this region. Try clearing the filters or check back soon.`;
-  }
-
-  if (sport === MASTER_SPORT) {
-    return "No matches recorded yet on the master leaderboard. Check back soon!";
-  }
-
-  if (sport === ALL_SPORTS) {
-    return "No matches recorded yet. Check back soon!";
-  }
-
-  return `No ${formatSportLabel(
-    sport,
-  )} matches recorded yet. Check back soon!`;
+const SPORT_ICONS: Record<LeaderboardSport, string> = {
+  [ALL_SPORTS]: "🏅",
+  [MASTER_SPORT]: "🌍",
+  padel: "🎾",
+  badminton: "🏸",
+  "table-tennis": "🏓",
+  disc_golf: "🥏",
 };
+
+const getSportDisplayName = (sportId: LeaderboardSport) => {
+  if (sportId === ALL_SPORTS) {
+    return "All Sports";
+  }
+  if (sportId === MASTER_SPORT) {
+    return "Master";
+  }
+  return formatSportLabel(sportId);
+};
+
+type EmptyStateContent = {
+  icon: string;
+  title: string;
+  description: string;
+  cta?: { href: string; label: string };
+};
+
+const EmptyState = ({ icon, title, description, cta }: EmptyStateContent) => (
+  <div
+    style={{
+      marginTop: "2rem",
+      padding: "2rem 1.5rem",
+      borderRadius: "12px",
+      border: "1px solid #e0e0e0",
+      background: "#fafafa",
+      textAlign: "center",
+    }}
+  >
+    <div aria-hidden style={{ fontSize: "2.25rem", marginBottom: "0.75rem" }}>
+      {icon}
+    </div>
+    <h2 style={{ margin: "0 0 0.5rem", fontSize: "1.25rem" }}>{title}</h2>
+    <p style={{ margin: "0 0 1.25rem", color: "#555", fontSize: "0.95rem" }}>
+      {description}
+    </p>
+    {cta ? (
+      <Link
+        href={cta.href}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "0.5rem 1.25rem",
+          borderRadius: "999px",
+          border: "1px solid #222",
+          background: "#222",
+          color: "#fff",
+          fontWeight: 600,
+          textDecoration: "none",
+        }}
+      >
+        {cta.label}
+      </Link>
+    ) : null}
+  </div>
+);
 
 export default function Leaderboard({ sport, country, clubId }: Props) {
   const router = useRouter();
@@ -205,6 +242,20 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     [appliedCountry, appliedClubId],
   );
 
+  const sportDisplayName = useMemo(
+    () => getSportDisplayName(sport),
+    [sport],
+  );
+
+  const navItems = useMemo(
+    () => [
+      { id: ALL_SPORTS, label: getSportDisplayName(ALL_SPORTS) },
+      { id: MASTER_SPORT, label: getSportDisplayName(MASTER_SPORT) },
+      ...SPORTS.map((id) => ({ id, label: getSportDisplayName(id) })),
+    ],
+    [],
+  );
+
   const supportsFilters = SPORTS.includes(
     sport as (typeof SPORTS)[number],
   );
@@ -216,12 +267,15 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     return params.toString();
   }, [appliedCountry, appliedClubId]);
 
-  const withRegion = (base: string) => {
-    const normalizedBase = ensureTrailingSlash(base);
-    return regionQueryString
-      ? `${normalizedBase}${normalizedBase.includes("?") ? "&" : "?"}${regionQueryString}`
-      : normalizedBase;
-  };
+  const withRegion = useCallback(
+    (base: string) => {
+      const normalizedBase = ensureTrailingSlash(base);
+      return regionQueryString
+        ? `${normalizedBase}${normalizedBase.includes("?") ? "&" : "?"}${regionQueryString}`
+        : normalizedBase;
+    },
+    [regionQueryString],
+  );
 
   const regionDescription = useMemo(() => {
     if (sport === MASTER_SPORT) {
@@ -246,10 +300,72 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     ? hasDraftValues || hasAppliedFilters
     : hasAppliedFilters;
 
-  const emptyStateMessage = useMemo(
-    () => getEmptyStateMessage(sport, hasAppliedFilters),
-    [sport, hasAppliedFilters],
-  );
+  const emptyStateContent = useMemo<EmptyStateContent>(() => {
+    const icon = SPORT_ICONS[sport] ?? "🏅";
+    if (hasAppliedFilters) {
+      const title =
+        sport === MASTER_SPORT
+          ? "No matches on the master leaderboard for this region yet."
+          : sport === ALL_SPORTS
+            ? "No matches across all sports in this region yet."
+            : `No ${sportDisplayName} matches in this region yet.`;
+      const description =
+        sport === MASTER_SPORT
+          ? "Try clearing the filters or check back soon."
+          : "Try adjusting the filters or record a new match.";
+      let cta: EmptyStateContent["cta"];
+      if (sport === MASTER_SPORT) {
+        const firstSport = SPORTS[0];
+        cta = {
+          href: withRegion(`/leaderboard?sport=${firstSport}`),
+          label: `View ${getSportDisplayName(firstSport)} leaderboard`,
+        };
+      } else if (sport === ALL_SPORTS) {
+        cta = {
+          href: ensureTrailingSlash("/record"),
+          label: "Record a match",
+        };
+      } else if (SPORTS.includes(sport as (typeof SPORTS)[number])) {
+        cta = {
+          href: recordPathForSport(sport),
+          label: `Record a ${sportDisplayName} match`,
+        };
+      }
+      return { icon, title, description, cta };
+    }
+
+    const title =
+      sport === MASTER_SPORT
+        ? "No matches on the master leaderboard yet."
+        : sport === ALL_SPORTS
+          ? "No matches recorded across all sports yet."
+          : `No ${sportDisplayName} matches recorded yet.`;
+    const description =
+      sport === MASTER_SPORT
+        ? "Once players compete across sports, they'll appear here."
+        : "Be the first to record one!";
+
+    let cta: EmptyStateContent["cta"]; // eslint-disable-line prefer-const
+    if (sport === MASTER_SPORT) {
+      const firstSport = SPORTS[0];
+      cta = {
+        href: withRegion(`/leaderboard?sport=${firstSport}`),
+        label: `View ${getSportDisplayName(firstSport)} leaderboard`,
+      };
+    } else if (sport === ALL_SPORTS) {
+      cta = {
+        href: ensureTrailingSlash("/record"),
+        label: "Record a match",
+      };
+    } else if (SPORTS.includes(sport as (typeof SPORTS)[number])) {
+      cta = {
+        href: recordPathForSport(sport),
+        label: `Record a ${sportDisplayName} match`,
+      };
+    }
+
+    return { icon, title, description, cta };
+  }, [sport, hasAppliedFilters, sportDisplayName, withRegion]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -370,32 +486,58 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       >
         <div style={{ flex: "1 1 auto" }}>
           <h1 className="heading" style={{ marginBottom: "0.25rem" }}>
-            Leaderboards
+            {`${sportDisplayName} Leaderboard`}
           </h1>
           <p style={{ fontSize: "0.85rem", color: "#555" }}>{regionDescription}</p>
         </div>
-        <nav style={{ display: "flex", gap: "0.5rem", fontSize: "0.9rem" }}>
-          <Link
-            href={withRegion("/leaderboard?sport=all")}
-            style={{ textDecoration: sport === ALL_SPORTS ? "underline" : "none" }}
+        <nav
+          aria-label="Leaderboard sports"
+          style={{ flex: "0 0 auto", fontSize: "0.9rem" }}
+        >
+          <ul
+            role="tablist"
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+              padding: 0,
+              margin: 0,
+              listStyle: "none",
+            }}
           >
-            All sports (combined)
-          </Link>
-          <Link
-            href={withRegion("/leaderboard?sport=master")}
-            style={{ textDecoration: sport === MASTER_SPORT ? "underline" : "none" }}
-          >
-            Master leaderboard
-          </Link>
-          {SPORTS.map((s) => (
-            <Link
-              key={s}
-              href={withRegion(`/leaderboard?sport=${s}`)}
-              style={{ textDecoration: sport === s ? "underline" : "none" }}
-            >
-              {s}
-            </Link>
-          ))}
+            {navItems.map((item) => {
+              const isActive = item.id === sport;
+              return (
+                <li key={item.id}>
+                  <Link
+                    href={
+                      item.id === ALL_SPORTS
+                        ? withRegion("/leaderboard?sport=all")
+                        : withRegion(`/leaderboard?sport=${item.id}`)
+                    }
+                    role="tab"
+                    aria-selected={isActive}
+                    aria-current={isActive ? "page" : undefined}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "0.35rem 0.85rem",
+                      borderRadius: "999px",
+                      border: "1px solid",
+                      borderColor: isActive ? "#222" : "#ccc",
+                      background: isActive ? "#222" : "transparent",
+                      color: isActive ? "#fff" : "#222",
+                      fontWeight: isActive ? 600 : 500,
+                      textDecoration: "none",
+                      transition: "background 0.2s ease, color 0.2s ease",
+                    }}
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         </nav>
       </header>
 
@@ -544,7 +686,23 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           </tbody>
         </table>
       ) : leaders.length === 0 ? (
-        <p>{error ?? emptyStateMessage}</p>
+        error ? (
+          <div
+            role="alert"
+            style={{
+              marginTop: "1.5rem",
+              padding: "1rem",
+              borderRadius: "8px",
+              border: "1px solid #f3c5c5",
+              background: "#fff5f5",
+              color: "#8a1c1c",
+            }}
+          >
+            {error}
+          </div>
+        ) : (
+          <EmptyState {...emptyStateContent} />
+        )
       ) : (
         <table
           style={{

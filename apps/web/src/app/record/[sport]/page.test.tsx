@@ -134,8 +134,38 @@ describe("RecordSportForm", () => {
       render(<RecordSportForm sportId="bowling" />);
 
       const dateInput = await screen.findByLabelText(/date/i);
-      expect(dateInput).toHaveAttribute("placeholder", "dd/mm/yyyy");
-      expect(screen.getByText("Format: dd/mm/yyyy")).toBeInTheDocument();
+      expect(dateInput).toHaveAttribute("placeholder", "DD/MM/YYYY");
+      expect(screen.getByText("Format: DD/MM/YYYY")).toBeInTheDocument();
+    } finally {
+      localeSpy.mockRestore();
+    }
+  });
+
+  it("uses European date placeholders and 24-hour time when locale is de-DE", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ players: [] }) });
+    global.fetch = fetchMock as typeof fetch;
+
+    const localeSpy = vi
+      .spyOn(LocaleContext, "useLocale")
+      .mockReturnValue("de-DE");
+
+    try {
+      render(<RecordSportForm sportId="padel" />);
+
+      const dateInput = await screen.findByLabelText(/date/i);
+      expect(dateInput).toHaveAttribute("placeholder", "DD/MM/YYYY");
+      expect(screen.getByText("Format: DD/MM/YYYY")).toBeInTheDocument();
+
+      const timeInput = await screen.findByLabelText(/start time/i);
+      expect(timeInput).toHaveAttribute("placeholder", "HH:MM");
+      expect(timeInput).toHaveAttribute("inputmode", "numeric");
+      expect(timeInput).toHaveAttribute(
+        "pattern",
+        "([01][0-9]|2[0-3]):[0-5][0-9]",
+      );
+      expect(timeInput).toHaveAttribute("step", "60");
     } finally {
       localeSpy.mockRestore();
     }

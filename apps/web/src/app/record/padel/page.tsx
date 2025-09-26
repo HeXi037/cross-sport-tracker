@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
 import { ensureTrailingSlash } from "../../../lib/routes";
 import { useLocale } from "../../../lib/LocaleContext";
-import { getDatePlaceholder } from "../../../lib/i18n";
+import {
+  getDatePlaceholder,
+  usesTwentyFourHourClock,
+} from "../../../lib/i18n";
 import { buildPlayedAtISOString } from "../../../lib/datetime";
 
 interface Player {
@@ -90,10 +93,12 @@ export default function RecordPadelPage() {
     setSetErrors((prev) => [...prev, ""]);
   };
 
-  const datePlaceholder = useMemo(
-    () => getDatePlaceholder(locale),
+  const datePlaceholder = useMemo(() => getDatePlaceholder(locale), [locale]);
+  const uses24HourTime = useMemo(
+    () => usesTwentyFourHourClock(locale),
     [locale],
   );
+  const timePlaceholder = uses24HourTime ? "HH:MM" : undefined;
 
   const validateSets = () => {
     const errors = sets.map(() => "");
@@ -235,6 +240,12 @@ export default function RecordPadelPage() {
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
                 lang={locale}
+                step={60}
+                inputMode={uses24HourTime ? "numeric" : undefined}
+                pattern={
+                  uses24HourTime ? "([01][0-9]|2[0-3]):[0-5][0-9]" : undefined
+                }
+                placeholder={timePlaceholder}
               />
             </label>
           </div>

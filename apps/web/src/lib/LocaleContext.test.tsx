@@ -2,12 +2,22 @@ import '@testing-library/jest-dom/vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LocaleProvider, useLocale } from './LocaleContext';
-import { formatDateTime, LOCALE_STORAGE_KEY } from './i18n';
+import {
+  formatDateTime,
+  LOCALE_STORAGE_KEY,
+  LOCALE_COOKIE_KEY,
+} from './i18n';
+import {
+  USER_SETTINGS_CHANGED_EVENT,
+  USER_SETTINGS_STORAGE_KEY,
+} from '../app/user-settings';
 
 describe('LocaleProvider', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     window.localStorage.clear();
+    document.cookie = `${LOCALE_COOKIE_KEY}=; path=/; max-age=0`;
+    document.documentElement.lang = '';
   });
 
   function LocaleConsumer() {
@@ -153,6 +163,65 @@ describe('LocaleProvider', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('locale-value')).toHaveTextContent('en-GB');
+    });
+  });
+  it('prioritizes preferredLocale from user settings over accept-language', async () => {
+    window.localStorage.setItem(
+      USER_SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        defaultLeaderboardSport: 'all',
+        defaultLeaderboardCountry: '',
+        weeklySummaryEmails: true,
+        preferredLocale: 'sv-SE',
+      }),
+    );
+
+    vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['en-US']);
+    vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('en-US');
+
+    render(
+      <LocaleProvider locale="en-US" acceptLanguage="en-AU,en;q=0.9">
+        <LocaleConsumer />
+      </LocaleProvider>,
+    );
+
+    const localeDisplay = await screen.findByTestId('locale-value');
+    expect(localeDisplay).toHaveTextContent('sv-SE');
+    await waitFor(() => {
+      expect(document.documentElement.lang).toBe('sv-SE');
+    });
+  });
+
+  it('reacts to user settings change events in the same tab', async () => {
+    vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['en-US']);
+    vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('en-US');
+
+    render(
+      <LocaleProvider locale="en-US">
+        <LocaleConsumer />
+      </LocaleProvider>,
+    );
+
+    const localeDisplay = await screen.findByTestId('locale-value');
+    expect(localeDisplay).toHaveTextContent('en-US');
+
+    window.localStorage.setItem(
+      USER_SETTINGS_STORAGE_KEY,
+      JSON.stringify({
+        defaultLeaderboardSport: 'all',
+        defaultLeaderboardCountry: '',
+        weeklySummaryEmails: true,
+        preferredLocale: 'en-GB',
+      }),
+    );
+
+    await act(async () => {
+      window.dispatchEvent(new Event(USER_SETTINGS_CHANGED_EVENT));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('locale-value')).toHaveTextContent('en-GB');
+      expect(document.documentElement.lang).toBe('en-GB');
     });
   });
 });

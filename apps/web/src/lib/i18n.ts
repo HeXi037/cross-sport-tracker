@@ -76,6 +76,7 @@ export function normalizeLocale(
 }
 
 export const LOCALE_STORAGE_KEY = 'cst:locale';
+export const LOCALE_COOKIE_KEY = 'cst-preferred-locale';
 export const NEUTRAL_FALLBACK_LOCALE = 'en-GB';
 
 export function getStoredLocale(): string | null {
@@ -85,28 +86,81 @@ export function getStoredLocale(): string | null {
   try {
     const raw = window.localStorage?.getItem(LOCALE_STORAGE_KEY);
     const normalized = normalizeLocale(raw, '');
-    return normalized || null;
+    if (normalized) {
+      return normalized;
+    }
   } catch {
-    return null;
+    // Ignore storage errors and fall through to cookie lookup.
   }
+
+  if (typeof document !== 'undefined') {
+    try {
+      const cookieValue = document.cookie
+        .split(';')
+        .map((value) => value.trim())
+        .find((part) => part.startsWith(`${LOCALE_COOKIE_KEY}=`));
+      if (cookieValue) {
+        const [, value] = cookieValue.split('=');
+        const normalized = normalizeLocale(decodeURIComponent(value ?? ''), '');
+        return normalized || null;
+      }
+    } catch {
+      // Ignore cookie parsing failures.
+    }
+  }
+
+  return null;
 }
 
 export function storeLocalePreference(locale: string | null | undefined): void {
-  if (typeof window === 'undefined') {
+  if (typeof window === 'undefined' && typeof document === 'undefined') {
     return;
   }
   const normalized = normalizeLocale(locale, '');
-  if (!normalized) {
-    return;
+
+  if (typeof window !== 'undefined') {
+    try {
+      if (normalized) {
+        window.localStorage?.setItem(LOCALE_STORAGE_KEY, normalized);
+      } else {
+        window.localStorage?.removeItem(LOCALE_STORAGE_KEY);
+      }
+    } catch {
+      // Ignore storage quota errors or unavailable localStorage.
+    }
   }
-  try {
-    window.localStorage?.setItem(LOCALE_STORAGE_KEY, normalized);
-  } catch {
-    // Ignore storage quota errors or unavailable localStorage.
+
+  if (typeof document !== 'undefined') {
+    const expires = normalized ? `; max-age=${60 * 60 * 24 * 365}` : '; max-age=0';
+    try {
+      document.cookie = `${LOCALE_COOKIE_KEY}=${
+        normalized ? encodeURIComponent(normalized) : ''
+      }; path=/${expires}`;
+    } catch {
+      // Ignore cookie write errors.
+    }
+  }
+}
+
+export function clearStoredLocale(): void {
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage?.removeItem(LOCALE_STORAGE_KEY);
+    } catch {
+      // Ignore storage errors.
+    }
+  }
+  if (typeof document !== 'undefined') {
+    try {
+      document.cookie = `${LOCALE_COOKIE_KEY}=; path=/; max-age=0`;
+    } catch {
+      // Ignore cookie errors.
+    }
   }
 }
 
 const SAMPLE_DATE = new Date(2001, 10, 21);
+const SAMPLE_TIME = new Date(Date.UTC(2001, 10, 21, 9, 0));
 
 export function getDatePlaceholder(
   locale: string | null | undefined,
@@ -114,7 +168,7 @@ export function getDatePlaceholder(
   const normalized = normalizeLocale(locale);
   const lower = normalized.toLowerCase();
   const isAustralian = lower === 'en-au' || lower.startsWith('en-au-');
-  const australianFallback = 'dd/mm/yyyy';
+  const australianFallback = 'DD/MM/YYYY';
 
   try {
     const formatter = new Intl.DateTimeFormat(normalized, {
@@ -123,7 +177,7 @@ export function getDatePlaceholder(
       year: 'numeric',
     });
     const parts = formatter.formatToParts(SAMPLE_DATE);
-    const placeholder = parts
+    const placeholderLower = parts
       .map((part) => {
         if (part.type === 'day') return 'dd';
         if (part.type === 'month') return 'mm';
@@ -132,17 +186,42 @@ export function getDatePlaceholder(
       })
       .join('');
 
-    if (isAustralian) {
-      const monthIndex = placeholder.indexOf('mm');
-      const dayIndex = placeholder.indexOf('dd');
-      if (monthIndex !== -1 && dayIndex !== -1 && monthIndex < dayIndex) {
-        return australianFallback;
-      }
+    const monthIndex = placeholderLower.indexOf('mm');
+    const dayIndex = placeholderLower.indexOf('dd');
+    const dayFirst = dayIndex !== -1 && monthIndex !== -1 && dayIndex < monthIndex;
+
+    if (isAustralian && monthIndex !== -1 && dayIndex !== -1 && monthIndex < dayIndex) {
+      return australianFallback;
     }
 
-    return placeholder;
+    if (dayFirst) {
+      return 'DD/MM/YYYY';
+    }
+
+    return placeholderLower
+      .replace(/d/g, 'D')
+      .replace(/m/g, 'M')
+      .replace(/y/g, 'Y');
   } catch {
-    return isAustralian ? australianFallback : 'yyyy-mm-dd';
+    return isAustralian
+      ? australianFallback
+      : 'YYYY-MM-DD';
+  }
+}
+
+export function usesTwentyFourHourClock(
+  locale: string | null | undefined,
+): boolean {
+  const normalized = normalizeLocale(locale);
+  try {
+    const formatter = new Intl.DateTimeFormat(normalized, {
+      hour: 'numeric',
+      minute: 'numeric',
+    });
+    const parts = formatter.formatToParts(SAMPLE_TIME);
+    return !parts.some((part) => part.type === 'dayPeriod');
+  } catch {
+    return true;
   }
 }
 

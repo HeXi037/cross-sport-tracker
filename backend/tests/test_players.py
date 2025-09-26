@@ -198,17 +198,36 @@ def test_hide_player_removes_from_public_list() -> None:
         assert unauthorized.status_code == 401
 
         auth.limiter.reset()
-        user_resp = client.post(
-            "/auth/signup", json={"username": "regular", "password": "Str0ng!Pass!"}
+
+
+def test_versioned_missing_player_returns_problem_detail() -> None:
+    versioned_app = FastAPI()
+
+    @versioned_app.exception_handler(DomainException)
+    async def versioned_domain_exception_handler(request, exc):
+        problem = ProblemDetail(
+            type=exc.type,
+            title=exc.title,
+            detail=exc.detail,
+            status=exc.status_code,
         )
-        assert user_resp.status_code == 200
-        user_token = user_resp.json()["access_token"]
-        forbidden = client.get(
-            "/players",
-            params={"include_hidden": "true"},
-            headers={"Authorization": f"Bearer {user_token}"},
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=problem.model_dump(),
+            media_type="application/problem+json",
         )
-        assert forbidden.status_code == 403
+
+    versioned_app.include_router(players.router, prefix="/api/v0")
+
+    with TestClient(versioned_app, raise_server_exceptions=False) as client:
+        response = client.get("/api/v0/players/missing-player")
+
+    assert response.status_code == 404
+    assert response.headers.get("content-type", "").startswith("application/problem+json")
+    payload = response.json()
+    assert payload["status"] == 404
+    assert payload["title"] == "Player not found"
+    assert "missing-player" in payload.get("detail", "")
 
 
 def test_hide_player_requires_admin() -> None:

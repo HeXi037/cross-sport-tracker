@@ -3,7 +3,9 @@ import { headers } from "next/headers";
 import { apiFetch, fetchClubs, withAbsolutePhotoUrl } from "../../../lib/api";
 import PlayerCharts from "./PlayerCharts";
 import PlayerComments from "./comments-client";
-import PlayerDetailErrorBoundary from "./PlayerDetailErrorBoundary";
+import PlayerDetailErrorBoundary, {
+  type PlayerDetailError,
+} from "./PlayerDetailErrorBoundary";
 import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
 import MatchParticipants from "../../../components/MatchParticipants";
 import PhotoUpload from "./PhotoUpload";
@@ -84,9 +86,63 @@ async function getPlayer(id: string): Promise<Player> {
   const res = await apiFetch(`/v0/players/${encodeURIComponent(id)}`, {
     cache: "no-store",
   } as RequestInit);
-  if (!res.ok) throw new Error("player");
   const data = (await res.json()) as Player;
   return withAbsolutePhotoUrl(data);
+}
+
+function getErrorStatus(err: unknown): number | undefined {
+  if (err && typeof err === "object" && "status" in err) {
+    const status = (err as { status?: unknown }).status;
+    if (typeof status === "number") {
+      return status;
+    }
+  }
+  return undefined;
+}
+
+function toPlayerDetailError(
+  err: unknown,
+  fallbackMessage = "Failed to load player."
+): PlayerDetailError {
+  const status = getErrorStatus(err);
+  const message =
+    err instanceof Error && err.message
+      ? err.message
+      : typeof err === "string"
+      ? err
+      : fallbackMessage;
+  return { status, message };
+}
+
+function renderPlayerNotFound(): JSX.Element {
+  return (
+    <main className="container">
+      <h1 className="heading">Player not found</h1>
+      <p className="mt-2 text-gray-700">
+        We couldn&apos;t find the player you were looking for. They might have been
+        removed or never existed.
+      </p>
+      <Link href="/players" className="mt-4 inline-block">
+        Back to players
+      </Link>
+    </main>
+  );
+}
+
+function renderPlayerError(
+  playerId: string,
+  err: unknown,
+  message?: string
+): JSX.Element {
+  const errorInfo = toPlayerDetailError(err, message);
+  return (
+    <PlayerDetailErrorBoundary
+      playerId={playerId}
+      initialError={errorInfo}
+    >
+      <></>
+    </PlayerDetailErrorBoundary>
+  );
 }
 
 async function getMatches(
@@ -395,13 +451,13 @@ export default async function PlayerPage({
   let player: Player;
   try {
     player = await getPlayer(params.id);
-  } catch {
-    return (
-      <main className="container">
-        <p className="text-red-500">Failed to load player.</p>
-        <Link href="/players">Back to players</Link>
-      </main>
-    );
+  } catch (err) {
+    const status = getErrorStatus(err);
+    if (status === 404) {
+      return renderPlayerNotFound();
+    }
+    console.error(`Failed to load player ${params.id}`, err);
+    return renderPlayerError(params.id, err);
   }
 
   try {
@@ -718,11 +774,10 @@ export default async function PlayerPage({
     );
   } catch (err) {
     console.error(`Failed to render player ${params.id}`, err);
-    return (
-      <main className="container">
-        <p className="text-red-500">Failed to load player.</p>
-        <Link href="/players">Back to players</Link>
-      </main>
+    return renderPlayerError(
+      params.id,
+      err,
+      "Failed to load player."
     );
   }
 }

@@ -202,6 +202,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
+  const [isFriendly, setIsFriendly] = useState(false);
   const [doubles, setDoubles] = useState(isPadel);
   const [submitting, setSubmitting] = useState(false);
   const locale = useLocale();
@@ -215,6 +216,10 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   );
   const timeHintId = useMemo(
     () => `${sport || "record"}-time-hint`,
+    [sport],
+  );
+  const friendlyHintId = useMemo(
+    () => `${sport || "record"}-friendly-hint`,
     [sport],
   );
 
@@ -490,6 +495,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
           ...(bowlingDetails ? { details: bowlingDetails } : {}),
           ...(playedAt ? { playedAt } : {}),
           ...(location ? { location } : {}),
+          ...(isFriendly ? { isFriendly: true } : {}),
         };
         await apiFetch(`/v0/matches`, {
           method: "POST",
@@ -548,6 +554,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         sets,
         ...(playedAt ? { playedAt } : {}),
         ...(location ? { location } : {}),
+        ...(isFriendly ? { isFriendly: true } : {}),
       };
 
       await apiFetch(`/v0/matches/by-name`, {
@@ -630,6 +637,23 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
               onChange={(e) => setLocation(e.target.value)}
             />
           </label>
+          <label
+            className="form-field form-field--checkbox"
+            htmlFor="record-friendly"
+          >
+            <input
+              id="record-friendly"
+              type="checkbox"
+              checked={isFriendly}
+              onChange={(e) => setIsFriendly(e.target.checked)}
+              aria-describedby={friendlyHintId}
+            />
+            <span className="form-label">Mark as friendly</span>
+          </label>
+          <p id={friendlyHintId} className="form-hint">
+            Friendly matches appear in match history but do not impact leaderboards
+            or player statistics.
+          </p>
         </fieldset>
 
         {isBowling ? (

@@ -148,7 +148,11 @@ async def update_ratings(
             await session.execute(
                 select(MatchParticipant.player_ids)
                 .join(Match, MatchParticipant.match_id == Match.id)
-                .where(Match.sport_id == sport_id, Match.deleted_at.is_(None))
+                .where(
+                    Match.sport_id == sport_id,
+                    Match.deleted_at.is_(None),
+                    Match.is_friendly.is_(False),
+                )
             )
         ).scalars().all()
 

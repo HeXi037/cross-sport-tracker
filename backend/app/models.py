@@ -111,6 +111,7 @@ class Match(Base):
     played_at = Column(DateTime(timezone=True), nullable=True)
     location = Column(String, nullable=True)
     details = Column(JSON, nullable=True)
+    is_friendly = Column(Boolean, nullable=False, server_default="false", default=False)
     deleted_at = Column(DateTime, nullable=True)
 
 class MatchParticipant(Base):

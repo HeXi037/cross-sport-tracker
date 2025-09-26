@@ -164,6 +164,75 @@ async def test_create_match_rejects_duplicate_players(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_create_match_friendly_skips_stat_updates(tmp_path, monkeypatch):
+  from app import db
+  from app.models import Match, MatchParticipant, Player, ScoreEvent, Sport, User
+  from app.routers.matches import create_match
+  from app.schemas import MatchCreate, Participant
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+      db.Base.metadata.create_all,
+      tables=[
+        Sport.__table__,
+        Player.__table__,
+        Match.__table__,
+        MatchParticipant.__table__,
+        ScoreEvent.__table__,
+      ],
+    )
+
+  async with db.AsyncSessionLocal() as session:
+    session.add_all(
+      [
+        Sport(id="padel", name="Padel"),
+        Player(id="p1", name="alice"),
+        Player(id="p2", name="bob"),
+      ]
+    )
+    await session.commit()
+
+    calls: dict[str, int] = {"ratings": 0, "metrics": 0, "invalidate": 0}
+
+    async def fake_update_ratings(*args, **kwargs):  # type: ignore[no-untyped-def]
+      calls["ratings"] += 1
+
+    async def fake_update_player_metrics(*args, **kwargs):  # type: ignore[no-untyped-def]
+      calls["metrics"] += 1
+
+    async def fake_invalidate_players(*args, **kwargs):  # type: ignore[no-untyped-def]
+      calls["invalidate"] += 1
+
+    monkeypatch.setattr("app.routers.matches.update_ratings", fake_update_ratings)
+    monkeypatch.setattr(
+      "app.routers.matches.update_player_metrics",
+      fake_update_player_metrics,
+    )
+    monkeypatch.setattr(
+      "app.routers.matches.player_stats_cache.invalidate_players",
+      fake_invalidate_players,
+    )
+
+    admin = User(id="u1", username="admin", password_hash="", is_admin=True)
+    body = MatchCreate(
+      sport="padel",
+      participants=[
+        Participant(side="A", playerIds=["p1"]),
+        Participant(side="B", playerIds=["p2"]),
+      ],
+      sets=[[6, 0], [6, 0]],
+      isFriendly=True,
+    )
+
+    resp = await create_match(body, session, user=admin)
+    assert resp.id
+    assert calls == {"ratings": 0, "metrics": 0, "invalidate": 0}
+
+
+@pytest.mark.anyio
 async def test_create_match_by_name_is_case_insensitive(tmp_path):
   from app import db
   from app.models import Player, Sport, Match, MatchParticipant, User

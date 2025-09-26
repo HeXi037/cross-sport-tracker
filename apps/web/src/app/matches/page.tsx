@@ -15,6 +15,7 @@ type MatchRow = {
   bestOf: number | null;
   playedAt: string | null;
   location: string | null;
+  isFriendly: boolean;
 };
 
 type Participant = {
@@ -30,6 +31,7 @@ type MatchDetail = {
     points?: Record<string, number>;
     set_scores?: Array<Record<string, number>>;
   } | null;
+  isFriendly?: boolean;
 };
 
 type EnrichedMatch = MatchRow & {
@@ -184,23 +186,32 @@ export default async function MatchesPage(
         <h1 className="heading">Matches</h1>
         {hasMatches ? (
           <ul className="match-list">
-            {matches.map((m) => (
-              <li key={m.id} className="card match-item">
-                <MatchParticipants sides={m.participants} />
-                <div className="match-meta">
-                  {formatSummary(m.summary)}
-                  {m.summary ? " · " : ""}
-                  {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
-                  {formatDate(m.playedAt, locale)} ·{" "}
-                  {m.location ?? "—"}
-                </div>
-                <div>
-                  <Link href={ensureTrailingSlash(`/matches/${m.id}`)}>
-                    More info
-                  </Link>
-                </div>
-              </li>
-            ))}
+            {matches.map((m) => {
+              const summaryText = formatSummary(m.summary);
+              const metaParts = [
+                m.isFriendly ? "Friendly" : null,
+                m.sport,
+                `Best of ${m.bestOf ?? "—"}`,
+                formatDate(m.playedAt, locale),
+                m.location ?? "—",
+              ].filter((part): part is string => Boolean(part && part !== ""));
+
+              return (
+                <li key={m.id} className="card match-item">
+                  <MatchParticipants sides={m.participants} />
+                  <div className="match-meta">
+                    {summaryText}
+                    {summaryText ? " · " : ""}
+                    {metaParts.join(" · ")}
+                  </div>
+                  <div>
+                    <Link href={ensureTrailingSlash(`/matches/${m.id}`)}>
+                      More info
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="empty-state">

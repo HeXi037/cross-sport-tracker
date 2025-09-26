@@ -316,6 +316,8 @@ export default function LoginPage() {
   const errorSummaryTitleId = useId();
   const loginErrorTitleId = useId();
   const signupErrorTitleId = useId();
+  const loginInlineErrorId = useId();
+  const signupInlineErrorId = useId();
   const { usernameCharacterRule, usernameEmailOption } = useMemo(
     () => getAuthCopy(locale),
     [locale]
@@ -470,7 +472,12 @@ export default function LoginPage() {
       )}
       <form onSubmit={handleLogin} className="auth-form">
         {loginErrors.length > 0 && (
-          <div className="auth-form__error" aria-live="polite">
+          <div
+            id={loginInlineErrorId}
+            className="auth-form__error"
+            role="alert"
+            aria-live="assertive"
+          >
             {loginErrors[0]}
           </div>
         )}
@@ -485,6 +492,10 @@ export default function LoginPage() {
             onChange={(e) => setUsername(e.target.value)}
             autoComplete="username"
             required
+            aria-invalid={loginErrors.length > 0}
+            aria-describedby={
+              loginErrors.length > 0 ? loginInlineErrorId : undefined
+            }
           />
         </div>
         <div className="form-field">
@@ -498,6 +509,10 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
             required
+            aria-invalid={loginErrors.length > 0}
+            aria-describedby={
+              loginErrors.length > 0 ? loginInlineErrorId : undefined
+            }
           />
         </div>
         <button type="submit">Login</button>
@@ -516,6 +531,10 @@ export default function LoginPage() {
             onChange={(e) => setNewUser(e.target.value)}
             autoComplete="username"
             required
+            aria-invalid={signupErrors.length > 0}
+            aria-describedby={
+              signupErrors.length > 0 ? signupInlineErrorId : undefined
+            }
           />
           <ul className="password-guidelines">
             {usernameGuidelines.map((guideline) => (
@@ -539,6 +558,14 @@ export default function LoginPage() {
             onChange={(e) => setNewPass(e.target.value)}
             autoComplete="new-password"
             required
+            aria-invalid={signupErrors.length > 0}
+            aria-describedby={[
+              signupErrors.length > 0 ? signupInlineErrorId : null,
+              passwordStrengthLabelId,
+              passwordStrengthHelperId,
+            ]
+              .filter(Boolean)
+              .join(' ') || undefined}
           />
           <div className="password-strength" aria-live="polite">
             <div
@@ -598,10 +625,19 @@ export default function LoginPage() {
             onChange={(e) => setConfirmPass(e.target.value)}
             autoComplete="new-password"
             required
+            aria-invalid={signupErrors.length > 0}
+            aria-describedby={
+              signupErrors.length > 0 ? signupInlineErrorId : undefined
+            }
           />
         </div>
         {signupErrors.length > 0 && (
-          <div className="auth-form__error" aria-live="polite">
+          <div
+            id={signupInlineErrorId}
+            className="auth-form__error"
+            role="alert"
+            aria-live="assertive"
+          >
             Please review the issues listed above before continuing.
           </div>
         )}

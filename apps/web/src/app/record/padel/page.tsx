@@ -272,7 +272,7 @@ export default function RecordPadelPage() {
                 aria-describedby="padel-date-format"
               />
               <span id="padel-date-format" className="form-hint">
-                Example: {dateExample}
+                e.g., {dateExample}
               </span>
             </label>
             <label className="form-field" htmlFor="padel-time">
@@ -427,18 +427,28 @@ export default function RecordPadelPage() {
               )}
             </label>
           </div>
-          <label className="form-field" htmlFor="padel-best-of">
-            <span className="form-label">Best of</span>
-            <select
-              id="padel-best-of"
-              value={bestOf}
-              onChange={(e) => setBestOf(e.target.value)}
-            >
-              <option value="1">1</option>
-              <option value="3">3</option>
-              <option value="5">5</option>
-            </select>
-          </label>
+          <fieldset className="form-subfieldset">
+            <legend className="form-label">Best of</legend>
+            <div className="radio-group">
+              {["1", "3", "5"].map((option) => {
+                const optionId = `padel-best-of-${option}`;
+                const optionLabel = `${option} ${option === "1" ? "set" : "sets"}`;
+                return (
+                  <label key={option} className="radio-group__option" htmlFor={optionId}>
+                    <input
+                      id={optionId}
+                      type="radio"
+                      name="padel-best-of"
+                      value={option}
+                      checked={bestOf === option}
+                      onChange={(e) => setBestOf(e.target.value)}
+                    />
+                    <span>{optionLabel}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
         </fieldset>
 
         <div className="sets">

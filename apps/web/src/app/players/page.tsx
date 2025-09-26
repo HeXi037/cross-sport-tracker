@@ -36,6 +36,10 @@ interface PlayerStats {
 const STATS_ERROR_MESSAGE =
   "Could not load stats – please try again later.";
 const PLAYERS_ERROR_MESSAGE = "Failed to load players.";
+const PLAYERS_SERVER_ERROR_MESSAGE =
+  "Failed to load players due to a server error. Please try again later.";
+const PLAYERS_NETWORK_ERROR_MESSAGE =
+  "Failed to load players because we couldn't reach the network. Check your connection and retry.";
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -106,37 +110,37 @@ export default function PlayersPage() {
       const res = await apiFetch(`/v0/players?${params.toString()}`, {
         cache: "no-store",
       });
-      if (res.ok) {
-        const data = await res.json();
-        const normalized = ((data.players ?? []) as Array<
-          Player & { hidden?: boolean }
-        >).map((p) =>
-          withAbsolutePhotoUrl<Player>({
-            ...p,
-            hidden: Boolean(p.hidden),
-          })
-        );
-        if (loadRequestId.current !== requestId) {
-          return;
-        }
-        setPlayers(normalized);
-        setPlayersLoadError(null);
-      } else {
-        if (loadRequestId.current !== requestId) {
-          return;
-        }
-        setPlayersLoadError(PLAYERS_ERROR_MESSAGE);
-        setError(PLAYERS_ERROR_MESSAGE);
-        showToast({ message: PLAYERS_ERROR_MESSAGE, variant: "error" });
+      const data = await res.json();
+      const normalized = ((data.players ?? []) as Array<
+        Player & { hidden?: boolean }
+      >).map((p) =>
+        withAbsolutePhotoUrl<Player>({
+          ...p,
+          hidden: Boolean(p.hidden),
+        })
+      );
+      if (loadRequestId.current !== requestId) {
+        return;
       }
+      setPlayers(normalized);
+      setPlayersLoadError(null);
     } catch (err) {
       console.warn("Failed to fetch players", err);
       if (loadRequestId.current !== requestId) {
         return;
       }
-      setPlayersLoadError(PLAYERS_ERROR_MESSAGE);
-      setError(PLAYERS_ERROR_MESSAGE);
-      showToast({ message: PLAYERS_ERROR_MESSAGE, variant: "error" });
+      let message = PLAYERS_ERROR_MESSAGE;
+      const errorWithStatus = err as { status?: number };
+      if (typeof errorWithStatus?.status === "number") {
+        if (errorWithStatus.status >= 500) {
+          message = PLAYERS_SERVER_ERROR_MESSAGE;
+        }
+      } else {
+        message = PLAYERS_NETWORK_ERROR_MESSAGE;
+      }
+      setPlayersLoadError(message);
+      setError(message);
+      showToast({ message, variant: "error" });
     } finally {
       if (loadRequestId.current === requestId) {
         setLoading(false);
@@ -371,15 +375,23 @@ export default function PlayersPage() {
         <div>Loading players…</div>
       ) : playersLoadError && !loading && players.length === 0 ? (
         <div className="player-list__error" role="alert">
-          {playersLoadError}
-          <button
-            className="ml-2 underline"
-            onClick={() => {
-              void load();
-            }}
+          <p>{playersLoadError}</p>
+          <nav
+            aria-label="Player loading recovery options"
+            className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center"
           >
-            Retry
-          </button>
+            <button
+              className="underline"
+              onClick={() => {
+                void load();
+              }}
+            >
+              Retry loading players
+            </button>
+            <Link className="underline" href="/">
+              Go back home
+            </Link>
+          </nav>
         </div>
       ) : (
         <>
@@ -397,9 +409,21 @@ export default function PlayersPage() {
             />
           </div>
           {filteredPlayers.length === 0 && debouncedSearch.trim() !== "" ? (
-            <p>No players found.</p>
+            <div role="status" aria-live="polite" className="player-list__empty">
+              <p className="font-semibold">No players match your search.</p>
+              <p className="text-sm text-gray-600">
+                Try different spellings or remove filters to see more players.
+              </p>
+            </div>
           ) : filteredPlayers.length === 0 ? (
-            <p>No players available yet.</p>
+            <div className="player-list__empty">
+              <p role="status" className="font-semibold">
+                No players have been added yet.
+              </p>
+              <Link className="underline" href="/record">
+                Record a match to start building the roster
+              </Link>
+            </div>
           ) : (
             <>
               {statsError && (

@@ -517,6 +517,18 @@ textarea {
   color: rgba(10, 31, 68, 0.7);
 }
 
+.player-list__stats-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.player-list__stats-skeleton {
+  display: inline-block;
+  width: 80px;
+  height: 0.75rem;
+}
+
 .player-list__admin {
   display: flex;
   flex-wrap: wrap;

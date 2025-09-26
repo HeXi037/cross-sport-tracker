@@ -36,6 +36,7 @@ interface PlayerStats {
 
 const STATS_ERROR_MESSAGE =
   "Could not load stats – please try again later.";
+const LOAD_TIMEOUT_MS = 15000;
 const PLAYERS_ERROR_MESSAGE = "Failed to load players.";
 const PLAYERS_SERVER_ERROR_MESSAGE =
   "Failed to load players due to a server error. Please try again later.";
@@ -69,6 +70,8 @@ export default function PlayersPage() {
   const statsToastShown = useRef(false);
   const adminControlsRef = useRef<HTMLDivElement | null>(null);
   const loadRequestId = useRef(0);
+  const activeLoadController = useRef<AbortController | null>(null);
+  const activeLoadTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -105,6 +108,22 @@ export default function PlayersPage() {
     setError(null);
     setPlayersLoadError(null);
     setLoading(true);
+    if (activeLoadController.current) {
+      activeLoadController.current.abort();
+      activeLoadController.current = null;
+    }
+    if (activeLoadTimeout.current) {
+      clearTimeout(activeLoadTimeout.current);
+      activeLoadTimeout.current = null;
+    }
+    const controller = new AbortController();
+    activeLoadController.current = controller;
+    let didTimeout = false;
+    const timeoutId = setTimeout(() => {
+      didTimeout = true;
+      controller.abort();
+    }, LOAD_TIMEOUT_MS);
+    activeLoadTimeout.current = timeoutId;
     try {
       const params = new URLSearchParams({ limit: "100", offset: "0" });
       if (admin) {
@@ -116,6 +135,7 @@ export default function PlayersPage() {
       }
       const res = await apiFetch(`/v0/players?${params.toString()}`, {
         cache: "no-store",
+        signal: controller.signal,
       });
       const data = await res.json();
       const normalized = ((data.players ?? []) as Array<
@@ -152,6 +172,15 @@ export default function PlayersPage() {
       }
 
       if (!message) {
+        const abortError = err as DOMException;
+        if (abortError?.name === "AbortError") {
+          message = didTimeout
+            ? "Loading players took too long. Please check your connection and try again."
+            : null;
+        }
+      }
+
+      if (!message) {
         if (typeof apiError?.status === "number") {
           if (apiError.status === 403) {
             message = PLAYERS_FORBIDDEN_MESSAGE;
@@ -174,8 +203,17 @@ export default function PlayersPage() {
       }
       setPlayersLoadError(message);
       setError(message);
-      showToast({ message, variant: "error" });
+      if (message) {
+        showToast({ message, variant: "error" });
+      }
     } finally {
+      if (activeLoadTimeout.current) {
+        clearTimeout(activeLoadTimeout.current);
+        activeLoadTimeout.current = null;
+      }
+      if (activeLoadController.current === controller) {
+        activeLoadController.current = null;
+      }
       if (loadRequestId.current === requestId) {
         setLoading(false);
       }
@@ -183,6 +221,16 @@ export default function PlayersPage() {
   }, [admin, debouncedSearch, showToast]);
   useEffect(() => {
     void load();
+    return () => {
+      if (activeLoadTimeout.current) {
+        clearTimeout(activeLoadTimeout.current);
+        activeLoadTimeout.current = null;
+      }
+      if (activeLoadController.current) {
+        activeLoadController.current.abort();
+        activeLoadController.current = null;
+      }
+    };
   }, [load]);
 
   const filteredPlayers = useMemo(() => {
@@ -406,7 +454,7 @@ export default function PlayersPage() {
     <main className="container">
       <h1 className="heading">Players</h1>
       {loading && players.length === 0 ? (
-        <div>Loading players…</div>
+        <PlayerListSkeleton />
       ) : playersLoadError && !loading && players.length === 0 ? (
         <div className="player-list__error" role="alert">
           <p>{playersLoadError}</p>
@@ -475,7 +523,19 @@ export default function PlayersPage() {
                       <span className="player-list__stats">
                         {(() => {
                           const stats = playerStats[p.id];
-                          if (stats === undefined) return "Loading stats…";
+                          if (stats === undefined)
+                            return (
+                              <span
+                                className="player-list__stats-loading"
+                                aria-live="polite"
+                              >
+                                <span className="sr-only">Loading stats…</span>
+                                <span
+                                  aria-hidden
+                                  className="skeleton player-list__stats-skeleton"
+                                />
+                              </span>
+                            );
                           if (!stats || !stats.matchSummary)
                             return "Stats unavailable";
                           return formatMatchRecord(stats.matchSummary);
@@ -586,5 +646,40 @@ export default function PlayersPage() {
         </div>
       )}
     </main>
+  );
+}
+
+function PlayerListSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <ul className="player-list" aria-hidden>
+      {Array.from({ length: count }).map((_, index) => (
+        <li key={`player-skeleton-${index}`} className="player-list__item">
+          <div className="player-list__row">
+            <span
+              className="skeleton"
+              style={{ width: "45%", maxWidth: "220px", height: "1rem" }}
+            />
+            <span
+              className="skeleton"
+              style={{ width: "30%", maxWidth: "140px", height: "0.8rem" }}
+            />
+          </div>
+          <div className="player-list__row" style={{ gap: "0.35rem" }}>
+            <span
+              className="skeleton"
+              style={{ width: "28%", maxWidth: "120px", height: "0.75rem" }}
+            />
+            <span
+              className="skeleton"
+              style={{ width: "22%", maxWidth: "100px", height: "0.75rem" }}
+            />
+            <span
+              className="skeleton"
+              style={{ width: "18%", maxWidth: "80px", height: "0.75rem" }}
+            />
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }

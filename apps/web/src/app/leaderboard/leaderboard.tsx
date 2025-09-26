@@ -60,6 +60,7 @@ const formatSportLabel = (sportId: string) =>
     .join(" ");
 
 const RESULTS_TABLE_ID = "leaderboard-results";
+const LEADERBOARD_TIMEOUT_MS = 15000;
 
 const canonicalizePathname = (pathname: string) => {
   if (pathname === "/" || pathname === "") {
@@ -455,6 +456,12 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       return;
     }
     let cancelled = false;
+    const controller = new AbortController();
+    let didTimeout = false;
+    const timeoutId = setTimeout(() => {
+      didTimeout = true;
+      controller.abort();
+    }, LEADERBOARD_TIMEOUT_MS);
     (async () => {
       setLoading(true);
       setError(null);
@@ -462,7 +469,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         if (sport === ALL_SPORTS) {
           const results = await Promise.all(
             SPORTS.map(async (s) => {
-              const res = await fetch(buildUrl(s));
+              const res = await fetch(buildUrl(s), {
+                signal: controller.signal,
+              });
               if (!res.ok) return [] as Leader[];
               const data = await res.json();
               const arr = Array.isArray(data) ? data : data.leaders ?? [];
@@ -475,35 +484,48 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             .map((l, i) => ({ ...l, rank: i + 1 }));
           if (!cancelled) setLeaders(combined);
         } else if (sport === MASTER_SPORT) {
-          const res = await fetch(apiUrl(`/v0/leaderboards/master`));
+          const res = await fetch(apiUrl(`/v0/leaderboards/master`), {
+            signal: controller.signal,
+          });
           if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
           const data = await res.json();
           const arr = Array.isArray(data) ? data : data.leaders ?? [];
           if (!cancelled) setLeaders(arr as Leader[]);
         } else {
-          const res = await fetch(buildUrl(sport));
+          const res = await fetch(buildUrl(sport), {
+            signal: controller.signal,
+          });
           if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
           const data = await res.json();
           const arr = Array.isArray(data) ? data : data.leaders ?? [];
           if (!cancelled) setLeaders(arr as Leader[]);
         }
       } catch (err) {
-        if (!cancelled) {
-          console.error("Failed to load leaderboard", err);
-          setLeaders([]);
-          const fallbackMessage =
-            appliedCountry || appliedClubId
-              ? "We couldn't load the leaderboard for this region."
-              : "We couldn't load the leaderboard right now.";
-          setError(fallbackMessage);
+        if (cancelled) {
+          return;
         }
+        const abortError = err as DOMException;
+        if (abortError?.name === "AbortError" && !didTimeout) {
+          return;
+        }
+        console.error("Failed to load leaderboard", err);
+        setLeaders([]);
+        const fallbackMessage = didTimeout
+          ? "Loading the leaderboard took too long. Please try again."
+          : appliedCountry || appliedClubId
+          ? "We couldn't load the leaderboard for this region."
+          : "We couldn't load the leaderboard right now.";
+        setError(fallbackMessage);
       } finally {
+        clearTimeout(timeoutId);
         if (!cancelled) setLoading(false);
       }
     })();
 
     return () => {
       cancelled = true;
+      clearTimeout(timeoutId);
+      controller.abort();
     };
   }, [sport, appliedCountry, appliedClubId, buildUrl, preferencesApplied]);
 

@@ -34,12 +34,17 @@ export default function RootLayout({
   return (
     <html lang={locale}>
       <body>
+        <a className="skip-to-content" href="#main-content">
+          Skip to main content
+        </a>
         <LocaleProvider locale={locale} acceptLanguage={acceptLanguage}>
           <ToastProvider>
             <ChunkErrorReload />
             <Header />
             <SessionBanner />
-            {children}
+            <div id="main-content" tabIndex={-1}>
+              {children}
+            </div>
           </ToastProvider>
         </LocaleProvider>
       </body>

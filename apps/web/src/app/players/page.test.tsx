@@ -587,7 +587,7 @@ describe("PlayersPage", () => {
       renderWithProviders(<PlayersPage />);
     });
 
-    const controls = screen.getByTestId("player-create-controls");
+    screen.getByTestId("player-create-controls");
     expect(screen.getByRole("button", { name: /add/i })).toBeTruthy();
     window.localStorage.removeItem("token");
   });

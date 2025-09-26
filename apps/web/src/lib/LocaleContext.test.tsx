@@ -2,10 +2,12 @@ import '@testing-library/jest-dom/vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LocaleProvider, useLocale } from './LocaleContext';
+import { formatDateTime, LOCALE_STORAGE_KEY } from './i18n';
 
 describe('LocaleProvider', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    window.localStorage.clear();
   });
 
   function LocaleConsumer() {
@@ -41,6 +43,21 @@ describe('LocaleProvider', () => {
     expect(localeDisplay).toHaveTextContent('en-AU');
   });
 
+  it('prefers a stored locale before falling back', async () => {
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, 'sv-SE');
+    vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue([]);
+    vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('');
+
+    render(
+      <LocaleProvider locale="en-US" acceptLanguage={null}>
+        <LocaleConsumer />
+      </LocaleProvider>,
+    );
+
+    const localeDisplay = await screen.findByTestId('locale-value');
+    expect(localeDisplay).toHaveTextContent('sv-SE');
+  });
+
   it('falls back to navigator.language when languages is empty', async () => {
     vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue([]);
     vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('en-GB');
@@ -67,6 +84,34 @@ describe('LocaleProvider', () => {
 
     const localeDisplay = await screen.findByTestId('locale-value');
     expect(localeDisplay).toHaveTextContent('fr-FR');
+  });
+
+  it('falls back to a neutral locale and formats times when no hints exist', async () => {
+    vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue([]);
+    vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('');
+
+    function LocaleAndDateConsumer() {
+      const locale = useLocale();
+      const formatted = formatDateTime('2001-11-21T09:30:00Z', locale);
+      return (
+        <>
+          <span data-testid="locale-value">{locale}</span>
+          <span data-testid="date-value">{formatted}</span>
+        </>
+      );
+    }
+
+    render(
+      <LocaleProvider locale="" acceptLanguage={null}>
+        <LocaleAndDateConsumer />
+      </LocaleProvider>,
+    );
+
+    const localeDisplay = await screen.findByTestId('locale-value');
+    expect(localeDisplay).toHaveTextContent('en-GB');
+
+    const dateDisplay = await screen.findByTestId('date-value');
+    expect(dateDisplay).toHaveTextContent('21 Nov 2001, 09:30');
   });
 
   it('updates when the browser language changes', async () => {

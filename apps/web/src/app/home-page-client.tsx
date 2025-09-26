@@ -7,6 +7,7 @@ import { enrichMatches, type MatchRow, type EnrichedMatch } from '../lib/matches
 import MatchParticipants from '../components/MatchParticipants';
 import { useLocale } from '../lib/LocaleContext';
 import { ensureTrailingSlash, recordPathForSport } from '../lib/routes';
+import { formatDateTime } from '../lib/i18n';
 
 interface Sport { id: string; name: string }
 
@@ -42,8 +43,10 @@ export default function HomePageClient({
   const [matchesLoading, setMatchesLoading] = useState(false);
   const localeFromContext = useLocale();
   const activeLocale = localeFromContext || initialLocale;
-  const dateFormatter = useMemo(
-    () => new Intl.DateTimeFormat(activeLocale, { dateStyle: 'medium' }),
+  const formatMatchDate = useMemo(
+    () =>
+      (value: Date | string | number | null | undefined) =>
+        formatDateTime(value, activeLocale),
     [activeLocale],
   );
 
@@ -169,8 +172,7 @@ export default function HomePageClient({
                   style={{ fontWeight: 500 }}
                 />
                 <div className="match-meta">
-                  {m.sport} · Best of {m.bestOf ?? '—'} ·{' '}
-                  {m.playedAt ? dateFormatter.format(new Date(m.playedAt)) : '—'}
+                  {m.sport} · Best of {m.bestOf ?? '—'} · {formatMatchDate(m.playedAt)}
                   {m.location ? ` · ${m.location}` : ''}
                 </div>
                 <div>

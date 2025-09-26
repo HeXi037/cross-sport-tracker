@@ -173,26 +173,31 @@ describe("RecordPadelPage", () => {
 
     render(<RecordPadelPage />);
 
-    await waitFor(() => screen.getByLabelText("Player A 1"));
+    const playerA1 = await screen.findByRole("combobox", { name: "Player A 1" });
+    const playerB1 = await screen.findByRole("combobox", { name: "Player B 1" });
+    const playerB2 = await screen.findByRole("combobox", { name: "Player B 2" });
+    const saveButton = screen.getByRole("button", { name: /save/i });
 
-    fireEvent.change(screen.getByLabelText("Player A 1"), {
+    fireEvent.change(playerA1, {
       target: { value: "p1" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    fireEvent.click(saveButton);
 
-    await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        /select at least one player for each side/i,
-      ),
-    );
+    await waitFor(() => {
+      expect(
+        screen.getAllByText("Select at least one player for side B.").length,
+      ).toBeGreaterThan(0);
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("button", { name: /save/i })).toBeEnabled();
+    expect(playerB1).toHaveAttribute("aria-invalid", "true");
+    expect(playerB2).toHaveAttribute("aria-invalid", "true");
+    expect(saveButton).toHaveAttribute("aria-disabled", "false");
 
-    fireEvent.change(screen.getByLabelText("Player B 1"), {
+    fireEvent.change(playerB1, {
       target: { value: "p2" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    fireEvent.click(saveButton);
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
@@ -214,29 +219,35 @@ describe("RecordPadelPage", () => {
 
     render(<RecordPadelPage />);
 
-    await waitFor(() => screen.getByLabelText("Player A 1"));
+    const playerA1 = await screen.findByRole("combobox", { name: "Player A 1" });
+    const playerB1 = await screen.findByRole("combobox", { name: "Player B 1" });
+    const saveButton = screen.getByRole("button", { name: /save/i });
 
-    fireEvent.change(screen.getByLabelText("Player A 1"), {
+    fireEvent.change(playerA1, {
       target: { value: "p1" },
     });
-    fireEvent.change(screen.getByLabelText("Player B 1"), {
+    fireEvent.change(playerB1, {
       target: { value: "p1" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    fireEvent.click(saveButton);
 
-    await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        /please select unique players/i,
-      ),
-    );
+    await waitFor(() => {
+      expect(
+        screen.getAllByText("Player already selected on another team.").length,
+      ).toBeGreaterThan(0);
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("button", { name: /save/i })).toBeEnabled();
+    expect(playerA1).toHaveAttribute("aria-invalid", "true");
+    expect(playerB1).toHaveAttribute("aria-invalid", "true");
+    expect(playerA1).toHaveAttribute("aria-describedby", "padel-player-a1-error");
+    expect(playerB1).toHaveAttribute("aria-describedby", "padel-player-b1-error");
+    expect(saveButton).toHaveAttribute("aria-disabled", "false");
 
-    fireEvent.change(screen.getByLabelText("Player B 1"), {
+    fireEvent.change(playerB1, {
       target: { value: "p2" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    fireEvent.click(saveButton);
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
@@ -286,7 +297,10 @@ describe("RecordPadelPage", () => {
       ),
     ).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("button", { name: /save/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /save/i })).toHaveAttribute(
+      "aria-disabled",
+      "false",
+    );
   });
 
   it("shows an error when saving the match fails", async () => {
@@ -325,7 +339,10 @@ describe("RecordPadelPage", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: /save/i })).toBeEnabled(),
+      expect(screen.getByRole("button", { name: /save/i })).toHaveAttribute(
+        "aria-disabled",
+        "false",
+      ),
     );
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });

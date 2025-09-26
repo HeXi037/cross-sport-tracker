@@ -48,7 +48,13 @@ export default function RecordPadelPage() {
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
   const [isFriendly, setIsFriendly] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  const [playerErrors, setPlayerErrors] = useState<Record<keyof IdMap, string>>({
+    a1: "",
+    a2: "",
+    b1: "",
+    b2: "",
+  });
   const [saving, setSaving] = useState(false);
   const locale = useLocale();
   const [success, setSuccess] = useState(false);
@@ -60,7 +66,7 @@ export default function RecordPadelPage() {
         const data = (await res.json()) as { players: Player[] };
         setPlayers(data.players || []);
       } catch (err: unknown) {
-        setError("Failed to load players");
+        setGlobalError("Failed to load players");
         const status = (err as { status?: number }).status;
         if (status === 401) {
           router.push(ensureTrailingSlash("/login"));
@@ -73,6 +79,7 @@ export default function RecordPadelPage() {
 
   const handleIdChange = (key: keyof IdMap, value: string) => {
     setIds((prev) => ({ ...prev, [key]: value }));
+    setPlayerErrors((prev) => ({ ...prev, [key]: "" }));
   };
 
   const handleSetChange = (idx: number, side: keyof SetScore, value: string) => {
@@ -133,30 +140,58 @@ export default function RecordPadelPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (saving) return;
-    setError(null);
+    setGlobalError(null);
     setSuccess(false);
     setSaving(true);
 
+    const newPlayerErrors: Record<keyof IdMap, string> = {
+      a1: "",
+      a2: "",
+      b1: "",
+      b2: "",
+    };
+    let hasPlayerErrors = false;
+
     const idValues = [ids.a1, ids.a2, ids.b1, ids.b2];
     const filtered = idValues.filter((v) => v);
-    if (new Set(filtered).size !== filtered.length) {
-      setError("Please select unique players.");
-      setSaving(false);
-      setSuccess(false);
-      return;
+    const duplicateIds = new Set(
+      filtered.filter((value, index, arr) => arr.indexOf(value) !== index),
+    );
+    if (duplicateIds.size > 0) {
+      (Object.entries(ids) as [keyof IdMap, string][]).forEach(([key, value]) => {
+        if (value && duplicateIds.has(value)) {
+          newPlayerErrors[key] = "Player already selected on another team.";
+          hasPlayerErrors = true;
+        }
+      });
     }
 
     const sideA = [ids.a1, ids.a2].filter(Boolean);
     const sideB = [ids.b1, ids.b2].filter(Boolean);
-    if (!sideA.length || !sideB.length) {
-      setError("Select at least one player for each side");
+    if (!sideA.length) {
+      newPlayerErrors.a1 =
+        newPlayerErrors.a1 || "Select at least one player for side A.";
+      newPlayerErrors.a2 =
+        newPlayerErrors.a2 || "Select at least one player for side A.";
+      hasPlayerErrors = true;
+    }
+    if (!sideB.length) {
+      newPlayerErrors.b1 =
+        newPlayerErrors.b1 || "Select at least one player for side B.";
+      newPlayerErrors.b2 =
+        newPlayerErrors.b2 || "Select at least one player for side B.";
+      hasPlayerErrors = true;
+    }
+
+    setPlayerErrors(newPlayerErrors);
+    if (hasPlayerErrors) {
       setSaving(false);
       setSuccess(false);
       return;
     }
 
     if (!validateSets()) {
-      setError("Please fix the highlighted set scores before saving.");
+      setGlobalError("Please fix the highlighted set scores before saving.");
       setSaving(false);
       return;
     }
@@ -207,7 +242,7 @@ export default function RecordPadelPage() {
       console.error("Failed to save padel match", err);
       setSaving(false);
       setSuccess(false);
-      setError("Failed to save match. Please try again.");
+      setGlobalError("Failed to save match. Please try again.");
     }
   };
 
@@ -287,6 +322,10 @@ export default function RecordPadelPage() {
                 id="padel-player-a1"
                 value={ids.a1}
                 onChange={(e) => handleIdChange("a1", e.target.value)}
+                aria-invalid={playerErrors.a1 ? "true" : "false"}
+                aria-describedby={
+                  playerErrors.a1 ? "padel-player-a1-error" : undefined
+                }
               >
                 <option value="">Select player</option>
                 {players.map((p) => (
@@ -295,6 +334,11 @@ export default function RecordPadelPage() {
                   </option>
                 ))}
               </select>
+              {playerErrors.a1 && (
+                <p id="padel-player-a1-error" role="alert" className="error">
+                  {playerErrors.a1}
+                </p>
+              )}
             </label>
 
             <label className="form-field" htmlFor="padel-player-a2">
@@ -303,6 +347,10 @@ export default function RecordPadelPage() {
                 id="padel-player-a2"
                 value={ids.a2}
                 onChange={(e) => handleIdChange("a2", e.target.value)}
+                aria-invalid={playerErrors.a2 ? "true" : "false"}
+                aria-describedby={
+                  playerErrors.a2 ? "padel-player-a2-error" : undefined
+                }
               >
                 <option value="">Select player</option>
                 {players.map((p) => (
@@ -311,6 +359,11 @@ export default function RecordPadelPage() {
                   </option>
                 ))}
               </select>
+              {playerErrors.a2 && (
+                <p id="padel-player-a2-error" role="alert" className="error">
+                  {playerErrors.a2}
+                </p>
+              )}
             </label>
 
             <label className="form-field" htmlFor="padel-player-b1">
@@ -319,6 +372,10 @@ export default function RecordPadelPage() {
                 id="padel-player-b1"
                 value={ids.b1}
                 onChange={(e) => handleIdChange("b1", e.target.value)}
+                aria-invalid={playerErrors.b1 ? "true" : "false"}
+                aria-describedby={
+                  playerErrors.b1 ? "padel-player-b1-error" : undefined
+                }
               >
                 <option value="">Select player</option>
                 {players.map((p) => (
@@ -327,6 +384,11 @@ export default function RecordPadelPage() {
                   </option>
                 ))}
               </select>
+              {playerErrors.b1 && (
+                <p id="padel-player-b1-error" role="alert" className="error">
+                  {playerErrors.b1}
+                </p>
+              )}
             </label>
 
             <label className="form-field" htmlFor="padel-player-b2">
@@ -335,6 +397,10 @@ export default function RecordPadelPage() {
                 id="padel-player-b2"
                 value={ids.b2}
                 onChange={(e) => handleIdChange("b2", e.target.value)}
+                aria-invalid={playerErrors.b2 ? "true" : "false"}
+                aria-describedby={
+                  playerErrors.b2 ? "padel-player-b2-error" : undefined
+                }
               >
                 <option value="">Select player</option>
                 {players.map((p) => (
@@ -343,6 +409,11 @@ export default function RecordPadelPage() {
                   </option>
                 ))}
               </select>
+              {playerErrors.b2 && (
+                <p id="padel-player-b2-error" role="alert" className="error">
+                  {playerErrors.b2}
+                </p>
+              )}
             </label>
           </div>
           <label className="form-field" htmlFor="padel-best-of">
@@ -404,13 +475,20 @@ export default function RecordPadelPage() {
             );
           })}
         </div>
-        <button type="button" onClick={addSet}>
+        <p id="padel-add-set-hint" className="form-hint">
+          Add another set if the match extended beyond the recorded sets.
+        </p>
+        <button
+          type="button"
+          onClick={addSet}
+          aria-describedby="padel-add-set-hint"
+        >
           Add Set
         </button>
 
-        {error && (
+        {globalError && (
           <p role="alert" className="error">
-            {error}
+            {globalError}
           </p>
         )}
 
@@ -419,7 +497,20 @@ export default function RecordPadelPage() {
             Match recorded!
           </p>
         )}
-        <button type="submit" disabled={saving}>
+        <p id="padel-save-hint" className="form-hint">
+          Save once each side has at least one player and completed sets are
+          entered as needed.
+        </p>
+        <button
+          type="submit"
+          aria-disabled={saving ? "true" : "false"}
+          aria-describedby="padel-save-hint"
+          data-saving={saving}
+          style={{
+            opacity: saving ? 0.75 : 1,
+            cursor: saving ? "progress" : "pointer",
+          }}
+        >
           {saving ? "Saving..." : "Save"}
         </button>
       </form>

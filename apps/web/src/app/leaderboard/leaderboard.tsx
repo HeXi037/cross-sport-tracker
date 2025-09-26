@@ -158,6 +158,16 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const resultsCount = leaders.length;
+  const hasResults = resultsCount > 0;
+  const statusMessage = loading
+    ? "Loading leaderboard results…"
+    : error
+      ? `Error loading leaderboard: ${error}`
+      : hasResults
+        ? `Loaded ${resultsCount} leaderboard ${resultsCount === 1 ? "entry" : "entries"}.`
+        : "No leaderboard results available.";
   const [preferencesApplied, setPreferencesApplied] = useState(false);
 
   useEffect(() => {
@@ -583,6 +593,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
 
   return (
     <main className="container">
+      <p className="sr-only" aria-live="polite">
+        {statusMessage}
+      </p>
       <div style={{ marginBottom: "1rem", fontSize: "0.9rem" }}>
         <Link
           href={ensureTrailingSlash("/matches")}

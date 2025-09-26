@@ -80,6 +80,22 @@ type MatchDetail = {
 
 const PLACEHOLDER_LABELS = new Set(["-", "–", "—", "n/a", "na"]);
 
+function toPositiveInteger(value: unknown): number | undefined {
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return undefined;
+    const truncated = Math.trunc(value);
+    return truncated > 0 ? truncated : undefined;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    const parsed = Number.parseInt(trimmed, 10);
+    if (!Number.isFinite(parsed)) return undefined;
+    return parsed > 0 ? parsed : undefined;
+  }
+  return undefined;
+}
+
 function normalizeLabel(value: unknown): string | undefined {
   if (typeof value === "number" && Number.isFinite(value)) {
     return `${value}`;
@@ -231,6 +247,75 @@ function resolveStatusText(match: MatchDetail): string | undefined {
       const candidate = normalizeLabel(value);
       if (candidate) {
         return candidate;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+const BEST_OF_KEYS = [
+  "bestOf",
+  "best_of",
+  "bestof",
+  "sets",
+  "numberOfSets",
+  "number_of_sets",
+  "maxSets",
+  "max_sets",
+];
+
+const NESTED_CONFIG_KEYS = ["config", "metadata", "details", "rules"];
+
+function resolveBestOfFromRecord(
+  record: Record<string, unknown>
+): number | undefined {
+  for (const key of BEST_OF_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(record, key)) {
+      const best = toPositiveInteger(record[key]);
+      if (best !== undefined) {
+        return best;
+      }
+    }
+  }
+
+  for (const nestedKey of NESTED_CONFIG_KEYS) {
+    const nested = record[nestedKey];
+    if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+      const best = resolveBestOfFromRecord(nested as Record<string, unknown>);
+      if (best !== undefined) {
+        return best;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function resolveBestOf(match: MatchDetail): number | undefined {
+  const direct = toPositiveInteger(match.bestOf);
+  if (direct !== undefined) {
+    return direct;
+  }
+
+  const { ruleset } = match;
+  if (ruleset && typeof ruleset === "object" && !Array.isArray(ruleset)) {
+    const fromRuleset = resolveBestOfFromRecord(
+      ruleset as Record<string, unknown>
+    );
+    if (fromRuleset !== undefined) {
+      return fromRuleset;
+    }
+  }
+
+  if (match.summary && typeof match.summary === "object") {
+    const config = (match.summary as { config?: unknown }).config;
+    if (config && typeof config === "object" && !Array.isArray(config)) {
+      const fromConfig = resolveBestOfFromRecord(
+        config as Record<string, unknown>
+      );
+      if (fromConfig !== undefined) {
+        return fromConfig;
       }
     }
   }
@@ -412,6 +497,7 @@ export default async function MatchDetailPage({
   const fallbackLabel = "—";
   const statusText = resolveStatusText(match);
   const statusCode = resolveStatusCode(match);
+  const bestOfValue = resolveBestOf(match);
 
   const resolvedRulesetName = resolveRulesetName(match);
   const resolvedRulesetId = resolveRulesetIdentifier(match);
@@ -419,15 +505,15 @@ export default async function MatchDetailPage({
   const sportLabel =
     normalizeLabel(match.sportName) ??
     normalizeLabel(sportName) ??
-    normalizeLabel(match.sport) ??
-    fallbackLabel;
+    normalizeLabel(match.sport);
   const resolvedRulesetLabel =
     resolvedRulesetName ?? rulesetNameFromLookup ?? resolvedRulesetId;
-  const rulesetLabel =
-    normalizeLabel(resolvedRulesetLabel) ?? fallbackLabel;
+  const rulesetLabel = normalizeLabel(resolvedRulesetLabel);
   const resolvedStatusLabel =
     normalizeLabel(statusText) ?? normalizeLabel(statusCode);
-  const statusLabel = resolvedStatusLabel ?? fallbackLabel;
+  const statusLabel = resolvedStatusLabel ?? undefined;
+  const bestOfLabel =
+    typeof bestOfValue === "number" ? `Best of ${bestOfValue}` : undefined;
 
   const playedAtDate = match.playedAt ? new Date(match.playedAt) : null;
   const playedAtStr = playedAtDate
@@ -435,6 +521,8 @@ export default async function MatchDetailPage({
       ? formatDateTime(playedAtDate, locale)
       : formatDate(playedAtDate, locale)
     : "";
+  const playedAtLabel = normalizeLabel(playedAtStr);
+  const locationLabel = normalizeLabel(match.location);
 
   let initialSummary: SummaryData = match.summary ?? null;
   const summaryRecord = isRecord(initialSummary)
@@ -463,17 +551,30 @@ export default async function MatchDetailPage({
     }
   }
 
-  const headerMetaParts = [
+  const baseMetaParts = [
     match.isFriendly ? "Friendly" : null,
     sportLabel,
     rulesetLabel,
+    bestOfLabel,
     statusLabel,
   ].filter((value): value is string => Boolean(value && value !== ""));
-  if (playedAtStr) {
-    headerMetaParts.push(playedAtStr);
+  const supplementalMetaParts = [playedAtLabel, locationLabel].filter(
+    (value): value is string => Boolean(value && value !== "")
+  );
+  const headerMetaParts = baseMetaParts.filter(
+    (value) => value !== fallbackLabel
+  );
+  if (!headerMetaParts.length) {
+    if (supplementalMetaParts.length) {
+      headerMetaParts.push(...supplementalMetaParts);
+    } else if (baseMetaParts.length) {
+      headerMetaParts.push(fallbackLabel);
+    }
+  } else {
+    headerMetaParts.push(...supplementalMetaParts);
   }
-  if (match.location) {
-    headerMetaParts.push(match.location);
+  if (!headerMetaParts.length) {
+    headerMetaParts.push(fallbackLabel);
   }
 
   return (

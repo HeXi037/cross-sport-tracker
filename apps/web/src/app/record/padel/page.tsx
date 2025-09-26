@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
 import { ensureTrailingSlash } from "../../../lib/routes";
@@ -60,6 +60,126 @@ export default function RecordPadelPage() {
   const [saving, setSaving] = useState(false);
   const locale = useLocale();
   const [success, setSuccess] = useState(false);
+  const saveSummaryId = useId();
+
+  const playerNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    players.forEach((player) => {
+      map.set(player.id, player.name);
+    });
+    return map;
+  }, [players]);
+
+  const sideASelected = useMemo(
+    () => [ids.a1, ids.a2].filter(Boolean) as string[],
+    [ids.a1, ids.a2],
+  );
+
+  const sideBSelected = useMemo(
+    () => [ids.b1, ids.b2].filter(Boolean) as string[],
+    [ids.b1, ids.b2],
+  );
+
+  const duplicatePlayerIds = useMemo(() => {
+    const selections = [...sideASelected, ...sideBSelected];
+    return selections.filter(
+      (value, index, arr) => arr.indexOf(value) !== index,
+    );
+  }, [sideASelected, sideBSelected]);
+
+  const duplicatePlayerNames = useMemo(() => {
+    const uniqueDuplicates = Array.from(new Set(duplicatePlayerIds));
+    return uniqueDuplicates.map(
+      (id) => playerNameById.get(id) ?? "Selected player",
+    );
+  }, [duplicatePlayerIds, playerNameById]);
+
+  const sideAPlayerNames = useMemo(
+    () => sideASelected.map((id) => playerNameById.get(id) ?? "Selected player"),
+    [playerNameById, sideASelected],
+  );
+
+  const sideBPlayerNames = useMemo(
+    () => sideBSelected.map((id) => playerNameById.get(id) ?? "Selected player"),
+    [playerNameById, sideBSelected],
+  );
+
+  const setStatus = useMemo(() => {
+    let completed = 0;
+    let message: string | null = null;
+
+    sets.forEach((set, idx) => {
+      const a = set.A.trim();
+      const b = set.B.trim();
+
+      if (!a && !b) {
+        return;
+      }
+
+      if (!a || !b) {
+        if (!message) {
+          message = `Enter a score for both teams in set ${idx + 1}.`;
+        }
+        return;
+      }
+
+      const aNum = Number(a);
+      const bNum = Number(b);
+
+      if (
+        !Number.isInteger(aNum) ||
+        aNum < 0 ||
+        !Number.isInteger(bNum) ||
+        bNum < 0
+      ) {
+        if (!message) {
+          message = `Scores in set ${idx + 1} must be whole numbers of zero or more.`;
+        }
+        return;
+      }
+
+      completed += 1;
+    });
+
+    if (!message && completed === 0) {
+      message = "Add scores for at least one completed set.";
+    }
+
+    return {
+      completed,
+      message,
+    };
+  }, [sets]);
+
+  const hasSideAPlayers = sideASelected.length > 0;
+  const hasSideBPlayers = sideBSelected.length > 0;
+
+  const canSave =
+    !saving &&
+    hasSideAPlayers &&
+    hasSideBPlayers &&
+    setStatus.completed > 0 &&
+    !setStatus.message &&
+    duplicatePlayerIds.length === 0;
+
+  const buttonCursor = saving
+    ? "progress"
+    : canSave
+      ? "pointer"
+      : "not-allowed";
+  const buttonOpacity = canSave ? 1 : 0.75;
+  const sideASummaryMessage = hasSideAPlayers
+    ? `Side A: ${sideAPlayerNames.join(", ")}`
+    : "Add at least one player to side A.";
+  const sideBSummaryMessage = hasSideBPlayers
+    ? `Side B: ${sideBPlayerNames.join(", ")}`
+    : "Add at least one player to side B.";
+  const duplicatePlayersMessage = duplicatePlayerNames.length
+    ? `Players cannot appear on both sides: ${duplicatePlayerNames.join(", ")}.`
+    : null;
+  const completedSetsMessage = setStatus.message
+    ? setStatus.message
+    : `Completed sets ready to save: ${setStatus.completed}.`;
 
   useEffect(() => {
     async function loadPlayers() {
@@ -147,7 +267,9 @@ export default function RecordPadelPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (saving) return;
+    if (saving || !canSave) {
+      return;
+    }
     setGlobalError(null);
     setSuccess(false);
     setSaving(true);
@@ -522,14 +644,40 @@ export default function RecordPadelPage() {
           Save once each side has at least one player and completed sets are
           entered as needed.
         </p>
+        <div id={saveSummaryId} aria-live="polite">
+          <p
+            className={hasSideAPlayers ? "form-hint" : "error"}
+            role={hasSideAPlayers ? undefined : "alert"}
+          >
+            {sideASummaryMessage}
+          </p>
+          <p
+            className={hasSideBPlayers ? "form-hint" : "error"}
+            role={hasSideBPlayers ? undefined : "alert"}
+          >
+            {sideBSummaryMessage}
+          </p>
+          {duplicatePlayersMessage && (
+            <p className="error" role="alert">
+              {duplicatePlayersMessage}
+            </p>
+          )}
+          <p
+            className={setStatus.message ? "error" : "form-hint"}
+            role={setStatus.message ? "alert" : undefined}
+          >
+            {completedSetsMessage}
+          </p>
+        </div>
         <button
           type="submit"
-          aria-disabled={saving ? "true" : "false"}
-          aria-describedby="padel-save-hint"
+          aria-disabled={!canSave ? "true" : "false"}
+          aria-describedby={`padel-save-hint ${saveSummaryId}`}
+          disabled={!canSave}
           data-saving={saving}
           style={{
-            opacity: saving ? 0.75 : 1,
-            cursor: saving ? "progress" : "pointer",
+            opacity: buttonOpacity,
+            cursor: buttonCursor,
           }}
         >
           {saving ? "Saving..." : "Save"}

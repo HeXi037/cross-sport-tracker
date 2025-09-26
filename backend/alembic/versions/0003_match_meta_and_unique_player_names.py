@@ -7,7 +7,7 @@ branch_labels = None
 depends_on = None
 
 def upgrade():
-    op.add_column('match', sa.Column('played_at', sa.DateTime(), nullable=True))
+    op.add_column('match', sa.Column('played_at', sa.DateTime(timezone=True), nullable=True))
     op.add_column('match', sa.Column('location', sa.String(), nullable=True))
     op.create_unique_constraint('uq_player_name', 'player', ['name'])
 

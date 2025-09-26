@@ -166,7 +166,7 @@ export default function RecordPadelPage() {
       if (date) {
         payload.playedAt = time
           ? new Date(`${date}T${time}`).toISOString()
-          : `${date}T00:00:00`;
+          : `${date}T00:00:00Z`;
       }
       if (location) {
         payload.location = location;

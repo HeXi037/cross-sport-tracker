@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { headers } from "next/headers";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import { apiFetch, fetchClubs, withAbsolutePhotoUrl } from "../../../lib/api";
 import PlayerCharts from "./PlayerCharts";
 import PlayerComments from "./comments-client";
@@ -112,21 +113,6 @@ function toPlayerDetailError(
       ? err
       : fallbackMessage;
   return { status, message };
-}
-
-function renderPlayerNotFound(): JSX.Element {
-  return (
-    <main className="container">
-      <h1 className="heading">Player not found</h1>
-      <p className="mt-2 text-gray-700">
-        We couldn&apos;t find the player you were looking for. They might have been
-        removed or never existed.
-      </p>
-      <Link href="/players" className="mt-4 inline-block">
-        Back to players
-      </Link>
-    </main>
-  );
 }
 
 function renderPlayerError(
@@ -454,7 +440,7 @@ export default async function PlayerPage({
   } catch (err) {
     const status = getErrorStatus(err);
     if (status === 404) {
-      return renderPlayerNotFound();
+      notFound();
     }
     console.error(`Failed to load player ${params.id}`, err);
     return renderPlayerError(params.id, err);

@@ -1,8 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  FormEvent,
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { apiUrl } from "../../lib/api";
 import { ensureTrailingSlash, recordPathForSport } from "../../lib/routes";
 import { loadUserSettings } from "../user-settings";
@@ -126,6 +134,10 @@ const EmptyState = ({ icon, title, description, cta }: EmptyStateContent) => (
 
 export default function Leaderboard({ sport, country, clubId }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const searchParamsString = searchParams?.toString() ?? "";
+  const lastSyncedUrlRef = useRef<string | null>(null);
 
   const initialCountry = normalizeCountry(country);
   const initialClubId = normalizeClubId(clubId);
@@ -157,28 +169,69 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     );
   }, [country, clubId]);
 
+  const updateFiltersInQuery = useCallback(
+    (nextFilters: Filters) => {
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      const basePath = canonicalizePathname(
+        pathname ?? window.location.pathname ?? "/",
+      );
+      const params = searchParamsString
+        ? new URLSearchParams(searchParamsString)
+        : new URLSearchParams(window.location.search);
+
+      let changed = false;
+      if (nextFilters.country) {
+        if (params.get("country") !== nextFilters.country) {
+          params.set("country", nextFilters.country);
+          changed = true;
+        }
+      } else if (params.has("country")) {
+        params.delete("country");
+        changed = true;
+      }
+
+      if (nextFilters.clubId) {
+        if (params.get("clubId") !== nextFilters.clubId) {
+          params.set("clubId", nextFilters.clubId);
+          changed = true;
+        }
+      } else if (params.has("clubId")) {
+        params.delete("clubId");
+        changed = true;
+      }
+
+      const nextSearch = params.toString();
+      const nextHref = nextSearch ? `${basePath}?${nextSearch}` : basePath;
+      const currentHref = `${window.location.pathname}${window.location.search}`;
+
+      if (!changed && nextHref === currentHref) {
+        lastSyncedUrlRef.current = nextHref;
+        return;
+      }
+
+      if (lastSyncedUrlRef.current === nextHref) {
+        return;
+      }
+
+      if (nextHref === currentHref) {
+        lastSyncedUrlRef.current = nextHref;
+        return;
+      }
+
+      lastSyncedUrlRef.current = nextHref;
+      startTransition(() => {
+        router.replace(nextHref, { scroll: false });
+      });
+    },
+    [pathname, router, searchParamsString],
+  );
+
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const url = new URL(window.location.href);
-    if (filters.country) {
-      url.searchParams.set("country", filters.country);
-    } else {
-      url.searchParams.delete("country");
-    }
-    if (filters.clubId) {
-      url.searchParams.set("clubId", filters.clubId);
-    } else {
-      url.searchParams.delete("clubId");
-    }
-    const canonicalPath = canonicalizePathname(url.pathname);
-    const nextUrl = `${canonicalPath}${url.search}`;
-    const currentUrl = `${window.location.pathname}${window.location.search}`;
-    if (nextUrl !== currentUrl) {
-      router.replace(nextUrl, { scroll: false });
-    }
-  }, [filters.country, filters.clubId, router]);
+    updateFiltersInQuery(filters);
+  }, [filters.clubId, filters.country, updateFiltersInQuery]);
 
   useEffect(() => {
     if (preferencesApplied) {
@@ -374,21 +427,25 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     }
     const nextCountry = normalizedDraftCountry;
     const nextClubId = normalizedDraftClubId;
+    const nextFilters = { country: nextCountry, clubId: nextClubId };
     setDraftCountry(nextCountry);
     setDraftClubId(nextClubId);
     setFilters((prev) =>
       prev.country === nextCountry && prev.clubId === nextClubId
         ? prev
-        : { country: nextCountry, clubId: nextClubId }
+        : nextFilters
     );
+    updateFiltersInQuery(nextFilters);
   };
 
   const handleClear = () => {
     setDraftCountry("");
     setDraftClubId("");
+    const cleared = { country: "", clubId: "" };
     setFilters((prev) =>
-      prev.country === "" && prev.clubId === "" ? prev : { country: "", clubId: "" }
+      prev.country === "" && prev.clubId === "" ? prev : cleared
     );
+    updateFiltersInQuery(cleared);
   };
 
   useEffect(() => {

@@ -1,22 +1,35 @@
 import { render, waitFor, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
+import userEvent from "@testing-library/user-event";
 import Leaderboard from "./leaderboard";
 import { apiUrl } from "../../lib/api";
 import { USER_SETTINGS_STORAGE_KEY } from "../user-settings";
 
 const replaceMock = vi.fn();
 let mockPathname = "/leaderboard";
+let mockSearchParams = new URLSearchParams();
+
+const updateMockLocation = (href: string) => {
+  const url = new URL(href, "https://example.test");
+  mockPathname = url.pathname;
+  mockSearchParams = new URLSearchParams(url.search);
+  window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+};
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: replaceMock }),
   usePathname: () => mockPathname,
+  useSearchParams: () => mockSearchParams,
 }));
 
 describe("Leaderboard", () => {
   beforeEach(() => {
-    mockPathname = "/leaderboard";
+    updateMockLocation("/leaderboard");
     replaceMock.mockReset();
-    window.history.replaceState(null, "", "/leaderboard");
+    replaceMock.mockImplementation((nextHref: string, _options?: { scroll?: boolean }) => {
+      updateMockLocation(nextHref);
+      return undefined;
+    });
     window.localStorage.clear();
   });
 
@@ -53,7 +66,7 @@ describe("Leaderboard", () => {
       .fn()
       .mockResolvedValue({ ok: true, json: async () => [] });
     global.fetch = fetchMock as typeof fetch;
-    mockPathname = "/leaderboard/padel";
+    updateMockLocation("/leaderboard/padel");
 
     render(<Leaderboard sport="padel" country="SE" />);
 
@@ -68,7 +81,7 @@ describe("Leaderboard", () => {
       .fn()
       .mockResolvedValue({ ok: true, json: async () => [] });
     global.fetch = fetchMock as typeof fetch;
-    mockPathname = "/leaderboard/padel";
+    updateMockLocation("/leaderboard/padel");
 
     render(<Leaderboard sport="padel" clubId="club-a" />);
 
@@ -83,6 +96,7 @@ describe("Leaderboard", () => {
       .fn()
       .mockResolvedValue({ ok: true, json: async () => [] });
     global.fetch = fetchMock as typeof fetch;
+    updateMockLocation("/leaderboard?sport=all");
 
     render(<Leaderboard sport="all" country="SE" clubId="club-a" />);
 
@@ -145,7 +159,7 @@ describe("Leaderboard", () => {
   });
 
   it("normalizes a trailing slash when syncing filters", async () => {
-    window.history.replaceState(null, "", "/leaderboard/");
+    updateMockLocation("/leaderboard/");
     const fetchMock = vi
       .fn()
       .mockResolvedValue({ ok: true, json: async () => [] });
@@ -181,10 +195,74 @@ describe("Leaderboard", () => {
       ),
     );
 
-    window.history.replaceState(null, "", "/leaderboard?sport=padel&country=SE");
+    updateMockLocation("/leaderboard?sport=padel&country=SE");
     view.rerender(<Leaderboard sport="padel" />);
 
     const countryInput = (await screen.findByLabelText("Country")) as HTMLInputElement;
     expect(countryInput.value).toBe("SE");
+  });
+
+  it("preserves additional query params when updating filters", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+
+    updateMockLocation("/leaderboard?sport=padel&foo=bar");
+
+    render(<Leaderboard sport="padel" />);
+
+    const countryInput = (await screen.findByLabelText("Country")) as HTMLInputElement;
+    await user.type(countryInput, "se");
+    const applyButton = screen.getByRole("button", { name: "Apply" });
+
+    const initialCallCount = replaceMock.mock.calls.length;
+    await user.click(applyButton);
+    await waitFor(() =>
+      expect(replaceMock.mock.calls.length).toBeGreaterThan(initialCallCount)
+    );
+
+    let lastCall = replaceMock.mock.calls.at(-1);
+    expect(lastCall).toBeDefined();
+    let [href] = lastCall!;
+    let url = new URL(href as string, "https://example.test");
+    expect(url.searchParams.get("foo")).toBe("bar");
+    expect(url.searchParams.get("sport")).toBe("padel");
+    expect(url.searchParams.get("country")).toBe("SE");
+
+    const clubInput = (await screen.findByLabelText("Club")) as HTMLInputElement;
+    await user.type(clubInput, "club-123");
+
+    const postCountryCallCount = replaceMock.mock.calls.length;
+    await user.click(applyButton);
+    await waitFor(() =>
+      expect(replaceMock.mock.calls.length).toBeGreaterThan(postCountryCallCount)
+    );
+
+    lastCall = replaceMock.mock.calls.at(-1);
+    expect(lastCall).toBeDefined();
+    [href] = lastCall!;
+    url = new URL(href as string, "https://example.test");
+    expect(url.searchParams.get("foo")).toBe("bar");
+    expect(url.searchParams.get("sport")).toBe("padel");
+    expect(url.searchParams.get("country")).toBe("SE");
+    expect(url.searchParams.get("clubId")).toBe("club-123");
+
+    const clearButton = screen.getByRole("button", { name: "Clear" });
+    const postClubCallCount = replaceMock.mock.calls.length;
+    await user.click(clearButton);
+    await waitFor(() =>
+      expect(replaceMock.mock.calls.length).toBeGreaterThan(postClubCallCount)
+    );
+
+    lastCall = replaceMock.mock.calls.at(-1);
+    expect(lastCall).toBeDefined();
+    [href] = lastCall!;
+    url = new URL(href as string, "https://example.test");
+    expect(url.searchParams.get("foo")).toBe("bar");
+    expect(url.searchParams.get("sport")).toBe("padel");
+    expect(url.searchParams.has("country")).toBe(false);
+    expect(url.searchParams.has("clubId")).toBe(false);
   });
 });

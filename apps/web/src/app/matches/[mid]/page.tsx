@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { headers } from "next/headers";
+import { notFound } from "next/navigation";
 import { apiFetch, withAbsolutePhotoUrl } from "../../../lib/api";
 import LiveSummary from "./live-summary";
 import MatchParticipants from "../../../components/MatchParticipants";
@@ -93,6 +94,15 @@ function normalizeLabel(value: unknown): string | undefined {
     return undefined;
   }
   return normalized;
+}
+
+function isNextNotFoundError(error: unknown):
+  error is { digest: string } {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  const digest = (error as { digest?: unknown }).digest;
+  return digest === "NEXT_NOT_FOUND";
 }
 
 function pickFirstString(
@@ -230,6 +240,9 @@ async function fetchMatch(mid: string): Promise<MatchDetail> {
   const res = (await apiFetch(`/v0/matches/${encodeURIComponent(mid)}`, {
     cache: "no-store",
   } as RequestInit)) as Response;
+  if (res.status === 404) {
+    notFound();
+  }
   if (!res.ok) throw new Error(`match ${mid}`);
   return (await res.json()) as MatchDetail;
 }
@@ -330,6 +343,9 @@ export default async function MatchDetailPage({
   try {
     match = await fetchMatch(params.mid);
   } catch (error) {
+    if (isNextNotFoundError(error)) {
+      throw error;
+    }
     console.error(`Failed to load match ${params.mid}`, error);
     matchError = MATCH_LOAD_ERROR_MESSAGE;
   }

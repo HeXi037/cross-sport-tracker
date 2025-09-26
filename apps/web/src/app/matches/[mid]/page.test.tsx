@@ -2,7 +2,16 @@ import { render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 
+type NextNotFoundError = Error & { digest?: string };
+
 const apiFetchMock = vi.hoisted(() => vi.fn());
+const notFoundMock = vi.hoisted(() => vi.fn());
+const nextNotFoundError = vi.hoisted(
+  () =>
+    Object.assign(new Error("NEXT_NOT_FOUND"), {
+      digest: "NEXT_NOT_FOUND",
+    }) as NextNotFoundError
+);
 
 type ScoreEvent = {
   type: string;
@@ -54,7 +63,15 @@ vi.mock("next/headers", () => ({
   headers: vi.fn(() => new Headers()),
 }));
 
+vi.mock("next/navigation", () => {
+  notFoundMock.mockImplementation(() => {
+    throw nextNotFoundError;
+  });
+  return { notFound: notFoundMock };
+});
+
 import MatchDetailPage from "./page";
+import MatchNotFound from "./not-found";
 
 describe("MatchDetailPage", () => {
   afterEach(() => {
@@ -434,6 +451,35 @@ describe("MatchDetailPage", () => {
         selector: ".connection-indicator",
       })
     ).not.toBeInTheDocument();
+  });
+
+  it("lets Next.js render the route not-found boundary when the match is missing", async () => {
+    notFoundMock.mockImplementation(() => {
+      throw nextNotFoundError;
+    });
+    apiFetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      json: async () => ({ message: "Match missing" }),
+    });
+
+    await expect(
+      MatchDetailPage({ params: { mid: "missing" } })
+    ).rejects.toBe(nextNotFoundError);
+
+    expect(notFoundMock).toHaveBeenCalledTimes(1);
+
+    render(<MatchNotFound />);
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: /match not found/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /back to matches/i })
+    ).toHaveAttribute("href", expect.stringMatching(/^\/matches\/?$/));
+    expect(
+      screen.getByRole("link", { name: /browse matches/i })
+    ).toHaveAttribute("href", expect.stringMatching(/^\/matches\/?$/));
   });
 
   it("shows a helpful message when a match cannot be loaded", async () => {

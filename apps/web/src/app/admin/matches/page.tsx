@@ -7,6 +7,7 @@ import { ensureTrailingSlash } from "../../../lib/routes";
 import { PlayerInfo } from "../../../components/PlayerName";
 import MatchParticipants from "../../../components/MatchParticipants";
 import { useLocale } from "../../../lib/LocaleContext";
+import { formatDate } from "../../../lib/i18n";
 import { resolveParticipantGroups } from "../../../lib/participants";
 
 type MatchRow = {
@@ -124,8 +125,8 @@ export default function AdminMatchesPage() {
   const [matches, setMatches] = useState<EnrichedMatch[]>([]);
   const [error, setError] = useState<string | null>(null);
   const locale = useLocale();
-  const dateFormatter = useMemo(
-    () => new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }),
+  const formatMatchDate = useMemo(
+    () => (value: Date | string) => formatDate(value, locale),
     [locale],
   );
 
@@ -170,7 +171,7 @@ export default function AdminMatchesPage() {
               {formatSummary(m.summary)}
               {m.summary ? " · " : ""}
               {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
-              {m.playedAt ? dateFormatter.format(new Date(m.playedAt)) : "—"} ·{" "}
+              {m.playedAt ? formatMatchDate(m.playedAt) : "—"} ·{" "}
               {m.location ?? "—"}
             </div>
             <div>

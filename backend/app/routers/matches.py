@@ -2,7 +2,7 @@
 import uuid
 import importlib
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Sequence
 
 from fastapi import APIRouter, Depends, Query, Response
@@ -30,16 +30,14 @@ from ..services.validation import validate_set_scores, ValidationError
 from ..services import update_ratings, update_player_metrics
 from ..exceptions import http_problem
 from .auth import get_current_user
+from ..time_utils import coerce_utc
 
 # Resource-only prefix; versioning is added in main.py
 router = APIRouter(prefix="/matches", tags=["matches"])
 
 
-def _serialize_played_at(value: datetime | None) -> datetime | None:
-    if value is None:
-        return None
-    aware = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
-    return aware.astimezone(timezone.utc)
+def _coerce_utc(value: datetime | None) -> datetime | None:
+    return coerce_utc(value)
 
 # GET /api/v0/matches
 @router.get("", response_model=list[MatchSummaryOut])
@@ -84,7 +82,7 @@ async def list_matches(
             id=m.id,
             sport=m.sport_id,
             bestOf=m.best_of,
-            playedAt=_serialize_played_at(m.played_at),
+            playedAt=_coerce_utc(m.played_at),
             location=m.location,
             isFriendly=m.is_friendly,
         )
@@ -392,7 +390,7 @@ async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
         sport=m.sport_id,
         rulesetId=m.ruleset_id,
         bestOf=m.best_of,
-        playedAt=_serialize_played_at(m.played_at),
+        playedAt=_coerce_utc(m.played_at),
         location=m.location,
         isFriendly=m.is_friendly,
         participants=[
@@ -403,7 +401,7 @@ async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
                 id=e.id,
                 type=e.type,
                 payload=e.payload,
-                createdAt=e.created_at,
+                createdAt=_coerce_utc(e.created_at),
             )
             for e in events
         ],

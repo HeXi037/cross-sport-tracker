@@ -5,6 +5,7 @@ import WinRateChart, { WinRatePoint } from '../../../components/charts/WinRateCh
 import RankingHistoryChart, { RankingPoint } from '../../../components/charts/RankingHistoryChart';
 import MatchHeatmap, { HeatmapDatum } from '../../../components/charts/MatchHeatmap';
 import { useLocale } from '../../../lib/LocaleContext';
+import { formatDate } from '../../../lib/i18n';
 
 interface EnrichedMatch {
   playedAt: string | null;
@@ -19,8 +20,8 @@ function parseMatchDate(value: string | null | undefined): Date | null {
 
 export default function PlayerCharts({ matches }: { matches: EnrichedMatch[] }) {
   const locale = useLocale();
-  const dateFormatter = useMemo(
-    () => new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }),
+  const formatMatchDate = useMemo(
+    () => (value: Date | string) => formatDate(value, locale),
     [locale],
   );
   const sorted = [...matches].sort((a, b) => {
@@ -44,7 +45,7 @@ export default function PlayerCharts({ matches }: { matches: EnrichedMatch[] }) 
       rank += 1;
     }
     const dateLabel = playedDate
-      ? dateFormatter.format(playedDate)
+      ? formatMatchDate(playedDate)
       : `Match ${i + 1}`;
     winRateData.push({ date: dateLabel, winRate: wins / (i + 1) });
     rankingData.push({ date: dateLabel, rank });

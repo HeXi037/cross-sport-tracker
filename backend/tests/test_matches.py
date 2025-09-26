@@ -2,7 +2,7 @@ import os
 import sys
 from pathlib import Path
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -444,8 +444,20 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
 
   async with db.AsyncSessionLocal() as session:
     session.add(Sport(id="padel", name="Padel"))
-    session.add(Match(id="m1", sport_id="padel", played_at=datetime(2024, 1, 1)))
-    session.add(Match(id="m2", sport_id="padel", played_at=datetime(2024, 1, 2)))
+    session.add(
+        Match(
+            id="m1",
+            sport_id="padel",
+            played_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        )
+    )
+    session.add(
+        Match(
+            id="m2",
+            sport_id="padel",
+            played_at=datetime(2024, 1, 2, tzinfo=timezone.utc),
+        )
+    )
     await session.commit()
 
   app = FastAPI()
@@ -497,7 +509,13 @@ async def test_list_matches_upcoming_filter(tmp_path):
 
   async with db.AsyncSessionLocal() as session:
     session.add(Sport(id="padel", name="Padel"))
-    session.add(Match(id="past", sport_id="padel", played_at=datetime(2024, 1, 1)))
+    session.add(
+        Match(
+            id="past",
+            sport_id="padel",
+            played_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        )
+    )
     session.add(Match(id="future", sport_id="padel", played_at=datetime(2999, 1, 1)))
     await session.commit()
 
@@ -771,7 +789,7 @@ async def test_delete_match_updates_ratings_and_leaderboard(tmp_path):
             Participant(side="A", playerIds=["p1"]),
             Participant(side="B", playerIds=["p2"]),
         ],
-        playedAt=datetime(2024, 1, 1),
+        playedAt=datetime(2024, 1, 1, tzinfo=timezone.utc),
     )
     mid1 = (await create_match(body1, session, user=admin)).id
     m1 = await session.get(Match, mid1)
@@ -785,7 +803,7 @@ async def test_delete_match_updates_ratings_and_leaderboard(tmp_path):
             Participant(side="A", playerIds=["p2"]),
             Participant(side="B", playerIds=["p3"]),
         ],
-        playedAt=datetime(2024, 1, 2),
+        playedAt=datetime(2024, 1, 2, tzinfo=timezone.utc),
     )
     mid2 = (await create_match(body2, session, user=admin)).id
     m2 = await session.get(Match, mid2)
@@ -813,7 +831,7 @@ async def test_delete_match_updates_ratings_and_leaderboard(tmp_path):
 
 
 @pytest.mark.anyio
-async def test_create_match_preserves_naive_date(tmp_path):
+async def test_create_match_rejects_naive_date(tmp_path):
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
   from app import db
@@ -846,13 +864,10 @@ async def test_create_match_preserves_naive_date(tmp_path):
         "playedAt": "2024-01-01T00:00:00",
     }
     resp = client.post("/matches", json=payload)
-    assert resp.status_code == 200
-    mid = resp.json()["id"]
-
-  async with db.AsyncSessionLocal() as session:
-    match = await session.get(Match, mid)
-    assert match is not None
-    assert match.played_at.isoformat() == "2024-01-01T00:00:00"
+    assert resp.status_code == 422
+    detail = resp.json().get("detail")
+    assert isinstance(detail, list)
+    assert any("timezone offset" in str(item.get("msg")) for item in detail)
 
 
 @pytest.mark.anyio

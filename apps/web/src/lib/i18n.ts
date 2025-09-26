@@ -1,4 +1,5 @@
 export const NEUTRAL_FALLBACK_LOCALE = 'en-GB';
+export const DEFAULT_TIME_ZONE = 'Australia/Melbourne';
 
 type LocalePreference = {
   locale: string;
@@ -75,6 +76,28 @@ export function normalizeLocale(
   }
   const trimmed = locale.trim();
   return trimmed.length > 0 ? trimmed : fallback;
+}
+
+export function resolveTimeZone(preferred?: string | null): string {
+  if (typeof preferred === 'string') {
+    const trimmed = preferred.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+
+  if (typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function') {
+    try {
+      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (detected) {
+        return detected;
+      }
+    } catch {
+      // Ignore detection failures and fall through to the default.
+    }
+  }
+
+  return DEFAULT_TIME_ZONE;
 }
 
 export const LOCALE_STORAGE_KEY = 'cst:locale';
@@ -256,7 +279,13 @@ export function formatDate(
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
   const normalizedLocale = normalizeLocale(locale, '');
-  const formatterOptions = ensureOptions(options, { dateStyle: 'medium' });
+  const baseOptions = ensureOptions(options, { dateStyle: 'medium' });
+  const formatterOptions: Intl.DateTimeFormatOptions = {
+    ...baseOptions,
+  };
+  if (!formatterOptions.timeZone) {
+    formatterOptions.timeZone = resolveTimeZone();
+  }
   const localeForFormatter = normalizedLocale || undefined;
 
   try {

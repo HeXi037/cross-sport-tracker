@@ -81,6 +81,7 @@ from ..services.photo_uploads import (
 from .admin import require_admin
 from .auth import get_current_user
 from ..location_utils import normalize_location_fields, continent_for_country
+from ..time_utils import coerce_utc
 
 
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "static" / "players"
@@ -787,7 +788,7 @@ async def list_comments(
             userId=c.user_id,
             username=u,
             content=c.content,
-            createdAt=c.created_at,
+            createdAt=coerce_utc(c.created_at),
         )
         for c, u in rows.all()
     ]
@@ -819,7 +820,7 @@ async def add_comment(
         userId=comment.user_id,
         username=user.username,
         content=comment.content,
-        createdAt=comment.created_at,
+        createdAt=coerce_utc(comment.created_at),
     )
 
 @router.delete("/{player_id}/comments/{comment_id}", status_code=204)

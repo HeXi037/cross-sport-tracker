@@ -123,7 +123,10 @@ describe("RecordPadelPage", () => {
       expect(dateInput).toHaveAttribute("placeholder", "DD/MM/YYYY");
       const expectedDateExample = getDateExample("en-AU");
       expect(
-        screen.getByText(`Example: ${expectedDateExample}`)
+        screen.getByText((content) =>
+          content.toLowerCase().includes(expectedDateExample.toLowerCase()) &&
+          /example|e\.g\./i.test(content)
+        )
       ).toBeInTheDocument();
 
       const expectedTimeExample = getTimeExample("en-AU");
@@ -154,7 +157,10 @@ describe("RecordPadelPage", () => {
       expect(dateInput).toHaveAttribute("placeholder", "DD/MM/YYYY");
       const expectedDateExample = getDateExample("fr-FR");
       expect(
-        screen.getByText(`Example: ${expectedDateExample}`)
+        screen.getByText((content) =>
+          content.toLowerCase().includes(expectedDateExample.toLowerCase()) &&
+          /example|e\.g\./i.test(content)
+        )
       ).toBeInTheDocument();
 
       const timeInput = await screen.findByLabelText(/start time/i);

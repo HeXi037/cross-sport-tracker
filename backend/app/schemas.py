@@ -1,11 +1,12 @@
 from typing import Any, Dict, List, Literal, Optional, Tuple
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import datetime
 import re
 from urllib.parse import urlparse
 from pydantic import BaseModel, Field, model_validator, field_validator
 
 from .location_utils import normalize_location_fields, continent_for_country
+from .time_utils import require_utc
 
 PASSWORD_REGEX = re.compile(r"^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$")
 
@@ -354,9 +355,7 @@ class MatchCreate(BaseModel):
 
     @field_validator("playedAt")
     def _normalize_played_at(cls, v: datetime | None) -> datetime | None:
-        if v and v.tzinfo:
-            return v.astimezone(timezone.utc)
-        return v
+        return require_utc(v, field_name="playedAt")
 
     @model_validator(mode="before")
     def _validate_participants(cls, data: Any) -> Any:
@@ -378,9 +377,7 @@ class MatchCreateByName(BaseModel):
 
     @field_validator("playedAt")
     def _normalize_played_at(cls, v: datetime | None) -> datetime | None:
-        if v and v.tzinfo:
-            return v.astimezone(timezone.utc)
-        return v
+        return require_utc(v, field_name="playedAt")
 
     @model_validator(mode="before")
     def _validate_participants(cls, data: Any) -> Any:

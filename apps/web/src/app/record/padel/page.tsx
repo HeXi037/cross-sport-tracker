@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
 import { useLocale } from "../../../lib/LocaleContext";
 import { getDatePlaceholder } from "../../../lib/i18n";
+import { buildPlayedAtISOString } from "../../../lib/datetime";
 
 interface Player {
   id: string;
@@ -163,10 +164,9 @@ export default function RecordPadelPage() {
         participants,
         bestOf: Number(bestOf),
       };
-      if (date) {
-        payload.playedAt = time
-          ? new Date(`${date}T${time}`).toISOString()
-          : `${date}T00:00:00Z`;
+      const playedAt = buildPlayedAtISOString(date, time);
+      if (playedAt) {
+        payload.playedAt = playedAt;
       }
       if (location) {
         payload.location = location;

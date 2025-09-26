@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
 import { useLocale } from "../../../lib/LocaleContext";
 import { getDatePlaceholder } from "../../../lib/i18n";
+import { buildPlayedAtISOString } from "../../../lib/datetime";
 import {
   summarizeBowlingInput,
   previewBowlingInput,
@@ -479,11 +480,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
 
       try {
         setSubmitting(true);
-        const playedAt = date
-          ? (time
-              ? new Date(`${date}T${time}`).toISOString()
-              : `${date}T00:00:00Z`)
-          : undefined;
+        const playedAt = buildPlayedAtISOString(date, time);
 
         const payload = {
           sport,
@@ -540,11 +537,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
 
     try {
       setSubmitting(true);
-      const playedAt = date
-        ? (time
-            ? new Date(`${date}T${time}`).toISOString()
-            : `${date}T00:00:00Z`)
-        : undefined;
+      const playedAt = buildPlayedAtISOString(date, time);
 
       const payload = {
         sport,

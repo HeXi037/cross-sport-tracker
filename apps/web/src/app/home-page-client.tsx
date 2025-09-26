@@ -24,6 +24,80 @@ interface Sport {
   name: string;
 }
 
+const PLACEHOLDER_META_VALUES = new Set([
+  '',
+  '-',
+  '–',
+  '—',
+  'n/a',
+  'na',
+  'best of —',
+]);
+
+function normalizeMetadataSegment(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? `${value}` : undefined;
+  }
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const normalized = trimmed.toLowerCase();
+  if (PLACEHOLDER_META_VALUES.has(normalized)) {
+    return undefined;
+  }
+  return trimmed;
+}
+
+function formatMatchMetadata(
+  parts: Array<string | null | undefined>,
+): string {
+  const normalizedParts = parts
+    .map((part) => normalizeMetadataSegment(part))
+    .filter((part): part is string => Boolean(part));
+
+  if (!normalizedParts.length) {
+    return '';
+  }
+
+  return normalizedParts.join(' · ');
+}
+
+type MatchWithOptionalRuleset = EnrichedMatch & {
+  rulesetName?: string | null;
+  rulesetLabel?: string | null;
+  ruleset?: unknown;
+};
+
+function resolveRulesetLabel(match: MatchWithOptionalRuleset): string | undefined {
+  const directName = normalizeMetadataSegment(match.rulesetName);
+  if (directName) return directName;
+
+  const directLabel = normalizeMetadataSegment(match.rulesetLabel);
+  if (directLabel) return directLabel;
+
+  const { ruleset } = match;
+  if (!ruleset) return undefined;
+
+  if (typeof ruleset === 'string') {
+    return normalizeMetadataSegment(ruleset);
+  }
+
+  if (typeof ruleset === 'object' && !Array.isArray(ruleset)) {
+    const record = ruleset as Record<string, unknown>;
+    const candidateKeys = ['shortName', 'short_name', 'name', 'label', 'title'];
+    for (const key of candidateKeys) {
+      const value = record[key];
+      const normalized = normalizeMetadataSegment(value);
+      if (normalized) {
+        return normalized;
+      }
+    }
+  }
+
+  return undefined;
+}
+
 const sportIcons: Record<string, string> = {
   padel: '\uD83C\uDFBE', // tennis ball
   bowling: '🎳',
@@ -251,23 +325,34 @@ export default function HomePageClient({
           )
         ) : (
           <ul className="match-list" role="list">
-            {matches.map((m) => (
-              <li key={m.id} className="card match-item">
-                <MatchParticipants
-                  sides={Object.values(m.players)}
-                  style={{ fontWeight: 500 }}
-                />
-                <div className="match-meta">
-                  {m.sport} · Best of {m.bestOf ?? '—'} · {formatMatchDate(m.playedAt)}
-                  {m.location ? ` · ${m.location}` : ''}
-                </div>
-                <div>
-                  <Link href={ensureTrailingSlash(`/matches/${m.id}`)}>
-                    Match details
-                  </Link>
-                </div>
-              </li>
-            ))}
+            {matches.map((m) => {
+              const matchWithRuleset = m as MatchWithOptionalRuleset;
+              const rulesetLabel = resolveRulesetLabel(matchWithRuleset);
+              const metadataText = formatMatchMetadata([
+                matchWithRuleset.sport,
+                matchWithRuleset.bestOf != null
+                  ? `Best of ${matchWithRuleset.bestOf}`
+                  : null,
+                rulesetLabel,
+                formatMatchDate(matchWithRuleset.playedAt),
+                matchWithRuleset.location,
+              ]);
+
+              return (
+                <li key={m.id} className="card match-item">
+                  <MatchParticipants
+                    sides={Object.values(m.players)}
+                    style={{ fontWeight: 500 }}
+                  />
+                  <div className="match-meta">{metadataText || '—'}</div>
+                  <div>
+                    <Link href={ensureTrailingSlash(`/matches/${m.id}`)}>
+                      Match details
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
         {matches.length > 0 ? (

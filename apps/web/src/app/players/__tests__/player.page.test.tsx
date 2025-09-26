@@ -3,6 +3,11 @@ import '@testing-library/jest-dom';
 import userEvent from '@testing-library/user-event';
 
 const refreshMock = vi.fn();
+const { notFoundMock } = vi.hoisted(() => ({
+  notFoundMock: vi.fn(() => {
+    throw new Error('not-found');
+  }),
+}));
 
 vi.mock('next/navigation', async () => {
   const actual = await vi.importActual<typeof import('next/navigation')>(
@@ -13,6 +18,7 @@ vi.mock('next/navigation', async () => {
     useRouter: () => ({
       refresh: refreshMock,
     }),
+    notFound: notFoundMock,
   };
 });
 
@@ -80,6 +86,7 @@ beforeEach(() => {
 
 afterEach(() => {
   refreshMock.mockReset();
+  notFoundMock.mockClear();
 });
 
 describe('PlayerPage server component', () => {
@@ -147,7 +154,7 @@ describe('PlayerPage server component', () => {
     expect(mockedApiFetch).toHaveBeenCalled();
   });
 
-  it('renders a not found view when the player is missing', async () => {
+  it('invokes Next.js notFound when the player is missing', async () => {
     mockedApiFetch.mockImplementation(async (path) => {
       if (path === '/v0/players/missing') {
         throw makeError(404, 'HTTP 404: Player not found');
@@ -155,17 +162,14 @@ describe('PlayerPage server component', () => {
       throw new Error(`Unexpected apiFetch call: ${path}`);
     });
 
-    const view = await PlayerPage({
-      params: { id: 'missing' },
-      searchParams: {},
-    });
+    await expect(
+      PlayerPage({
+        params: { id: 'missing' },
+        searchParams: {},
+      })
+    ).rejects.toThrow('not-found');
 
-    render(view);
-
-    expect(
-      screen.getByRole('heading', { name: /player not found/i })
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Back to players/i)).toBeInTheDocument();
+    expect(notFoundMock).toHaveBeenCalledTimes(1);
   });
 
   it('surfaces server errors with retry affordance', async () => {

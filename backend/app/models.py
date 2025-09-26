@@ -45,6 +45,7 @@ class Player(Base):
     country_code = Column(String(2), nullable=True)
     region_code = Column(String(3), nullable=True)
     ranking = Column(Integer, nullable=True)
+    hidden = Column(Boolean, nullable=False, default=False)
     deleted_at = Column(DateTime, nullable=True)
 
     social_links = relationship(

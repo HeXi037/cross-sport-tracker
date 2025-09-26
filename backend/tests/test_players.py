@@ -168,6 +168,79 @@ def test_delete_player_soft_delete() -> None:
     asyncio.run(check_deleted())
 
 
+def test_hide_player_removes_from_public_list() -> None:
+    with TestClient(app) as client:
+        token = admin_token(client)
+        headers = {"Authorization": f"Bearer {token}"}
+        pid = client.post(
+            "/players", json={"name": "hidden-player"}, headers=headers
+        ).json()["id"]
+
+        hide_resp = client.patch(
+            f"/players/{pid}/visibility", json={"hidden": True}, headers=headers
+        )
+        assert hide_resp.status_code == 200
+        assert hide_resp.json()["hidden"] is True
+
+        public_list = client.get("/players")
+        assert public_list.status_code == 200
+        assert all(player["id"] != pid for player in public_list.json()["players"])
+
+        admin_list = client.get(
+            "/players",
+            params={"include_hidden": "true"},
+            headers=headers,
+        )
+        assert admin_list.status_code == 200
+        assert any(player["id"] == pid and player["hidden"] for player in admin_list.json()["players"])
+
+        unauthorized = client.get("/players", params={"include_hidden": "true"})
+        assert unauthorized.status_code == 401
+
+        auth.limiter.reset()
+        user_resp = client.post(
+            "/auth/signup", json={"username": "regular", "password": "Str0ng!Pass!"}
+        )
+        assert user_resp.status_code == 200
+        user_token = user_resp.json()["access_token"]
+        forbidden = client.get(
+            "/players",
+            params={"include_hidden": "true"},
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert forbidden.status_code == 403
+
+
+def test_hide_player_requires_admin() -> None:
+    with TestClient(app) as client:
+        token = admin_token(client)
+        headers = {"Authorization": f"Bearer {token}"}
+        pid = client.post(
+            "/players", json={"name": "to-hide"}, headers=headers
+        ).json()["id"]
+
+        missing_token = client.patch(f"/players/{pid}/visibility", json={"hidden": True})
+        assert missing_token.status_code == 401
+
+        auth.limiter.reset()
+        user_resp = client.post(
+            "/auth/signup", json={"username": "viewer", "password": "Str0ng!Pass!"}
+        )
+        user_token = user_resp.json()["access_token"]
+        forbidden = client.patch(
+            f"/players/{pid}/visibility",
+            json={"hidden": True},
+            headers={"Authorization": f"Bearer {user_token}"},
+        )
+        assert forbidden.status_code == 403
+
+        allowed = client.patch(
+            f"/players/{pid}/visibility", json={"hidden": True}, headers=headers
+        )
+        assert allowed.status_code == 200
+        assert allowed.json()["hidden"] is True
+
+
 def test_create_my_player_conflict_with_dormant(async_client) -> None:
     client, loop = async_client
 

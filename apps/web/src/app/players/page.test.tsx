@@ -427,6 +427,84 @@ describe("PlayersPage", () => {
     window.localStorage.removeItem("token");
   });
 
+  it("allows admin to toggle player visibility", async () => {
+    window.localStorage.setItem("token", "x.eyJpc19hZG1pbiI6dHJ1ZX0.y");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ players: [{ id: "1", name: "Alice", hidden: false }] }),
+      })
+      .mockResolvedValueOnce(
+        mockStatsResponse({
+          playerId: "1",
+          wins: 4,
+          losses: 2,
+          winPct: 0.67,
+        })
+      )
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: "1", name: "Alice", hidden: true }),
+      })
+      .mockResolvedValueOnce(
+        mockStatsResponse({
+          playerId: "1",
+          wins: 4,
+          losses: 2,
+          winPct: 0.67,
+        })
+      )
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: "1", name: "Alice", hidden: false }),
+      })
+      .mockResolvedValueOnce(
+        mockStatsResponse({
+          playerId: "1",
+          wins: 4,
+          losses: 2,
+          winPct: 0.67,
+        })
+      );
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      renderWithProviders(<PlayersPage />);
+    });
+
+    const hideButton = await screen.findByRole("button", { name: /hide/i });
+    await act(async () => {
+      fireEvent.click(hideButton);
+    });
+
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) =>
+          typeof url === "string" &&
+          url.endsWith("/v0/players/1/visibility") &&
+          (init as RequestInit | undefined)?.method === "PATCH" &&
+          (init as RequestInit | undefined)?.body === JSON.stringify({ hidden: true })
+      )
+    ).toBe(true);
+    await screen.findByText(/hidden/i);
+
+    const unhideButton = screen.getByRole("button", { name: /unhide/i });
+    await act(async () => {
+      fireEvent.click(unhideButton);
+    });
+
+    expect(
+      fetchMock.mock.calls.filter(
+        ([url, init]) =>
+          typeof url === "string" &&
+          url.endsWith("/v0/players/1/visibility") &&
+          (init as RequestInit | undefined)?.method === "PATCH"
+      ).some(([, init]) => (init as RequestInit).body === JSON.stringify({ hidden: false }))
+    ).toBe(true);
+    window.localStorage.removeItem("token");
+  });
+
   it("shows country selector for admins", async () => {
     window.localStorage.setItem("token", "x.eyJpc19hZG1pbiI6dHJ1ZX0.y");
     const fetchMock = vi

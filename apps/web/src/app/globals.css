@@ -506,17 +506,44 @@ textarea {
   max-width: 220px;
 }
 
-.player-list__delete {
-  margin-left: auto;
+.player-list__action {
   background: transparent;
   border: 1px solid rgba(10, 31, 68, 0.2);
   padding: 0.4rem 0.75rem;
   border-radius: 6px;
   cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.player-list__action:hover {
+  background: rgba(26, 115, 232, 0.08);
+}
+
+.player-list__action[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.player-list__toggle {
+  margin-left: auto;
+}
+
+.player-list__delete {
+  border-color: rgba(185, 28, 28, 0.4);
+  color: #9f1239;
 }
 
 .player-list__delete:hover {
-  background: rgba(26, 115, 232, 0.08);
+  background: rgba(185, 28, 28, 0.08);
+}
+
+.player-list__status {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
 }
 
 .player-list__error {

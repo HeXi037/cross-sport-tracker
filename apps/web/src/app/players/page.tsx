@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
   apiFetch,
@@ -24,6 +24,7 @@ interface Player extends PlayerInfo {
   region_code?: string | null;
   club_id?: string | null;
   badges?: { id: string; name: string; icon?: string | null }[];
+  hidden: boolean;
 }
 
 interface PlayerStats {
@@ -50,6 +51,7 @@ export default function PlayersPage() {
   const [creating, setCreating] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [updatingLocation, setUpdatingLocation] = useState<string | null>(null);
+  const [updatingVisibility, setUpdatingVisibility] = useState<string | null>(null);
   const [statsError, setStatsError] = useState(false);
   const [admin, setAdmin] = useState(() => isAdmin());
   const statsToastShown = useRef(false);
@@ -83,18 +85,27 @@ export default function PlayersPage() {
   const trimmedName = name.trim();
   const nameIsValid = NAME_REGEX.test(trimmedName);
 
-  async function load() {
+  const load = useCallback(async () => {
     setError(null);
     setPlayersLoadError(null);
     setLoading(true);
     try {
-      const res = await apiFetch("/v0/players?limit=100&offset=0", {
+      const params = new URLSearchParams({ limit: "100", offset: "0" });
+      if (admin) {
+        params.set("include_hidden", "true");
+      }
+      const res = await apiFetch(`/v0/players?${params.toString()}`, {
         cache: "no-store",
       });
       if (res.ok) {
         const data = await res.json();
-        const normalized = ((data.players as Player[]) ?? []).map((p) =>
-          withAbsolutePhotoUrl(p)
+        const normalized = ((data.players ?? []) as Array<
+          Player & { hidden?: boolean }
+        >).map((p) =>
+          withAbsolutePhotoUrl<Player>({
+            ...p,
+            hidden: Boolean(p.hidden),
+          })
         );
         setPlayers(normalized);
         setPlayersLoadError(null);
@@ -111,10 +122,10 @@ export default function PlayersPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [admin, showToast]);
   useEffect(() => {
-    load();
-  }, []);
+    void load();
+  }, [load]);
 
   useEffect(() => {
     const handle = setTimeout(() => setDebouncedSearch(search), 300);
@@ -273,6 +284,37 @@ export default function PlayersPage() {
     }
   }
 
+  async function handleToggleVisibility(player: Player) {
+    if (!admin) {
+      return;
+    }
+    setError(null);
+    setUpdatingVisibility(player.id);
+    try {
+      const res = await apiFetch(`/v0/players/${player.id}/visibility`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hidden: !player.hidden }),
+      });
+      const updated = (await res.json()) as Player & { hidden?: boolean };
+      setPlayers((prev) =>
+        prev.map((p) =>
+          p.id === player.id
+            ? withAbsolutePhotoUrl<Player>({
+                ...p,
+                ...updated,
+                hidden: Boolean(updated.hidden),
+              })
+            : p
+        )
+      );
+    } catch {
+      setError("Failed to update player visibility.");
+    } finally {
+      setUpdatingVisibility(null);
+    }
+  }
+
   async function handleCountryChange(player: Player, nextValue: string) {
     if (!admin) {
       return;
@@ -361,6 +403,11 @@ export default function PlayersPage() {
                           return formatMatchRecord(stats.matchSummary);
                         })()}
                       </span>
+                      {p.hidden && (
+                        <span className="player-list__status" aria-label="Hidden player">
+                          Hidden
+                        </span>
+                      )}
                     </div>
                     {admin && (
                       <div className="player-list__admin">
@@ -383,7 +430,14 @@ export default function PlayersPage() {
                           ))}
                         </select>
                         <button
-                          className="player-list__delete"
+                          className="player-list__action player-list__toggle"
+                          onClick={() => handleToggleVisibility(p)}
+                          disabled={updatingVisibility === p.id}
+                        >
+                          {p.hidden ? "Unhide" : "Hide"}
+                        </button>
+                        <button
+                          className="player-list__action player-list__delete"
                           onClick={() => handleDelete(p.id)}
                         >
                           Delete

@@ -33,6 +33,7 @@ async def player_profile(
         country_code=player.country_code,
         region_code=player.region_code,
         ranking=player.ranking,
+        hidden=player.hidden,
     )
 
     stats = await player_stats(player_id, session=session)

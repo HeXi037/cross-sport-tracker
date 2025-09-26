@@ -4,15 +4,16 @@ import secrets
 import hashlib
 from pathlib import Path
 from datetime import datetime, timedelta
+
+import bcrypt
+import jwt
 from fastapi import APIRouter, Depends, HTTPException, Header, Request, UploadFile, File
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
-from passlib.context import CryptContext
-import jwt
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import API_PREFIX
 from ..db import get_session
@@ -71,7 +72,24 @@ def signup_rate_limit(key: str) -> str:
     return "1/hour" if key in FLAGGED_IPS else "5/minute"
 
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+class _BcryptContext:
+  def hash(self, password: str) -> str:
+    if not isinstance(password, str):
+      raise TypeError("password must be a string")
+    password_bytes = password.encode("utf-8")
+    hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt())
+    return hashed.decode("utf-8")
+
+  def verify(self, password: str, hashed: str) -> bool:
+    if not isinstance(password, str) or not isinstance(hashed, str):
+      return False
+    try:
+      return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
+    except ValueError:
+      return False
+
+
+pwd_context = _BcryptContext()
 
 
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):

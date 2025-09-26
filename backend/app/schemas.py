@@ -223,6 +223,7 @@ class PlayerOut(BaseModel):
     ranking: Optional[int] = None
     country_code: Optional[str] = None
     region_code: Optional[str] = None
+    hidden: bool = False
     metrics: Optional[Dict[str, Dict[str, int]]] = None
     milestones: Optional[Dict[str, List[str]]] = None
     badges: List[BadgeOut] = Field(default_factory=list)
@@ -257,6 +258,10 @@ class PlayerListOut(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class PlayerVisibilityUpdate(BaseModel):
+    hidden: bool
 
 class LeaderboardEntryOut(BaseModel):
     rank: int

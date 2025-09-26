@@ -3,7 +3,16 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from collections import defaultdict
 
-from fastapi import APIRouter, Depends, Response, HTTPException, UploadFile, File, Query
+from fastapi import (
+    APIRouter,
+    Depends,
+    Response,
+    HTTPException,
+    UploadFile,
+    File,
+    Query,
+    Header,
+)
 from sqlalchemy import select, func, case, literal, true, delete, Text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError, InvalidRequestError
@@ -36,6 +45,7 @@ from ..schemas import (
     PlayerLocationUpdate,
     PlayerNameOut,
     PlayerStatsOut,
+    PlayerVisibilityUpdate,
     VersusRecord,
     BadgeOut,
     CommentCreate,
@@ -106,6 +116,7 @@ async def create_player(
         country_code=body.country_code,
         region_code=body.region_code,
         ranking=body.ranking,
+        hidden=False,
     )
     session.add(p)
     await session.commit()
@@ -120,6 +131,7 @@ async def create_player(
         country_code=p.country_code,
         region_code=p.region_code,
         ranking=p.ranking,
+        hidden=p.hidden,
         badges=[],
         social_links=[],
     )
@@ -127,14 +139,24 @@ async def create_player(
 @router.get("", response_model=PlayerListOut)
 async def list_players(
     q: str = "",
+    include_hidden: bool = False,
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     session: AsyncSession = Depends(get_session),
+    authorization: str | None = Header(None),
 ):
+    if include_hidden:
+        user = await get_current_user(authorization=authorization, session=session)
+        if not user.is_admin:
+            raise HTTPException(status_code=403, detail="forbidden")
+
     stmt = select(Player).where(Player.deleted_at.is_(None))
     count_stmt = select(func.count()).select_from(Player).where(
         Player.deleted_at.is_(None)
     )
+    if not include_hidden:
+        stmt = stmt.where(Player.hidden.is_(False))
+        count_stmt = count_stmt.where(Player.hidden.is_(False))
     if q:
         stmt = stmt.where(Player.name.ilike(f"%{q}%"))
         count_stmt = count_stmt.where(Player.name.ilike(f"%{q}%"))
@@ -152,6 +174,7 @@ async def list_players(
             country_code=p.country_code,
             region_code=p.region_code,
             ranking=p.ranking,
+            hidden=p.hidden,
             badges=[],
             social_links=[],
         )
@@ -527,6 +550,24 @@ async def update_player_location(
     await _apply_player_location_update(session, player, body)
     return await get_player(player.id, session)
 
+
+@router.patch("/{player_id}/visibility", response_model=PlayerOut)
+async def update_player_visibility(
+    player_id: str,
+    body: PlayerVisibilityUpdate,
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
+):
+    player = await session.get(Player, player_id)
+    if not player or player.deleted_at is not None:
+        raise PlayerNotFound(player_id)
+
+    player.hidden = body.hidden
+    await session.commit()
+    await session.refresh(player)
+
+    return await get_player(player_id, session)
+
 @router.get("/{player_id}", response_model=PlayerOut)
 async def get_player(player_id: str, session: AsyncSession = Depends(get_session)):
     p = await session.get(Player, player_id)
@@ -542,6 +583,7 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
         "country_code": p.country_code,
         "region_code": p.region_code,
         "ranking": p.ranking,
+        "hidden": p.hidden,
     }
     try:
         rows = (

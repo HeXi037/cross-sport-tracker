@@ -9,6 +9,8 @@ import {
   persistSession,
 } from "../../lib/api";
 import { useToast } from "../../components/ToastProvider";
+import { useLocale } from "../../lib/LocaleContext";
+import { getAuthCopy } from "../../lib/authCopy";
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -214,6 +216,7 @@ async function extractSignupErrors(response: Response): Promise<string[]> {
 export default function LoginPage() {
   const router = useRouter();
   const { showToast } = useToast();
+  const locale = useLocale();
   const [user, setUser] = useState(currentUsername());
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -223,6 +226,14 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<string[]>([]);
   const passwordStrengthLabelId = useId();
   const passwordStrengthHelperId = useId();
+  const { usernameCharacterRule, usernameEmailOption } = useMemo(
+    () => getAuthCopy(locale),
+    [locale]
+  );
+  const usernameGuidelines = useMemo(
+    () => [usernameCharacterRule, usernameEmailOption],
+    [usernameCharacterRule, usernameEmailOption]
+  );
   const passwordStrength = useMemo(
     () => getPasswordStrength(newPass),
     [newPass]
@@ -267,9 +278,7 @@ export default function LoginPage() {
       !EMAIL_REGEX.test(trimmedUser) &&
       !USERNAME_REGEX.test(trimmedUser)
     ) {
-      validationErrors.push(
-        "Username must be a valid email address or contain only letters, numbers, underscores, hyphens, and periods.",
-      );
+      validationErrors.push(usernameCharacterRule, usernameEmailOption);
     }
     if (newPass.length < 12 || !PASSWORD_REGEX.test(newPass)) {
       validationErrors.push(
@@ -382,6 +391,16 @@ export default function LoginPage() {
             autoComplete="username"
             required
           />
+          <ul className="password-guidelines">
+            {usernameGuidelines.map((guideline) => (
+              <li key={guideline} className="password-guidelines__item">
+                <span className="password-guidelines__status" aria-hidden="true">
+                  •
+                </span>
+                {guideline}
+              </li>
+            ))}
+          </ul>
         </div>
         <div className="form-field">
           <label htmlFor="signup-password" className="form-label">

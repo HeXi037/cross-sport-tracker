@@ -124,4 +124,29 @@ describe('LoginPage signup feedback', () => {
     expect(mockedPersistSession).not.toHaveBeenCalled();
     expect(pushMock).not.toHaveBeenCalled();
   });
+
+  it('shows username format guidance when validation fails', async () => {
+    renderWithToast(<LoginPage />);
+
+    const [, signupUsername] = screen.getAllByLabelText('Username');
+    const signupPassword = screen.getAllByLabelText('Password')[1];
+    const confirmPassword = screen.getByLabelText('Confirm Password');
+
+    fireEvent.change(signupUsername, { target: { value: 'Invalid Name' } });
+    fireEvent.change(signupPassword, { target: { value: 'Str0ng!Pass!' } });
+    fireEvent.change(confirmPassword, { target: { value: 'Str0ng!Pass!' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(
+      within(alert).getByText(
+        /Usernames can include letters, numbers, underscores, hyphens, and periods\./i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(alert).getByText(/You can also use a valid email address\./i),
+    ).toBeInTheDocument();
+    expect(mockedApiFetch).not.toHaveBeenCalled();
+  });
 });

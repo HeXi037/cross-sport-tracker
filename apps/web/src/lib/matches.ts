@@ -4,6 +4,15 @@ export type MatchRow = {
   bestOf: number | null;
   playedAt: string | null;
   location: string | null;
+  isFriendly: boolean;
+};
+
+export type MatchRowPage = {
+  items: MatchRow[];
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  nextOffset: number | null;
 };
 
 export type Participant = {

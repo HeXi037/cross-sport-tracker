@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { headers } from "next/headers";
-import { apiFetch, withAbsolutePhotoUrl } from "../../lib/api";
+import { apiFetch, withAbsolutePhotoUrl, type ApiError } from "../../lib/api";
 import Pager from "./pager";
 import { PlayerInfo } from "../../components/PlayerName";
 import MatchParticipants from "../../components/MatchParticipants";
@@ -37,6 +37,14 @@ type MatchDetail = {
 type EnrichedMatch = MatchRow & {
   participants: PlayerInfo[][];
   summary?: MatchDetail["summary"];
+};
+
+const MATCH_ERROR_COPY: Record<string, string> = {
+  match_forbidden: "You do not have permission to view these matches.",
+  match_not_found: "We couldn't find that match.",
+  auth_token_expired: "Your session expired. Please refresh and try again.",
+  auth_missing_token: "Your session expired. Please refresh and try again.",
+  auth_invalid_token: "Your session expired. Please refresh and try again.",
 };
 
 async function getMatches(limit: number, offset: number): Promise<MatchRow[]> {
@@ -263,11 +271,28 @@ export default async function MatchesPage(
         )}
       </main>
     );
-  } catch {
+  } catch (err) {
+    const apiError = err as ApiError | null;
+    let message = "Failed to load matches.";
+    const code = typeof apiError?.code === "string" ? apiError.code : null;
+    if (code) {
+      const mapped = MATCH_ERROR_COPY[code];
+      if (mapped) {
+        message = mapped;
+      } else {
+        console.error(
+          "Unhandled matches error code",
+          code,
+          apiError?.parsedMessage ?? apiError?.message ?? null
+        );
+      }
+    } else if (apiError?.parsedMessage) {
+      console.error("Unhandled matches error message", apiError.parsedMessage);
+    }
     return (
       <main className="container">
         <h1 className="heading">Matches</h1>
-        <p className="error">Failed to load matches.</p>
+        <p className="error">{message}</p>
         <Link href="/matches" style={{ textDecoration: "underline" }}>
           Retry
         </Link>

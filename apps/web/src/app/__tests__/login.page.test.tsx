@@ -1,7 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import LoginPage from '../login/page';
-import { apiFetch, currentUsername, persistSession } from '../../lib/api';
+import {
+  apiFetch,
+  currentUsername,
+  persistSession,
+  type ApiError,
+} from '../../lib/api';
 import ToastProvider from '../../components/ToastProvider';
 
 vi.mock('../../lib/api', async () => {
@@ -52,6 +57,20 @@ const makeResponse = (
       return makeResponse(body, { ok, status });
     },
   } as Response;
+};
+
+const makeApiError = (
+  code: string,
+  parsedMessage: string,
+  status?: number
+): ApiError => {
+  const err = new Error(parsedMessage) as ApiError;
+  err.code = code;
+  err.parsedMessage = parsedMessage;
+  if (status !== undefined) {
+    err.status = status;
+  }
+  return err;
 };
 
 describe('LoginPage signup feedback', () => {
@@ -148,5 +167,40 @@ describe('LoginPage signup feedback', () => {
       within(alert).getByText(/You can also use a valid email address\./i),
     ).toBeInTheDocument();
     expect(mockedApiFetch).not.toHaveBeenCalled();
+  });
+
+  it('maps login error codes to friendly messages', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    mockedApiFetch.mockRejectedValueOnce(
+      makeApiError('auth_invalid_credentials', 'invalid credentials', 401)
+    );
+
+    renderWithToast(<LoginPage />);
+
+    const [loginUsername] = screen.getAllByLabelText('Username');
+    const [loginPassword] = screen.getAllByLabelText('Password');
+
+    fireEvent.change(loginUsername, {
+      target: { value: 'User' },
+    });
+    fireEvent.change(loginPassword, {
+      target: { value: 'wrong' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /login/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(
+      within(alert).getByText(/Login failed\. Please check your username and password\./i)
+    ).toBeInTheDocument();
+
+    expect(consoleErrorSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining('Unhandled login error code')
+    );
+
+    consoleErrorSpy.mockRestore();
   });
 });

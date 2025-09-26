@@ -7,6 +7,7 @@ import {
   currentUsername,
   logout,
   persistSession,
+  type ApiError,
 } from "../../lib/api";
 import { useToast } from "../../components/ToastProvider";
 import { useLocale } from "../../lib/LocaleContext";
@@ -28,10 +29,38 @@ const SIGNUP_ERROR_DETAILS: Record<string, string> = {
   "too many requests": "Too many signup attempts. Please try again later.",
 };
 
+const LOGIN_ERROR_COPY: Record<string, string> = {
+  auth_invalid_credentials: "Login failed. Please check your username and password.",
+  auth_user_not_found: "Login failed. Please check your username and password.",
+  auth_missing_token: "Your session expired. Please log in again.",
+  auth_token_expired: "Your session expired. Please log in again.",
+  auth_invalid_token: "We couldn't verify your session. Please log in again.",
+};
+
 function normalizeErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof Error) {
     const cleaned = err.message.replace(/^HTTP \d+:\s*/, "").trim();
     return cleaned.length > 0 ? cleaned : fallback;
+  }
+  return fallback;
+}
+
+function getLoginErrorMessage(err: unknown): string {
+  const fallback = "Login failed. Please try again.";
+  const apiError = err as ApiError | null;
+  const code = typeof apiError?.code === "string" ? apiError.code : null;
+  if (code) {
+    const mapped = LOGIN_ERROR_COPY[code];
+    if (mapped) {
+      return mapped;
+    }
+    console.error(
+      "Unhandled login error code",
+      code,
+      apiError?.parsedMessage ?? apiError?.message ?? null
+    );
+  } else if (apiError?.parsedMessage) {
+    console.error("Unhandled login error message", apiError.parsedMessage);
   }
   return fallback;
 }
@@ -253,10 +282,10 @@ export default function LoginPage() {
         persistSession(data);
         router.push("/");
       } else {
-        setErrors(["Login failed. Please check your username and password."]); 
+        setErrors(["Login failed. Please check your username and password."]);
       }
     } catch (err) {
-      setErrors([normalizeErrorMessage(err, "Login failed. Please try again.")]);
+      setErrors([getLoginErrorMessage(err)]);
     }
   };
 

@@ -494,11 +494,7 @@ export default function ProfilePage() {
   const preferencesInputsDisabled = !preferencesLoaded || preferencesSaving;
 
   if (loading) {
-    return (
-      <main className="container">
-        <p>Loading...</p>
-      </main>
-    );
+    return <ProfileSkeleton />;
   }
 
   return (
@@ -1104,6 +1100,54 @@ export default function ProfilePage() {
             </button>
           </div>
         )}
+      </section>
+    </main>
+  );
+}
+
+function ProfileSkeleton() {
+  return (
+    <main className="container" aria-busy="true">
+      <h1 className="heading">Profile</h1>
+      <div className="auth-form" aria-hidden>
+        <span
+          className="skeleton"
+          style={{
+            width: 120,
+            height: 120,
+            borderRadius: "50%",
+          }}
+        />
+        <span className="skeleton" style={{ width: "60%", height: "1rem" }} />
+        <span className="skeleton" style={{ width: "40%", height: "1rem" }} />
+        <span className="skeleton" style={{ width: "100%", height: 40 }} />
+        <span className="skeleton" style={{ width: "100%", height: 40 }} />
+      </div>
+      <section className="form-fieldset" aria-hidden>
+        <div className="form-grid">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={`profile-skeleton-field-${index}`} className="form-field">
+              <span
+                className="skeleton"
+                style={{ width: "30%", maxWidth: 140, height: "0.85rem" }}
+              />
+              <span className="skeleton" style={{ width: "100%", height: 40 }} />
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="form-fieldset" aria-hidden>
+        <div className="form-grid">
+          {Array.from({ length: 2 }).map((_, index) => (
+            <div key={`profile-skeleton-pref-${index}`} className="form-field">
+              <span
+                className="skeleton"
+                style={{ width: "45%", maxWidth: 200, height: "0.85rem" }}
+              />
+              <span className="skeleton" style={{ width: "100%", height: 36 }} />
+            </div>
+          ))}
+        </div>
       </section>
     </main>
   );

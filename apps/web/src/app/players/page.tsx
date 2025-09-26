@@ -57,6 +57,7 @@ export default function PlayersPage() {
   const [admin, setAdmin] = useState(() => isAdmin());
   const statsToastShown = useRef(false);
   const adminControlsRef = useRef<HTMLDivElement | null>(null);
+  const loadRequestId = useRef(0);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -87,6 +88,9 @@ export default function PlayersPage() {
   const nameIsValid = NAME_REGEX.test(trimmedName);
 
   const load = useCallback(async (query: string = debouncedSearch) => {
+    const requestId = loadRequestId.current + 1;
+    loadRequestId.current = requestId;
+
     setError(null);
     setPlayersLoadError(null);
     setLoading(true);
@@ -112,20 +116,31 @@ export default function PlayersPage() {
             hidden: Boolean(p.hidden),
           })
         );
+        if (loadRequestId.current !== requestId) {
+          return;
+        }
         setPlayers(normalized);
         setPlayersLoadError(null);
       } else {
+        if (loadRequestId.current !== requestId) {
+          return;
+        }
         setPlayersLoadError(PLAYERS_ERROR_MESSAGE);
         setError(PLAYERS_ERROR_MESSAGE);
         showToast({ message: PLAYERS_ERROR_MESSAGE, variant: "error" });
       }
     } catch (err) {
       console.warn("Failed to fetch players", err);
+      if (loadRequestId.current !== requestId) {
+        return;
+      }
       setPlayersLoadError(PLAYERS_ERROR_MESSAGE);
       setError(PLAYERS_ERROR_MESSAGE);
       showToast({ message: PLAYERS_ERROR_MESSAGE, variant: "error" });
     } finally {
-      setLoading(false);
+      if (loadRequestId.current === requestId) {
+        setLoading(false);
+      }
     }
   }, [admin, debouncedSearch, showToast]);
   useEffect(() => {

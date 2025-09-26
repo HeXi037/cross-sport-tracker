@@ -233,7 +233,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
 
   useEffect(() => {
     updateFiltersInQuery(filters);
-  }, [filters.clubId, filters.country, updateFiltersInQuery]);
+  }, [filters, updateFiltersInQuery]);
 
   useEffect(() => {
     if (preferencesApplied) {

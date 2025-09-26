@@ -7,14 +7,6 @@ export type MatchRow = {
   isFriendly: boolean;
 };
 
-export type MatchRowPage = {
-  items: MatchRow[];
-  limit: number;
-  offset: number;
-  hasMore: boolean;
-  nextOffset: number | null;
-};
-
 export type Participant = {
   side: string;
   playerIds: string[];
@@ -35,6 +27,32 @@ export type EnrichedMatch = MatchRow & {
 };
 
 import { apiFetch, withAbsolutePhotoUrl } from './api';
+
+function parseNumber(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function extractMatchPagination(
+  headers: Headers,
+  fallbackLimit: number,
+): {
+  limit: number;
+  hasMore: boolean;
+  nextOffset: number | null;
+} {
+  const limit = parseNumber(headers.get('X-Limit'));
+  const hasMoreHeader = headers.get('X-Has-More');
+  const hasMore = hasMoreHeader?.toLowerCase() === 'true';
+  const nextOffset = parseNumber(headers.get('X-Next-Offset'));
+
+  return {
+    limit: limit && limit > 0 ? limit : fallbackLimit,
+    hasMore,
+    nextOffset: hasMore ? nextOffset ?? null : null,
+  };
+}
 
 export async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
   const details = await Promise.all(

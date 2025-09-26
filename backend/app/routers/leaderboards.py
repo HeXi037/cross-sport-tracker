@@ -83,7 +83,11 @@ async def leaderboard(
         await session.execute(
             select(ScoreEvent)
             .join(Match, Match.id == ScoreEvent.match_id)
-            .where(Match.sport_id == sport, ScoreEvent.type == "RATING")
+            .where(
+                Match.sport_id == sport,
+                Match.deleted_at.is_(None),
+                ScoreEvent.type == "RATING",
+            )
             .order_by(ScoreEvent.created_at)
         )
     ).scalars().all()

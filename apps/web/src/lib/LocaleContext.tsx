@@ -18,6 +18,11 @@ function resolveLocaleCandidates(
 ): string[] {
   const normalizedFallback = normalizeLocale(fallback);
   const candidates: string[] = [];
+  const normalizedStored = normalizeLocale(storedLocale, '');
+
+  if (normalizedStored) {
+    candidates.push(normalizedStored);
+  }
 
   if (acceptLanguage) {
     const parsed = parseAcceptLanguage(acceptLanguage, normalizedFallback);
@@ -39,11 +44,6 @@ function resolveLocaleCandidates(
     }
   }
 
-  const normalizedStored = normalizeLocale(storedLocale, '');
-  if (normalizedStored) {
-    candidates.push(normalizedStored);
-  }
-
   candidates.push(normalizedFallback);
 
   return Array.from(new Set(candidates));
@@ -60,10 +60,6 @@ function pickLocaleCandidate(
   for (const candidate of candidates) {
     const normalized = normalizeLocale(candidate, '');
     if (!normalized) {
-      continue;
-    }
-
-    if (normalizedStored && normalized === normalizedStored) {
       continue;
     }
 

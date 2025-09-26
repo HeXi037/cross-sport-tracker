@@ -58,6 +58,21 @@ describe('LocaleProvider', () => {
     expect(localeDisplay).toHaveTextContent('sv-SE');
   });
 
+  it('prefers a stored locale ahead of browser hints', async () => {
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, 'sv-SE');
+    vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['en-AU', 'en-US']);
+    vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('en-US');
+
+    render(
+      <LocaleProvider locale="en-US" acceptLanguage="en-GB,en;q=0.9">
+        <LocaleConsumer />
+      </LocaleProvider>,
+    );
+
+    const localeDisplay = await screen.findByTestId('locale-value');
+    expect(localeDisplay).toHaveTextContent('sv-SE');
+  });
+
   it('falls back to navigator.language when languages is empty', async () => {
     vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue([]);
     vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('en-GB');

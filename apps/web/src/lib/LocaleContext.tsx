@@ -7,7 +7,13 @@ import {
   parseAcceptLanguage,
   storeLocalePreference,
   NEUTRAL_FALLBACK_LOCALE,
+  LOCALE_STORAGE_KEY,
 } from './i18n';
+import {
+  loadUserSettings,
+  USER_SETTINGS_STORAGE_KEY,
+  USER_SETTINGS_CHANGED_EVENT,
+} from '../app/user-settings';
 
 const LocaleContext = createContext(NEUTRAL_FALLBACK_LOCALE);
 
@@ -15,14 +21,26 @@ function resolveLocaleCandidates(
   fallback: string,
   acceptLanguage?: string | null,
   storedLocale?: string | null,
+  preferredLocale?: string | null,
 ): string[] {
   const normalizedFallback = normalizeLocale(fallback);
   const candidates: string[] = [];
+  const normalizedPreferred = normalizeLocale(preferredLocale, '');
+  const normalizedStored = normalizeLocale(storedLocale, '');
+
+  if (normalizedPreferred) {
+    candidates.push(normalizedPreferred);
+  }
+
   if (acceptLanguage) {
     const parsed = parseAcceptLanguage(acceptLanguage, normalizedFallback);
     if (parsed) {
       candidates.push(parsed);
     }
+  }
+
+  if (normalizedStored && normalizedStored !== normalizedPreferred) {
+    candidates.push(normalizedStored);
   }
 
   if (typeof navigator !== 'undefined') {
@@ -40,21 +58,13 @@ function resolveLocaleCandidates(
 
   candidates.push(normalizedFallback);
 
-  const normalizedStored = normalizeLocale(storedLocale, '');
-
-  if (normalizedStored) {
-    candidates.push(normalizedStored);
-  }
-
   return Array.from(new Set(candidates));
 }
 
 function pickLocaleCandidate(
   candidates: string[],
   fallback: string,
-  storedLocale?: string | null,
 ): string {
-  const normalizedStored = normalizeLocale(storedLocale, '');
   const normalizedFallback = normalizeLocale(fallback, NEUTRAL_FALLBACK_LOCALE);
 
   for (const candidate of candidates) {
@@ -70,16 +80,7 @@ function pickLocaleCandidate(
     return normalized;
   }
 
-  if (normalizedStored) {
-    return normalizedStored;
-  }
-
   return normalizedFallback;
-}
-
-function shouldStoreLocale(nextLocale: string, storedLocale?: string | null): boolean {
-  const normalizedStored = normalizeLocale(storedLocale, '');
-  return nextLocale !== normalizedStored;
 }
 
 interface ProviderProps {
@@ -94,6 +95,14 @@ export function LocaleProvider({ locale, acceptLanguage, children }: ProviderPro
   );
 
   useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    const normalized = normalizeLocale(currentLocale, NEUTRAL_FALLBACK_LOCALE);
+    document.documentElement.lang = normalized;
+  }, [currentLocale]);
+
+  useEffect(() => {
     setCurrentLocale((prev) => {
       const normalized = normalizeLocale(locale, NEUTRAL_FALLBACK_LOCALE);
       return prev === normalized ? prev : normalized;
@@ -104,12 +113,27 @@ export function LocaleProvider({ locale, acceptLanguage, children }: ProviderPro
     const applyResolvedLocale = () => {
       const fallback = normalizeLocale(locale, NEUTRAL_FALLBACK_LOCALE);
       const storedLocale = getStoredLocale();
-      const candidates = resolveLocaleCandidates(fallback, acceptLanguage, storedLocale);
-      const nextLocale = pickLocaleCandidate(candidates, fallback, storedLocale);
+      const preferredSettingsLocale = (() => {
+        try {
+          const settings = loadUserSettings();
+          const normalizedPreferred = normalizeLocale(
+            settings.preferredLocale,
+            '',
+          );
+          return normalizedPreferred || null;
+        } catch {
+          return null;
+        }
+      })();
+      const candidates = resolveLocaleCandidates(
+        fallback,
+        acceptLanguage,
+        storedLocale,
+        preferredSettingsLocale,
+      );
+      const nextLocale = pickLocaleCandidate(candidates, fallback);
       setCurrentLocale((prev) => (prev === nextLocale ? prev : nextLocale));
-      if (shouldStoreLocale(nextLocale, storedLocale)) {
-        storeLocalePreference(nextLocale);
-      }
+      storeLocalePreference(nextLocale);
     };
 
     applyResolvedLocale();
@@ -119,8 +143,22 @@ export function LocaleProvider({ locale, acceptLanguage, children }: ProviderPro
     }
 
     window.addEventListener('languagechange', applyResolvedLocale);
+    window.addEventListener(USER_SETTINGS_CHANGED_EVENT, applyResolvedLocale);
+    const handleStorage = (event: StorageEvent) => {
+      if (
+        !event.key ||
+        event.key === USER_SETTINGS_STORAGE_KEY ||
+        event.key === LOCALE_STORAGE_KEY
+      ) {
+        applyResolvedLocale();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
     return () => {
       window.removeEventListener('languagechange', applyResolvedLocale);
+      window.removeEventListener(USER_SETTINGS_CHANGED_EVENT, applyResolvedLocale);
+      window.removeEventListener('storage', handleStorage);
     };
   }, [acceptLanguage, locale]);
 

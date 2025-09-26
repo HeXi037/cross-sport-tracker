@@ -5,7 +5,10 @@ import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
 import { useLocale } from "../../../lib/LocaleContext";
-import { getDatePlaceholder } from "../../../lib/i18n";
+import {
+  getDatePlaceholder,
+  usesTwentyFourHourClock,
+} from "../../../lib/i18n";
 import { buildPlayedAtISOString } from "../../../lib/datetime";
 import {
   summarizeBowlingInput,
@@ -207,10 +210,12 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const [doubles, setDoubles] = useState(isPadel);
   const [submitting, setSubmitting] = useState(false);
   const locale = useLocale();
-  const datePlaceholder = useMemo(
-    () => getDatePlaceholder(locale),
+  const datePlaceholder = useMemo(() => getDatePlaceholder(locale), [locale]);
+  const uses24HourTime = useMemo(
+    () => usesTwentyFourHourClock(locale),
     [locale],
   );
+  const timePlaceholder = uses24HourTime ? "HH:MM" : undefined;
   const sportCopy = useMemo(
     () => getSportCopy(sport, locale),
     [locale, sport],
@@ -612,6 +617,12 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                 onChange={(e) => setTime(e.target.value)}
                 lang={locale}
                 aria-describedby={sportCopy.timeHint ? timeHintId : undefined}
+                step={60}
+                inputMode={uses24HourTime ? "numeric" : undefined}
+                pattern={
+                  uses24HourTime ? "([01][0-9]|2[0-3]):[0-5][0-9]" : undefined
+                }
+                placeholder={timePlaceholder}
               />
               {sportCopy.timeHint && (
                 <span id={timeHintId} className="form-hint">

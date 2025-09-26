@@ -365,6 +365,7 @@ describe("ProfilePage", () => {
         defaultLeaderboardSport: "padel",
         defaultLeaderboardCountry: "SE",
         weeklySummaryEmails: false,
+        preferredLocale: "sv-SE",
       }),
     );
 
@@ -387,9 +388,15 @@ describe("ProfilePage", () => {
     )) as HTMLInputElement;
     expect(weeklyToggle.checked).toBe(false);
 
+    const localeInput = (await screen.findByLabelText(
+      "Preferred locale",
+    )) as HTMLInputElement;
+    expect(localeInput.value).toBe("sv-SE");
+
     fireEvent.change(sportSelect, { target: { value: "disc_golf" } });
     fireEvent.change(countrySelect, { target: { value: "" } });
     fireEvent.click(weeklyToggle);
+    fireEvent.change(localeInput, { target: { value: "fr-FR" } });
 
     const savePreferencesButton = await screen.findByRole("button", {
       name: /save preferences/i,
@@ -406,10 +413,12 @@ describe("ProfilePage", () => {
       defaultLeaderboardSport: string;
       defaultLeaderboardCountry: string;
       weeklySummaryEmails: boolean;
+      preferredLocale: string;
     };
     expect(parsed.defaultLeaderboardSport).toBe("disc_golf");
     expect(parsed.defaultLeaderboardCountry).toBe("");
     expect(parsed.weeklySummaryEmails).toBe(true);
+    expect(parsed.preferredLocale).toBe("fr-FR");
 
     await screen.findByText("Preferences updated.");
   });

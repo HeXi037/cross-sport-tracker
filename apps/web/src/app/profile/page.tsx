@@ -54,6 +54,16 @@ const SOCIAL_LINK_LABEL_REQUIRED_MESSAGE = "Link label is required";
 type SaveFeedback = { type: "success" | "error"; message: string } | null;
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+const PREFERENCES_LOCALE_HINT_ID = "preferences-locale-hint";
+const LOCALE_SUGGESTIONS = [
+  { value: "en-GB", label: "English (United Kingdom)" },
+  { value: "en-US", label: "English (United States)" },
+  { value: "en-AU", label: "English (Australia)" },
+  { value: "fr-FR", label: "French (France)" },
+  { value: "de-DE", label: "German (Germany)" },
+  { value: "es-ES", label: "Spanish (Spain)" },
+  { value: "sv-SE", label: "Swedish (Sweden)" },
+];
 
 function isValidHttpUrl(value: string): boolean {
   if (!value) {
@@ -769,6 +779,39 @@ export default function ProfilePage() {
             ))}
           </select>
         </label>
+        <label className="form-field" htmlFor="preferences-locale">
+          <span className="form-label">Preferred locale</span>
+          <input
+            id="preferences-locale"
+            type="text"
+            value={preferences.preferredLocale}
+            onChange={(event) => {
+              setPreferencesFeedback(null);
+              setMessage(null);
+              setError(null);
+              setPreferences((prev) => ({
+                ...prev,
+                preferredLocale: event.target.value,
+              }));
+            }}
+            list="preferences-locale-options"
+            placeholder="e.g., en-GB"
+            autoComplete="language"
+            spellCheck={false}
+            disabled={preferencesInputsDisabled}
+            aria-describedby={PREFERENCES_LOCALE_HINT_ID}
+          />
+        </label>
+        <span id={PREFERENCES_LOCALE_HINT_ID} className="form-hint">
+          Used to format dates, times, and placeholder values across the app.
+        </span>
+        <datalist id="preferences-locale-options">
+          {LOCALE_SUGGESTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </datalist>
         <label
           className="form-field"
           htmlFor="preferences-weekly-summary"

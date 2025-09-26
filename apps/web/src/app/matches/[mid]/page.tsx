@@ -5,7 +5,8 @@ import { apiFetch, withAbsolutePhotoUrl } from "../../../lib/api";
 import LiveSummary from "./live-summary";
 import MatchParticipants from "../../../components/MatchParticipants";
 import { PlayerInfo } from "../../../components/PlayerName";
-import { formatDateTime, parseAcceptLanguage } from "../../../lib/i18n";
+import { formatDate, formatDateTime, parseAcceptLanguage } from "../../../lib/i18n";
+import { hasTimeComponent } from "../../../lib/datetime";
 import { ensureTrailingSlash } from "../../../lib/routes";
 import {
   type SummaryData,
@@ -433,7 +434,9 @@ export default async function MatchDetailPage({
 
   const playedAtDate = match.playedAt ? new Date(match.playedAt) : null;
   const playedAtStr = playedAtDate
-    ? formatDateTime(playedAtDate, locale)
+    ? hasTimeComponent(match.playedAt)
+      ? formatDateTime(playedAtDate, locale)
+      : formatDate(playedAtDate, locale)
     : "";
 
   let initialSummary: SummaryData = match.summary ?? null;

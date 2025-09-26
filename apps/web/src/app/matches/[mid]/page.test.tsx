@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
+import { formatDate } from "../../../lib/i18n";
 
 type NextNotFoundError = Error & { digest?: string };
 
@@ -103,22 +104,62 @@ describe("MatchDetailPage", () => {
 
     render(await MatchDetailPage({ params: { mid: "m1" } }));
 
-    expect(
-      screen.getByText((text) =>
-        text.startsWith("Padel · World Padel Tour · Completed")
-      )
-    ).toBeInTheDocument();
-
     const locale = "en-US";
-    const displayed = new Date(match.playedAt).toLocaleString(locale, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-    expect(screen.getByText((t) => t.includes(displayed))).toBeInTheDocument();
+    const expectedDate = formatDate(new Date(match.playedAt), locale);
+    const meta = screen.getByText(
+      (text, element) =>
+        element?.classList.contains("match-meta") &&
+        text.startsWith("Padel · World Padel Tour · Completed")
+    );
+
+    expect(meta).toHaveTextContent(
+      `Padel · World Padel Tour · Completed · ${expectedDate}`
+    );
+    expect(meta).not.toHaveTextContent(/00:00/);
 
     expect(new Date(match.playedAt).toISOString()).toBe(
       "2024-01-01T00:00:00.000Z",
     );
+  });
+
+  it("renders matches saved without a time component", async () => {
+    const match = {
+      id: "m1", // reused id is fine within this test scope
+      sport: "padel",
+      rulesetId: "padel_standard",
+      status: "Scheduled",
+      playedAt: "2024-05-05",
+      participants: [],
+      summary: {},
+    };
+
+    apiFetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => match })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: "padel", name: "Padel" }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: "padel_standard", name: "World Padel Tour" },
+        ],
+      });
+
+    render(await MatchDetailPage({ params: { mid: "m1" } }));
+
+    const locale = "en-US";
+    const expectedDate = formatDate(new Date(match.playedAt), locale);
+    const meta = screen.getByText(
+      (text, element) =>
+        element?.classList.contains("match-meta") &&
+        text.includes("Scheduled")
+    );
+
+    expect(meta).toHaveTextContent(
+      `Padel · World Padel Tour · Scheduled · ${expectedDate}`
+    );
+    expect(meta).not.toHaveTextContent(/00:00/);
   });
 
   it("renders all participants dynamically", async () => {

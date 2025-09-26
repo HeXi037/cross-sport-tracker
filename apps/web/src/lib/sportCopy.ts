@@ -11,7 +11,8 @@ const SPORT_COPY: Record<string, Record<string, SportCopy>> = {
     default: {
       matchDetailsHint:
         'Record when and where the game took place so everyone can follow the series.',
-      timeHint: 'Record the local start time so the series timeline stays accurate',
+      timeHint:
+        'Follow the local format shown in the example so the series timeline stays accurate',
       playersHint: 'Assign each scorecard to the correct bowler before entering their frames.',
       scoringHint:
         'Enter each roll per frame. Leave roll 2 empty after a strike and only fill roll 3 in the final frame when it is earned. Running totals update as you go.',

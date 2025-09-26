@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useId, type FormEvent } from "react";
+import { zxcvbn } from "@zxcvbn-ts/core";
 import { useRouter } from "next/navigation";
 import {
   apiFetch,
@@ -89,17 +90,15 @@ interface PasswordStrengthResult {
   helper: string;
   variant: "empty" | "weak" | "fair" | "strong" | "very-strong";
   checks: PasswordRequirement[];
+  activeSegments: number;
 }
 
 function getPasswordStrength(password: string): PasswordStrengthResult {
   const trimmed = password.trim();
   const length = trimmed.length;
-  const hasLower = /[a-z]/.test(trimmed);
-  const hasUpper = /[A-Z]/.test(trimmed);
   const hasLetter = /[A-Za-z]/.test(trimmed);
   const hasNumber = /\d/.test(trimmed);
   const hasSymbol = /[^A-Za-z0-9]/.test(trimmed);
-  const hasMixedCase = hasLower && hasUpper;
 
   const checks: PasswordRequirement[] = [
     { id: "length", label: "At least 12 characters", met: length >= 12 },
@@ -115,56 +114,114 @@ function getPasswordStrength(password: string): PasswordStrengthResult {
       helper: "Use at least 12 characters with letters, numbers, and symbols.",
       variant: "empty",
       checks,
+      activeSegments: 0,
     };
   }
 
-  let score = 0;
-  if (length >= 8) {
-    score = 1;
-  }
-  if (length >= 12 && hasLetter && hasNumber) {
-    score = 2;
-  }
-  if (length >= 12 && hasLetter && hasNumber && hasSymbol) {
-    score = 3;
-  }
-  if (length >= 16 && hasLetter && hasNumber && hasSymbol && hasMixedCase) {
-    score = 4;
+  const zxcvbnResult = zxcvbn(trimmed);
+  const score = Math.min(Math.max(zxcvbnResult.score, 0), 4);
+  const scoreDetails: Record<
+    number,
+    {
+      label: string;
+      helper: string;
+      variant: PasswordStrengthResult["variant"];
+      activeSegments: number;
+    }
+  > = {
+    0: {
+      label: "Too weak",
+      helper: "Keep going – add more characters to strengthen your password.",
+      variant: "weak",
+      activeSegments: 1,
+    },
+    1: {
+      label: "Weak",
+      helper: "Add more unique characters and mix letters with numbers or symbols.",
+      variant: "weak",
+      activeSegments: 2,
+    },
+    2: {
+      label: "Fair",
+      helper: "Add a symbol or mix uppercase and lowercase letters for extra strength.",
+      variant: "fair",
+      activeSegments: 3,
+    },
+    3: {
+      label: "Strong",
+      helper: "Great! This password meets the recommended requirements.",
+      variant: "strong",
+      activeSegments: 4,
+    },
+    4: {
+      label: "Very strong",
+      helper: "Excellent! This password is very strong.",
+      variant: "very-strong",
+      activeSegments: 4,
+    },
+  };
+
+  const detail = scoreDetails[score];
+  const feedback =
+    zxcvbnResult.feedback.warning || zxcvbnResult.feedback.suggestions?.[0] || "";
+  const helper = feedback ? `${detail.helper} ${feedback}`.trim() : detail.helper;
+
+  return {
+    score,
+    label: detail.label,
+    helper,
+    variant: detail.variant,
+    checks,
+    activeSegments: detail.activeSegments,
+  };
+}
+
+async function extractLoginError(response: Response): Promise<string> {
+  const fallback = "Login failed. Please check your username and password.";
+
+  try {
+    const data = await response.clone().json();
+    if (typeof data === "string") {
+      const trimmed = data.trim();
+      if (trimmed) {
+        return trimmed;
+      }
+    } else if (data && typeof data === "object") {
+      const record = data as Record<string, unknown>;
+      const code = typeof record.code === "string" ? record.code : null;
+      if (code) {
+        const mapped = LOGIN_ERROR_COPY[code];
+        if (mapped) {
+          return mapped;
+        }
+      }
+      const detail = typeof record.detail === "string" ? record.detail.trim() : "";
+      if (detail) {
+        return detail;
+      }
+      const message = typeof record.message === "string" ? record.message.trim() : "";
+      if (message) {
+        return message;
+      }
+      const error = typeof record.error === "string" ? record.error.trim() : "";
+      if (error) {
+        return error;
+      }
+    }
+  } catch {
+    // Ignore JSON parsing errors and fall back to reading text or default message.
   }
 
-  let label = "Too weak";
-  let helper = "Use at least 12 characters with letters, numbers, and symbols.";
-  let variant: PasswordStrengthResult["variant"] = "weak";
-
-  switch (score) {
-    case 0:
-      label = "Too weak";
-      helper = "Keep going – add more characters to strengthen your password.";
-      variant = "weak";
-      break;
-    case 1:
-      label = "Weak";
-      helper = "Add more characters and mix in numbers and symbols.";
-      variant = "weak";
-      break;
-    case 2:
-      label = "Fair";
-      helper = "Add a symbol or mix uppercase and lowercase letters for extra strength.";
-      variant = "fair";
-      break;
-    case 3:
-      label = "Strong";
-      helper = "Great! This password meets the recommended requirements.";
-      variant = "strong";
-      break;
-    default:
-      label = "Very strong";
-      helper = "Excellent! This password is very strong.";
-      variant = "very-strong";
-      break;
+  try {
+    const text = (await response.text()).trim();
+    if (text) {
+      return text;
+    }
+  } catch {
+    // Ignore body read errors and fall back to generic message.
   }
 
-  return { score, label, helper, variant, checks };
+  return fallback;
 }
 
 async function extractSignupErrors(response: Response): Promise<string[]> {
@@ -252,9 +309,13 @@ export default function LoginPage() {
   const [newUser, setNewUser] = useState("");
   const [newPass, setNewPass] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
-  const [errors, setErrors] = useState<string[]>([]);
+  const [loginErrors, setLoginErrors] = useState<string[]>([]);
+  const [signupErrors, setSignupErrors] = useState<string[]>([]);
   const passwordStrengthLabelId = useId();
   const passwordStrengthHelperId = useId();
+  const errorSummaryTitleId = useId();
+  const loginErrorTitleId = useId();
+  const signupErrorTitleId = useId();
   const { usernameCharacterRule, usernameEmailOption } = useMemo(
     () => getAuthCopy(locale),
     [locale]
@@ -270,7 +331,7 @@ export default function LoginPage() {
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
-    setErrors([]);
+    setLoginErrors([]);
     try {
       const res = await apiFetch("/v0/auth/login", {
         method: "POST",
@@ -282,16 +343,17 @@ export default function LoginPage() {
         persistSession(data);
         router.push("/");
       } else {
-        setErrors(["Login failed. Please check your username and password."]);
+        const message = await extractLoginError(res);
+        setLoginErrors([message]);
       }
     } catch (err) {
-      setErrors([getLoginErrorMessage(err)]);
+      setLoginErrors([getLoginErrorMessage(err)]);
     }
   };
 
   const handleSignup = async (e: FormEvent) => {
     e.preventDefault();
-    setErrors([]);
+    setSignupErrors([]);
     const trimmedUser = newUser.trim();
     const validationErrors: string[] = [];
 
@@ -319,7 +381,7 @@ export default function LoginPage() {
     }
 
     if (validationErrors.length > 0) {
-      setErrors(validationErrors);
+      setSignupErrors(validationErrors);
       return;
     }
     setNewUser(trimmedUser);
@@ -336,7 +398,7 @@ export default function LoginPage() {
           message: "Account created successfully!",
           variant: "success",
         });
-        setErrors([]);
+        setSignupErrors([]);
         setNewUser("");
         setNewPass("");
         setConfirmPass("");
@@ -345,10 +407,10 @@ export default function LoginPage() {
         router.push("/");
       } else {
         const messages = await extractSignupErrors(res);
-        setErrors(messages);
+        setSignupErrors(messages);
       }
     } catch (err) {
-      setErrors([
+      setSignupErrors([
         normalizeErrorMessage(
           err,
           "We couldn't create your account. Please try again."
@@ -376,7 +438,42 @@ export default function LoginPage() {
   return (
     <main className="container">
       <h1 className="heading">Login</h1>
+      {(loginErrors.length > 0 || signupErrors.length > 0) && (
+        <section
+          className="auth-error-summary"
+          role="alert"
+          aria-labelledby={errorSummaryTitleId}
+          aria-live="assertive"
+        >
+          <h2 id={errorSummaryTitleId}>There was a problem signing in</h2>
+          {loginErrors.length > 0 && (
+            <div className="auth-error-summary__group" aria-labelledby={loginErrorTitleId}>
+              <h3 id={loginErrorTitleId}>Login</h3>
+              <ul>
+                {loginErrors.map((message, index) => (
+                  <li key={`login-error-${index}`}>{message}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {signupErrors.length > 0 && (
+            <div className="auth-error-summary__group" aria-labelledby={signupErrorTitleId}>
+              <h3 id={signupErrorTitleId}>Sign Up</h3>
+              <ul>
+                {signupErrors.map((message, index) => (
+                  <li key={`signup-error-${index}`}>{message}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
       <form onSubmit={handleLogin} className="auth-form">
+        {loginErrors.length > 0 && (
+          <div className="auth-form__error" aria-live="polite">
+            {loginErrors[0]}
+          </div>
+        )}
         <div className="form-field">
           <label htmlFor="login-username" className="form-label">
             Username
@@ -445,17 +542,27 @@ export default function LoginPage() {
           />
           <div className="password-strength" aria-live="polite">
             <div
-              className="password-strength__track"
-              role="progressbar"
+              className="password-strength__meter"
+              role="meter"
               aria-valuemin={0}
               aria-valuemax={4}
               aria-valuenow={passwordStrength.score}
               aria-describedby={`${passwordStrengthLabelId} ${passwordStrengthHelperId}`}
             >
-              <div
-                className={`password-strength__bar password-strength__bar--${passwordStrength.variant}`}
-                style={{ width: `${(passwordStrength.score / 4) * 100}%` }}
-              />
+              {Array.from({ length: 4 }, (_, index) => {
+                const isActive = passwordStrength.activeSegments > index;
+                const variantClass = isActive
+                  ? ` password-strength__segment--${passwordStrength.variant}`
+                  : "";
+                const activeClass = isActive ? " password-strength__segment--active" : "";
+                return (
+                  <span
+                    key={`password-strength-segment-${index}`}
+                    className={`password-strength__segment${activeClass}${variantClass}`}
+                    aria-hidden="true"
+                  />
+                );
+              })}
             </div>
             <div id={passwordStrengthLabelId} className="password-strength__label">
               Password strength: {passwordStrength.label}
@@ -493,18 +600,13 @@ export default function LoginPage() {
             required
           />
         </div>
+        {signupErrors.length > 0 && (
+          <div className="auth-form__error" aria-live="polite">
+            Please review the issues listed above before continuing.
+          </div>
+        )}
         <button type="submit">Sign Up</button>
       </form>
-
-      {errors.length > 0 && (
-        <div role="alert" className="error">
-          <ul>
-            {errors.map((message, index) => (
-              <li key={`${message}-${index}`}>{message}</li>
-            ))}
-          </ul>
-        </div>
-      )}
     </main>
   );
 }

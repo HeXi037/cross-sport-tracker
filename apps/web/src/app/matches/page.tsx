@@ -168,10 +168,7 @@ function formatSummary(s?: MatchDetail["summary"]): string {
 
 const PLACEHOLDER_VALUES = new Set(["", "—", "Best of —"]);
 
-function formatMatchMetadata(
-  parts: Array<string | null | undefined>,
-  locale: string
-): string {
+function formatMatchMetadata(parts: Array<string | null | undefined>): string {
   const normalizedParts = parts
     .map((part) => (typeof part === "string" ? part.trim() : part))
     .filter((part): part is string => {
@@ -184,17 +181,7 @@ function formatMatchMetadata(
     return "";
   }
 
-  const normalizedLocale =
-    typeof locale === "string" && locale.trim().length > 0 ? locale : "en";
-
-  try {
-    return new Intl.ListFormat(normalizedLocale, {
-      style: "short",
-      type: "conjunction",
-    }).format(normalizedParts);
-  } catch {
-    return normalizedParts.join(" · ");
-  }
+  return normalizedParts.join(" · ");
 }
 
 export default async function MatchesPage(
@@ -234,16 +221,13 @@ export default async function MatchesPage(
                 m.playedAt && hasTimeComponent(m.playedAt)
                   ? formatDateTime(m.playedAt, locale, 'compact')
                   : formatDate(m.playedAt, locale, { dateStyle: 'medium' });
-              const metadataText = formatMatchMetadata(
-                [
-                  m.isFriendly ? "Friendly" : null,
-                  m.sport,
-                  m.bestOf != null ? `Best of ${m.bestOf}` : null,
-                  playedAtText,
-                  m.location,
-                ],
-                locale
-              );
+              const metadataText = formatMatchMetadata([
+                m.isFriendly ? "Friendly" : null,
+                m.sport,
+                m.bestOf != null ? `Best of ${m.bestOf}` : null,
+                playedAtText,
+                m.location,
+              ]);
 
               return (
                 <li key={m.id} className="card match-item">

@@ -354,7 +354,7 @@ class MatchCreate(BaseModel):
     @field_validator("playedAt")
     def _normalize_played_at(cls, v: datetime | None) -> datetime | None:
         if v and v.tzinfo:
-            return v.astimezone(timezone.utc).replace(tzinfo=None)
+            return v.astimezone(timezone.utc)
         return v
 
     @model_validator(mode="before")
@@ -377,7 +377,7 @@ class MatchCreateByName(BaseModel):
     @field_validator("playedAt")
     def _normalize_played_at(cls, v: datetime | None) -> datetime | None:
         if v and v.tzinfo:
-            return v.astimezone(timezone.utc).replace(tzinfo=None)
+            return v.astimezone(timezone.utc)
         return v
 
     @model_validator(mode="before")

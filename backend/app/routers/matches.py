@@ -2,7 +2,7 @@
 import uuid
 import importlib
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Sequence
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -32,6 +32,14 @@ from .auth import get_current_user
 
 # Resource-only prefix; versioning is added in main.py
 router = APIRouter(prefix="/matches", tags=["matches"])
+
+
+def _serialize_played_at(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 # GET /api/v0/matches
 @router.get("", response_model=list[MatchSummaryOut])
@@ -72,7 +80,7 @@ async def list_matches(
             id=m.id,
             sport=m.sport_id,
             bestOf=m.best_of,
-            playedAt=m.played_at,
+            playedAt=_serialize_played_at(m.played_at),
             location=m.location,
         )
         for m in matches
@@ -348,7 +356,7 @@ async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
         sport=m.sport_id,
         rulesetId=m.ruleset_id,
         bestOf=m.best_of,
-        playedAt=m.played_at,
+        playedAt=_serialize_played_at(m.played_at),
         location=m.location,
         participants=[
             ParticipantOut(id=p.id, side=p.side, playerIds=p.player_ids) for p in parts

@@ -475,7 +475,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       try {
         setSubmitting(true);
         const playedAt = date
-          ? (time ? new Date(`${date}T${time}`).toISOString() : `${date}T00:00:00`)
+          ? (time
+              ? new Date(`${date}T${time}`).toISOString()
+              : `${date}T00:00:00Z`)
           : undefined;
 
         const payload = {
@@ -533,7 +535,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     try {
       setSubmitting(true);
       const playedAt = date
-        ? (time ? new Date(`${date}T${time}`).toISOString() : `${date}T00:00:00`)
+        ? (time
+            ? new Date(`${date}T${time}`).toISOString()
+            : `${date}T00:00:00Z`)
         : undefined;
 
       const payload = {

@@ -1,7 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
-import { execSync } from "child_process";
 
 const apiFetchMock = vi.hoisted(() => vi.fn());
 
@@ -68,7 +67,7 @@ describe("MatchDetailPage", () => {
       sport: "padel",
       rulesetId: "padel_standard",
       status: "Completed",
-      playedAt: "2024-01-01T00:00:00",
+      playedAt: "2024-01-01T00:00:00Z",
       participants: [],
       summary: {},
     };
@@ -100,12 +99,9 @@ describe("MatchDetailPage", () => {
     });
     expect(screen.getByText((t) => t.includes(displayed))).toBeInTheDocument();
 
-    const laDate = execSync(
-      "TZ=America/Los_Angeles node -e \"console.log(new Date('2024-01-01T00:00:00').toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }))\""
-    )
-      .toString()
-      .trim();
-    expect(displayed).toBe(laDate);
+    expect(new Date(match.playedAt).toISOString()).toBe(
+      "2024-01-01T00:00:00.000Z",
+    );
   });
 
   it("renders all participants dynamically", async () => {

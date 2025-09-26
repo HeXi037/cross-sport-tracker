@@ -81,6 +81,16 @@ img {
   margin: 0;
 }
 
+.form-subfieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.form-subfieldset > .form-label {
+  margin-bottom: 0.5rem;
+}
+
 .button-secondary {
   background: transparent;
   color: var(--color-accent-blue);
@@ -141,6 +151,24 @@ img {
 .form-label {
   font-size: 0.9rem;
   font-weight: 600;
+}
+
+.radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.radio-group__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.radio-group__option input[type="radio"] {
+  width: auto;
+  margin: 0;
 }
 
 .form-hint {

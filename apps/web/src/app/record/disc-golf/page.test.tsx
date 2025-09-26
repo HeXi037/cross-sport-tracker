@@ -45,6 +45,45 @@ describe("RecordDiscGolfPage", () => {
     ]);
   });
 
+  it("shows an error and preserves input when an event submission fails", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: false, json: async () => ({}) });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordDiscGolfPage />);
+
+    fireEvent.change(screen.getByPlaceholderText("A"), { target: { value: "3" } });
+    fireEvent.change(screen.getByPlaceholderText("B"), { target: { value: "4" } });
+    fireEvent.click(screen.getByRole("button", { name: /record hole/i }));
+
+    await screen.findByText("Failed to record event.");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByText(/Hole 1/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("A")).toHaveDisplayValue("3");
+    expect(screen.getByPlaceholderText("B")).toHaveDisplayValue("4");
+  });
+
+  it("does not advance or clear inputs when the first submission fails", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordDiscGolfPage />);
+
+    fireEvent.change(screen.getByPlaceholderText("A"), { target: { value: "2" } });
+    fireEvent.change(screen.getByPlaceholderText("B"), { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("button", { name: /record hole/i }));
+
+    await screen.findByText("Failed to record event.");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/Hole 1/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("A")).toHaveDisplayValue("2");
+    expect(screen.getByPlaceholderText("B")).toHaveDisplayValue("5");
+  });
+
   it("disables recording guidance when no match id is provided", () => {
     useSearchParamsMock.mockReturnValue(new URLSearchParams());
 

@@ -42,10 +42,18 @@ export function MatchHeatmap({ data, xLabels, yLabels }: MatchHeatmapProps) {
           const alpha = maxV ? value / maxV : 0;
           return `rgba(26, 115, 232, ${alpha})`;
         },
-        width: (ctx: ScriptableContext<'matrix'>) =>
-          ctx.chart.chartArea.width / xLabels.length - 2,
-        height: (ctx: ScriptableContext<'matrix'>) =>
-          ctx.chart.chartArea.height / yLabels.length - 2,
+        width: (ctx: ScriptableContext<'matrix'>) => {
+          const { chartArea } = ctx.chart;
+          if (!chartArea) return 0;
+          const columns = Math.max(xLabels.length, 1);
+          return Math.max(chartArea.width / columns - 2, 0);
+        },
+        height: (ctx: ScriptableContext<'matrix'>) => {
+          const { chartArea } = ctx.chart;
+          if (!chartArea) return 0;
+          const rows = Math.max(yLabels.length, 1);
+          return Math.max(chartArea.height / rows - 2, 0);
+        },
       },
     ],
   };

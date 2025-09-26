@@ -590,6 +590,17 @@ textarea {
   color: var(--color-accent-red);
 }
 
+.player-list__loading {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.player-list__loading-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
 .player-list__admin-note {
   margin-top: 1.5rem;
   font-size: 0.95rem;

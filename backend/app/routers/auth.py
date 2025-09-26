@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 import bcrypt
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, Header, Request, UploadFile, File
+from fastapi import APIRouter, Depends, Header, Request, UploadFile, File
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
@@ -27,6 +27,7 @@ from ..schemas import (
     RefreshRequest,
 )
 from ..services.photo_uploads import save_photo_upload
+from ..exceptions import http_problem
 
 
 def get_jwt_secret() -> str:
@@ -133,7 +134,7 @@ async def signup(
       )
   ).scalar_one_or_none()
   if existing:
-    raise HTTPException(status_code=400, detail="username exists")
+    raise http_problem(status_code=400, detail="username exists", code="auth_username_exists")
 
   existing_player = (
       await session.execute(
@@ -141,13 +142,17 @@ async def signup(
       )
   ).scalar_one_or_none()
   if existing_player and existing_player.user_id is not None:
-    raise HTTPException(status_code=400, detail="player exists")
+    raise http_problem(status_code=400, detail="player exists", code="auth_player_exists")
 
   is_admin = False
   if body.is_admin:
     expected = os.getenv("ADMIN_SECRET")
     if not expected or admin_secret != expected:
-      raise HTTPException(status_code=403, detail="invalid admin secret")
+      raise http_problem(
+          status_code=403,
+          detail="invalid admin secret",
+          code="auth_invalid_admin_secret",
+      )
     is_admin = True
 
   uid = uuid.uuid4().hex
@@ -182,9 +187,17 @@ async def login(
       )
   ).scalar_one_or_none()
   if not user:
-    raise HTTPException(status_code=401, detail="invalid credentials")
+    raise http_problem(
+        status_code=401,
+        detail="invalid credentials",
+        code="auth_invalid_credentials",
+    )
   if not pwd_context.verify(body.password, user.password_hash):
-    raise HTTPException(status_code=401, detail="invalid credentials")
+    raise http_problem(
+        status_code=401,
+        detail="invalid credentials",
+        code="auth_invalid_credentials",
+    )
   access_token, refresh_token = await create_token(user, session)
   await session.commit()
   return TokenOut(access_token=access_token, refresh_token=refresh_token)
@@ -195,18 +208,34 @@ async def get_current_user(
     session: AsyncSession = Depends(get_session),
 ) -> User:
   if not authorization or not authorization.lower().startswith("bearer "):
-    raise HTTPException(status_code=401, detail="missing token")
+    raise http_problem(
+        status_code=401,
+        detail="missing token",
+        code="auth_missing_token",
+    )
   token = authorization.split(" ", 1)[1]
   try:
     payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALG])
   except jwt.ExpiredSignatureError:
-    raise HTTPException(status_code=401, detail="token expired")
+    raise http_problem(
+        status_code=401,
+        detail="token expired",
+        code="auth_token_expired",
+    )
   except jwt.PyJWTError:
-    raise HTTPException(status_code=401, detail="invalid token")
+    raise http_problem(
+        status_code=401,
+        detail="invalid token",
+        code="auth_invalid_token",
+    )
   uid = payload.get("sub")
   user = await session.get(User, uid)
   if not user:
-    raise HTTPException(status_code=401, detail="user not found")
+    raise http_problem(
+        status_code=401,
+        detail="user not found",
+        code="auth_user_not_found",
+    )
   return user
 
 
@@ -258,7 +287,11 @@ async def update_me(
         )
     ).scalar_one_or_none()
     if existing and existing.id != current.id:
-      raise HTTPException(status_code=400, detail="username exists")
+      raise http_problem(
+          status_code=400,
+          detail="username exists",
+          code="auth_username_exists",
+      )
 
     existing_player = (
         await session.execute(
@@ -268,7 +301,11 @@ async def update_me(
         )
     ).scalar_one_or_none()
     if existing_player and existing_player.user_id not in {None, current.id}:
-      raise HTTPException(status_code=400, detail="player exists")
+      raise http_problem(
+          status_code=400,
+          detail="player exists",
+          code="auth_player_exists",
+      )
 
     current.username = new_username
     player = (
@@ -283,8 +320,16 @@ async def update_me(
   except IntegrityError as e:
     await session.rollback()
     if "player" in str(e.orig):
-      raise HTTPException(status_code=400, detail="player exists")
-    raise HTTPException(status_code=400, detail="username exists")
+      raise http_problem(
+          status_code=400,
+          detail="player exists",
+          code="auth_player_exists",
+      )
+    raise http_problem(
+        status_code=400,
+        detail="username exists",
+        code="auth_username_exists",
+    )
   access_token, refresh_token = await create_token(current, session)
   await session.commit()
   return TokenOut(access_token=access_token, refresh_token=refresh_token)
@@ -301,10 +346,18 @@ async def refresh_tokens(
       or token.revoked
       or token.expires_at < datetime.utcnow()
   ):
-    raise HTTPException(status_code=401, detail="invalid refresh token")
+    raise http_problem(
+        status_code=401,
+        detail="invalid refresh token",
+        code="auth_invalid_refresh_token",
+    )
   user = await session.get(User, token.user_id)
   if not user:
-    raise HTTPException(status_code=401, detail="user not found")
+    raise http_problem(
+        status_code=401,
+        detail="user not found",
+        code="auth_user_not_found",
+    )
   token.revoked = True
   access_token, refresh_token = await create_token(user, session)
   await session.commit()

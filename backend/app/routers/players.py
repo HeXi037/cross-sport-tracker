@@ -7,7 +7,6 @@ from fastapi import (
     APIRouter,
     Depends,
     Response,
-    HTTPException,
     UploadFile,
     File,
     Query,
@@ -62,7 +61,12 @@ from ..schemas import (
     PlayerSocialLinkCreate,
     PlayerSocialLinkUpdate,
 )
-from ..exceptions import ProblemDetail, PlayerAlreadyExists, PlayerNotFound
+from ..exceptions import (
+    ProblemDetail,
+    PlayerAlreadyExists,
+    PlayerNotFound,
+    http_problem,
+)
 from ..services import (
     compute_streaks,
     rolling_win_percentage,
@@ -148,7 +152,11 @@ async def list_players(
     if include_hidden:
         user = await get_current_user(authorization=authorization, session=session)
         if not user.is_admin:
-            raise HTTPException(status_code=403, detail="forbidden")
+            raise http_problem(
+                status_code=403,
+                detail="forbidden",
+                code="players_include_hidden_forbidden",
+            )
 
     stmt = select(Player).where(Player.deleted_at.is_(None))
     count_stmt = select(func.count()).select_from(Player).where(
@@ -204,7 +212,11 @@ async def get_my_player(
 ):
     player = await _get_active_player_for_user(session, current.id)
     if not player:
-        raise HTTPException(status_code=404, detail="player not found")
+        raise http_problem(
+            status_code=404,
+            detail="player not found",
+            code="player_not_found",
+        )
     return await get_player(player.id, session)
 
 
@@ -215,11 +227,19 @@ async def create_my_player(
 ):
     existing_player = await _get_active_player_for_user(session, current.id)
     if existing_player:
-        raise HTTPException(status_code=400, detail="player already exists")
+        raise http_problem(
+            status_code=400,
+            detail="player already exists",
+            code="player_exists",
+        )
 
     username = current.username.strip()
     if not username:
-        raise HTTPException(status_code=400, detail="username required")
+        raise http_problem(
+            status_code=400,
+            detail="username required",
+            code="players_username_required",
+        )
 
     normalized = username.lower()
 
@@ -354,7 +374,11 @@ async def _require_current_player(
 ) -> Player:
     player = await _get_active_player_for_user(session, current.id)
     if not player:
-        raise HTTPException(status_code=404, detail="player not found")
+        raise http_problem(
+            status_code=404,
+            detail="player not found",
+            code="player_not_found",
+        )
     return player
 
 
@@ -417,7 +441,11 @@ async def update_my_social_link(
         )
     ).scalar_one_or_none()
     if not link:
-        raise HTTPException(status_code=404, detail="social link not found")
+        raise http_problem(
+            status_code=404,
+            detail="social link not found",
+            code="player_social_link_not_found",
+        )
 
     if "label" in body.model_fields_set and body.label is not None:
         link.label = body.label
@@ -448,7 +476,11 @@ async def delete_my_social_link(
         )
     )
     if result.rowcount == 0:
-        raise HTTPException(status_code=404, detail="social link not found")
+        raise http_problem(
+            status_code=404,
+            detail="social link not found",
+            code="player_social_link_not_found",
+        )
     await session.commit()
     return Response(status_code=204)
 
@@ -487,7 +519,11 @@ async def _apply_player_location_update(
                 )
             ).scalar_one_or_none()
             if exists is None:
-                raise HTTPException(status_code=422, detail="unknown club id")
+                raise http_problem(
+                    status_code=422,
+                    detail="unknown club id",
+                    code="player_unknown_club",
+                )
 
     if "bio" in fields_set:
         bio_value = body.bio
@@ -529,7 +565,11 @@ async def update_my_location(
 ):
     player = await _get_active_player_for_user(session, current.id)
     if not player:
-        raise HTTPException(status_code=404, detail="player not found")
+        raise http_problem(
+            status_code=404,
+            detail="player not found",
+            code="player_not_found",
+        )
 
     await _apply_player_location_update(session, player, body)
     return await get_player(player.id, session)
@@ -659,7 +699,11 @@ async def add_badge_to_player(
     if not p or p.deleted_at is not None:
         raise PlayerNotFound(player_id)
     if not b:
-        raise ProblemDetail(status_code=404, detail="badge not found")
+        raise http_problem(
+            status_code=404,
+            detail="badge not found",
+            code="badge_not_found",
+        )
     existing = (
         await session.execute(
             select(PlayerBadge.id)
@@ -671,9 +715,10 @@ async def add_badge_to_player(
         )
     ).scalar_one_or_none()
     if existing:
-        raise HTTPException(
+        raise http_problem(
             status_code=409,
             detail="player already has this badge",
+            code="player_badge_exists",
         )
 
     pb = PlayerBadge(id=uuid.uuid4().hex, player_id=player_id, badge_id=badge_id)
@@ -697,7 +742,11 @@ async def remove_badge_from_player(
         )
     ).scalar_one_or_none()
     if not existing:
-        raise HTTPException(status_code=404, detail="player badge not found")
+        raise http_problem(
+            status_code=404,
+            detail="player badge not found",
+            code="player_badge_not_found",
+        )
     await session.execute(
         delete(PlayerBadge).where(
             PlayerBadge.player_id == player_id, PlayerBadge.badge_id == badge_id
@@ -782,9 +831,17 @@ async def delete_comment(
 ):
     comment = await session.get(Comment, comment_id)
     if not comment or comment.player_id != player_id or comment.deleted_at is not None:
-        raise HTTPException(status_code=404, detail="comment not found")
+        raise http_problem(
+            status_code=404,
+            detail="comment not found",
+            code="player_comment_not_found",
+        )
     if comment.user_id != user.id and not user.is_admin:
-        raise HTTPException(status_code=403, detail="forbidden")
+        raise http_problem(
+            status_code=403,
+            detail="forbidden",
+            code="player_comment_forbidden",
+        )
     comment.deleted_at = func.now()
     await session.commit()
     return Response(status_code=204)

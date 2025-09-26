@@ -9,7 +9,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 os.environ["ADMIN_SECRET"] = "admintest"
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from fastapi.responses import JSONResponse
 from app import db
@@ -27,6 +27,23 @@ async def domain_exception_handler(request, exc):
         title=exc.title,
         detail=exc.detail,
         status=exc.status_code,
+        code=exc.code,
+    )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=problem.model_dump(),
+        media_type="application/problem+json",
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+    problem = ProblemDetail(
+        title=detail,
+        detail=detail,
+        status=exc.status_code,
+        code=getattr(exc, "code", f"http_{exc.status_code}"),
     )
     return JSONResponse(
         status_code=exc.status_code,
@@ -127,6 +144,12 @@ def test_comment_crud():
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 204
+        missing = client.delete(
+            f"/players/{pid}/comments/{cid}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert missing.status_code == 404
+        assert missing.json()["code"] == "player_comment_not_found"
         resp = client.get(f"/players/{pid}/comments")
         assert resp.status_code == 200
         data = resp.json()

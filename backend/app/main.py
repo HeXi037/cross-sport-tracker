@@ -75,6 +75,7 @@ async def domain_exception_handler(request: Request, exc: DomainException) -> JS
         title=exc.title,
         detail=exc.detail,
         status=exc.status_code,
+        code=exc.code,
     )
     return JSONResponse(
         status_code=exc.status_code,
@@ -86,7 +87,13 @@ async def domain_exception_handler(request: Request, exc: DomainException) -> JS
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
-    problem = ProblemDetail(title=detail, detail=detail, status=exc.status_code)
+    code = getattr(exc, "code", f"http_{exc.status_code}")
+    problem = ProblemDetail(
+        title=detail,
+        detail=detail,
+        status=exc.status_code,
+        code=code,
+    )
     return JSONResponse(
         status_code=exc.status_code,
         content=problem.model_dump(),
@@ -97,7 +104,12 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.error("Unhandled exception", exc_info=(type(exc), exc, exc.__traceback__))
-    problem = ProblemDetail(title="Internal Server Error", status=500, detail=str(exc))
+    problem = ProblemDetail(
+        title="Internal Server Error",
+        status=500,
+        detail=str(exc),
+        code="internal_server_error",
+    )
     return JSONResponse(
         status_code=500,
         content=problem.model_dump(),

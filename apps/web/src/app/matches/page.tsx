@@ -155,6 +155,37 @@ function formatSummary(s?: MatchDetail["summary"]): string {
   return "";
 }
 
+const PLACEHOLDER_VALUES = new Set(["", "—", "Best of —"]);
+
+function formatMatchMetadata(
+  parts: Array<string | null | undefined>,
+  locale: string
+): string {
+  const normalizedParts = parts
+    .map((part) => (typeof part === "string" ? part.trim() : part))
+    .filter((part): part is string => {
+      if (!part) return false;
+      const normalized = part.trim();
+      return normalized.length > 0 && !PLACEHOLDER_VALUES.has(normalized);
+    });
+
+  if (!normalizedParts.length) {
+    return "";
+  }
+
+  const normalizedLocale =
+    typeof locale === "string" && locale.trim().length > 0 ? locale : "en";
+
+  try {
+    return new Intl.ListFormat(normalizedLocale, {
+      style: "short",
+      type: "conjunction",
+    }).format(normalizedParts);
+  } catch {
+    return normalizedParts.join(" · ");
+  }
+}
+
 export default async function MatchesPage(
   props: {
     searchParams?: Record<string, string | string[] | undefined>;
@@ -188,21 +219,24 @@ export default async function MatchesPage(
           <ul className="match-list">
             {matches.map((m) => {
               const summaryText = formatSummary(m.summary);
-              const metaParts = [
-                m.isFriendly ? "Friendly" : null,
-                m.sport,
-                `Best of ${m.bestOf ?? "—"}`,
-                formatDate(m.playedAt, locale),
-                m.location ?? "—",
-              ].filter((part): part is string => Boolean(part && part !== ""));
+              const metadataText = formatMatchMetadata(
+                [
+                  m.isFriendly ? "Friendly" : null,
+                  m.sport,
+                  m.bestOf != null ? `Best of ${m.bestOf}` : null,
+                  formatDate(m.playedAt, locale),
+                  m.location,
+                ],
+                locale
+              );
 
               return (
                 <li key={m.id} className="card match-item">
                   <MatchParticipants sides={m.participants} />
                   <div className="match-meta">
                     {summaryText}
-                    {summaryText ? " · " : ""}
-                    {metaParts.join(" · ")}
+                    {summaryText && metadataText ? " · " : ""}
+                    {metadataText}
                   </div>
                   <div>
                     <Link href={ensureTrailingSlash(`/matches/${m.id}`)}>

@@ -203,7 +203,7 @@ describe("MatchDetailPage", () => {
       (text, element) =>
         element?.classList.contains("match-meta") && text.includes("Bowling")
     );
-    expect(meta).toHaveTextContent("Bowling · — · —");
+    expect(meta).toHaveTextContent(/^Bowling$/);
   });
 
   it("prefers API-provided ruleset and status labels", async () => {
@@ -239,6 +239,42 @@ describe("MatchDetailPage", () => {
     );
     expect(meta).toHaveTextContent(
       "Padel · Premier Padel · In Progress"
+    );
+  });
+
+  it("shows best-of metadata when available", async () => {
+    const match = {
+      id: "m6",
+      sport: "padel",
+      rulesetId: "padel_standard",
+      bestOf: 1,
+      status: "Scheduled",
+      playedAt: null,
+      participants: [],
+      summary: {},
+    };
+
+    apiFetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => match })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: "padel", name: "Padel" }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: "padel_standard", name: "World Padel Tour" },
+        ],
+      });
+
+    render(await MatchDetailPage({ params: { mid: "m6" } }));
+
+    const meta = screen.getByText(
+      (text, element) =>
+        element?.classList.contains("match-meta") && text.includes("Best of 1")
+    );
+    expect(meta).toHaveTextContent(
+      "Padel · World Padel Tour · Best of 1 · Scheduled"
     );
   });
 

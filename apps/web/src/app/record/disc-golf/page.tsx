@@ -23,11 +23,14 @@ function DiscGolfForm() {
     ];
     try {
       for (const ev of events) {
-        await fetch(`${base}/v0/matches/${mid}/events`, {
+        const res = await fetch(`${base}/v0/matches/${mid}/events`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(ev),
         });
+        if (!res.ok) {
+          throw new Error("Failed to record event");
+        }
       }
       setHole((h) => h + 1);
       setA("");

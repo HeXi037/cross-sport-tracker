@@ -35,6 +35,14 @@ describe("Leaderboard", () => {
 
     render(<Leaderboard sport="all" />);
 
+    expect(
+      screen.getByRole("heading", { level: 1, name: "All Sports Leaderboard" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: "All Sports" }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Disc Golf" })).toBeInTheDocument();
+
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
     const urls = fetchMock.mock.calls.map((c) => c[0]);
     expect(urls).toContain(apiUrl("/v0/leaderboards?sport=disc_golf"));
@@ -93,9 +101,16 @@ describe("Leaderboard", () => {
 
     render(<Leaderboard sport="disc_golf" />);
 
-    await screen.findByText(
-      "No Disc Golf matches recorded yet. Check back soon!",
-    );
+    await screen.findByRole("heading", {
+      level: 2,
+      name: "No Disc Golf matches recorded yet.",
+    });
+    expect(
+      screen.getByText("Be the first to record one!"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Record a Disc Golf match" }),
+    ).toHaveAttribute("href", expect.stringContaining("/record/disc-golf"));
   });
 
   it("mentions when no matches exist for the selected region", async () => {
@@ -106,9 +121,16 @@ describe("Leaderboard", () => {
 
     render(<Leaderboard sport="badminton" country="SE" />);
 
-    await screen.findByText(
-      "No Badminton matches recorded yet for this region. Try clearing the filters or check back soon.",
-    );
+    await screen.findByRole("heading", {
+      level: 2,
+      name: "No Badminton matches in this region yet.",
+    });
+    expect(
+      screen.getByText("Try adjusting the filters or record a new match."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Record a Badminton match" }),
+    ).toHaveAttribute("href", expect.stringContaining("/record/badminton"));
   });
 
   it("shows an error message when fetching fails", async () => {

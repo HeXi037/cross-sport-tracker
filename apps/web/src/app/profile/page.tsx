@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type FormEvent,
+  type ChangeEvent,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   fetchMe,
@@ -153,16 +159,16 @@ export default function ProfilePage() {
     setPreferencesFeedback(null);
   };
 
-  const resetSocialLinkState = (links: PlayerSocialLink[]) => {
+  const resetSocialLinkState = useCallback((links: PlayerSocialLink[]) => {
     setSocialLinks(links);
     setLinkDrafts(
       Object.fromEntries(
         links.map((link) => [link.id, { label: link.label, url: link.url }])
       ) as Record<string, { label: string; url: string }>
     );
-  };
+  }, []);
 
-  const applyPlayerDetails = (player: PlayerMe | null) => {
+  const applyPlayerDetails = useCallback((player: PlayerMe | null) => {
     const nextCountry = player?.country_code ?? "";
     const nextClub = player?.club_id ?? "";
     const nextBio = player?.bio ?? "";
@@ -174,7 +180,7 @@ export default function ProfilePage() {
     setInitialClubId(nextClub);
     setInitialBio(nextBio);
     resetSocialLinkState(nextLinks);
-  };
+  }, [resetSocialLinkState]);
 
   useEffect(() => {
     if (!isLoggedIn()) {
@@ -227,7 +233,7 @@ export default function ProfilePage() {
     return () => {
       active = false;
     };
-  }, [router]);
+  }, [applyPlayerDetails, router]);
 
   useEffect(() => {
     const stored = loadUserSettings();

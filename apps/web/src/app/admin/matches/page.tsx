@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiFetch, isAdmin, withAbsolutePhotoUrl } from "../../../lib/api";
+import { ensureTrailingSlash } from "../../../lib/routes";
 import { PlayerInfo } from "../../../components/PlayerName";
 import MatchParticipants from "../../../components/MatchParticipants";
 import { useLocale } from "../../../lib/LocaleContext";
@@ -144,7 +145,7 @@ export default function AdminMatchesPage() {
 
   useEffect(() => {
     if (!isAdmin()) {
-      window.location.href = "/login";
+      window.location.href = ensureTrailingSlash("/login");
       return;
     }
     load();

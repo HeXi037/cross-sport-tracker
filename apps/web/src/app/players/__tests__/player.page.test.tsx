@@ -24,7 +24,7 @@ vi.mock('next/navigation', async () => {
 
 vi.mock('next/headers', () => ({
   headers: () => ({
-    get: (key: string) => (key.toLowerCase() === 'accept-language' ? 'en-US' : null),
+    get: (key: string) => (key.toLowerCase() === 'accept-language' ? 'en-GB' : null),
   }),
 }));
 

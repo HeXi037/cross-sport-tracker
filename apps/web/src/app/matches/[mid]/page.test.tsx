@@ -104,8 +104,8 @@ describe("MatchDetailPage", () => {
 
     render(await MatchDetailPage({ params: { mid: "m1" } }));
 
-    const locale = "en-US";
-    const expectedDate = formatDate(new Date(match.playedAt), locale);
+    const locale = "en-GB";
+    const expectedDate = formatDate(match.playedAt, locale);
     const meta = screen.getByText(
       (text, element) =>
         element?.classList.contains("match-meta") &&
@@ -115,7 +115,7 @@ describe("MatchDetailPage", () => {
     expect(meta).toHaveTextContent(
       `Padel · World Padel Tour · Completed · ${expectedDate}`
     );
-    expect(meta).not.toHaveTextContent(/00:00/);
+    expect(expectedDate).not.toMatch(/AM|PM/i);
 
     expect(new Date(match.playedAt).toISOString()).toBe(
       "2024-01-01T00:00:00.000Z",
@@ -148,7 +148,7 @@ describe("MatchDetailPage", () => {
 
     render(await MatchDetailPage({ params: { mid: "m1" } }));
 
-    const locale = "en-US";
+    const locale = "en-GB";
     const expectedDate = formatDate(new Date(match.playedAt), locale);
     const meta = screen.getByText(
       (text, element) =>

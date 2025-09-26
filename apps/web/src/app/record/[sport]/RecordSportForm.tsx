@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
 import { useLocale } from "../../../lib/LocaleContext";
 import {
+  getDateExample,
   getDatePlaceholder,
+  getTimeExample,
   usesTwentyFourHourClock,
 } from "../../../lib/i18n";
 import { buildPlayedAtISOString } from "../../../lib/datetime";
@@ -211,11 +213,12 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const locale = useLocale();
   const datePlaceholder = useMemo(() => getDatePlaceholder(locale), [locale]);
+  const dateExample = useMemo(() => getDateExample(locale), [locale]);
   const uses24HourTime = useMemo(
     () => usesTwentyFourHourClock(locale),
     [locale],
   );
-  const timePlaceholder = uses24HourTime ? "HH:MM" : undefined;
+  const timeExample = useMemo(() => getTimeExample(locale), [locale]);
   const sportCopy = useMemo(
     () => getSportCopy(sport, locale),
     [locale, sport],
@@ -228,6 +231,15 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     () => `${sport || "record"}-friendly-hint`,
     [sport],
   );
+  const timeHintText = useMemo(() => {
+    const base = sportCopy.timeHint?.trim() ?? "";
+    const example = `Example: ${timeExample}`;
+    if (!base) {
+      return `${example}.`;
+    }
+    const needsPeriod = !/[.!?]$/.test(base);
+    return `${base}${needsPeriod ? '.' : ''} ${example}.`;
+  }, [sportCopy.timeHint, timeExample]);
 
   useEffect(() => {
     async function loadPlayers() {
@@ -605,7 +617,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                 aria-describedby="record-date-format"
               />
               <span id="record-date-format" className="form-hint">
-                Format: {datePlaceholder}
+                Example: {dateExample}
               </span>
             </label>
             <label className="form-field" htmlFor="record-time">
@@ -616,19 +628,16 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
                 lang={locale}
-                aria-describedby={sportCopy.timeHint ? timeHintId : undefined}
+                aria-describedby={timeHintId}
                 step={60}
                 inputMode={uses24HourTime ? "numeric" : undefined}
                 pattern={
                   uses24HourTime ? "([01][0-9]|2[0-3]):[0-5][0-9]" : undefined
                 }
-                placeholder={timePlaceholder}
               />
-              {sportCopy.timeHint && (
-                <span id={timeHintId} className="form-hint">
-                  {sportCopy.timeHint}
-                </span>
-              )}
+              <span id={timeHintId} className="form-hint">
+                {timeHintText}
+              </span>
             </label>
           </div>
           <label className="form-field" htmlFor="record-location">

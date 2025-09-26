@@ -17,7 +17,7 @@ import {
 import MatchParticipants from '../components/MatchParticipants';
 import { useLocale } from '../lib/LocaleContext';
 import { ensureTrailingSlash, recordPathForSport } from '../lib/routes';
-import { formatDateTime } from '../lib/i18n';
+import { formatDateTime, NEUTRAL_FALLBACK_LOCALE } from '../lib/i18n';
 
 interface Sport {
   id: string;
@@ -49,7 +49,7 @@ export default function HomePageClient({
   matches: initialMatches,
   sportError: initialSportError,
   matchError: initialMatchError,
-  initialLocale = 'en-US',
+  initialLocale = NEUTRAL_FALLBACK_LOCALE,
   initialHasMore,
   initialNextOffset,
   initialPageSize,
@@ -66,10 +66,11 @@ export default function HomePageClient({
   const [loadingMore, setLoadingMore] = useState(false);
   const [paginationError, setPaginationError] = useState(false);
   const localeFromContext = useLocale();
-  const activeLocale = localeFromContext || initialLocale || 'en-US';
+  const activeLocale =
+    localeFromContext || initialLocale || NEUTRAL_FALLBACK_LOCALE;
   const formatMatchDate = useMemo(
     () => (value: Date | string | number | null | undefined) =>
-      formatDateTime(value, activeLocale),
+      formatDateTime(value, activeLocale, 'compact'),
     [activeLocale],
   );
 

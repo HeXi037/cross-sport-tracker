@@ -11,7 +11,7 @@ const SPORT_COPY: Record<string, Record<string, SportCopy>> = {
     default: {
       matchDetailsHint:
         'Record when and where the game took place so everyone can follow the series.',
-      timeHint: 'Use local 24-hour time (e.g. 18:30) if the picker does not show AM/PM.',
+      timeHint: 'Record the local start time so the series timeline stays accurate',
       playersHint: 'Assign each scorecard to the correct bowler before entering their frames.',
       scoringHint:
         'Enter each roll per frame. Leave roll 2 empty after a strike and only fill roll 3 in the final frame when it is earned. Running totals update as you go.',
@@ -27,7 +27,7 @@ const SPORT_COPY: Record<string, Record<string, SportCopy>> = {
     default: {
       matchDetailsHint:
         'Note the match date, time and venue so partners can find the fixture later.',
-      timeHint: 'Enter the local start time using 24-hour format (e.g. 19:15).',
+      timeHint: 'Enter the local start time so partners can follow the fixture',
       playersHint:
         'Pick the players for sides A and B. Leave a spot blank if a walkover occurred.',
       scoringHint:
@@ -44,7 +44,7 @@ const SPORT_COPY: Record<string, Record<string, SportCopy>> = {
     default: {
       matchDetailsHint:
         'Add the match timing and venue so partners can look back on the session.',
-      timeHint: 'Record the local start time in 24-hour format (e.g. 08:30).',
+      timeHint: 'Record the local start time so partners know when you played',
       playersHint:
         'Choose the lineup for each side. Leave the second slot empty for singles games.',
       scoringHint:
@@ -61,7 +61,7 @@ const SPORT_COPY: Record<string, Record<string, SportCopy>> = {
     default: {
       matchDetailsHint:
         'Record the session details so training partners can review the fixture later.',
-      timeHint: 'Enter the start time using 24-hour time (e.g. 20:05).',
+      timeHint: 'Enter the start time using your local format for clarity',
       playersHint:
         'Select the competitors for each side. Leave unused slots blank for forfeits.',
       scoringHint:

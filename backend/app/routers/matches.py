@@ -20,7 +20,6 @@ from ..schemas import (
     SetsIn,
     MatchIdOut,
     MatchSummaryOut,
-    MatchSummaryPageOut,
     MatchOut,
     ParticipantOut,
     ScoreEventOut,
@@ -43,8 +42,9 @@ def _serialize_played_at(value: datetime | None) -> datetime | None:
     return value.astimezone(timezone.utc)
 
 # GET /api/v0/matches
-@router.get("", response_model=MatchSummaryPageOut)
+@router.get("", response_model=list[MatchSummaryOut])
 async def list_matches(
+    response: Response,
     playerId: str | None = None,
     upcoming: bool = False,
     limit: int = Query(20, ge=1, le=100),
@@ -73,23 +73,23 @@ async def list_matches(
     matches = result[:limit]
     next_offset = offset + limit if has_more else None
 
-    return MatchSummaryPageOut(
-        items=[
-            MatchSummaryOut(
-                id=m.id,
-                sport=m.sport_id,
-                bestOf=m.best_of,
-                playedAt=_serialize_played_at(m.played_at),
-                location=m.location,
-                isFriendly=m.is_friendly,
-            )
-            for m in matches
-        ],
-        limit=limit,
-        offset=offset,
-        hasMore=has_more,
-        nextOffset=next_offset,
-    )
+    response.headers["X-Limit"] = str(limit)
+    response.headers["X-Offset"] = str(offset)
+    response.headers["X-Has-More"] = "true" if has_more else "false"
+    if next_offset is not None:
+        response.headers["X-Next-Offset"] = str(next_offset)
+
+    return [
+        MatchSummaryOut(
+            id=m.id,
+            sport=m.sport_id,
+            bestOf=m.best_of,
+            playedAt=_serialize_played_at(m.played_at),
+            location=m.location,
+            isFriendly=m.is_friendly,
+        )
+        for m in matches
+    ]
 
 # POST /api/v0/matches
 @router.post("", response_model=MatchIdOut)

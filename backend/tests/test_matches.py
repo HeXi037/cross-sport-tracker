@@ -457,16 +457,16 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
   with TestClient(app) as client:
     resp = client.get("/matches")
     assert resp.status_code == 200
-    data = resp.json()
-    matches = data["items"]
+    matches = resp.json()
+    assert isinstance(matches, list)
     ids = [m["id"] for m in matches]
     sorted_ids = [
         m["id"]
         for m in sorted(matches, key=lambda m: m["playedAt"], reverse=True)
     ]
     assert ids == sorted_ids
-    assert data["hasMore"] is False
-    assert data["nextOffset"] is None
+    assert resp.headers.get("x-has-more") == "false"
+    assert resp.headers.get("x-next-offset") is None
 
 
 @pytest.mark.anyio
@@ -503,8 +503,8 @@ async def test_list_matches_upcoming_filter(tmp_path):
     resp = client.get("/matches", params={"upcoming": True})
     assert resp.status_code == 200
     data = resp.json()
-    assert [m["id"] for m in data["items"]] == ["future"]
-    assert data["hasMore"] is False
+    assert [m["id"] for m in data] == ["future"]
+    assert resp.headers.get("x-has-more") == "false"
 
 
 @pytest.mark.skip(reason="SQLite lacks ARRAY support for MatchParticipant")
@@ -573,8 +573,8 @@ def test_list_matches_filters_by_player(tmp_path):
     resp = client.get("/matches", params={"playerId": p1})
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data["items"]) == 1
-    assert data["items"][0]["id"] == m1
+    assert len(data) == 1
+    assert data[0]["id"] == m1
 
 
 @pytest.mark.anyio

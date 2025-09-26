@@ -41,6 +41,15 @@ function renderWithProviders(ui: ReactNode) {
   return render(<ToastProvider>{ui}</ToastProvider>);
 }
 
+function toUrl(value: RequestInfo | URL): string {
+  if (typeof value === "string") return value;
+  const candidate = value as { url?: string };
+  if (typeof candidate.url === "string") {
+    return candidate.url;
+  }
+  return value.toString();
+}
+
 describe("PlayersPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -134,13 +143,31 @@ describe("PlayersPage", () => {
           losses: 3,
           winPct: 0.4,
         })
+      )
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          players: [{ id: "2", name: "Bob" }],
+        }),
+      })
+      .mockResolvedValueOnce(
+        mockStatsResponse({
+          playerId: "2",
+          wins: 2,
+          losses: 3,
+          winPct: 0.4,
+        })
       );
     global.fetch = fetchMock as typeof fetch;
 
     await act(async () => {
       renderWithProviders(<PlayersPage />);
     });
-    await screen.findByText("Alice");
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.getByText("Alice")).toBeTruthy();
     await screen.findByText("3-1 (75%)");
     vi.useFakeTimers();
     const search = screen.getByPlaceholderText(/search/i);
@@ -151,6 +178,94 @@ describe("PlayersPage", () => {
     expect(screen.queryByText("Alice")).toBeNull();
     expect(screen.getByText("Bob")).toBeTruthy();
     expect(screen.getByText("2-3 (40%)")).toBeTruthy();
+    vi.useRealTimers();
+  });
+
+  it("debounces player search requests", async () => {
+    vi.useFakeTimers();
+    let playersRequestIndex = 0;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = toUrl(input);
+      if (url.includes("/v0/players")) {
+        const response =
+          playersRequestIndex === 0
+            ? {
+                players: [
+                  { id: "1", name: "Alice" },
+                  { id: "2", name: "Bob" },
+                ],
+              }
+            : {
+                players: [{ id: "1", name: "Alice" }],
+              };
+        playersRequestIndex += 1;
+        return {
+          ok: true,
+          json: async () => response,
+        };
+      }
+      const statsMatch = url.match(/\/v0\/players\/([^/]+)\/stats/);
+      if (statsMatch) {
+        const playerId = statsMatch[1];
+        return mockStatsResponse({
+          playerId,
+          wins: 1,
+          losses: 0,
+          winPct: 1,
+        });
+      }
+      throw new Error(`Unexpected fetch call: ${url}`);
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await act(async () => {
+      renderWithProviders(<PlayersPage />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.getByText("Alice")).toBeTruthy();
+
+    const playersRequests = () =>
+      fetchMock.mock.calls.filter(([request]) =>
+        toUrl(request as RequestInfo | URL).includes("/v0/players?")
+      );
+
+    expect(playersRequests()).toHaveLength(1);
+
+    const search = screen.getByPlaceholderText(/search players/i);
+
+    act(() => {
+      fireEvent.change(search, { target: { value: "A" } });
+      fireEvent.change(search, { target: { value: "Al" } });
+      fireEvent.change(search, { target: { value: "Ali" } });
+    });
+
+    expect(playersRequests()).toHaveLength(1);
+
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    expect(playersRequests()).toHaveLength(1);
+
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(playersRequests()).toHaveLength(2);
+    const [, latestRequest] = playersRequests();
+    const latestUrlCandidate = latestRequest[0] as RequestInfo | URL;
+    const latestRequestUrl = toUrl(latestUrlCandidate);
+    expect(latestRequestUrl).toContain("q=Ali");
+    expect((search as HTMLInputElement).value).toBe("Ali");
     vi.useRealTimers();
   });
 

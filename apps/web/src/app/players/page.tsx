@@ -15,6 +15,7 @@ import {
   normalizeMatchSummary,
   type NormalizedMatchSummary,
 } from "../../lib/player-stats";
+import { useDebounce } from "../../lib/useDebounce";
 
 const NAME_REGEX = /^[A-Za-z0-9 '-]{1,50}$/;
 
@@ -43,7 +44,7 @@ export default function PlayersPage() {
   >({});
   const [name, setName] = useState("");
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [error, setError] = useState<string | null>(null);
   const [playersLoadError, setPlayersLoadError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -85,7 +86,7 @@ export default function PlayersPage() {
   const trimmedName = name.trim();
   const nameIsValid = NAME_REGEX.test(trimmedName);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (query: string = debouncedSearch) => {
     setError(null);
     setPlayersLoadError(null);
     setLoading(true);
@@ -93,6 +94,10 @@ export default function PlayersPage() {
       const params = new URLSearchParams({ limit: "100", offset: "0" });
       if (admin) {
         params.set("include_hidden", "true");
+      }
+      const trimmedQuery = query.trim();
+      if (trimmedQuery) {
+        params.set("q", trimmedQuery);
       }
       const res = await apiFetch(`/v0/players?${params.toString()}`, {
         cache: "no-store",
@@ -122,15 +127,10 @@ export default function PlayersPage() {
     } finally {
       setLoading(false);
     }
-  }, [admin, showToast]);
+  }, [admin, debouncedSearch, showToast]);
   useEffect(() => {
     void load();
   }, [load]);
-
-  useEffect(() => {
-    const handle = setTimeout(() => setDebouncedSearch(search), 300);
-    return () => clearTimeout(handle);
-  }, [search]);
 
   const filteredPlayers = useMemo(() => {
     const term = debouncedSearch.trim().toLowerCase();
@@ -261,7 +261,7 @@ export default function PlayersPage() {
       }
       setName("");
       setPhotoFile(null);
-      load();
+      void load();
       setSuccess("Player added successfully!");
       setTimeout(() => setSuccess(null), 3000);
     } catch {
@@ -357,7 +357,12 @@ export default function PlayersPage() {
       ) : playersLoadError && !loading && players.length === 0 ? (
         <div className="player-list__error" role="alert">
           {playersLoadError}
-          <button className="ml-2 underline" onClick={load}>
+          <button
+            className="ml-2 underline"
+            onClick={() => {
+              void load();
+            }}
+          >
             Retry
           </button>
         </div>

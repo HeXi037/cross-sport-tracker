@@ -83,8 +83,17 @@ export default function HomePageClient({
     hasMore: boolean;
     nextOffset: number | null;
   }> => {
-    const rows = (await response.json()) as MatchRow[];
-    const pagination = extractMatchPagination(response.headers, fallbackLimit);
+    const parsed = await response.json();
+    const rows = Array.isArray(parsed)
+      ? (parsed as MatchRow[])
+      : Array.isArray((parsed as { items?: unknown }).items)
+      ? ((parsed as { items: MatchRow[] }).items ?? [])
+      : [];
+    const headerBag =
+      response && "headers" in response && response.headers instanceof Headers
+        ? response.headers
+        : new Headers();
+    const pagination = extractMatchPagination(headerBag, fallbackLimit);
     const enriched = await enrichMatches(rows);
     return {
       enriched,

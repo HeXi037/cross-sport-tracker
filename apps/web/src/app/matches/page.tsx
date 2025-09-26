@@ -7,6 +7,7 @@ import MatchParticipants from "../../components/MatchParticipants";
 import { formatDate, formatDateTime, parseAcceptLanguage } from "../../lib/i18n";
 import { hasTimeComponent } from "../../lib/datetime";
 import { ensureTrailingSlash } from "../../lib/routes";
+import { resolveParticipantGroups } from "../../lib/participants";
 
 export const dynamic = "force-dynamic";
 
@@ -119,12 +120,13 @@ async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
   }
 
   return details.map(({ row, detail }) => {
-    const participants = detail.participants
+    const sortedParticipants = detail.participants
       .slice()
-      .sort((a, b) => a.side.localeCompare(b.side))
-      .map((p) =>
-        p.playerIds.map((id) => idToPlayer.get(id) ?? { id, name: "Unknown" })
-      );
+      .sort((a, b) => a.side.localeCompare(b.side));
+    const participants = resolveParticipantGroups(
+      sortedParticipants,
+      (id) => idToPlayer.get(id)
+    );
     return { ...row, participants, summary: detail.summary };
   });
 }

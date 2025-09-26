@@ -27,6 +27,7 @@ export type EnrichedMatch = MatchRow & {
 };
 
 import { apiFetch, withAbsolutePhotoUrl } from './api';
+import { sanitizePlayersBySide } from './participants';
 
 function parseNumber(value: string | null | undefined): number | null {
   if (!value) return null;
@@ -112,6 +113,7 @@ export async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> 
         (id) => idToPlayer.get(id) ?? { id, name: 'Unknown' }
       );
     }
-    return { ...row, players };
+    const sanitizedPlayers = sanitizePlayersBySide(players);
+    return { ...row, players: sanitizedPlayers };
   });
 }

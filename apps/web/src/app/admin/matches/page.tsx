@@ -7,6 +7,7 @@ import { ensureTrailingSlash } from "../../../lib/routes";
 import { PlayerInfo } from "../../../components/PlayerName";
 import MatchParticipants from "../../../components/MatchParticipants";
 import { useLocale } from "../../../lib/LocaleContext";
+import { resolveParticipantGroups } from "../../../lib/participants";
 
 type MatchRow = {
   id: string;
@@ -94,12 +95,13 @@ async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
   }
 
   return details.map(({ row, detail }) => {
-    const participants = detail.participants
+    const sortedParticipants = detail.participants
       .slice()
-      .sort((a, b) => a.side.localeCompare(b.side))
-      .map((p) =>
-        p.playerIds.map((id) => idToPlayer.get(id) ?? { id, name: "Unknown" })
-      );
+      .sort((a, b) => a.side.localeCompare(b.side));
+    const participants = resolveParticipantGroups(
+      sortedParticipants,
+      (id) => idToPlayer.get(id)
+    );
     return { ...row, participants, summary: detail.summary };
   });
 }

@@ -39,6 +39,32 @@ a {
   color: var(--color-accent-blue);
 }
 
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--color-accent-red);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translateY(-120%);
+  background: var(--color-nav-bg);
+  color: var(--color-nav-text);
+  padding: 0.75rem 1rem;
+  z-index: 999;
+  border-radius: 0 0 8px 0;
+  text-decoration: none;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
 img {
   max-width: 100%;
   height: auto;

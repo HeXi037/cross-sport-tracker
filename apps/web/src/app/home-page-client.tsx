@@ -1,11 +1,6 @@
 'use client';
 
-import {
-  useMemo,
-  useState,
-  type MouseEvent,
-  type ReactElement,
-} from 'react';
+import { useMemo, useState, type ReactElement } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '../lib/api';
 import {
@@ -177,8 +172,7 @@ export default function HomePageClient({
     };
   };
 
-  const retrySports = async (e: MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault();
+  const retrySports = async () => {
     setSportsLoading(true);
     try {
       const r = await apiFetch('/v0/sports', { cache: 'no-store' });
@@ -195,8 +189,7 @@ export default function HomePageClient({
     }
   };
 
-  const retryMatches = async (e: MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault();
+  const retryMatches = async () => {
     setMatchesLoading(true);
     setPaginationError(false);
     try {
@@ -257,21 +250,33 @@ export default function HomePageClient({
 
       <section className="section">
         <h2 className="heading">Sports</h2>
+        {sportsLoading ? (
+          <p className="sr-only" role="status" aria-live="polite">
+            Updating sports…
+          </p>
+        ) : null}
         {sportsLoading && sports.length === 0 ? (
-          <ul className="sport-list">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <li key={`sport-skeleton-${i}`} className="sport-item">
-                <div className="skeleton" style={{ width: '100%', height: '1em' }} />
-              </li>
-            ))}
-          </ul>
+          <div role="status" aria-live="polite">
+            <p className="sr-only">Loading sports…</p>
+            <ul className="sport-list">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <li key={`sport-skeleton-${i}`} className="sport-item">
+                  <div className="skeleton" style={{ width: '100%', height: '1em' }} />
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : sports.length === 0 ? (
           sportError ? (
-            <p>
+            <p role="alert">
               Unable to load sports. Check connection.{' '}
-              <a href="#" onClick={retrySports}>
+              <button
+                type="button"
+                onClick={retrySports}
+                className="link-button"
+              >
                 Retry
-              </a>
+              </button>
             </p>
           ) : (
             <p>No sports found.</p>
@@ -303,22 +308,37 @@ export default function HomePageClient({
 
       <section className="section">
         <h2 className="heading">Recent Matches</h2>
+        {matchesLoading ? (
+          <p className="sr-only" role="status" aria-live="polite">
+            Updating matches…
+          </p>
+        ) : null}
         {matchesLoading && matches.length === 0 ? (
-          <ul className="match-list">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <li key={`match-skeleton-${i}`} className="card match-item">
-                <div className="skeleton" style={{ width: '60%', height: '1em', marginBottom: '4px' }} />
-                <div className="skeleton" style={{ width: '40%', height: '0.8em' }} />
-              </li>
-            ))}
-          </ul>
+          <div role="status" aria-live="polite">
+            <p className="sr-only">Loading recent matches…</p>
+            <ul className="match-list">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <li key={`match-skeleton-${i}`} className="card match-item">
+                  <div
+                    className="skeleton"
+                    style={{ width: '60%', height: '1em', marginBottom: '4px' }}
+                  />
+                  <div className="skeleton" style={{ width: '40%', height: '0.8em' }} />
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : matches.length === 0 ? (
           matchError ? (
-            <p>
+            <p role="alert">
               Unable to load matches. Check connection.{' '}
-              <a href="#" onClick={retryMatches}>
+              <button
+                type="button"
+                onClick={retryMatches}
+                className="link-button"
+              >
                 Retry
-              </a>
+              </button>
             </p>
           ) : (
             <p>No matches recorded yet.</p>
@@ -369,6 +389,11 @@ export default function HomePageClient({
                 >
                   {loadingMore ? 'Loading…' : 'Load more matches'}
                 </button>
+                {loadingMore ? (
+                  <p className="sr-only" aria-live="polite">
+                    Loading more matches…
+                  </p>
+                ) : null}
                 {paginationError ? (
                   <p role="alert" className="error-text">
                     Unable to load more matches. Please try again.

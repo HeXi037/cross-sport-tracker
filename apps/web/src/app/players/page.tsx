@@ -89,6 +89,8 @@ export default function PlayersPage() {
 
   const trimmedName = name.trim();
   const nameIsValid = NAME_REGEX.test(trimmedName);
+  const showNameError = !nameIsValid && trimmedName !== "";
+  const nameInputErrorId = "player-name-error";
 
   const load = useCallback(async (query: string = debouncedSearch) => {
     const requestId = loadRequestId.current + 1;
@@ -455,6 +457,7 @@ export default function PlayersPage() {
             className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center"
           >
             <button
+              type="button"
               className="underline"
               onClick={() => {
                 void load();
@@ -560,6 +563,7 @@ export default function PlayersPage() {
                           ))}
                         </select>
                         <button
+                          type="button"
                           className="player-list__action player-list__toggle"
                           onClick={() => handleToggleVisibility(p)}
                           disabled={updatingVisibility === p.id}
@@ -567,6 +571,7 @@ export default function PlayersPage() {
                           {p.hidden ? "Unhide" : "Hide"}
                         </button>
                         <button
+                          type="button"
                           className="player-list__action player-list__delete"
                           onClick={() => handleDelete(p.id)}
                         >
@@ -594,10 +599,12 @@ export default function PlayersPage() {
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter player name"
               autoComplete="name"
+              aria-invalid={showNameError}
+              aria-describedby={showNameError ? nameInputErrorId : undefined}
             />
           </div>
-          {!nameIsValid && trimmedName !== "" && (
-            <div className="text-red-500 mt-2">
+          {showNameError && (
+            <div id={nameInputErrorId} className="text-red-500 mt-2" role="alert">
               Name must be 1-50 characters and contain only letters,
               numbers, spaces, hyphens, or apostrophes.
             </div>
@@ -615,13 +622,18 @@ export default function PlayersPage() {
             />
           </div>
           <button
+            type="button"
             className="button"
             onClick={create}
             disabled={creating || name.trim() === ""}
           >
             {creating ? "Saving…" : "Add"}
           </button>
-          {success && <div className="text-green-600 mt-2">{success}</div>}
+          {success && (
+            <div className="text-green-600 mt-2" role="status" aria-live="polite">
+              {success}
+            </div>
+          )}
         </div>
       ) : (
         <div className="player-list__admin-note">

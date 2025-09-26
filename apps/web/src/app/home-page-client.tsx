@@ -1,15 +1,27 @@
 'use client';
 
-import { useMemo, useState, type MouseEvent, type ReactElement } from 'react';
+import {
+  useMemo,
+  useState,
+  type MouseEvent,
+  type ReactElement,
+} from 'react';
 import Link from 'next/link';
 import { apiFetch } from '../lib/api';
-import { enrichMatches, type MatchRow, type EnrichedMatch } from '../lib/matches';
+import {
+  enrichMatches,
+  type EnrichedMatch,
+  type MatchRowPage,
+} from '../lib/matches';
 import MatchParticipants from '../components/MatchParticipants';
 import { useLocale } from '../lib/LocaleContext';
 import { ensureTrailingSlash, recordPathForSport } from '../lib/routes';
 import { formatDateTime } from '../lib/i18n';
 
-interface Sport { id: string; name: string }
+interface Sport {
+  id: string;
+  name: string;
+}
 
 const sportIcons: Record<string, string> = {
   padel: '\uD83C\uDFBE', // tennis ball
@@ -25,7 +37,10 @@ interface Props {
   matches: EnrichedMatch[];
   sportError: boolean;
   matchError: boolean;
-  initialLocale: string;
+  initialLocale?: string;
+  initialHasMore: boolean;
+  initialNextOffset: number | null;
+  initialPageSize: number;
 }
 
 export default function HomePageClient({
@@ -33,7 +48,10 @@ export default function HomePageClient({
   matches: initialMatches,
   sportError: initialSportError,
   matchError: initialMatchError,
-  initialLocale,
+  initialLocale = 'en-US',
+  initialHasMore,
+  initialNextOffset,
+  initialPageSize,
 }: Props): ReactElement {
   const [sports, setSports] = useState(initialSports);
   const [matches, setMatches] = useState(initialMatches);
@@ -41,12 +59,16 @@ export default function HomePageClient({
   const [matchError, setMatchError] = useState(initialMatchError);
   const [sportsLoading, setSportsLoading] = useState(false);
   const [matchesLoading, setMatchesLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [nextOffset, setNextOffset] = useState(initialNextOffset);
+  const [pageSize, setPageSize] = useState(initialPageSize);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [paginationError, setPaginationError] = useState(false);
   const localeFromContext = useLocale();
-  const activeLocale = localeFromContext || initialLocale;
+  const activeLocale = localeFromContext || initialLocale || 'en-US';
   const formatMatchDate = useMemo(
-    () =>
-      (value: Date | string | number | null | undefined) =>
-        formatDateTime(value, activeLocale),
+    () => (value: Date | string | number | null | undefined) =>
+      formatDateTime(value, activeLocale),
     [activeLocale],
   );
 
@@ -71,13 +93,19 @@ export default function HomePageClient({
   const retryMatches = async (e: MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
     setMatchesLoading(true);
+    setPaginationError(false);
     try {
-      const r = await apiFetch('/v0/matches', { cache: 'no-store' });
+      const r = await apiFetch(`/v0/matches?limit=${pageSize}`, {
+        cache: 'no-store',
+      });
       if (r.ok) {
-        const rows = (await r.json()) as MatchRow[];
-        const enriched = await enrichMatches(rows.slice(0, 5));
+        const page = (await r.json()) as MatchRowPage;
+        const enriched = await enrichMatches(page.items);
         setMatches(enriched);
         setMatchError(false);
+        setHasMore(page.hasMore);
+        setNextOffset(page.nextOffset);
+        setPageSize(page.limit ?? pageSize);
       } else {
         setMatchError(true);
       }
@@ -85,6 +113,35 @@ export default function HomePageClient({
       setMatchError(true);
     } finally {
       setMatchesLoading(false);
+    }
+  };
+
+  const loadMoreMatches = async () => {
+    if (!hasMore || loadingMore) return;
+    setPaginationError(false);
+    setLoadingMore(true);
+    try {
+      const params = new URLSearchParams({ limit: String(pageSize) });
+      if (nextOffset !== null) {
+        params.set('offset', String(nextOffset));
+      }
+      const r = await apiFetch(`/v0/matches?${params.toString()}`, {
+        cache: 'no-store',
+      });
+      if (!r.ok) {
+        throw new Error('Failed to fetch more matches');
+      }
+      const page = (await r.json()) as MatchRowPage;
+      const enriched = await enrichMatches(page.items);
+      setMatches((prev) => [...prev, ...enriched]);
+      setHasMore(page.hasMore);
+      setNextOffset(page.nextOffset);
+      setPageSize(page.limit ?? pageSize);
+    } catch (err) {
+      console.error(err);
+      setPaginationError(true);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -108,7 +165,7 @@ export default function HomePageClient({
         ) : sports.length === 0 ? (
           sportError ? (
             <p>
-              Unable to load sports. Check connection.{" "}
+              Unable to load sports. Check connection.{' '}
               <a href="#" onClick={retrySports}>
                 Retry
               </a>
@@ -155,7 +212,7 @@ export default function HomePageClient({
         ) : matches.length === 0 ? (
           matchError ? (
             <p>
-              Unable to load matches. Check connection.{" "}
+              Unable to load matches. Check connection.{' '}
               <a href="#" onClick={retryMatches}>
                 Retry
               </a>
@@ -184,6 +241,33 @@ export default function HomePageClient({
             ))}
           </ul>
         )}
+        {matches.length > 0 ? (
+          <div className="match-actions">
+            {hasMore ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void loadMoreMatches();
+                  }}
+                  className="button"
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? 'Loading…' : 'Load more matches'}
+                </button>
+                {paginationError ? (
+                  <p role="alert" className="error-text">
+                    Unable to load more matches. Please try again.
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <Link href="/matches" className="view-all-link">
+                View all matches
+              </Link>
+            )}
+          </div>
+        ) : null}
       </section>
     </main>
   );

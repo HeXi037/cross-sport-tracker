@@ -5,7 +5,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from typing import Any, Sequence
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +20,7 @@ from ..schemas import (
     SetsIn,
     MatchIdOut,
     MatchSummaryOut,
+    MatchSummaryPageOut,
     MatchOut,
     ParticipantOut,
     ScoreEventOut,
@@ -42,50 +43,53 @@ def _serialize_played_at(value: datetime | None) -> datetime | None:
     return value.astimezone(timezone.utc)
 
 # GET /api/v0/matches
-@router.get("", response_model=list[MatchSummaryOut])
+@router.get("", response_model=MatchSummaryPageOut)
 async def list_matches(
     playerId: str | None = None,
     upcoming: bool = False,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     session: AsyncSession = Depends(get_session),
 ):
-    if playerId:
-        rows = (
-            await session.execute(
-                select(Match, MatchParticipant)
-                .join(MatchParticipant)
-                .where(Match.deleted_at.is_(None))
-                .order_by(Match.played_at.desc().nullsfirst())
-            )
-        ).all()
-        matches: list[Match] = []
-        seen: set[str] = set()
-        for row in rows:
-            match = row.Match
-            mp = row.MatchParticipant
-            if playerId in (mp.player_ids or []) and match.id not in seen:
-                if not upcoming or match.played_at is None or match.played_at > datetime.utcnow():
-                    matches.append(match)
-                    seen.add(match.id)
-    else:
-        stmt = select(Match).where(Match.deleted_at.is_(None))
-        if upcoming:
-            stmt = stmt.where(
-                (Match.played_at.is_(None)) | (Match.played_at > func.now())
-            )
-        stmt = stmt.order_by(Match.played_at.desc().nullsfirst())
-        matches = (await session.execute(stmt)).scalars().all()
+    base_stmt = select(Match).where(Match.deleted_at.is_(None))
 
-    return [
-        MatchSummaryOut(
-            id=m.id,
-            sport=m.sport_id,
-            bestOf=m.best_of,
-            playedAt=_serialize_played_at(m.played_at),
-            location=m.location,
-            isFriendly=m.is_friendly,
+    if upcoming:
+        base_stmt = base_stmt.where(
+            (Match.played_at.is_(None)) | (Match.played_at > func.now())
         )
-        for m in matches
-    ]
+
+    if playerId:
+        participant_matches = select(MatchParticipant.match_id).where(
+            MatchParticipant.player_ids.contains([playerId])
+        )
+        base_stmt = base_stmt.where(Match.id.in_(participant_matches))
+
+    stmt = base_stmt.order_by(Match.played_at.desc().nullsfirst())
+    stmt = stmt.offset(offset).limit(limit + 1)
+
+    result = (await session.execute(stmt)).scalars().all()
+
+    has_more = len(result) > limit
+    matches = result[:limit]
+    next_offset = offset + limit if has_more else None
+
+    return MatchSummaryPageOut(
+        items=[
+            MatchSummaryOut(
+                id=m.id,
+                sport=m.sport_id,
+                bestOf=m.best_of,
+                playedAt=_serialize_played_at(m.played_at),
+                location=m.location,
+                isFriendly=m.is_friendly,
+            )
+            for m in matches
+        ],
+        limit=limit,
+        offset=offset,
+        hasMore=has_more,
+        nextOffset=next_offset,
+    )
 
 # POST /api/v0/matches
 @router.post("", response_model=MatchIdOut)

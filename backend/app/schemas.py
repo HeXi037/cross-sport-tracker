@@ -604,6 +604,16 @@ class MatchSummaryOut(BaseModel):
     isFriendly: bool
 
 
+class MatchSummaryPageOut(BaseModel):
+    """Paginated collection of matches with navigation metadata."""
+
+    items: List[MatchSummaryOut] = Field(default_factory=list)
+    limit: int
+    offset: int
+    hasMore: bool = False
+    nextOffset: Optional[int] = None
+
+
 class ParticipantOut(BaseModel):
     """Participant information for a match."""
 

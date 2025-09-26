@@ -128,4 +128,76 @@ describe("MatchesPage", () => {
     expect(screen.queryByText("Next")).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("omits placeholder glyphs from match metadata", async () => {
+    const matches = [
+      {
+        id: "m1",
+        sport: "padel",
+        bestOf: null,
+        playedAt: "2024-02-02T00:00:00Z",
+        location: "Madrid",
+      },
+      {
+        id: "m2",
+        sport: "tennis",
+        bestOf: 5,
+        playedAt: null,
+        location: "Melbourne",
+      },
+      {
+        id: "m3",
+        sport: "squash",
+        bestOf: 3,
+        playedAt: "2024-06-15T00:00:00Z",
+        location: "",
+        isFriendly: true,
+      },
+    ];
+
+    const detail = {
+      participants: [
+        { side: "A" as const, playerIds: ["1"] },
+        { side: "B" as const, playerIds: ["2"] },
+      ],
+    };
+
+    const players = [
+      { id: "1", name: "Alice" },
+      { id: "2", name: "Bob" },
+    ];
+
+    const fetchMock = vi
+      .fn()
+      // list matches
+      .mockResolvedValueOnce({ ok: true, json: async () => matches })
+      // match detail for each entry
+      .mockResolvedValueOnce({ ok: true, json: async () => detail })
+      .mockResolvedValueOnce({ ok: true, json: async () => detail })
+      .mockResolvedValueOnce({ ok: true, json: async () => detail })
+      // players by ids
+      .mockResolvedValueOnce({ ok: true, json: async () => players });
+
+    global.fetch = fetchMock as typeof fetch;
+
+    const page = await MatchesPage({ searchParams: {} });
+    const { container } = render(page);
+
+    const metadataElements = container.querySelectorAll(".match-meta");
+    expect(metadataElements).toHaveLength(matches.length);
+
+    const metadataTexts = Array.from(metadataElements).map(
+      (element) => element.textContent ?? ""
+    );
+
+    for (const text of metadataTexts) {
+      expect(text).not.toContain("—");
+      expect(text).not.toContain("Best of —");
+      expect(text.trim().length).toBeGreaterThan(0);
+    }
+
+    expect(metadataTexts.some((text) => text.includes("padel"))).toBe(true);
+    expect(metadataTexts.some((text) => text.includes("Best of 5"))).toBe(true);
+    expect(metadataTexts.some((text) => text.includes("Friendly"))).toBe(true);
+  });
 });

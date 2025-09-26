@@ -26,7 +26,7 @@ describe("Leaderboard", () => {
   beforeEach(() => {
     updateMockLocation("/leaderboard");
     replaceMock.mockReset();
-    replaceMock.mockImplementation((nextHref: string, _options?: { scroll?: boolean }) => {
+    replaceMock.mockImplementation((nextHref: string) => {
       updateMockLocation(nextHref);
       return undefined;
     });

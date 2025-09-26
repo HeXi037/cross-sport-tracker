@@ -49,13 +49,49 @@ const MATCH_ERROR_COPY: Record<string, string> = {
   auth_invalid_token: "Your session expired. Please refresh and try again.",
 };
 
-async function getMatches(limit: number, offset: number): Promise<MatchRow[]> {
+type MatchPage = {
+  rows: MatchRow[];
+  hasMore: boolean;
+  nextOffset: number | null;
+  totalCount: number | null;
+};
+
+function parseIntHeader(value: string | null): number | null {
+  if (typeof value !== "string" || value.trim().length === 0) return null;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+async function getMatches(limit: number, offset: number): Promise<MatchPage> {
   const r = await apiFetch(
     `/v0/matches?limit=${limit}&offset=${offset}`,
     { cache: "no-store" }
   );
   if (!r.ok) throw new Error(`Failed to load matches: ${r.status}`);
-  return (await r.json()) as MatchRow[];
+
+  const rows = (await r.json()) as MatchRow[];
+
+  const headerAccessor =
+    typeof r.headers?.get === "function" ? r.headers : undefined;
+  const hasMoreHeader = headerAccessor?.get("X-Has-More") ?? null;
+  const nextOffsetHeader = headerAccessor?.get("X-Next-Offset") ?? null;
+  const totalCountHeader = headerAccessor?.get("X-Total-Count") ?? null;
+
+  const normalizedHasMore =
+    typeof hasMoreHeader === "string"
+      ? hasMoreHeader.trim().toLowerCase() === "true"
+      : null;
+  const hasMore =
+    normalizedHasMore !== null ? normalizedHasMore : rows.length === limit;
+
+  const parsedNextOffset = parseIntHeader(nextOffsetHeader);
+  const nextOffset = hasMore
+    ? parsedNextOffset ?? (rows.length > 0 ? offset + limit : null)
+    : null;
+
+  const totalCount = parseIntHeader(totalCountHeader);
+
+  return { rows, hasMore, nextOffset, totalCount };
 }
 
 async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
@@ -195,7 +231,10 @@ export default async function MatchesPage(
   const locale = parseAcceptLanguage(headers().get('accept-language'));
 
   try {
-    const rows = await getMatches(limit, offset);
+    const { rows, hasMore, nextOffset, totalCount } = await getMatches(
+      limit,
+      offset
+    );
     rows.sort((a, b) => {
       if (!a.playedAt) return 1;
       if (!b.playedAt) return -1;
@@ -203,9 +242,14 @@ export default async function MatchesPage(
     });
     const matches = await enrichMatches(rows);
     const prevOffset = Math.max(offset - limit, 0);
-    const nextOffset = offset + limit;
     const disablePrev = offset <= 0;
-    const disableNext = rows.length < limit;
+    const resolvedNextOffset =
+      hasMore && typeof nextOffset === "number"
+        ? nextOffset
+        : hasMore
+          ? offset + limit
+          : null;
+    const disableNext = !hasMore || resolvedNextOffset === null;
 
     const hasMatches = matches.length > 0;
     const showPager = hasMatches || offset > 0;
@@ -254,8 +298,11 @@ export default async function MatchesPage(
         {showPager && (
           <Pager
             limit={limit}
+            offset={offset}
+            itemCount={matches.length}
+            totalCount={totalCount}
             prevOffset={prevOffset}
-            nextOffset={nextOffset}
+            nextOffset={resolvedNextOffset}
             disablePrev={disablePrev}
             disableNext={disableNext}
           />

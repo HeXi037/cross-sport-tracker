@@ -1,6 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
@@ -39,6 +48,175 @@ const MAX_BOWLING_PLAYERS = 6;
 
 type BowlingFrames = string[][];
 
+function getBowlingInputKey(
+  entryIndex: number,
+  frameIndex: number,
+  rollIndex: number,
+): string {
+  return `${entryIndex}-${frameIndex}-${rollIndex}`;
+}
+
+function isBowlingRollEnabled(
+  frames: BowlingFrames,
+  frameIndex: number,
+  rollIndex: number,
+): boolean {
+  const frame = frames[frameIndex];
+  if (!frame) {
+    return false;
+  }
+
+  if (rollIndex === 0) {
+    return true;
+  }
+
+  const isFinalFrame = frameIndex === BOWLING_FRAME_COUNT - 1;
+  const first = frame[0]?.trim() ?? "";
+
+  if (!first) {
+    return false;
+  }
+
+  if (!isFinalFrame) {
+    if (rollIndex === 1) {
+      return first !== "10";
+    }
+    return false;
+  }
+
+  if (rollIndex === 1) {
+    return true;
+  }
+
+  if (rollIndex === 2) {
+    const second = frame[1]?.trim() ?? "";
+    if (!second) {
+      return false;
+    }
+    const firstPins = Number(first);
+    const secondPins = Number(second);
+    if (!Number.isFinite(firstPins) || !Number.isFinite(secondPins)) {
+      return false;
+    }
+    if (firstPins === 10) {
+      return true;
+    }
+    return firstPins + secondPins === 10;
+  }
+
+  return false;
+}
+
+function getBowlingFramePinSum(frame: string[]): number {
+  return frame.reduce((total, roll) => {
+    const trimmed = roll?.trim() ?? "";
+    if (!trimmed) {
+      return total;
+    }
+    const pins = Number(trimmed);
+    if (!Number.isFinite(pins)) {
+      return total;
+    }
+    return total + pins;
+  }, 0);
+}
+
+function findNextBowlingInputKey(
+  entries: BowlingEntry[],
+  entryIndex: number,
+  frameIndex: number,
+  rollIndex: number,
+): string | null {
+  for (let e = entryIndex; e < entries.length; e += 1) {
+    const frames = entries[e]?.frames ?? [];
+    for (
+      let f = e === entryIndex ? frameIndex : 0;
+      f < frames.length;
+      f += 1
+    ) {
+      const frame = frames[f];
+      if (!frame) {
+        continue;
+      }
+      const rollStart = e === entryIndex && f === frameIndex ? rollIndex + 1 : 0;
+      for (let r = rollStart; r < frame.length; r += 1) {
+        if (isBowlingRollEnabled(frames, f, r)) {
+          return getBowlingInputKey(e, f, r);
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function findPreviousBowlingInputKey(
+  entries: BowlingEntry[],
+  entryIndex: number,
+  frameIndex: number,
+  rollIndex: number,
+): string | null {
+  for (let e = entryIndex; e >= 0; e -= 1) {
+    const frames = entries[e]?.frames ?? [];
+    for (
+      let f = e === entryIndex ? frameIndex : frames.length - 1;
+      f >= 0;
+      f -= 1
+    ) {
+      const frame = frames[f];
+      if (!frame) {
+        continue;
+      }
+      const initialRollIndex =
+        e === entryIndex && f === frameIndex ? rollIndex - 1 : frame.length - 1;
+      for (let r = initialRollIndex; r >= 0; r -= 1) {
+        if (isBowlingRollEnabled(frames, f, r)) {
+          return getBowlingInputKey(e, f, r);
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function findFrameStartKey(
+  entries: BowlingEntry[],
+  entryIndex: number,
+  frameIndex: number,
+): string | null {
+  const entry = entries[entryIndex];
+  if (!entry) {
+    return null;
+  }
+  const frame = entry.frames[frameIndex];
+  if (!frame) {
+    return null;
+  }
+  for (let r = 0; r < frame.length; r += 1) {
+    if (isBowlingRollEnabled(entry.frames, frameIndex, r)) {
+      return getBowlingInputKey(entryIndex, frameIndex, r);
+    }
+  }
+  return null;
+}
+
+function findFirstEnabledKey(entries: BowlingEntry[], startEntry: number): string | null {
+  for (let e = startEntry; e < entries.length; e += 1) {
+    const frames = entries[e]?.frames ?? [];
+    for (let f = 0; f < frames.length; f += 1) {
+      const frame = frames[f];
+      if (!frame) {
+        continue;
+      }
+      for (let r = 0; r < frame.length; r += 1) {
+        if (isBowlingRollEnabled(frames, f, r)) {
+          return getBowlingInputKey(e, f, r);
+        }
+      }
+    }
+  }
+  return null;
+}
+
 interface BowlingEntry {
   playerId: string;
   frames: BowlingFrames;
@@ -67,6 +245,12 @@ function sanitizeBowlingRollInput(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) {
     return "";
+  }
+  if (trimmed.toLowerCase() === "x") {
+    return "10";
+  }
+  if (trimmed === "-" || trimmed === "–" || trimmed === "—") {
+    return "0";
   }
   const pins = Number(trimmed);
   if (!Number.isFinite(pins) || !Number.isInteger(pins)) {
@@ -202,6 +386,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const [bowlingValidationErrors, setBowlingValidationErrors] = useState<
     (string | null)[]
   >([null]);
+  const bowlingInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const pendingBowlingFocusRef = useRef<string | null>(null);
   const [scoreA, setScoreA] = useState("0");
   const [scoreB, setScoreB] = useState("0");
   const [error, setError] = useState<string | null>(null);
@@ -240,6 +426,44 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     const needsPeriod = !/[.!?]$/.test(base);
     return `${base}${needsPeriod ? '.' : ''} ${example}.`;
   }, [sportCopy.timeHint, timeExample]);
+
+  const focusBowlingInput = useCallback((key: string | null) => {
+    if (!key) {
+      return;
+    }
+    const target = bowlingInputRefs.current[key];
+    if (target) {
+      target.focus();
+      target.select();
+    }
+  }, []);
+
+  const registerBowlingInput = useCallback(
+    (key: string) => (element: HTMLInputElement | null) => {
+      if (element) {
+        bowlingInputRefs.current[key] = element;
+      } else {
+        delete bowlingInputRefs.current[key];
+      }
+    },
+    [],
+  );
+
+  const scheduleBowlingFocus = useCallback((key: string | null) => {
+    pendingBowlingFocusRef.current = key;
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!pendingBowlingFocusRef.current) {
+      return;
+    }
+    const target = bowlingInputRefs.current[pendingBowlingFocusRef.current];
+    if (target) {
+      target.focus();
+      target.select();
+    }
+    pendingBowlingFocusRef.current = null;
+  }, [bowlingEntries]);
 
   useEffect(() => {
     async function loadPlayers() {
@@ -288,7 +512,22 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     }
 
     const playerLabel = getBowlingPlayerLabel(entry, entryIndex, players);
-    const sanitized = sanitizeBowlingRollInput(rawValue);
+    const frames = entry.frames.map((frame) => frame.slice());
+    const frame = frames[frameIndex] ?? [];
+    const isTenthFrame = frameIndex === BOWLING_FRAME_COUNT - 1;
+
+    const trimmedInput = rawValue.trim();
+    let sanitized = sanitizeBowlingRollInput(rawValue);
+
+    if (sanitized === null && trimmedInput === "/" && rollIndex > 0) {
+      const firstValue = frame[0]?.trim() ?? "";
+      if (firstValue && firstValue !== "10") {
+        const firstPins = Number(firstValue);
+        if (Number.isFinite(firstPins)) {
+          sanitized = String(10 - firstPins);
+        }
+      }
+    }
 
     if (sanitized === null) {
       setBowlingValidationErrors((prev) => {
@@ -298,10 +537,6 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       });
       return;
     }
-
-    const frames = entry.frames.map((frame) => frame.slice());
-    const frame = frames[frameIndex] ?? [];
-    const isTenthFrame = frameIndex === BOWLING_FRAME_COUNT - 1;
 
     if (!isTenthFrame && rollIndex === 1) {
       const firstValue = frame[0]?.trim() ?? "";
@@ -379,17 +614,67 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       return;
     }
 
-    setBowlingEntries((prev) =>
-      prev.map((item, idx) =>
-        idx === entryIndex ? { ...item, frames } : item,
-      ),
+    const nextEntries = bowlingEntries.map((item, idx) =>
+      idx === entryIndex ? { ...item, frames } : item,
     );
+
+    const shouldAdvance = sanitized !== "";
+    const nextFocusKey = shouldAdvance
+      ? findNextBowlingInputKey(nextEntries, entryIndex, frameIndex, rollIndex)
+      : null;
+
+    scheduleBowlingFocus(nextFocusKey);
+
+    setBowlingEntries(nextEntries);
 
     setBowlingValidationErrors((prev) => {
       const next = prev.slice();
       next[entryIndex] = null;
       return next;
     });
+  };
+
+  const handleBowlingInputKeyDown = (
+    event: KeyboardEvent<HTMLInputElement>,
+    entryIndex: number,
+    frameIndex: number,
+    rollIndex: number,
+  ) => {
+    if (event.key === "ArrowRight") {
+      const nextKey = findNextBowlingInputKey(
+        bowlingEntries,
+        entryIndex,
+        frameIndex,
+        rollIndex,
+      );
+      if (nextKey) {
+        event.preventDefault();
+        focusBowlingInput(nextKey);
+      }
+      return;
+    }
+
+    if (event.key === "ArrowLeft") {
+      const previousKey = findPreviousBowlingInputKey(
+        bowlingEntries,
+        entryIndex,
+        frameIndex,
+        rollIndex,
+      );
+      if (previousKey) {
+        event.preventDefault();
+        focusBowlingInput(previousKey);
+      }
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const nextFrameKey =
+        findFrameStartKey(bowlingEntries, entryIndex, frameIndex + 1) ??
+        findFirstEnabledKey(bowlingEntries, entryIndex + 1);
+      focusBowlingInput(nextFrameKey);
+    }
   };
 
   const handleRemoveBowlingPlayer = (index: number) => {
@@ -730,6 +1015,10 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                     <div className="bowling-frames-grid">
                       {entry.frames.map((frame, frameIdx) => {
                         const frameTotal = preview.frameTotals[frameIdx] ?? null;
+                        const hasAnyPins = frame.some((value) => value.trim() !== "");
+                        const partialPins = getBowlingFramePinSum(frame);
+                        const displayTotal =
+                          frameTotal ?? (hasAnyPins ? partialPins : null);
                         return (
                           <div key={frameIdx} className="bowling-frame-card">
                             <span className="bowling-frame-label">
@@ -740,6 +1029,39 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                             >
                               {frame.map((roll, rollIdx) => {
                                 const inputId = `bowling-${idx}-${frameIdx}-${rollIdx}`;
+                                const inputKey = getBowlingInputKey(
+                                  idx,
+                                  frameIdx,
+                                  rollIdx,
+                                );
+                                const isFinalFrame =
+                                  frameIdx === BOWLING_FRAME_COUNT - 1;
+                                const isRollEnabled = isBowlingRollEnabled(
+                                  entry.frames,
+                                  frameIdx,
+                                  rollIdx,
+                                );
+                                const firstValue = frame[0]?.trim() ?? "";
+                                const secondValue = frame[1]?.trim() ?? "";
+                                const canSetStrike =
+                                  isRollEnabled &&
+                                  (rollIdx === 0 ||
+                                    (isFinalFrame && rollIdx === 1 && firstValue === "10") ||
+                                    (isFinalFrame &&
+                                      rollIdx === 2 &&
+                                      (firstValue === "10" ||
+                                        (firstValue &&
+                                          secondValue &&
+                                          Number(firstValue) + Number(secondValue) === 10))));
+                                const canSetSpare =
+                                  isRollEnabled &&
+                                  rollIdx === 1 &&
+                                  firstValue !== "" &&
+                                  firstValue !== "10";
+                                const spareValue = canSetSpare
+                                  ? String(10 - Number(firstValue))
+                                  : null;
+                                const canSetGutter = isRollEnabled;
                                 return (
                                   <div key={rollIdx} className="bowling-roll-field">
                                     <label
@@ -750,12 +1072,14 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                     </label>
                                     <input
                                       id={inputId}
-                                      type="number"
-                                      min={0}
-                                      max={10}
-                                      step={1}
-                                      value={roll}
+                                      ref={registerBowlingInput(inputKey)}
+                                      className="bowling-roll-input"
+                                      type="text"
                                       inputMode="numeric"
+                                      pattern="[0-9]*"
+                                      maxLength={2}
+                                      value={roll}
+                                      disabled={!isRollEnabled}
                                       onChange={(e) =>
                                         handleBowlingRollChange(
                                           idx,
@@ -764,10 +1088,78 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                           e.target.value,
                                         )
                                       }
+                                      onKeyDown={(event) =>
+                                        handleBowlingInputKeyDown(
+                                          event,
+                                          idx,
+                                          frameIdx,
+                                          rollIdx,
+                                        )
+                                      }
                                       aria-label={`${playerLabel} frame ${
                                         frameIdx + 1
                                       } roll ${rollIdx + 1}`}
                                     />
+                                    <div
+                                      className="bowling-roll-actions"
+                                      role="group"
+                                      aria-label={`${playerLabel} frame ${
+                                        frameIdx + 1
+                                      } roll ${rollIdx + 1} shortcuts`}
+                                    >
+                                      <button
+                                        type="button"
+                                        className="bowling-roll-action"
+                                        disabled={!canSetStrike}
+                                        onClick={() =>
+                                          canSetStrike &&
+                                          handleBowlingRollChange(
+                                            idx,
+                                            frameIdx,
+                                            rollIdx,
+                                            "10",
+                                          )
+                                        }
+                                        aria-label="Set to strike (10 pins)"
+                                      >
+                                        X
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="bowling-roll-action"
+                                        disabled={!canSetGutter}
+                                        onClick={() =>
+                                          canSetGutter &&
+                                          handleBowlingRollChange(
+                                            idx,
+                                            frameIdx,
+                                            rollIdx,
+                                            "0",
+                                          )
+                                        }
+                                        aria-label="Set to gutter (0 pins)"
+                                      >
+                                        –
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="bowling-roll-action"
+                                        disabled={!canSetSpare || !spareValue}
+                                        onClick={() =>
+                                          canSetSpare &&
+                                          spareValue &&
+                                          handleBowlingRollChange(
+                                            idx,
+                                            frameIdx,
+                                            rollIdx,
+                                            spareValue,
+                                          )
+                                        }
+                                        aria-label="Set to spare (fill frame to 10 pins)"
+                                      >
+                                        /
+                                      </button>
+                                    </div>
                                   </div>
                                 );
                               })}
@@ -780,7 +1172,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                 frameIdx + 1
                               } total`}
                             >
-                              Total: {frameTotal != null ? frameTotal : "—"}
+                              Total: {displayTotal != null ? displayTotal : "—"}
                             </span>
                           </div>
                         );

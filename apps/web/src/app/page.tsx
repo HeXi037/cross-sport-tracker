@@ -4,8 +4,9 @@ import { apiFetch } from '../lib/api';
 import HomePageClient from './home-page-client';
 import {
   enrichMatches,
+  extractMatchPagination,
   type EnrichedMatch,
-  type MatchRowPage,
+  type MatchRow,
 } from '../lib/matches';
 import { headers } from 'next/headers';
 import { parseAcceptLanguage } from '../lib/i18n';
@@ -39,11 +40,15 @@ export default async function HomePage() {
 
   if (matchesResult.status === 'fulfilled' && matchesResult.value.ok) {
     try {
-      const page = (await matchesResult.value.json()) as MatchRowPage;
-      matches = await enrichMatches(page.items);
-      matchHasMore = page.hasMore;
-      matchNextOffset = page.nextOffset;
-      matchPageSize = page.limit ?? MATCHES_LIMIT;
+      const rows = (await matchesResult.value.json()) as MatchRow[];
+      const pagination = extractMatchPagination(
+        matchesResult.value.headers,
+        MATCHES_LIMIT,
+      );
+      matches = await enrichMatches(rows);
+      matchHasMore = pagination.hasMore;
+      matchNextOffset = pagination.nextOffset;
+      matchPageSize = pagination.limit;
     } catch {
       matchError = true;
     }

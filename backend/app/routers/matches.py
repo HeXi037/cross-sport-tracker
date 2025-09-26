@@ -5,7 +5,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from typing import Any, Sequence
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,6 +28,7 @@ from .streams import broadcast
 from ..scoring import padel as padel_engine, tennis as tennis_engine
 from ..services.validation import validate_set_scores, ValidationError
 from ..services import update_ratings, update_player_metrics
+from ..exceptions import http_problem
 from .auth import get_current_user
 
 # Resource-only prefix; versioning is added in main.py
@@ -117,7 +118,11 @@ async def create_match(
     for part in body.participants:
         for pid in part.playerIds:
             if pid in player_sides and player_sides[pid] != part.side:
-                raise HTTPException(400, "duplicate players")
+                raise http_problem(
+                    status_code=400,
+                    detail="duplicate players",
+                    code="match_duplicate_players",
+                )
             player_sides[pid] = part.side
             all_player_ids.append(pid)
             side_players.setdefault(part.side, []).append(pid)
@@ -127,7 +132,11 @@ async def create_match(
             await session.execute(select(Player.id).where(Player.user_id == user.id))
         ).scalars().all()
         if not player_ids or not any(pid in all_player_ids for pid in player_ids):
-            raise HTTPException(status_code=403, detail="forbidden")
+            raise http_problem(
+                status_code=403,
+                detail="forbidden",
+                code="match_forbidden",
+            )
 
     for part in body.participants:
         mp = MatchParticipant(
@@ -187,9 +196,17 @@ async def create_match(
                 allow_ties=not is_racket_sport,
             )
         except ValidationError as e:
-            raise HTTPException(status_code=422, detail=str(e))
+            raise http_problem(
+                status_code=422,
+                detail=str(e),
+                code="match_validation_error",
+            )
         except Exception:
-            raise HTTPException(status_code=422, detail="Invalid set scores provided.")
+            raise http_problem(
+                status_code=422,
+                detail="Invalid set scores provided.",
+                code="match_invalid_set_scores",
+            )
 
         set_pairs = [(int(s["A"]), int(s["B"])) for s in normalized_sets]
         config: dict[str, Any] = {}
@@ -309,7 +326,11 @@ async def create_match_by_name(
         name_to_id = {p.name: p.id for p in rows}
     missing = [n for n in original_names if n.lower() not in name_to_id]
     if missing:
-        raise HTTPException(400, f"unknown players: {', '.join(missing)}")
+        raise http_problem(
+            status_code=400,
+            detail=f"unknown players: {', '.join(missing)}",
+            code="match_unknown_players",
+        )
     id_to_name = {pid: name for name, pid in name_to_id.items()}
     dup_ids = [
         pid
@@ -318,7 +339,11 @@ async def create_match_by_name(
     ]
     if dup_ids:
         dups = [id_to_name[pid] for pid in dup_ids]
-        raise HTTPException(400, f"duplicate players: {', '.join(dups)}")
+        raise http_problem(
+            status_code=400,
+            detail=f"duplicate players: {', '.join(dups)}",
+            code="match_duplicate_players",
+        )
     parts = []
     for part in body.participants:
         ids = [name_to_id[n.lower()] for n in part.playerNames]
@@ -347,7 +372,11 @@ async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
         )
     ).scalar_one_or_none()
     if not m:
-        raise HTTPException(404, "match not found")
+        raise http_problem(
+            status_code=404,
+            detail="match not found",
+            code="match_not_found",
+        )
 
     parts = (
         await session.execute(select(MatchParticipant).where(MatchParticipant.match_id == mid))
@@ -391,7 +420,11 @@ async def delete_match(
 ):
     m = await session.get(Match, mid)
     if not m or m.deleted_at is not None:
-        raise HTTPException(404, "match not found")
+        raise http_problem(
+            status_code=404,
+            detail="match not found",
+            code="match_not_found",
+        )
 
     try:
         parts = (
@@ -407,7 +440,11 @@ async def delete_match(
             await session.execute(select(Player.id).where(Player.user_id == user.id))
         ).scalars().all()
         if not user_player_ids or not set(user_player_ids) & match_player_ids:
-            raise HTTPException(status_code=403, detail="forbidden")
+            raise http_problem(
+                status_code=403,
+                detail="forbidden",
+                code="match_forbidden",
+            )
 
     sport_id = m.sport_id
     m.deleted_at = func.now()
@@ -482,7 +519,11 @@ async def append_event(
 ):
     m = (await session.execute(select(Match).where(Match.id == mid))).scalar_one_or_none()
     if not m:
-        raise HTTPException(404, "match not found")
+        raise http_problem(
+            status_code=404,
+            detail="match not found",
+            code="match_not_found",
+        )
 
     parts = (
         await session.execute(
@@ -495,12 +536,20 @@ async def append_event(
             await session.execute(select(Player.id).where(Player.user_id == user.id))
         ).scalars().all()
         if not user_player_ids or not set(user_player_ids) & match_player_ids:
-            raise HTTPException(status_code=403, detail="forbidden")
+            raise http_problem(
+                status_code=403,
+                detail="forbidden",
+                code="match_forbidden",
+            )
 
     try:
         engine = importlib.import_module(f"..scoring.{m.sport_id}", package="backend.app")
     except ModuleNotFoundError:
-        raise HTTPException(400, "unknown sport")
+        raise http_problem(
+            status_code=400,
+            detail="unknown sport",
+            code="match_unknown_sport",
+        )
 
     existing = (
         await session.execute(
@@ -515,7 +564,11 @@ async def append_event(
     try:
         state = engine.apply(payload, state)
     except ValueError as exc:
-        raise HTTPException(400, str(exc))
+        raise http_problem(
+            status_code=400,
+            detail=str(exc),
+            code="match_event_invalid",
+        )
 
     e = ScoreEvent(
         id=uuid.uuid4().hex,
@@ -540,9 +593,17 @@ async def record_sets_endpoint(
 ):
     m = (await session.execute(select(Match).where(Match.id == mid))).scalar_one_or_none()
     if not m:
-        raise HTTPException(404, "match not found")
+        raise http_problem(
+            status_code=404,
+            detail="match not found",
+            code="match_not_found",
+        )
     if m.sport_id not in ("padel", "tennis"):
-        raise HTTPException(400, "set recording only supported for padel or tennis")
+        raise http_problem(
+            status_code=400,
+            detail="set recording only supported for padel or tennis",
+            code="match_set_recording_unsupported",
+        )
 
     try:
         parts = (
@@ -558,7 +619,11 @@ async def record_sets_endpoint(
         ).scalars().all()
         match_player_ids = {pid for p in parts for pid in (p.player_ids or [])}
         if not user_player_ids or not set(user_player_ids) & match_player_ids:
-            raise HTTPException(status_code=403, detail="forbidden")
+            raise http_problem(
+                status_code=403,
+                detail="forbidden",
+                code="match_forbidden",
+            )
 
     # Validate set scores before applying them.
     # Normalize Pydantic models, dicts, or 2-item tuples into list[dict] for the validator.
@@ -574,7 +639,11 @@ async def record_sets_endpoint(
         validate_set_scores(normalized_sets)
         set_tuples = [(int(s["A"]), int(s["B"])) for s in normalized_sets]
     except ValidationError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        raise http_problem(
+            status_code=422,
+            detail=str(e),
+            code="match_validation_error",
+        )
 
     existing = (
         await session.execute(

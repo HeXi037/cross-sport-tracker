@@ -4,7 +4,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 os.environ["ADMIN_SECRET"] = "admintest"
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from fastapi.responses import JSONResponse
 from httpx import ASGITransport, AsyncClient
@@ -35,6 +35,23 @@ async def domain_exception_handler(request, exc):
         title=exc.title,
         detail=exc.detail,
         status=exc.status_code,
+        code=exc.code,
+    )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=problem.model_dump(),
+        media_type="application/problem+json",
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+    problem = ProblemDetail(
+        title=detail,
+        detail=detail,
+        status=exc.status_code,
+        code=getattr(exc, "code", f"http_{exc.status_code}"),
     )
     return JSONResponse(
         status_code=exc.status_code,
@@ -147,6 +164,8 @@ def test_delete_player_requires_token() -> None:
         ).json()["id"]
         resp = client.delete(f"/players/{pid}")
         assert resp.status_code == 401
+        body = resp.json()
+        assert body["code"] == "auth_missing_token"
 
 def test_delete_player_soft_delete() -> None:
     with TestClient(app, raise_server_exceptions=False) as client:
@@ -158,7 +177,9 @@ def test_delete_player_soft_delete() -> None:
             f"/players/{pid}", headers={"Authorization": f"Bearer {token}"}
         )
         assert resp.status_code == 204
-        assert client.get(f"/players/{pid}").status_code == 404
+        missing = client.get(f"/players/{pid}")
+        assert missing.status_code == 404
+        assert missing.json()["code"] == "player_not_found"
 
     async def check_deleted():
         async with db.AsyncSessionLocal() as session:
@@ -196,6 +217,7 @@ def test_hide_player_removes_from_public_list() -> None:
 
         unauthorized = client.get("/players", params={"include_hidden": "true"})
         assert unauthorized.status_code == 401
+        assert unauthorized.json()["code"] == "auth_missing_token"
 
         auth.limiter.reset()
 
@@ -210,6 +232,22 @@ def test_versioned_missing_player_returns_problem_detail() -> None:
             title=exc.title,
             detail=exc.detail,
             status=exc.status_code,
+            code=exc.code,
+        )
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=problem.model_dump(),
+            media_type="application/problem+json",
+        )
+
+    @versioned_app.exception_handler(HTTPException)
+    async def versioned_http_exception_handler(request, exc):
+        detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+        problem = ProblemDetail(
+            title=detail,
+            detail=detail,
+            status=exc.status_code,
+            code=getattr(exc, "code", f"http_{exc.status_code}"),
         )
         return JSONResponse(
             status_code=exc.status_code,
@@ -228,6 +266,7 @@ def test_versioned_missing_player_returns_problem_detail() -> None:
     assert payload["status"] == 404
     assert payload["title"] == "Player not found"
     assert "missing-player" in payload.get("detail", "")
+    assert payload["code"] == "player_not_found"
 
 
 def test_hide_player_requires_admin() -> None:
@@ -240,6 +279,7 @@ def test_hide_player_requires_admin() -> None:
 
         missing_token = client.patch(f"/players/{pid}/visibility", json={"hidden": True})
         assert missing_token.status_code == 401
+        assert missing_token.json()["code"] == "auth_missing_token"
 
         auth.limiter.reset()
         user_resp = client.post(
@@ -252,6 +292,7 @@ def test_hide_player_requires_admin() -> None:
             headers={"Authorization": f"Bearer {user_token}"},
         )
         assert forbidden.status_code == 403
+        assert forbidden.json()["code"] == "admin_forbidden"
 
         allowed = client.patch(
             f"/players/{pid}/visibility", json={"hidden": True}, headers=headers
@@ -303,6 +344,7 @@ def test_create_my_player_conflict_with_dormant(async_client) -> None:
         problem = recreate_resp.json()
         assert problem["title"] == "Player exists"
         assert "dupeuser" in problem["detail"]
+        assert problem["code"] == "player_exists"
 
     loop.run_until_complete(scenario())
 
@@ -495,7 +537,9 @@ def test_add_duplicate_player_badge_returns_conflict() -> None:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert duplicate_resp.status_code == 409
-        assert duplicate_resp.json() == {"detail": "player already has this badge"}
+        problem = duplicate_resp.json()
+        assert problem["detail"] == "player already has this badge"
+        assert problem["code"] == "player_badge_exists"
 
         resp = client.delete(
             f"/players/{pid}/badges/{bid}",

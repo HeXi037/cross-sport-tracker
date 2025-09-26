@@ -1,11 +1,11 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..exceptions import ProblemDetail
+from ..exceptions import ProblemDetail, http_problem
 from ..models import Badge, PlayerBadge, User
 from ..schemas import BadgeCreate, BadgeOut, BadgeUpdate
 from .admin import require_admin
@@ -29,7 +29,11 @@ async def create_badge(
         await session.commit()
     except IntegrityError:
         await session.rollback()
-        raise HTTPException(status_code=409, detail="badge name exists")
+        raise http_problem(
+            status_code=409,
+            detail="badge name exists",
+            code="badge_name_exists",
+        )
     return _to_badge_out(badge)
 
 
@@ -48,7 +52,11 @@ async def update_badge(
 ):
     badge = await session.get(Badge, badge_id)
     if not badge:
-        raise HTTPException(status_code=404, detail="badge not found")
+        raise http_problem(
+            status_code=404,
+            detail="badge not found",
+            code="badge_not_found",
+        )
 
     updates = body.model_dump(exclude_unset=True)
     for field, value in updates.items():
@@ -58,7 +66,11 @@ async def update_badge(
         await session.commit()
     except IntegrityError:
         await session.rollback()
-        raise HTTPException(status_code=409, detail="badge name exists")
+        raise http_problem(
+            status_code=409,
+            detail="badge name exists",
+            code="badge_name_exists",
+        )
 
     return _to_badge_out(badge)
 
@@ -71,7 +83,11 @@ async def delete_badge(
 ):
     badge = await session.get(Badge, badge_id)
     if not badge:
-        raise HTTPException(status_code=404, detail="badge not found")
+        raise http_problem(
+            status_code=404,
+            detail="badge not found",
+            code="badge_not_found",
+        )
 
     await session.execute(delete(PlayerBadge).where(PlayerBadge.badge_id == badge_id))
     await session.delete(badge)

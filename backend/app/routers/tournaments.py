@@ -1,11 +1,12 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
 from ..models import Tournament, Stage
 from ..schemas import TournamentCreate, TournamentOut, StageCreate, StageOut
+from ..exceptions import http_problem
 
 router = APIRouter()
 
@@ -36,7 +37,11 @@ async def get_tournament(
 ):
     t = await session.get(Tournament, tournament_id)
     if not t:
-        raise HTTPException(status_code=404, detail="tournament not found")
+        raise http_problem(
+            status_code=404,
+            detail="tournament not found",
+            code="tournament_not_found",
+        )
     return TournamentOut(id=t.id, sport=t.sport_id, name=t.name, clubId=t.club_id)
 
 
@@ -67,6 +72,10 @@ async def get_stage(
 ):
     s = await session.get(Stage, stage_id)
     if not s or s.tournament_id != tournament_id:
-        raise HTTPException(status_code=404, detail="stage not found")
+        raise http_problem(
+            status_code=404,
+            detail="stage not found",
+            code="stage_not_found",
+        )
     return StageOut(id=s.id, tournamentId=s.tournament_id, type=s.type)
 

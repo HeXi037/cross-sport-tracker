@@ -59,6 +59,8 @@ const formatSportLabel = (sportId: string) =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
 
+const RESULTS_TABLE_ID = "leaderboard-results";
+
 const canonicalizePathname = (pathname: string) => {
   if (pathname === "/" || pathname === "") {
     return "/";
@@ -508,16 +510,51 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const TableHeader = () => (
     <thead>
       <tr>
-        <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>#</th>
-        <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>Player</th>
+        <th
+          scope="col"
+          aria-sort="ascending"
+          style={{ textAlign: "left", padding: "4px 16px 4px 0" }}
+        >
+          #
+        </th>
+        <th scope="col" style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>
+          Player
+        </th>
         {sport === ALL_SPORTS && (
-          <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>Sport</th>
+          <th
+            scope="col"
+            style={{ textAlign: "left", padding: "4px 16px 4px 0" }}
+          >
+            Sport
+          </th>
         )}
-        <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>Rating</th>
-        <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>W</th>
-        <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>L</th>
-        <th style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>Matches</th>
-        <th style={{ textAlign: "left", padding: "4px 0" }}>Win%</th>
+        <th
+          scope="col"
+          style={{ textAlign: "left", padding: "4px 16px 4px 0" }}
+        >
+          Rating
+        </th>
+        <th
+          scope="col"
+          style={{ textAlign: "left", padding: "4px 16px 4px 0" }}
+        >
+          W
+        </th>
+        <th
+          scope="col"
+          style={{ textAlign: "left", padding: "4px 16px 4px 0" }}
+        >
+          L
+        </th>
+        <th
+          scope="col"
+          style={{ textAlign: "left", padding: "4px 16px 4px 0" }}
+        >
+          Matches
+        </th>
+        <th scope="col" style={{ textAlign: "left", padding: "4px 0" }}>
+          Win%
+        </th>
       </tr>
     </thead>
   );
@@ -547,60 +584,68 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           </h1>
           <p style={{ fontSize: "0.85rem", color: "#555" }}>{regionDescription}</p>
         </div>
-        <nav
-          aria-label="Leaderboard sports"
+        <section
+          aria-label="Leaderboard controls"
           style={{ flex: "0 0 auto", fontSize: "0.9rem" }}
         >
-          <ul
-            role="tablist"
-            style={{
-              display: "flex",
-              gap: "0.5rem",
-              padding: 0,
-              margin: 0,
-              listStyle: "none",
-            }}
+          <nav
+            aria-label="Leaderboard sports"
+            aria-controls={RESULTS_TABLE_ID}
           >
-            {navItems.map((item) => {
-              const isActive = item.id === sport;
-              return (
-                <li key={item.id}>
-                  <Link
-                    href={
-                      item.id === ALL_SPORTS
-                        ? withRegion("/leaderboard?sport=all")
-                        : withRegion(`/leaderboard?sport=${item.id}`)
-                    }
-                    role="tab"
-                    aria-selected={isActive}
-                    aria-current={isActive ? "page" : undefined}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: "0.35rem 0.85rem",
-                      borderRadius: "999px",
-                      border: "1px solid",
-                      borderColor: isActive ? "#222" : "#ccc",
-                      background: isActive ? "#222" : "transparent",
-                      color: isActive ? "#fff" : "#222",
-                      fontWeight: isActive ? 600 : 500,
-                      textDecoration: "none",
-                      transition: "background 0.2s ease, color 0.2s ease",
-                    }}
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
+            <ul
+              role="tablist"
+              style={{
+                display: "flex",
+                gap: "0.5rem",
+                padding: 0,
+                margin: 0,
+                listStyle: "none",
+              }}
+            >
+              {navItems.map((item) => {
+                const isActive = item.id === sport;
+                return (
+                  <li key={item.id}>
+                    <Link
+                      href={
+                        item.id === ALL_SPORTS
+                          ? withRegion("/leaderboard?sport=all")
+                          : withRegion(`/leaderboard?sport=${item.id}`)
+                      }
+                      role="tab"
+                      aria-selected={isActive}
+                      aria-current={isActive ? "page" : undefined}
+                      aria-controls={RESULTS_TABLE_ID}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "0.35rem 0.85rem",
+                        borderRadius: "999px",
+                        border: "1px solid",
+                        borderColor: isActive ? "#222" : "#ccc",
+                        background: isActive ? "#222" : "transparent",
+                        color: isActive ? "#fff" : "#222",
+                        fontWeight: isActive ? 600 : 500,
+                        textDecoration: "none",
+                        transition: "background 0.2s ease, color 0.2s ease",
+                      }}
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        </section>
       </header>
 
       {supportsFilters ? (
         <form
           onSubmit={handleSubmit}
+          aria-label="Leaderboard filters"
+          aria-controls={RESULTS_TABLE_ID}
           style={{
             marginTop: "1rem",
             display: "flex",
@@ -637,6 +682,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <button
               type="submit"
+              aria-controls={RESULTS_TABLE_ID}
               style={{
                 padding: "0.4rem 0.9rem",
                 borderRadius: "4px",
@@ -653,6 +699,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             <button
               type="button"
               onClick={handleClear}
+              aria-controls={RESULTS_TABLE_ID}
               style={{
                 padding: "0.4rem 0.9rem",
                 borderRadius: "4px",
@@ -701,6 +748,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
 
       {loading ? (
         <table
+          id={RESULTS_TABLE_ID}
           style={{
             width: "100%",
             borderCollapse: "collapse",
@@ -762,6 +810,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         )
       ) : (
         <table
+          id={RESULTS_TABLE_ID}
           style={{
             width: "100%",
             borderCollapse: "collapse",

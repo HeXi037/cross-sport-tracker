@@ -146,6 +146,34 @@ def test_leaderboard_rank_and_sets():
         assert p2["setsLost"] == 2
 
 
+def test_leaderboard_ignores_deleted_match_events():
+    deleted_time = datetime.now(timezone.utc)
+
+    async def soft_delete():
+        async with db.AsyncSessionLocal() as session:
+            match = await session.get(Match, "m0")
+            match.deleted_at = deleted_time
+            await session.commit()
+
+    async def restore():
+        async with db.AsyncSessionLocal() as session:
+            match = await session.get(Match, "m0")
+            match.deleted_at = None
+            await session.commit()
+
+    asyncio.run(soft_delete())
+    try:
+        with TestClient(app) as client:
+            resp = client.get("/leaderboards", params={"sport": "padel"})
+            assert resp.status_code == 200
+            data = resp.json()
+            leaders = {entry["playerId"]: entry for entry in data["leaders"]}
+            assert leaders["p1"]["rankChange"] == 0
+            assert leaders["p2"]["rankChange"] == 0
+    finally:
+        asyncio.run(restore())
+
+
 def test_leaderboard_filter_by_country():
     with TestClient(app) as client:
         resp = client.get(

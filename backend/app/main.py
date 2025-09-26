@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -44,9 +44,9 @@ if ALLOW_CREDENTIALS and (not ALLOWED_ORIGINS or "*" in ALLOWED_ORIGINS):
 app = FastAPI(
     title="Cross Sport Tracker API",
     version="0.1.0",
-    docs_url=f"{API_PREFIX}/docs",
-    redoc_url=f"{API_PREFIX}/redoc",
-    openapi_url=f"{API_PREFIX}/openapi.json",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
 )
 
 app.state.limiter = auth.limiter
@@ -66,6 +66,11 @@ auth.get_jwt_secret()
 static_dir = Path(__file__).resolve().parent / "static"
 static_dir.mkdir(parents=True, exist_ok=True)
 app.mount(f"{API_PREFIX}/static", StaticFiles(directory=str(static_dir)), name="static")
+
+
+@app.get("/healthz", tags=["health"])  # Unprefixed for reverse proxy / uptime checks
+def root_healthz():
+    return {"status": "ok"}
 
 
 @app.exception_handler(DomainException)
@@ -116,23 +121,33 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
         media_type="application/problem+json",
     )
 
-@app.get(f"{API_PREFIX}/healthz")
-def healthz():
+api_router = APIRouter(prefix=API_PREFIX, tags=["meta"])
+
+
+@api_router.get("/healthz", tags=["health"])
+def api_healthz():
     return {"status": "ok"}
 
-@app.get(API_PREFIX)
-def api_root():
-    return {"message": f"Cross Sport Tracker API. See {API_PREFIX}/docs."}
 
-# Mount once with versioning
-app.include_router(sports.router,      prefix=f"{API_PREFIX}/v0")
-app.include_router(rulesets.router,    prefix=f"{API_PREFIX}/v0")
-app.include_router(players.router,     prefix=f"{API_PREFIX}/v0")
-app.include_router(matches.router,     prefix=f"{API_PREFIX}/v0")
-app.include_router(leaderboards.router, prefix=f"{API_PREFIX}/v0")
-app.include_router(streams.router,      prefix=f"{API_PREFIX}/v0")
-app.include_router(tournaments.router,  prefix=f"{API_PREFIX}/v0")
-app.include_router(auth.router,         prefix=f"{API_PREFIX}/v0")
-app.include_router(badges.router,       prefix=f"{API_PREFIX}/v0")
-app.include_router(clubs.router,        prefix=f"{API_PREFIX}/v0")
+@api_router.get("")
+def api_root():
+    return {"message": "Cross Sport Tracker API. See /docs."}
+
+
+v0_router = APIRouter(prefix="/v0")
+
+v0_router.include_router(sports.router)
+v0_router.include_router(rulesets.router)
+v0_router.include_router(players.router)
+v0_router.include_router(matches.router)
+v0_router.include_router(leaderboards.router)
+v0_router.include_router(streams.router)
+v0_router.include_router(tournaments.router)
+v0_router.include_router(auth.router)
+v0_router.include_router(badges.router)
+v0_router.include_router(clubs.router)
+
+api_router.include_router(v0_router)
+
+app.include_router(api_router)
 app.include_router(player_pages.router)

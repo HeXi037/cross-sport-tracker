@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { render, screen, fireEvent, act } from "@testing-library/react";
+import "@testing-library/jest-dom";
 import PlayersPage from "./page";
 import ToastProvider from "../../components/ToastProvider";
 
@@ -524,16 +525,12 @@ describe("PlayersPage", () => {
     });
 
     expect(
-      screen.getByText(/only administrators can add new players/i)
+      screen.getByText(/sign in as an admin to add players/i)
     ).toBeTruthy();
+    const loginCta = screen.getByRole("link", { name: /login/i });
+    expect(loginCta).toHaveAttribute("href", "/login");
     expect(screen.queryByRole("button", { name: /add/i })).toBeNull();
-    const controls = document.querySelector(
-      "[data-testid=\"player-create-controls\"]"
-    ) as HTMLElement | null;
-    expect(controls).toBeTruthy();
-    expect(controls?.hasAttribute("hidden")).toBe(true);
-    expect(controls?.getAttribute("aria-hidden")).toBe("true");
-    expect(controls?.hasAttribute("inert")).toBe(true);
+    expect(screen.queryByTestId("player-create-controls")).toBeNull();
   });
 
   it("hides per-player admin controls for non-admin users", async () => {
@@ -591,9 +588,6 @@ describe("PlayersPage", () => {
     });
 
     const controls = screen.getByTestId("player-create-controls");
-    expect(controls.hasAttribute("hidden")).toBe(false);
-    expect(controls.getAttribute("aria-hidden")).toBe("false");
-    expect(controls.hasAttribute("inert")).toBe(false);
     expect(screen.getByRole("button", { name: /add/i })).toBeTruthy();
     window.localStorage.removeItem("token");
   });

@@ -68,7 +68,6 @@ export default function PlayersPage() {
   const [statsError, setStatsError] = useState(false);
   const [admin, setAdmin] = useState(() => isAdmin());
   const statsToastShown = useRef(false);
-  const adminControlsRef = useRef<HTMLDivElement | null>(null);
   const loadRequestId = useRef(0);
   const activeLoadController = useRef<AbortController | null>(null);
   const activeLoadTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -87,16 +86,6 @@ export default function PlayersPage() {
       window.removeEventListener("storage", updateAdmin);
     };
   }, []);
-
-  useEffect(() => {
-    const node = adminControlsRef.current;
-    if (!node) return;
-    if (admin) {
-      node.removeAttribute("inert");
-    } else {
-      node.setAttribute("inert", "");
-    }
-  }, [admin]);
 
   const trimmedName = name.trim();
   const nameIsValid = NAME_REGEX.test(trimmedName);
@@ -454,7 +443,10 @@ export default function PlayersPage() {
     <main className="container">
       <h1 className="heading">Players</h1>
       {loading && players.length === 0 ? (
-        <PlayerListSkeleton />
+        <div role="status" aria-live="polite" className="player-list__loading">
+          <p className="player-list__loading-text">Loading players…</p>
+          <PlayerListSkeleton />
+        </div>
       ) : playersLoadError && !loading && players.length === 0 ? (
         <div className="player-list__error" role="alert">
           <p>{playersLoadError}</p>
@@ -589,56 +581,55 @@ export default function PlayersPage() {
           )}
         </>
       )}
-      <div
-        ref={adminControlsRef}
-        data-testid="player-create-controls"
-        hidden={!admin}
-        aria-hidden={!admin}
-      >
-        <div className="form-field">
-          <label htmlFor="player-name" className="form-label">
-            Player name
-          </label>
-          <input
-            id="player-name"
-            className="input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Enter player name"
-            autoComplete="name"
-          />
-        </div>
-        {!nameIsValid && trimmedName !== "" && (
-          <div className="text-red-500 mt-2">
-            Name must be 1-50 characters and contain only letters,
-            numbers, spaces, hyphens, or apostrophes.
+      {admin ? (
+        <div data-testid="player-create-controls">
+          <div className="form-field">
+            <label htmlFor="player-name" className="form-label">
+              Player name
+            </label>
+            <input
+              id="player-name"
+              className="input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter player name"
+              autoComplete="name"
+            />
           </div>
-        )}
-        <div className="form-field">
-          <label htmlFor="player-photo" className="form-label">
-            Upload profile photo (optional)
-          </label>
-          <input
-            id="player-photo"
-            type="file"
-            accept="image/*"
-            onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
-            className="input"
-          />
+          {!nameIsValid && trimmedName !== "" && (
+            <div className="text-red-500 mt-2">
+              Name must be 1-50 characters and contain only letters,
+              numbers, spaces, hyphens, or apostrophes.
+            </div>
+          )}
+          <div className="form-field">
+            <label htmlFor="player-photo" className="form-label">
+              Upload profile photo (optional)
+            </label>
+            <input
+              id="player-photo"
+              type="file"
+              accept="image/*"
+              onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+              className="input"
+            />
+          </div>
+          <button
+            className="button"
+            onClick={create}
+            disabled={creating || name.trim() === ""}
+          >
+            {creating ? "Saving…" : "Add"}
+          </button>
+          {success && <div className="text-green-600 mt-2">{success}</div>}
         </div>
-        <button
-          className="button"
-          onClick={create}
-          disabled={creating || name.trim() === ""}
-        >
-          {creating ? "Saving…" : "Add"}
-        </button>
-        {success && <div className="text-green-600 mt-2">{success}</div>}
-      </div>
-      {!admin && (
-        <p className="player-list__admin-note">
-          Only administrators can add new players.
-        </p>
+      ) : (
+        <div className="player-list__admin-note">
+          <p>Sign in as an admin to add players.</p>
+          <Link className="button-secondary inline-block mt-2" href="/login">
+            Login
+          </Link>
+        </div>
       )}
       {error && !playersLoadError && (
         <div className="text-red-500 mt-2" role="alert">

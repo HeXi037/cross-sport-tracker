@@ -25,6 +25,7 @@ import {
   ensureAbsoluteApiUrl,
   persistSession,
 } from "../../lib/api";
+import { ensureTrailingSlash } from "../../lib/routes";
 import type { PlayerLocationPayload } from "../../lib/api";
 import ClubSelect from "../../components/ClubSelect";
 import {
@@ -184,7 +185,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!isLoggedIn()) {
-      router.push("/login");
+      router.push(ensureTrailingSlash("/login"));
       return;
     }
     let active = true;
@@ -207,7 +208,7 @@ export default function ProfilePage() {
           if (!active) return;
           const status = (playerErr as Error & { status?: number }).status;
           if (status === 401) {
-            router.push("/login");
+            router.push(ensureTrailingSlash("/login"));
             return;
           }
           if (status === 404) {
@@ -222,7 +223,7 @@ export default function ProfilePage() {
         }
       } catch {
         if (!active) return;
-        router.push("/login");
+        router.push(ensureTrailingSlash("/login"));
         return;
       } finally {
         if (active) {

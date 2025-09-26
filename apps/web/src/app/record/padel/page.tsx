@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
+import { ensureTrailingSlash } from "../../../lib/routes";
 import { useLocale } from "../../../lib/LocaleContext";
 import { getDatePlaceholder } from "../../../lib/i18n";
 import { buildPlayedAtISOString } from "../../../lib/datetime";
@@ -59,7 +60,7 @@ export default function RecordPadelPage() {
         setError("Failed to load players");
         const status = (err as { status?: number }).status;
         if (status === 401) {
-          router.push("/login");
+          router.push(ensureTrailingSlash("/login"));
         }
       }
     }

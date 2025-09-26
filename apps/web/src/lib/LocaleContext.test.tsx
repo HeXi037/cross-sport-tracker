@@ -58,7 +58,7 @@ describe('LocaleProvider', () => {
     expect(localeDisplay).toHaveTextContent('sv-SE');
   });
 
-  it('prefers a stored locale ahead of browser hints', async () => {
+  it('updates the stored locale when browser hints change', async () => {
     window.localStorage.setItem(LOCALE_STORAGE_KEY, 'sv-SE');
     vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['en-AU', 'en-US']);
     vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('en-US');
@@ -69,8 +69,12 @@ describe('LocaleProvider', () => {
       </LocaleProvider>,
     );
 
+    await waitFor(() => {
+      expect(window.localStorage.getItem(LOCALE_STORAGE_KEY)).toBe('en-GB');
+    });
+
     const localeDisplay = await screen.findByTestId('locale-value');
-    expect(localeDisplay).toHaveTextContent('sv-SE');
+    expect(localeDisplay).toHaveTextContent('en-GB');
   });
 
   it('falls back to navigator.language when languages is empty', async () => {

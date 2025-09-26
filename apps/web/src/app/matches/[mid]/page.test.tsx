@@ -195,9 +195,9 @@ describe("MatchDetailPage", () => {
 
     render(await MatchDetailPage({ params: { mid: "m2" } }));
 
-    expect(
-      screen.getByRole("heading", { level: 1, name: "Ann vs Ben vs Cam" })
-    ).toBeInTheDocument();
+    const heading = screen.getByRole("heading", { level: 1 });
+    expect(heading).toHaveTextContent("Ann vs Ben vs Cam");
+    expect(heading).toHaveAccessibleName("Ann versus Ben versus Cam");
 
     const meta = screen.getByText(
       (text, element) =>
@@ -560,8 +560,8 @@ describe("MatchDetailPage", () => {
     expect(
       screen.getByText(/could not reach the player service/i)
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { level: 1, name: /unknown vs unknown/i })
-    ).toBeInTheDocument();
+    const heading = screen.getByRole("heading", { level: 1 });
+    expect(heading).toHaveTextContent(/unknown vs unknown/i);
+    expect(heading).toHaveAccessibleName(/unknown versus unknown/i);
   });
 });

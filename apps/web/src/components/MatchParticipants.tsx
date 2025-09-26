@@ -1,5 +1,6 @@
 import { ComponentPropsWithoutRef, ElementType } from 'react';
 import PlayerName, { PlayerInfo } from './PlayerName';
+import { resolveText } from '../lib/text';
 
 type BaseProps = {
   sides: PlayerInfo[][];
@@ -31,22 +32,10 @@ export default function MatchParticipants<
 }: MatchParticipantsProps<T>) {
   const Component = (as ?? DEFAULT_ELEMENT) as ElementType;
   const classes = ['match-participants', className].filter(Boolean).join(' ');
-  const fallbackSeparatorText =
-    typeof separatorSymbol === 'string' && separatorSymbol.trim().length > 0
-      ? separatorSymbol.trim()
-      : 'and';
-  const separatorScreenReaderText =
-    typeof separatorLabel === 'string' && separatorLabel.trim().length > 0
-      ? separatorLabel
-      : fallbackSeparatorText;
-  const fallbackVersusText =
-    typeof versusSymbol === 'string' && versusSymbol.trim().length > 0
-      ? versusSymbol.trim()
-      : 'versus';
-  const versusScreenReaderText =
-    typeof versusLabel === 'string' && versusLabel.trim().length > 0
-      ? versusLabel
-      : fallbackVersusText;
+  const visualSeparator = ` ${resolveText(separatorSymbol, '&')} `;
+  const visualVersus = ` ${resolveText(versusSymbol, 'vs')} `;
+  const separatorScreenReaderText = resolveText(separatorLabel, 'and');
+  const versusScreenReaderText = resolveText(versusLabel, 'versus');
 
   if (!sides.length) {
     return <Component className={classes} {...rest} />;
@@ -72,10 +61,12 @@ export default function MatchParticipants<
               key={`${player.id}-group-${playerIndex}`}
               className="match-participants__entry-group"
             >
-              <span className="match-participants__separator" aria-hidden="true">
-                {` ${separatorSymbol} `}
+              <span
+                className="match-participants__separator"
+                aria-label={separatorScreenReaderText}
+              >
+                {visualSeparator}
               </span>
-              <span className="sr-only">{separatorScreenReaderText}</span>
               <span className="match-participants__entry">
                 <PlayerName player={player} />
               </span>
@@ -87,10 +78,12 @@ export default function MatchParticipants<
           <span key={sideIndex} className="match-participants__side-wrapper">
             {sideIndex > 0 && (
               <>
-                <span className="match-participants__versus" aria-hidden="true">
-                  {` ${versusSymbol} `}
+                <span
+                  className="match-participants__versus"
+                  aria-label={versusScreenReaderText}
+                >
+                  {visualVersus}
                 </span>
-                <span className="sr-only">{versusScreenReaderText}</span>
               </>
             )}
             <span className="match-participants__side">{renderedSide}</span>

@@ -68,7 +68,42 @@ export function normalizeLocale(
   locale: string | null | undefined,
   fallback = 'en-US',
 ): string {
-  return typeof locale === 'string' && locale.length > 0 ? locale : fallback;
+  if (typeof locale !== 'string') {
+    return fallback;
+  }
+  const trimmed = locale.trim();
+  return trimmed.length > 0 ? trimmed : fallback;
+}
+
+export const LOCALE_STORAGE_KEY = 'cst:locale';
+export const NEUTRAL_FALLBACK_LOCALE = 'en-GB';
+
+export function getStoredLocale(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    const raw = window.localStorage?.getItem(LOCALE_STORAGE_KEY);
+    const normalized = normalizeLocale(raw, '');
+    return normalized || null;
+  } catch {
+    return null;
+  }
+}
+
+export function storeLocalePreference(locale: string | null | undefined): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const normalized = normalizeLocale(locale, '');
+  if (!normalized) {
+    return;
+  }
+  try {
+    window.localStorage?.setItem(LOCALE_STORAGE_KEY, normalized);
+  } catch {
+    // Ignore storage quota errors or unavailable localStorage.
+  }
 }
 
 const SAMPLE_DATE = new Date(2001, 10, 21);
@@ -119,7 +154,40 @@ export function formatDate(
   if (!value) return '—';
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
-  return new Intl.DateTimeFormat(locale, options).format(date);
+  const normalizedLocale = normalizeLocale(locale, '');
+
+  if (normalizedLocale) {
+    try {
+      return new Intl.DateTimeFormat(normalizedLocale, options).format(date);
+    } catch {
+      // Fall through to neutral formatting.
+    }
+  }
+
+  const usesStyles = 'dateStyle' in options || 'timeStyle' in options;
+  const fallbackOptions: Intl.DateTimeFormatOptions = usesStyles
+    ? {
+        dateStyle: 'medium',
+        ...(options.timeStyle ? { timeStyle: 'short' } : {}),
+      }
+    : { day: '2-digit', month: 'short', year: 'numeric' };
+
+  try {
+    return new Intl.DateTimeFormat(NEUTRAL_FALLBACK_LOCALE, fallbackOptions).format(date);
+  } catch {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = date
+      .toLocaleString('en-US', { month: 'short' })
+      .replace('.', '');
+    const year = date.getFullYear();
+    const datePart = `${day} ${month} ${year}`;
+    if (options.timeStyle) {
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${datePart}, ${hours}:${minutes}`;
+    }
+    return datePart;
+  }
 }
 
 export function formatDateTime(

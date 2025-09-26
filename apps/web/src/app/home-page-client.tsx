@@ -16,8 +16,12 @@ import {
 import MatchParticipants from '../components/MatchParticipants';
 import { useLocale } from '../lib/LocaleContext';
 import { ensureTrailingSlash, recordPathForSport } from '../lib/routes';
+import { formatDateTime } from '../lib/i18n';
 
-interface Sport { id: string; name: string }
+interface Sport {
+  id: string;
+  name: string;
+}
 
 const sportIcons: Record<string, string> = {
   padel: '\uD83C\uDFBE', // tennis ball
@@ -62,8 +66,9 @@ export default function HomePageClient({
   const [paginationError, setPaginationError] = useState(false);
   const localeFromContext = useLocale();
   const activeLocale = localeFromContext || initialLocale || 'en-US';
-  const dateFormatter = useMemo(
-    () => new Intl.DateTimeFormat(activeLocale, { dateStyle: 'medium' }),
+  const formatMatchDate = useMemo(
+    () => (value: Date | string | number | null | undefined) =>
+      formatDateTime(value, activeLocale),
     [activeLocale],
   );
 
@@ -160,7 +165,7 @@ export default function HomePageClient({
         ) : sports.length === 0 ? (
           sportError ? (
             <p>
-              Unable to load sports. Check connection.{" "}
+              Unable to load sports. Check connection.{' '}
               <a href="#" onClick={retrySports}>
                 Retry
               </a>
@@ -207,7 +212,7 @@ export default function HomePageClient({
         ) : matches.length === 0 ? (
           matchError ? (
             <p>
-              Unable to load matches. Check connection.{" "}
+              Unable to load matches. Check connection.{' '}
               <a href="#" onClick={retryMatches}>
                 Retry
               </a>
@@ -224,8 +229,7 @@ export default function HomePageClient({
                   style={{ fontWeight: 500 }}
                 />
                 <div className="match-meta">
-                  {m.sport} · Best of {m.bestOf ?? '—'} ·{' '}
-                  {m.playedAt ? dateFormatter.format(new Date(m.playedAt)) : '—'}
+                  {m.sport} · Best of {m.bestOf ?? '—'} · {formatMatchDate(m.playedAt)}
                   {m.location ? ` · ${m.location}` : ''}
                 </div>
                 <div>

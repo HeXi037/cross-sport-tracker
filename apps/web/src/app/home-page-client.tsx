@@ -10,8 +10,9 @@ import Link from 'next/link';
 import { apiFetch } from '../lib/api';
 import {
   enrichMatches,
+  extractMatchPagination,
   type EnrichedMatch,
-  type MatchRowPage,
+  type MatchRow,
 } from '../lib/matches';
 import MatchParticipants from '../components/MatchParticipants';
 import { useLocale } from '../lib/LocaleContext';
@@ -72,6 +73,26 @@ export default function HomePageClient({
     [activeLocale],
   );
 
+  const parseMatchesResponse = async (
+    response: Response,
+    fallbackLimit: number,
+  ): Promise<{
+    enriched: EnrichedMatch[];
+    limit: number;
+    hasMore: boolean;
+    nextOffset: number | null;
+  }> => {
+    const rows = (await response.json()) as MatchRow[];
+    const pagination = extractMatchPagination(response.headers, fallbackLimit);
+    const enriched = await enrichMatches(rows);
+    return {
+      enriched,
+      limit: pagination.limit,
+      hasMore: pagination.hasMore,
+      nextOffset: pagination.nextOffset,
+    };
+  };
+
   const retrySports = async (e: MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
     setSportsLoading(true);
@@ -99,13 +120,12 @@ export default function HomePageClient({
         cache: 'no-store',
       });
       if (r.ok) {
-        const page = (await r.json()) as MatchRowPage;
-        const enriched = await enrichMatches(page.items);
-        setMatches(enriched);
+        const result = await parseMatchesResponse(r, pageSize);
+        setMatches(result.enriched);
         setMatchError(false);
-        setHasMore(page.hasMore);
-        setNextOffset(page.nextOffset);
-        setPageSize(page.limit ?? pageSize);
+        setHasMore(result.hasMore);
+        setNextOffset(result.nextOffset);
+        setPageSize(result.limit ?? pageSize);
       } else {
         setMatchError(true);
       }
@@ -131,12 +151,11 @@ export default function HomePageClient({
       if (!r.ok) {
         throw new Error('Failed to fetch more matches');
       }
-      const page = (await r.json()) as MatchRowPage;
-      const enriched = await enrichMatches(page.items);
-      setMatches((prev) => [...prev, ...enriched]);
-      setHasMore(page.hasMore);
-      setNextOffset(page.nextOffset);
-      setPageSize(page.limit ?? pageSize);
+      const result = await parseMatchesResponse(r, pageSize);
+      setMatches((prev) => [...prev, ...result.enriched]);
+      setHasMore(result.hasMore);
+      setNextOffset(result.nextOffset);
+      setPageSize(result.limit ?? pageSize);
     } catch (err) {
       console.error(err);
       setPaginationError(true);

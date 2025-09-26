@@ -32,15 +32,15 @@ function resolveLocaleCandidates(
     candidates.push(normalizedPreferred);
   }
 
+  if (normalizedStored && normalizedStored !== normalizedPreferred) {
+    candidates.push(normalizedStored);
+  }
+
   if (acceptLanguage) {
     const parsed = parseAcceptLanguage(acceptLanguage, normalizedFallback);
     if (parsed) {
       candidates.push(parsed);
     }
-  }
-
-  if (normalizedStored && normalizedStored !== normalizedPreferred) {
-    candidates.push(normalizedStored);
   }
 
   if (typeof navigator !== 'undefined') {

@@ -17,6 +17,7 @@ import {
   shouldRebuildRacketSummary,
   isRecord,
 } from "../../../lib/match-summary";
+import { resolveParticipantGroups } from "../../../lib/participants";
 
 export const dynamic = "force-dynamic";
 
@@ -394,13 +395,9 @@ export default async function MatchDetailPage({
   const idToPlayer = playerLookup.map;
   const playerLookupError = playerLookup.error;
 
-  const sidePlayers: Record<string, PlayerInfo[]> = {};
-  for (const p of parts) {
-    const players = (p.playerIds ?? []).map(
-      (id) => idToPlayer.get(id) ?? { id, name: "Unknown" }
-    );
-    sidePlayers[p.side] = players;
-  }
+  const participantGroups = resolveParticipantGroups(parts, (id) =>
+    idToPlayer.get(id)
+  );
 
   const notices: string[] = [];
   if (playerLookupError) {
@@ -508,10 +505,10 @@ export default async function MatchDetailPage({
 
       <header className="section">
         <h1 className="heading">
-          {Object.keys(sidePlayers).length ? (
+          {participantGroups.length ? (
             <MatchParticipants
               as="span"
-              sides={Object.values(sidePlayers)}
+              sides={participantGroups}
               separatorSymbol="/"
             />
           ) : (

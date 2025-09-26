@@ -18,6 +18,7 @@ import {
   type NormalizedMatchSummary,
   type NormalizedVersusRecord,
 } from "../../../lib/player-stats";
+import { sanitizePlayersBySide } from "../../../lib/participants";
 
 export const dynamic = "force-dynamic";
 
@@ -231,6 +232,7 @@ async function getMatches(
         playerSide = p.side;
       }
     }
+    const sanitizedPlayers = sanitizePlayersBySide(players);
     let playerWon: boolean | undefined = undefined;
     const summary = detail.summary;
     if (playerSide && summary) {
@@ -243,7 +245,7 @@ async function getMatches(
     }
     return {
       ...row,
-      players,
+      players: sanitizedPlayers,
       participants: detail.participants ?? [],
       summary,
       playerSide,

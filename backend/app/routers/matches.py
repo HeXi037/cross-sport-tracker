@@ -74,6 +74,7 @@ async def list_matches(
             bestOf=m.best_of,
             playedAt=m.played_at,
             location=m.location,
+            isFriendly=m.is_friendly,
         )
         for m in matches
     ]
@@ -94,6 +95,7 @@ async def create_match(
         played_at=body.playedAt,
         location=body.location,
         details=None,
+        is_friendly=body.isFriendly,
     )
     session.add(match)
 
@@ -231,7 +233,7 @@ async def create_match(
 
     players_a = side_players.get("A", [])
     players_b = side_players.get("B", [])
-    if summary and players_a and players_b:
+    if not match.is_friendly and summary and players_a and players_b:
         sets_record = summary.get("sets") if isinstance(summary, dict) else None
         try:
             a_sets = int(sets_record.get("A")) if sets_record else None
@@ -267,7 +269,8 @@ async def create_match(
                 await update_player_metrics(session, match.sport_id, winners, losers)
 
     await session.commit()
-    await player_stats_cache.invalidate_players(all_player_ids)
+    if not match.is_friendly:
+        await player_stats_cache.invalidate_players(all_player_ids)
     if summary is not None:
         await broadcast(mid, {"summary": match.details})
     return MatchIdOut(id=mid)
@@ -319,6 +322,7 @@ async def create_match_by_name(
         playedAt=body.playedAt,
         location=body.location,
         sets=sets,
+        isFriendly=body.isFriendly,
     )
     return await create_match(mc, session, user)
 
@@ -350,6 +354,7 @@ async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
         bestOf=m.best_of,
         playedAt=m.played_at,
         location=m.location,
+        isFriendly=m.is_friendly,
         participants=[
             ParticipantOut(id=p.id, side=p.side, playerIds=p.player_ids) for p in parts
         ],

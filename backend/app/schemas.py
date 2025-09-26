@@ -350,6 +350,7 @@ class MatchCreate(BaseModel):
     score: Optional[List[int]] = None
     sets: Optional[List[List[int]]] = None
     details: Optional[Dict[str, Any]] = None
+    isFriendly: bool = False
 
     @field_validator("playedAt")
     def _normalize_played_at(cls, v: datetime | None) -> datetime | None:
@@ -373,6 +374,7 @@ class MatchCreateByName(BaseModel):
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
     sets: Optional[List[Tuple[int, int]]] = None
+    isFriendly: bool = False
 
     @field_validator("playedAt")
     def _normalize_played_at(cls, v: datetime | None) -> datetime | None:
@@ -599,6 +601,7 @@ class MatchSummaryOut(BaseModel):
     bestOf: Optional[int] = None
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
+    isFriendly: bool
 
 
 class ParticipantOut(BaseModel):
@@ -627,6 +630,7 @@ class MatchOut(BaseModel):
     bestOf: Optional[int] = None
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
+    isFriendly: bool
     participants: List[ParticipantOut] = Field(default_factory=list)
     events: List[ScoreEventOut] = Field(default_factory=list)
     summary: Optional[Dict[str, Any]] = None

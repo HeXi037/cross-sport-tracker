@@ -29,6 +29,7 @@ interface CreateMatchPayload {
   bestOf: number;
   playedAt?: string;
   location?: string;
+  isFriendly?: boolean;
 }
 
 export default function RecordPadelPage() {
@@ -41,6 +42,7 @@ export default function RecordPadelPage() {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
+  const [isFriendly, setIsFriendly] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const locale = useLocale();
@@ -171,6 +173,9 @@ export default function RecordPadelPage() {
       if (location) {
         payload.location = location;
       }
+      if (isFriendly) {
+        payload.isFriendly = true;
+      }
 
       const res = await apiFetch(`/v0/matches`, {
         method: "POST",
@@ -242,6 +247,23 @@ export default function RecordPadelPage() {
               onChange={(e) => setLocation(e.target.value)}
             />
           </label>
+          <label
+            className="form-field form-field--checkbox"
+            htmlFor="padel-friendly"
+          >
+            <input
+              id="padel-friendly"
+              type="checkbox"
+              checked={isFriendly}
+              onChange={(e) => setIsFriendly(e.target.checked)}
+              aria-describedby="padel-friendly-hint"
+            />
+            <span className="form-label">Mark as friendly</span>
+          </label>
+          <p id="padel-friendly-hint" className="form-hint">
+            Friendly matches appear in match history but do not impact leaderboards
+            or player statistics.
+          </p>
         </fieldset>
 
         <fieldset className="form-fieldset">

@@ -72,6 +72,7 @@ type MatchDetail = {
   participants?: Participant[] | null;
   summary?: SummaryData | null;
   events?: ScoreEvent[] | null;
+  isFriendly?: boolean | null;
 };
 
 const PLACEHOLDER_LABELS = new Set(["-", "–", "—", "n/a", "na"]);
@@ -446,6 +447,19 @@ export default async function MatchDetailPage({
     }
   }
 
+  const headerMetaParts = [
+    match.isFriendly ? "Friendly" : null,
+    sportLabel,
+    rulesetLabel,
+    statusLabel,
+  ].filter((value): value is string => Boolean(value && value !== ""));
+  if (playedAtStr) {
+    headerMetaParts.push(playedAtStr);
+  }
+  if (match.location) {
+    headerMetaParts.push(match.location);
+  }
+
   return (
     <main className="container">
       <div className="text-sm">
@@ -485,12 +499,7 @@ export default async function MatchDetailPage({
             "A vs B"
           )}
         </h1>
-        <p className="match-meta">
-          {sportLabel} · {rulesetLabel} ·{" "}
-          {statusLabel}
-          {playedAtStr ? ` · ${playedAtStr}` : ""}
-          {match.location ? ` · ${match.location}` : ""}
-        </p>
+        <p className="match-meta">{headerMetaParts.join(" · ")}</p>
       </header>
       <LiveSummary
         mid={params.mid}

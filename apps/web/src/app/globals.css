@@ -189,6 +189,26 @@ textarea {
   cursor: not-allowed;
 }
 
+.pager {
+  margin-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+}
+
+.pager__status {
+  margin: 0;
+  font-size: 0.95rem;
+  color: rgba(10, 31, 68, 0.7);
+}
+
+.pager__controls {
+  display: flex;
+  gap: 8px;
+}
+
 .section {
   margin-bottom: 16px;
 }

@@ -97,7 +97,11 @@ describe("MatchesPage", () => {
     const fetchMock = vi
       .fn()
       // list matches
-      .mockResolvedValueOnce({ ok: true, json: async () => matches })
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ "X-Has-More": "false" }),
+        json: async () => matches,
+      })
       // match detail
       .mockResolvedValueOnce({ ok: true, json: async () => detail })
       // players by ids
@@ -111,13 +115,20 @@ describe("MatchesPage", () => {
     const next = screen.getByText("Next") as HTMLButtonElement;
     expect(prev).toBeDisabled();
     expect(next).toBeDisabled();
+    expect(
+      screen.getByText("Page 1 · Showing matches 1-1")
+    ).toBeInTheDocument();
   });
 
   it("renders an empty state when there are no matches", async () => {
     const fetchMock = vi
       .fn()
       // list matches
-      .mockResolvedValueOnce({ ok: true, json: async () => [] });
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ "X-Has-More": "false" }),
+        json: async () => [],
+      });
 
     global.fetch = fetchMock as typeof fetch;
 
@@ -170,7 +181,11 @@ describe("MatchesPage", () => {
     const fetchMock = vi
       .fn()
       // list matches
-      .mockResolvedValueOnce({ ok: true, json: async () => matches })
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ "X-Has-More": "false" }),
+        json: async () => matches,
+      })
       // match detail for each entry
       .mockResolvedValueOnce({ ok: true, json: async () => detail })
       .mockResolvedValueOnce({ ok: true, json: async () => detail })
@@ -199,5 +214,59 @@ describe("MatchesPage", () => {
     expect(metadataTexts.some((text) => text.includes("padel"))).toBe(true);
     expect(metadataTexts.some((text) => text.includes("Best of 5"))).toBe(true);
     expect(metadataTexts.some((text) => text.includes("Friendly"))).toBe(true);
+  });
+
+  it("disables the next button when the API reports no more results", async () => {
+    const matches = [
+      {
+        id: "m1",
+        sport: "padel",
+        bestOf: 3,
+        playedAt: null,
+        location: null,
+      },
+      {
+        id: "m2",
+        sport: "padel",
+        bestOf: 3,
+        playedAt: null,
+        location: null,
+      },
+    ];
+
+    const detail = {
+      participants: [
+        { side: "A" as const, playerIds: ["1"] },
+        { side: "B" as const, playerIds: ["2"] },
+      ],
+    };
+
+    const fetchMock = vi
+      .fn()
+      // list matches
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({
+          "X-Has-More": "false",
+          "X-Next-Offset": "4",
+        }),
+        json: async () => matches,
+      })
+      // match detail for each entry
+      .mockResolvedValueOnce({ ok: true, json: async () => detail })
+      .mockResolvedValueOnce({ ok: true, json: async () => detail })
+      // players by ids
+      .mockResolvedValueOnce({ ok: true, json: async () => [] });
+
+    global.fetch = fetchMock as typeof fetch;
+
+    const page = await MatchesPage({ searchParams: { limit: "2" } });
+    render(page);
+
+    const next = screen.getByText("Next") as HTMLButtonElement;
+    expect(next).toBeDisabled();
+    expect(
+      screen.getByText("Page 1 · Showing matches 1-2")
+    ).toBeInTheDocument();
   });
 });

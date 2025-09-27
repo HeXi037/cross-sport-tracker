@@ -27,7 +27,11 @@ from ..schemas import (
 from .streams import broadcast
 from ..scoring import padel as padel_engine, tennis as tennis_engine
 from ..services.validation import validate_set_scores, ValidationError
-from ..services import update_ratings, update_player_metrics
+from ..services import (
+    update_ratings,
+    update_player_metrics,
+    recompute_stage_standings,
+)
 from ..exceptions import http_problem
 from .auth import get_current_user
 from ..time_utils import coerce_utc
@@ -294,6 +298,10 @@ async def create_match(
                     pass
                 await update_player_metrics(session, match.sport_id, winners, losers)
 
+    stage_id = match.stage_id
+    await session.flush()
+    if stage_id:
+        await recompute_stage_standings(stage_id, session)
     await session.commit()
     if not match.is_friendly:
         await player_stats_cache.invalidate_players(all_player_ids)
@@ -444,7 +452,11 @@ async def delete_match(
             )
 
     sport_id = m.sport_id
+    stage_id = m.stage_id
     m.deleted_at = func.now()
+    await session.flush()
+    if stage_id:
+        await recompute_stage_standings(stage_id, session)
     await session.commit()
 
     # Recompute ratings for this sport now that the match is removed
@@ -698,6 +710,10 @@ async def record_sets_endpoint(
                 session, m.sport_id, winners, losers
             )
 
+    stage_id = m.stage_id
+    await session.flush()
+    if stage_id:
+        await recompute_stage_standings(stage_id, session)
     await session.commit()
     await player_stats_cache.invalidate_players(players_a + players_b)
     await broadcast(mid, {"summary": m.details})

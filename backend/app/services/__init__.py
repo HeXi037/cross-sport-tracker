@@ -9,6 +9,12 @@ from .stats import (
     compute_streaks,
     compute_sport_format_stats,
 )
+from .tournaments import (
+    SUPPORTED_STAGE_TYPES,
+    normalize_stage_type,
+    schedule_americano,
+    recompute_stage_standings,
+)
 from .master_rating import update_master_ratings
 
 __all__ = [
@@ -21,4 +27,8 @@ __all__ = [
     "compute_streaks",
     "compute_sport_format_stats",
     "update_master_ratings",
+    "SUPPORTED_STAGE_TYPES",
+    "normalize_stage_type",
+    "schedule_americano",
+    "recompute_stage_standings",
 ]

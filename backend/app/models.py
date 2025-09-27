@@ -100,6 +100,26 @@ class Stage(Base):
     id = Column(String, primary_key=True)
     tournament_id = Column(String, ForeignKey("tournament.id"), nullable=False)
     type = Column(String, nullable=False)  # "round_robin" | "single_elim"
+    config = Column(
+        JSON().with_variant(JSONB, "postgresql"), nullable=True
+    )
+
+
+class StageStanding(Base):
+    __tablename__ = "stage_standing"
+
+    stage_id = Column(String, ForeignKey("stage.id"), primary_key=True)
+    player_id = Column(String, ForeignKey("player.id"), primary_key=True)
+    matches_played = Column(Integer, nullable=False, default=0)
+    wins = Column(Integer, nullable=False, default=0)
+    losses = Column(Integer, nullable=False, default=0)
+    draws = Column(Integer, nullable=False, default=0)
+    points_scored = Column(Integer, nullable=False, default=0)
+    points_allowed = Column(Integer, nullable=False, default=0)
+    points_diff = Column(Integer, nullable=False, default=0)
+    sets_won = Column(Integer, nullable=False, default=0)
+    sets_lost = Column(Integer, nullable=False, default=0)
+    points = Column(Integer, nullable=False, default=0)
 
 class Match(Base):
     __tablename__ = "match"

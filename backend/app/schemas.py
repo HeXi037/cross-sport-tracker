@@ -664,6 +664,7 @@ class StageCreate(BaseModel):
     """Schema for creating a tournament stage."""
 
     type: str
+    config: Optional[Dict[str, Any]] = None
 
 
 class StageOut(BaseModel):
@@ -672,3 +673,51 @@ class StageOut(BaseModel):
     id: str
     tournamentId: str
     type: str
+    config: Optional[Dict[str, Any]] = None
+
+
+class StageScheduleRequest(BaseModel):
+    """Payload used to generate a schedule for a stage."""
+
+    playerIds: List[str]
+    rulesetId: Optional[str] = None
+
+
+class StageScheduleMatchOut(BaseModel):
+    """Representation of a match created during scheduling."""
+
+    id: str
+    sport: str
+    stageId: str
+    rulesetId: Optional[str] = None
+    participants: List[ParticipantOut] = Field(default_factory=list)
+
+
+class StageScheduleResponse(BaseModel):
+    """Response returned when a schedule is created."""
+
+    stageId: str
+    matches: List[StageScheduleMatchOut] = Field(default_factory=list)
+
+
+class StageStandingOut(BaseModel):
+    """Aggregate statistics for a player within a stage."""
+
+    playerId: str
+    matchesPlayed: int
+    wins: int
+    losses: int
+    draws: int
+    pointsScored: int
+    pointsAllowed: int
+    pointsDiff: int
+    setsWon: int
+    setsLost: int
+    points: int
+
+
+class StageStandingsOut(BaseModel):
+    """Collection of stage standings."""
+
+    stageId: str
+    standings: List[StageStandingOut] = Field(default_factory=list)

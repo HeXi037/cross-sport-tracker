@@ -587,3 +587,148 @@ export async function updatePlayerLocation(
   const updated = (await res.json()) as PlayerMe;
   return withAbsolutePhotoUrl(updated);
 }
+
+export type TournamentCreatePayload = {
+  sport: string;
+  name: string;
+  clubId?: string | null;
+};
+
+export type TournamentSummary = TournamentCreatePayload & {
+  id: string;
+};
+
+export type StageCreatePayload = {
+  type: string;
+  config?: Record<string, unknown> | null;
+};
+
+export type StageSummary = StageCreatePayload & {
+  id: string;
+  tournamentId: string;
+};
+
+export type StageScheduleParticipant = {
+  id: string;
+  side: "A" | "B" | "C" | "D" | "E" | "F";
+  playerIds: string[];
+};
+
+export type StageScheduleMatch = {
+  id: string;
+  sport: string;
+  stageId: string;
+  rulesetId?: string | null;
+  participants: StageScheduleParticipant[];
+};
+
+export type StageSchedulePayload = {
+  playerIds: string[];
+  rulesetId?: string | null;
+};
+
+export type StageScheduleResponse = {
+  stageId: string;
+  matches: StageScheduleMatch[];
+};
+
+export type StageStanding = {
+  playerId: string;
+  matchesPlayed: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  pointsScored: number;
+  pointsAllowed: number;
+  pointsDiff: number;
+  setsWon: number;
+  setsLost: number;
+  points: number;
+};
+
+export type StageStandings = {
+  stageId: string;
+  standings: StageStanding[];
+};
+
+function withNoStore<T extends RequestInit | undefined>(
+  init?: T
+): RequestInit | undefined {
+  if (!init) {
+    return { cache: "no-store" };
+  }
+  if (init.cache) {
+    return init;
+  }
+  return { ...init, cache: "no-store" };
+}
+
+export async function listTournaments(
+  init?: RequestInit
+): Promise<TournamentSummary[]> {
+  const res = await apiFetch("/v0/tournaments", withNoStore(init));
+  return res.json();
+}
+
+export async function createTournament(
+  payload: TournamentCreatePayload
+): Promise<TournamentSummary> {
+  const res = await apiFetch("/v0/tournaments", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+export async function createStage(
+  tournamentId: string,
+  payload: StageCreatePayload
+): Promise<StageSummary> {
+  const res = await apiFetch(`/v0/tournaments/${tournamentId}/stages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+export async function scheduleAmericanoStage(
+  tournamentId: string,
+  stageId: string,
+  payload: StageSchedulePayload
+): Promise<StageScheduleResponse> {
+  const res = await apiFetch(
+    `/v0/tournaments/${tournamentId}/stages/${stageId}/schedule`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+  return res.json();
+}
+
+export async function fetchStageStandings(
+  tournamentId: string,
+  stageId: string,
+  init?: RequestInit
+): Promise<StageStandings> {
+  const res = await apiFetch(
+    `/v0/tournaments/${tournamentId}/stages/${stageId}/standings`,
+    withNoStore(init)
+  );
+  return res.json();
+}
+
+export async function listStageMatches(
+  tournamentId: string,
+  stageId: string,
+  init?: RequestInit
+): Promise<StageScheduleMatch[]> {
+  const res = await apiFetch(
+    `/v0/tournaments/${tournamentId}/stages/${stageId}/matches`,
+    withNoStore(init)
+  );
+  return res.json();
+}

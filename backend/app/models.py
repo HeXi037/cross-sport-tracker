@@ -94,6 +94,7 @@ class Tournament(Base):
     sport_id = Column(String, ForeignKey("sport.id"), nullable=False)
     club_id = Column(String, ForeignKey("club.id"), nullable=True)
     name = Column(String, nullable=False)
+    created_by_user_id = Column(String, ForeignKey("user.id"), nullable=True)
 
 class Stage(Base):
     __tablename__ = "stage"

@@ -13,6 +13,8 @@ import {
   createTournament,
   scheduleAmericanoStage,
   isAdmin,
+  isLoggedIn,
+  type ApiError,
   type StageScheduleMatch,
   type TournamentSummary,
 } from "../../lib/api";
@@ -45,6 +47,7 @@ export default function CreateTournamentForm({
   onCreated,
 }: CreateTournamentFormProps) {
   const [admin, setAdmin] = useState(() => isAdmin());
+  const [loggedIn, setLoggedIn] = useState(() => isLoggedIn());
   const [sports, setSports] = useState<SportOption[]>([]);
   const [players, setPlayers] = useState<PlayerOption[]>([]);
   const [rulesets, setRulesets] = useState<RulesetOption[]>([]);
@@ -62,7 +65,10 @@ export default function CreateTournamentForm({
   const [scheduledMatches, setScheduledMatches] = useState<StageScheduleMatch[]>([]);
 
   useEffect(() => {
-    const update = () => setAdmin(isAdmin());
+    const update = () => {
+      setAdmin(isAdmin());
+      setLoggedIn(isLoggedIn());
+    };
     window.addEventListener("storage", update);
     return () => window.removeEventListener("storage", update);
   }, []);
@@ -73,7 +79,14 @@ export default function CreateTournamentForm({
       const res = await apiFetch("/v0/sports", { cache: "no-store" });
       const data = (await res.json()) as SportOption[];
       setSports(data);
-      if (!sportId && data.length) {
+      if (data.length === 0) {
+        setSportId("");
+      } else if (!admin) {
+        const padel = data.find((sport) => sport.id === "padel");
+        setSportId(padel?.id ?? data[0].id);
+      } else if (!sportId) {
+        setSportId(data[0].id);
+      } else if (!data.some((sport) => sport.id === sportId)) {
         setSportId(data[0].id);
       }
     } catch (err) {
@@ -82,7 +95,7 @@ export default function CreateTournamentForm({
     } finally {
       setLoadingSports(false);
     }
-  }, [sportId]);
+  }, [admin, sportId]);
 
   const loadPlayers = useCallback(async () => {
     setLoadingPlayers(true);
@@ -127,15 +140,15 @@ export default function CreateTournamentForm({
   }, []);
 
   useEffect(() => {
-    if (!admin) return;
+    if (!loggedIn) return;
     loadSports();
     loadPlayers();
-  }, [admin, loadSports, loadPlayers]);
+  }, [loggedIn, loadSports, loadPlayers]);
 
   useEffect(() => {
-    if (!admin) return;
+    if (!loggedIn) return;
     loadRulesets(sportId);
-  }, [admin, sportId, loadRulesets]);
+  }, [loggedIn, sportId, loadRulesets]);
 
   const playerLookup = useMemo(() => {
     const map = new Map<string, PlayerInfo>();
@@ -200,14 +213,31 @@ export default function CreateTournamentForm({
       setCourtCount(1);
     } catch (err) {
       console.error("Failed to create tournament", err);
-      setError("Unable to create tournament. Please try again.");
+      const apiError = err as ApiError | undefined;
+      if (apiError?.status === 403) {
+        setError(
+          "Only padel Americano tournaments can be created without an admin account."
+        );
+      } else {
+        setError("Unable to create tournament. Please try again.");
+      }
     } finally {
       setCreating(false);
     }
   };
 
-  if (!admin) {
-    return null;
+  if (!loggedIn) {
+    return (
+      <section className="card" style={{ padding: 16 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>
+          Sign in to create an Americano tournament
+        </h2>
+        <p className="form-hint">
+          Log in to create padel Americano tournaments, schedule matches, and share them
+          with your club.
+        </p>
+      </section>
+    );
   }
 
   const selectedCount = selectedPlayers.length;
@@ -215,11 +245,19 @@ export default function CreateTournamentForm({
     ? `${selectedCount} player${selectedCount === 1 ? "" : "s"} selected`
     : "Select at least four players to include in the Americano schedule.";
 
+  const title = admin
+    ? "Admin: Create Americano tournament"
+    : "Create an Americano tournament";
+
   return (
     <section className="card" style={{ padding: 16 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>
-        Admin: Create Americano tournament
-      </h2>
+      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>{title}</h2>
+      {!admin && (
+        <p className="form-hint" style={{ marginBottom: 12 }}>
+          Padel is currently the only sport supported for self-service Americano
+          tournaments.
+        </p>
+      )}
       <form onSubmit={handleSubmit} aria-label="Create tournament">
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div className="form-field">
@@ -252,7 +290,7 @@ export default function CreateTournamentForm({
                 setSuccess(null);
                 setScheduledMatches([]);
               }}
-              disabled={loadingSports}
+              disabled={loadingSports || !admin}
             >
               {sports.map((sport) => (
                 <option key={sport.id} value={sport.id}>
@@ -261,6 +299,11 @@ export default function CreateTournamentForm({
               ))}
             </select>
             {loadingSports && <p className="form-hint">Loading sports…</p>}
+            {!admin && sportId !== "padel" && (
+              <p className="error" role="alert">
+                Padel must be selected for Americano tournaments.
+              </p>
+            )}
           </div>
           <div className="form-field">
             <label className="form-label" htmlFor="tournament-ruleset">

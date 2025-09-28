@@ -660,6 +660,7 @@ class TournamentOut(BaseModel):
     sport: str
     name: str
     clubId: Optional[str] = None
+    createdByUserId: Optional[str] = None
 
 
 class StageCreate(BaseModel):

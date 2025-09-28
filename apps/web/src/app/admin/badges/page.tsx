@@ -176,7 +176,11 @@ export default function AdminBadgesPage() {
           {success}
         </p>
       )}
-      {loading && <p>Loading badges...</p>}
+      {loading && (
+        <p role="status" aria-live="polite">
+          Loading badges...
+        </p>
+      )}
 
       <section className="card" style={{ marginBottom: 24 }}>
         <h2>Create new badge</h2>

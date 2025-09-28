@@ -1,6 +1,12 @@
 export const ALL_SPORTS = "all" as const;
 export const MASTER_SPORT = "master" as const;
-export const SPORTS = ["padel", "badminton", "table-tennis", "disc_golf"] as const;
+export const SPORTS = [
+  "padel",
+  "padel_americano",
+  "badminton",
+  "table-tennis",
+  "disc_golf",
+] as const;
 
 export const SPORT_OPTIONS = [ALL_SPORTS, MASTER_SPORT, ...SPORTS] as const;
 

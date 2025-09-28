@@ -73,6 +73,7 @@ const SPORT_ICONS: Record<LeaderboardSport, string> = {
   [ALL_SPORTS]: "🏅",
   [MASTER_SPORT]: "🌍",
   padel: "🎾",
+  padel_americano: "🎾",
   badminton: "🏸",
   "table-tennis": "🏓",
   disc_golf: "🥏",

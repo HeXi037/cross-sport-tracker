@@ -2,7 +2,7 @@ from collections import defaultdict
 from typing import Optional, Annotated
 
 from fastapi import APIRouter, Query, Depends
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
@@ -13,12 +13,26 @@ from ..models import (
     MatchParticipant,
     ScoreEvent,
     MasterRating,
+    Stage,
 )
 from ..services.master_rating import update_master_ratings
 from ..schemas import LeaderboardEntryOut, LeaderboardOut
 
 # Resource-only prefix; no /api or /api/v0 here
 router = APIRouter(prefix="/leaderboards", tags=["leaderboards"])
+
+
+AMERICANO_STAGE_TYPE = "americano"
+AMERICANO_RATING_SUFFIX = "_americano"
+
+
+def _resolve_leaderboard_context(sport: str) -> tuple[str, bool]:
+    """Return base sport id and whether the leaderboard targets Americano results."""
+
+    if sport.endswith(AMERICANO_RATING_SUFFIX):
+        base = sport[: -len(AMERICANO_RATING_SUFFIX)] or sport
+        return base, True
+    return sport, False
 
 
 # GET /api/v0/leaderboards?sport=padel
@@ -35,6 +49,8 @@ async def leaderboard(
     ] = None,
     session: AsyncSession = Depends(get_session),
 ):
+    base_sport_id, americano_only = _resolve_leaderboard_context(sport)
+
     stmt = select(Rating, Player).join(Player, Player.id == Rating.player_id)
     conditions = [Rating.sport_id == sport, Player.deleted_at.is_(None)]
     if country:
@@ -59,14 +75,20 @@ async def leaderboard(
     set_stats = {pid: {"won": 0, "lost": 0} for pid in player_ids}
 
     if player_ids:
-        mp_rows = (
-            await session.execute(
-                select(MatchParticipant, Match)
-                .join(Match, Match.id == MatchParticipant.match_id)
-                .where(Match.sport_id == sport, Match.deleted_at.is_(None))
+        stmt = (
+            select(MatchParticipant, Match, Stage)
+            .join(Match, Match.id == MatchParticipant.match_id)
+            .join(Stage, Stage.id == Match.stage_id, isouter=True)
+            .where(Match.sport_id == base_sport_id, Match.deleted_at.is_(None))
+        )
+        if americano_only:
+            stmt = stmt.where(Stage.type == AMERICANO_STAGE_TYPE)
+        else:
+            stmt = stmt.where(
+                or_(Stage.id.is_(None), Stage.type != AMERICANO_STAGE_TYPE)
             )
-        ).all()
-        for mp, m in mp_rows:
+        mp_rows = (await session.execute(stmt)).all()
+        for mp, m, _stage in mp_rows:
             if not m.details or "sets" not in m.details:
                 continue
             sets = m.details.get("sets", {})
@@ -79,18 +101,24 @@ async def leaderboard(
                     set_stats[pid]["lost"] += lost
 
     # Build rating history for the sport using RATING score events
-    rating_events = (
-        await session.execute(
-            select(ScoreEvent)
-            .join(Match, Match.id == ScoreEvent.match_id)
-            .where(
-                Match.sport_id == sport,
-                Match.deleted_at.is_(None),
-                ScoreEvent.type == "RATING",
-            )
-            .order_by(ScoreEvent.created_at)
+    rating_stmt = (
+        select(ScoreEvent)
+        .join(Match, Match.id == ScoreEvent.match_id)
+        .join(Stage, Stage.id == Match.stage_id, isouter=True)
+        .where(
+            Match.sport_id == base_sport_id,
+            Match.deleted_at.is_(None),
+            ScoreEvent.type == "RATING",
         )
-    ).scalars().all()
+        .order_by(ScoreEvent.created_at)
+    )
+    if americano_only:
+        rating_stmt = rating_stmt.where(Stage.type == AMERICANO_STAGE_TYPE)
+    else:
+        rating_stmt = rating_stmt.where(
+            or_(Stage.id.is_(None), Stage.type != AMERICANO_STAGE_TYPE)
+        )
+    rating_events = (await session.execute(rating_stmt)).scalars().all()
     histories = defaultdict(list)
     for ev in rating_events:
         payload = ev.payload or {}

@@ -56,7 +56,7 @@ describe("Leaderboard", () => {
     ).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: "Disc Golf" })).toBeInTheDocument();
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
     const urls = fetchMock.mock.calls.map((c) => c[0]);
     expect(urls).toContain(apiUrl("/v0/leaderboards?sport=disc_golf"));
   });
@@ -100,7 +100,7 @@ describe("Leaderboard", () => {
 
     render(<Leaderboard sport="all" country="SE" clubId="club-a" />);
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
     const urls = fetchMock.mock.calls.map((c) => c[0]);
     expect(urls).toContain(
       apiUrl("/v0/leaderboards?sport=disc_golf&country=SE&clubId=club-a")

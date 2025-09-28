@@ -10,6 +10,8 @@ from sqlalchemy import select, text
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+from app.models import Stage
+
 
 @pytest.fixture
 def anyio_backend():
@@ -145,7 +147,12 @@ async def test_create_match_rejects_duplicate_players(tmp_path):
   async with engine.begin() as conn:
     await conn.run_sync(
         db.Base.metadata.create_all,
-        tables=[Sport.__table__, Match.__table__, MatchParticipant.__table__],
+        tables=[
+            Sport.__table__,
+            Stage.__table__,
+            Match.__table__,
+            MatchParticipant.__table__,
+        ],
     )
 
   async with db.AsyncSessionLocal() as session:
@@ -179,6 +186,7 @@ async def test_create_match_friendly_skips_stat_updates(tmp_path, monkeypatch):
       tables=[
         Sport.__table__,
         Player.__table__,
+        Stage.__table__,
         Match.__table__,
         MatchParticipant.__table__,
         ScoreEvent.__table__,
@@ -245,7 +253,13 @@ async def test_create_match_by_name_is_case_insensitive(tmp_path):
   async with engine.begin() as conn:
     await conn.run_sync(
       db.Base.metadata.create_all,
-      tables=[Player.__table__, Sport.__table__, Match.__table__, MatchParticipant.__table__],
+      tables=[
+        Player.__table__,
+        Sport.__table__,
+        Stage.__table__,
+        Match.__table__,
+        MatchParticipant.__table__,
+      ],
     )
 
   async with db.AsyncSessionLocal() as session:
@@ -282,7 +296,12 @@ async def test_create_match_with_sets(tmp_path):
   async with engine.begin() as conn:
     await conn.run_sync(
       db.Base.metadata.create_all,
-      tables=[Sport.__table__, Match.__table__, MatchParticipant.__table__],
+      tables=[
+        Sport.__table__,
+        Stage.__table__,
+        Match.__table__,
+        MatchParticipant.__table__,
+      ],
     )
 
   async with db.AsyncSessionLocal() as session:
@@ -316,7 +335,12 @@ async def test_create_match_with_details(tmp_path):
   async with engine.begin() as conn:
     await conn.run_sync(
       db.Base.metadata.create_all,
-      tables=[Sport.__table__, Match.__table__, MatchParticipant.__table__],
+      tables=[
+        Sport.__table__,
+        Stage.__table__,
+        Match.__table__,
+        MatchParticipant.__table__,
+      ],
     )
 
   async with db.AsyncSessionLocal() as session:
@@ -348,7 +372,13 @@ async def test_create_match_by_name_with_sets(tmp_path):
   async with engine.begin() as conn:
     await conn.run_sync(
       db.Base.metadata.create_all,
-      tables=[Player.__table__, Sport.__table__, Match.__table__, MatchParticipant.__table__],
+      tables=[
+        Player.__table__,
+        Sport.__table__,
+        Stage.__table__,
+        Match.__table__,
+        MatchParticipant.__table__,
+      ],
     )
 
   async with db.AsyncSessionLocal() as session:
@@ -390,7 +420,12 @@ async def test_create_match_normalizes_timezone(tmp_path):
   async with engine.begin() as conn:
     await conn.run_sync(
       db.Base.metadata.create_all,
-      tables=[Sport.__table__, Match.__table__, MatchParticipant.__table__],
+      tables=[
+        Sport.__table__,
+        Stage.__table__,
+        Match.__table__,
+        MatchParticipant.__table__,
+      ],
     )
 
   async with db.AsyncSessionLocal() as session:
@@ -439,7 +474,11 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
   async with engine.begin() as conn:
     await conn.run_sync(
         db.Base.metadata.create_all,
-        tables=[Sport.__table__, Match.__table__],
+        tables=[
+            Sport.__table__,
+            Stage.__table__,
+            Match.__table__,
+        ],
     )
 
   async with db.AsyncSessionLocal() as session:
@@ -504,7 +543,11 @@ async def test_list_matches_upcoming_filter(tmp_path):
   async with engine.begin() as conn:
     await conn.run_sync(
         db.Base.metadata.create_all,
-        tables=[Sport.__table__, Match.__table__],
+        tables=[
+            Sport.__table__,
+            Stage.__table__,
+            Match.__table__,
+        ],
     )
 
   async with db.AsyncSessionLocal() as session:
@@ -552,6 +595,7 @@ def test_list_matches_filters_by_player(tmp_path):
           tables=[
               Sport.__table__,
               Player.__table__,
+              Stage.__table__,
               Match.__table__,
               MatchParticipant.__table__,
           ],
@@ -756,6 +800,7 @@ async def test_delete_match_updates_ratings_and_leaderboard(tmp_path):
             Player.__table__,
             Rating.__table__,
             GlickoRating.__table__,
+            Stage.__table__,
             Match.__table__,
             ScoreEvent.__table__,
         ],
@@ -844,7 +889,12 @@ async def test_create_match_rejects_naive_date(tmp_path):
   engine = db.get_engine()
   async with engine.begin() as conn:
     await conn.run_sync(
-        db.Base.metadata.create_all, tables=[Sport.__table__, Match.__table__]
+        db.Base.metadata.create_all,
+        tables=[
+            Sport.__table__,
+            Stage.__table__,
+            Match.__table__,
+        ],
     )
 
   async with db.AsyncSessionLocal() as session:
@@ -884,7 +934,13 @@ async def test_user_with_multiple_player_records_can_modify_match(tmp_path):
   async with engine.begin() as conn:
     await conn.run_sync(
         db.Base.metadata.create_all,
-        tables=[Match.__table__, MatchParticipant.__table__, ScoreEvent.__table__, Player.__table__],
+        tables=[
+            Stage.__table__,
+            Match.__table__,
+            MatchParticipant.__table__,
+            ScoreEvent.__table__,
+            Player.__table__,
+        ],
     )
 
   async def dummy_broadcast(mid: str, message: dict) -> None:

@@ -56,7 +56,7 @@ describe("Leaderboard", () => {
     ).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: "Disc Golf" })).toBeInTheDocument();
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
     const urls = fetchMock.mock.calls.map((c) => c[0]);
     expect(urls).toContain(apiUrl("/v0/leaderboards?sport=disc_golf"));
   });
@@ -72,7 +72,8 @@ describe("Leaderboard", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(fetchMock).toHaveBeenCalledWith(
-      apiUrl("/v0/leaderboards?sport=padel&country=SE")
+      apiUrl("/v0/leaderboards?sport=padel&country=SE"),
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
     );
   });
 
@@ -87,7 +88,8 @@ describe("Leaderboard", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(fetchMock).toHaveBeenCalledWith(
-      apiUrl("/v0/leaderboards?sport=padel&clubId=club-a")
+      apiUrl("/v0/leaderboards?sport=padel&clubId=club-a"),
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
     );
   });
 
@@ -100,7 +102,7 @@ describe("Leaderboard", () => {
 
     render(<Leaderboard sport="all" country="SE" clubId="club-a" />);
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
     const urls = fetchMock.mock.calls.map((c) => c[0]);
     expect(urls).toContain(
       apiUrl("/v0/leaderboards?sport=disc_golf&country=SE&clubId=club-a")
@@ -133,18 +135,18 @@ describe("Leaderboard", () => {
       .mockResolvedValue({ ok: true, json: async () => [] });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<Leaderboard sport="badminton" country="SE" />);
+    render(<Leaderboard sport="bowling" country="SE" />);
 
     await screen.findByRole("heading", {
       level: 2,
-      name: "No Badminton matches in this region yet.",
+      name: "No Bowling matches in this region yet.",
     });
     expect(
       screen.getByText("Try adjusting the filters or record a new match."),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Record a Badminton match" }),
-    ).toHaveAttribute("href", expect.stringContaining("/record/badminton"));
+      screen.getByRole("link", { name: "Record a Bowling match" }),
+    ).toHaveAttribute("href", expect.stringContaining("/record/bowling"));
   });
 
   it("shows an error message when fetching fails", async () => {

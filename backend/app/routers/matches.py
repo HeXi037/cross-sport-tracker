@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
 from ..cache import player_stats_cache
-from ..models import Match, MatchParticipant, Player, ScoreEvent, User, Rating
+from ..models import Match, MatchParticipant, Player, ScoreEvent, User, Rating, Stage
 from ..schemas import (
     MatchCreate,
     MatchCreateByName,
@@ -42,6 +42,20 @@ router = APIRouter(prefix="/matches", tags=["matches"])
 
 def _coerce_utc(value: datetime | None) -> datetime | None:
     return coerce_utc(value)
+
+
+async def _get_stage_type(session: AsyncSession, stage_id: str | None) -> str | None:
+    if not stage_id:
+        return None
+    return (
+        await session.execute(select(Stage.type).where(Stage.id == stage_id))
+    ).scalar_one_or_none()
+
+
+def _derive_rating_sport_id(sport_id: str, stage_type: str | None) -> str:
+    if sport_id == "padel" and stage_type == "americano":
+        return "padel:americano"
+    return sport_id
 
 # GET /api/v0/matches
 @router.get("", response_model=list[MatchSummaryOut])
@@ -268,6 +282,8 @@ async def create_match(
 
     players_a = side_players.get("A", [])
     players_b = side_players.get("B", [])
+    stage_type = await _get_stage_type(session, match.stage_id)
+    rating_sport_id = _derive_rating_sport_id(match.sport_id, stage_type)
     if not match.is_friendly and summary and players_a and players_b:
         sets_record = summary.get("sets") if isinstance(summary, dict) else None
         try:
@@ -282,7 +298,7 @@ async def create_match(
                 try:
                     await update_ratings(
                         session,
-                        match.sport_id,
+                        rating_sport_id,
                         players_a,
                         players_b,
                         draws=draws,
@@ -297,7 +313,7 @@ async def create_match(
                 losers = players_b if winner_side == "A" else players_a
                 try:
                     await update_ratings(
-                        session, match.sport_id, winners, losers, match_id=mid
+                        session, rating_sport_id, winners, losers, match_id=mid
                     )
                 except Exception:
                     pass
@@ -486,7 +502,19 @@ async def delete_match(
             )
         ).scalars().all()
 
+        stage_ids = [m.stage_id for m in matches if m.stage_id]
+        stage_map: dict[str, str | None] = {}
+        if stage_ids:
+            stage_rows = (
+                await session.execute(
+                    select(Stage.id, Stage.type).where(Stage.id.in_(stage_ids))
+                )
+            ).all()
+            stage_map = {row[0]: row[1] for row in stage_rows}
+
         for match in matches:
+            stage_type = stage_map.get(match.stage_id)
+            rating_sport_id = _derive_rating_sport_id(match.sport_id, stage_type)
             parts = (
                 await session.execute(
                     select(MatchParticipant).where(
@@ -503,7 +531,7 @@ async def delete_match(
             if sets.get("A") == sets.get("B"):
                 await update_ratings(
                     session,
-                    match.sport_id,
+                    rating_sport_id,
                     players_a,
                     players_b,
                     draws=players_a + players_b,
@@ -514,7 +542,7 @@ async def delete_match(
                 winners = players_a if winner_side == "A" else players_b
                 losers = players_b if winner_side == "A" else players_a
                 await update_ratings(
-                    session, match.sport_id, winners, losers, match_id=match.id
+                    session, rating_sport_id, winners, losers, match_id=match.id
                 )
         await session.commit()
     except Exception:
@@ -607,6 +635,8 @@ async def append_event(
     winners: list[str] = []
     losers: list[str] = []
     draws: list[str] = []
+    stage_type = await _get_stage_type(session, m.stage_id)
+    rating_sport_id = _derive_rating_sport_id(m.sport_id, stage_type)
 
     def _to_int(value: object) -> int:
         try:
@@ -655,7 +685,7 @@ async def append_event(
         try:
             await update_ratings(
                 session,
-                m.sport_id,
+                rating_sport_id,
                 winners,
                 losers,
                 draws=draws or None,
@@ -760,6 +790,8 @@ async def record_sets_endpoint(
     m.details = engine.summary(state)
     players_a = [pid for p in parts if p.side == "A" for pid in p.player_ids]
     players_b = [pid for p in parts if p.side == "B" for pid in p.player_ids]
+    stage_type = await _get_stage_type(session, m.stage_id)
+    rating_sport_id = _derive_rating_sport_id(m.sport_id, stage_type)
     sets = m.details.get("sets") if m.details else None
     if sets and players_a and players_b:
         if sets.get("A") == sets.get("B"):
@@ -767,7 +799,7 @@ async def record_sets_endpoint(
             try:
                 await update_ratings(
                     session,
-                    m.sport_id,
+                    rating_sport_id,
                     players_a,
                     players_b,
                     draws=draws,
@@ -784,7 +816,7 @@ async def record_sets_endpoint(
             losers = players_b if winner_side == "A" else players_a
             try:
                 await update_ratings(
-                    session, m.sport_id, winners, losers, match_id=mid
+                    session, rating_sport_id, winners, losers, match_id=mid
                 )
             except Exception:
                 pass

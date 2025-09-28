@@ -2,8 +2,9 @@ from collections import defaultdict
 from typing import Optional, Annotated
 
 from fastapi import APIRouter, Query, Depends
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from ..db import get_session
 from ..models import (
@@ -13,9 +14,11 @@ from ..models import (
     MatchParticipant,
     ScoreEvent,
     MasterRating,
+    Stage,
 )
 from ..services.master_rating import update_master_ratings
 from ..schemas import LeaderboardEntryOut, LeaderboardOut
+from ..exceptions import http_problem
 
 # Resource-only prefix; no /api or /api/v0 here
 router = APIRouter(prefix="/leaderboards", tags=["leaderboards"])
@@ -33,10 +36,38 @@ async def leaderboard(
     club_id: Annotated[
         Optional[str], Query(alias="clubId", description="Optional club filter for players")
     ] = None,
+    variant: Annotated[
+        Optional[str],
+        Query(
+            description="Optional leaderboard variant for padel (e.g. 'americano')",
+        ),
+    ] = None,
     session: AsyncSession = Depends(get_session),
 ):
+    normalized_variant = variant.lower() if isinstance(variant, str) else None
+    if normalized_variant in ("standard", "default"):
+        normalized_variant = None
+    valid_variants = {None, "americano"}
+    if normalized_variant not in valid_variants:
+        raise http_problem(
+            status_code=400,
+            detail="unsupported leaderboard variant",
+            code="leaderboard_invalid_variant",
+        )
+    if normalized_variant == "americano" and sport != "padel":
+        raise http_problem(
+            status_code=400,
+            detail="americano variant only available for padel",
+            code="leaderboard_variant_unsupported",
+        )
+
+    rating_sport_id = sport
+    americano_variant = normalized_variant == "americano"
+    if americano_variant:
+        rating_sport_id = "padel:americano"
+
     stmt = select(Rating, Player).join(Player, Player.id == Rating.player_id)
-    conditions = [Rating.sport_id == sport, Player.deleted_at.is_(None)]
+    conditions = [Rating.sport_id == rating_sport_id, Player.deleted_at.is_(None)]
     if country:
         conditions.append(Player.location == country)
     if club_id:
@@ -59,11 +90,22 @@ async def leaderboard(
     set_stats = {pid: {"won": 0, "lost": 0} for pid in player_ids}
 
     if player_ids:
+        stage_alias = aliased(Stage)
+        match_filters = [Match.sport_id == sport, Match.deleted_at.is_(None)]
+        if sport == "padel":
+            if americano_variant:
+                match_filters.append(stage_alias.type == "americano")
+            else:
+                match_filters.append(
+                    or_(stage_alias.type.is_(None), stage_alias.type != "americano")
+                )
+
         mp_rows = (
             await session.execute(
                 select(MatchParticipant, Match)
                 .join(Match, Match.id == MatchParticipant.match_id)
-                .where(Match.sport_id == sport, Match.deleted_at.is_(None))
+                .outerjoin(stage_alias, stage_alias.id == Match.stage_id)
+                .where(*match_filters)
             )
         ).all()
         for mp, m in mp_rows:
@@ -79,15 +121,26 @@ async def leaderboard(
                     set_stats[pid]["lost"] += lost
 
     # Build rating history for the sport using RATING score events
+    stage_alias_events = aliased(Stage)
+    rating_filters = [
+        Match.sport_id == sport,
+        Match.deleted_at.is_(None),
+        ScoreEvent.type == "RATING",
+    ]
+    if sport == "padel":
+        if americano_variant:
+            rating_filters.append(stage_alias_events.type == "americano")
+        else:
+            rating_filters.append(
+                or_(stage_alias_events.type.is_(None), stage_alias_events.type != "americano")
+            )
+
     rating_events = (
         await session.execute(
             select(ScoreEvent)
             .join(Match, Match.id == ScoreEvent.match_id)
-            .where(
-                Match.sport_id == sport,
-                Match.deleted_at.is_(None),
-                ScoreEvent.type == "RATING",
-            )
+            .outerjoin(stage_alias_events, stage_alias_events.id == Match.stage_id)
+            .where(*rating_filters)
             .order_by(ScoreEvent.created_at)
         )
     ).scalars().all()
@@ -137,7 +190,11 @@ async def leaderboard(
         )
 
     return LeaderboardOut(
-        sport=sport, leaders=leaders, total=total, limit=limit, offset=offset
+        sport=sport,
+        leaders=leaders,
+        total=total,
+        limit=limit,
+        offset=offset,
     )
 
 

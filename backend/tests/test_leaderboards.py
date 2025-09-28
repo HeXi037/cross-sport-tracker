@@ -23,6 +23,8 @@ from app.models import (
     MatchParticipant,
     ScoreEvent,
     MasterRating,
+    Stage,
+    Tournament,
 )  # noqa: E402
 from app.routers import leaderboards  # noqa: E402
 
@@ -51,6 +53,8 @@ def setup_db():
                     Match.__table__,
                     ScoreEvent.__table__,
                     MasterRating.__table__,
+                    Tournament.__table__,
+                    Stage.__table__,
                 ],
             )
             await conn.exec_driver_sql("DROP TABLE IF EXISTS match_participant")
@@ -198,6 +202,112 @@ def test_leaderboard_filter_by_club():
         leaders = data["leaders"]
         assert [entry["playerId"] for entry in leaders] == ["p1", "p3"]
         assert [entry["rank"] for entry in leaders] == [1, 2]
+
+
+def test_leaderboard_rejects_unknown_variant():
+    with TestClient(app) as client:
+        resp = client.get(
+            "/leaderboards", params={"sport": "padel", "variant": "mystery"}
+        )
+        assert resp.status_code == 400
+        payload = resp.json()
+        assert payload["detail"] == "unsupported leaderboard variant"
+
+
+def test_padel_americano_leaderboard():
+    async def add_americano_data():
+        async with db.AsyncSessionLocal() as session:
+            tournament = Tournament(id="t-amer", sport_id="padel", name="Americano Cup")
+            stage = Stage(id="stage-amer", tournament_id="t-amer", type="americano", config=None)
+            match = Match(
+                id="m-amer",
+                sport_id="padel",
+                stage_id="stage-amer",
+                details={"sets": {"A": 1, "B": 0}},
+            )
+            session.add_all([tournament, stage, match])
+            session.add_all(
+                [
+                    MatchParticipant(
+                        id="mp-amer-a", match_id="m-amer", side="A", player_ids=["p1", "p2"]
+                    ),
+                    MatchParticipant(
+                        id="mp-amer-b", match_id="m-amer", side="B", player_ids=["p3", "p4"]
+                    ),
+                ]
+            )
+            base = datetime(2024, 2, 1, tzinfo=timezone.utc)
+            session.add_all(
+                [
+                    ScoreEvent(
+                        id="amer-e1",
+                        match_id="m-amer",
+                        created_at=base,
+                        type="RATING",
+                        payload={"playerId": "p1", "rating": 1012},
+                    ),
+                    ScoreEvent(
+                        id="amer-e2",
+                        match_id="m-amer",
+                        created_at=base + timedelta(minutes=1),
+                        type="RATING",
+                        payload={"playerId": "p2", "rating": 998},
+                    ),
+                    ScoreEvent(
+                        id="amer-e3",
+                        match_id="m-amer",
+                        created_at=base + timedelta(minutes=2),
+                        type="RATING",
+                        payload={"playerId": "p3", "rating": 990},
+                    ),
+                    ScoreEvent(
+                        id="amer-e4",
+                        match_id="m-amer",
+                        created_at=base + timedelta(minutes=3),
+                        type="RATING",
+                        payload={"playerId": "p4", "rating": 985},
+                    ),
+                ]
+            )
+            session.add_all(
+                [
+                    Rating(
+                        id="ra1", player_id="p1", sport_id="padel:americano", value=1012
+                    ),
+                    Rating(
+                        id="ra2", player_id="p2", sport_id="padel:americano", value=998
+                    ),
+                    Rating(
+                        id="ra3", player_id="p3", sport_id="padel:americano", value=990
+                    ),
+                    Rating(
+                        id="ra4", player_id="p4", sport_id="padel:americano", value=985
+                    ),
+                ]
+            )
+            await session.commit()
+
+    asyncio.run(add_americano_data())
+
+    with TestClient(app) as client:
+        resp = client.get(
+            "/leaderboards", params={"sport": "padel", "variant": "americano"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 4
+        leaders = data["leaders"]
+        assert [entry["playerId"] for entry in leaders][:2] == ["p1", "p2"]
+        first = leaders[0]
+        assert first["setsWon"] == 1
+        assert first["setsLost"] == 0
+        standard = client.get("/leaderboards", params={"sport": "padel"})
+        assert standard.status_code == 200
+        standard_data = standard.json()
+        assert standard_data["total"] == 4
+        # Ensure americano matches do not affect standard set tallies
+        p1_standard = next(entry for entry in standard_data["leaders"] if entry["playerId"] == "p1")
+        assert p1_standard["setsWon"] == 2
 
 
 def test_master_leaderboard_excludes_deleted_players():

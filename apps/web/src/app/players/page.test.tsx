@@ -623,7 +623,7 @@ describe("PlayersPage", () => {
       renderWithProviders(<PlayersPage />);
     });
 
-    const button = await screen.findByRole("button", { name: /delete/i });
+    const button = await screen.findByRole("button", { name: /^delete$/i });
     await act(async () => {
       fireEvent.click(button);
     });
@@ -633,6 +633,49 @@ describe("PlayersPage", () => {
         ([url, init]) =>
           typeof url === "string" &&
           url.includes("/v0/players/1") &&
+          (init as RequestInit | undefined)?.method === "DELETE"
+      )
+    ).toBe(true);
+    window.localStorage.removeItem("token");
+  });
+
+  it("allows admin to hard delete a player", async () => {
+    window.localStorage.setItem("token", "x.eyJpc19hZG1pbiI6dHJ1ZX0.y");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ players: [{ id: "1", name: "Alice" }] }),
+      })
+      .mockResolvedValueOnce(
+        mockStatsResponse({
+          playerId: "1",
+          wins: 6,
+          losses: 2,
+          winPct: 0.75,
+        })
+      )
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ players: [] }),
+      });
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      renderWithProviders(<PlayersPage />);
+    });
+
+    const button = await screen.findByRole("button", { name: /hard delete/i });
+    await act(async () => {
+      fireEvent.click(button);
+    });
+
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) =>
+          typeof url === "string" &&
+          url.includes("/v0/players/1?hard=true") &&
           (init as RequestInit | undefined)?.method === "DELETE"
       )
     ).toBe(true);

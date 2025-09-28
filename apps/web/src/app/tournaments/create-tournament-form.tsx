@@ -39,6 +39,7 @@ interface CreateTournamentFormProps {
 }
 
 const MIN_AMERICANO_PLAYERS = 4;
+const COURT_OPTIONS = [1, 2, 3, 4, 5, 6];
 
 export default function CreateTournamentForm({
   onCreated,
@@ -51,6 +52,7 @@ export default function CreateTournamentForm({
   const [rulesetId, setRulesetId] = useState("");
   const [name, setName] = useState("");
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
+  const [courtCount, setCourtCount] = useState(1);
   const [loadingSports, setLoadingSports] = useState(false);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
   const [loadingRulesets, setLoadingRulesets] = useState(false);
@@ -165,13 +167,8 @@ export default function CreateTournamentForm({
       return;
     }
 
-    if (
-      selectedPlayers.length < MIN_AMERICANO_PLAYERS ||
-      selectedPlayers.length % 4 !== 0
-    ) {
-      setError(
-        "Americano tournaments require groups of four players (at least four total)."
-      );
+    if (selectedPlayers.length < MIN_AMERICANO_PLAYERS) {
+      setError("Americano tournaments require at least four players.");
       return;
     }
 
@@ -189,6 +186,7 @@ export default function CreateTournamentForm({
       const schedule = await scheduleAmericanoStage(tournament.id, stage.id, {
         playerIds: selectedPlayers,
         rulesetId: rulesetId || undefined,
+        courtCount,
       });
       setScheduledMatches(schedule.matches);
       setSuccess(
@@ -199,6 +197,7 @@ export default function CreateTournamentForm({
       onCreated?.(tournament);
       setName("");
       setSelectedPlayers([]);
+      setCourtCount(1);
     } catch (err) {
       console.error("Failed to create tournament", err);
       setError("Unable to create tournament. Please try again.");
@@ -214,7 +213,7 @@ export default function CreateTournamentForm({
   const selectedCount = selectedPlayers.length;
   const playerValidationMessage = selectedCount
     ? `${selectedCount} player${selectedCount === 1 ? "" : "s"} selected`
-    : "Select players in groups of four to include in the Americano schedule.";
+    : "Select at least four players to include in the Americano schedule.";
 
   return (
     <section className="card" style={{ padding: 16 }}>
@@ -281,6 +280,31 @@ export default function CreateTournamentForm({
               ))}
             </select>
             {loadingRulesets && <p className="form-hint">Loading rulesets…</p>}
+          </div>
+          <div className="form-field">
+            <label className="form-label" htmlFor="tournament-courts">
+              Courts in play
+            </label>
+            <select
+              id="tournament-courts"
+              value={courtCount}
+              onChange={(event) => {
+                const value = Number(event.target.value);
+                setCourtCount(Number.isNaN(value) ? 1 : value);
+                setError(null);
+                setSuccess(null);
+                setScheduledMatches([]);
+              }}
+            >
+              {COURT_OPTIONS.map((count) => (
+                <option key={count} value={count}>
+                  {`${count} court${count === 1 ? "" : "s"}`}
+                </option>
+              ))}
+            </select>
+            <p className="form-hint">
+              Choose how many matches should run at the same time (1–6 courts).
+            </p>
           </div>
           <fieldset className="form-fieldset">
             <legend className="form-legend">Players</legend>

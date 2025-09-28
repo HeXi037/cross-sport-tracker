@@ -683,6 +683,7 @@ class StageScheduleRequest(BaseModel):
 
     playerIds: List[str]
     rulesetId: Optional[str] = None
+    courtCount: Optional[int] = Field(default=1, ge=1, le=6)
 
 
 class StageScheduleMatchOut(MatchSummaryOut):

@@ -180,6 +180,7 @@ async def schedule_stage(
             body.playerIds,
             session,
             ruleset_id=body.rulesetId,
+            court_count=body.courtCount or 1,
         )
     except ValueError as exc:
         raise http_problem(

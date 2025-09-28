@@ -629,6 +629,7 @@ export type StageScheduleMatch = {
 export type StageSchedulePayload = {
   playerIds: string[];
   rulesetId?: string | null;
+  courtCount?: number | null;
 };
 
 export type StageScheduleResponse = {

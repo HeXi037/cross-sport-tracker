@@ -164,6 +164,7 @@ describe('Tournaments client view', () => {
     expect(mockedScheduleAmericanoStage).toHaveBeenCalledWith('t-new', 's1', {
       playerIds: ['p1', 'p2', 'p3', 'p4'],
       rulesetId: 'padel-default',
+      courtCount: 1,
     });
 
     expect(
@@ -176,7 +177,7 @@ describe('Tournaments client view', () => {
     expect(screen.getByText('Billie')).toBeInTheDocument();
   });
 
-  it('requires players to be selected in groups of four', async () => {
+  it('requires at least four players before scheduling', async () => {
     const playerList = [
       { id: 'p1', name: 'Alex' },
       { id: 'p2', name: 'Billie' },
@@ -233,14 +234,76 @@ describe('Tournaments client view', () => {
     fireEvent.click(submitButton);
 
     expect(
-      await screen.findByText(
-        /Americano tournaments require groups of four players/i
-      )
+      await screen.findByText(/Americano tournaments require at least four/i)
     ).toBeInTheDocument();
 
     expect(mockedCreateTournament).not.toHaveBeenCalled();
     expect(mockedCreateStage).not.toHaveBeenCalled();
     expect(mockedScheduleAmericanoStage).not.toHaveBeenCalled();
+  });
+
+  it('lets admins choose how many courts to schedule', async () => {
+    const playerList = [
+      { id: 'p1', name: 'Alex' },
+      { id: 'p2', name: 'Billie' },
+      { id: 'p3', name: 'Casey' },
+      { id: 'p4', name: 'Devon' },
+    ];
+
+    const apiResponses: Response[] = [
+      jsonResponse([
+        { id: 'padel', name: 'Padel' },
+      ]),
+      jsonResponse({ players: playerList }),
+      jsonResponse([
+        { id: 'padel-default', name: 'Padel Default' },
+      ]),
+    ];
+
+    mockedApiFetch.mockImplementation(async (path: RequestInfo | URL) => {
+      if (apiResponses.length > 0) {
+        return apiResponses.shift()!;
+      }
+      return jsonResponse([]);
+    });
+
+    mockedCreateTournament.mockResolvedValue({
+      id: 't1',
+      sport: 'padel',
+      name: 'Odd Courts',
+    });
+    mockedCreateStage.mockResolvedValue({
+      id: 'stage-1',
+      tournamentId: 't1',
+      type: 'americano',
+      config: { format: 'americano' },
+    });
+    mockedScheduleAmericanoStage.mockResolvedValue({
+      stageId: 'stage-1',
+      matches: [],
+    });
+
+    render(<TournamentsClient initialTournaments={[]} loadError={false} />);
+
+    const courtSelect = await screen.findByLabelText('Courts in play');
+    fireEvent.change(courtSelect, { target: { value: '3' } });
+
+    const checkboxes = await screen.findAllByRole('checkbox');
+    checkboxes.forEach((box) => fireEvent.click(box));
+
+    const nameInput = screen.getByLabelText('Tournament name');
+    fireEvent.change(nameInput, { target: { value: 'Odd Courts' } });
+
+    const submitButton = screen.getByRole('button', { name: /create and schedule/i });
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(mockedScheduleAmericanoStage).toHaveBeenCalledWith('t1', 'stage-1', {
+        playerIds: ['p1', 'p2', 'p3', 'p4'],
+        rulesetId: 'padel-default',
+        courtCount: 3,
+      });
+    });
   });
 });
 

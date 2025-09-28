@@ -6,6 +6,23 @@ export interface SportCopy {
   confirmationMessage?: string;
 }
 
+const padelDefaultCopy: SportCopy = {
+  matchDetailsHint:
+    'Note the match date, time and venue so partners can find the fixture later.',
+  timeHint: 'Enter the local start time so partners can follow the fixture',
+  playersHint:
+    'Pick the players for sides A and B. Leave a spot blank if a walkover occurred.',
+  scoringHint:
+    'Use the final set tally for each team (for example 6-3, 4-6, 6-4 → enter 2 and 1).',
+  confirmationMessage: 'Save this padel match result?',
+};
+
+const padelEnAuCopy: SportCopy = {
+  matchDetailsHint:
+    'Log the match details so clubmates back in Australia know when you played.',
+  confirmationMessage: 'Lock in this padel result?',
+};
+
 const SPORT_COPY: Record<string, Record<string, SportCopy>> = {
   bowling: {
     default: {
@@ -25,21 +42,12 @@ const SPORT_COPY: Record<string, Record<string, SportCopy>> = {
     },
   },
   padel: {
-    default: {
-      matchDetailsHint:
-        'Note the match date, time and venue so partners can find the fixture later.',
-      timeHint: 'Enter the local start time so partners can follow the fixture',
-      playersHint:
-        'Pick the players for sides A and B. Leave a spot blank if a walkover occurred.',
-      scoringHint:
-        'Use the final set tally for each team (for example 6-3, 4-6, 6-4 → enter 2 and 1).',
-      confirmationMessage: 'Save this padel match result?',
-    },
-    'en-au': {
-      matchDetailsHint:
-        'Log the match details so clubmates back in Australia know when you played.',
-      confirmationMessage: 'Lock in this padel result?',
-    },
+    default: padelDefaultCopy,
+    'en-au': padelEnAuCopy,
+  },
+  padel_americano: {
+    default: padelDefaultCopy,
+    'en-au': padelEnAuCopy,
   },
   pickleball: {
     default: {

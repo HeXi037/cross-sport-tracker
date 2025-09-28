@@ -164,7 +164,11 @@ export default function AdminMatchesPage() {
   return (
     <main className="container">
       <h1 className="heading">Admin Matches</h1>
-      {error && <p className="error">{error}</p>}
+      {error && (
+        <p className="error" role="alert" aria-live="assertive">
+          {error}
+        </p>
+      )}
       <ul className="match-list">
         {matches.map((m) => (
           <li key={m.id} className="card match-item">

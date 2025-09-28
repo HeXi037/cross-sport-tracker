@@ -23,6 +23,7 @@ from app.models import (
     MatchParticipant,
     ScoreEvent,
     MasterRating,
+    Stage,
 )  # noqa: E402
 from app.routers import leaderboards  # noqa: E402
 
@@ -48,6 +49,7 @@ def setup_db():
                     Club.__table__,
                     Player.__table__,
                     Rating.__table__,
+                    Stage.__table__,
                     Match.__table__,
                     ScoreEvent.__table__,
                     MasterRating.__table__,

@@ -305,3 +305,121 @@ async def test_stage_schedule_and_standings_flow(monkeypatch):
         assert stats["p3"]["pointsDiff"] == -5
         assert stats["p1"]["points"] == 3
         assert stats["p3"]["points"] == 0
+
+
+@pytest.mark.anyio
+async def test_list_stage_matches_filters_and_includes_stage_id():
+    from app import db
+    from app.models import (
+        Sport,
+        Tournament,
+        Stage,
+        Match,
+        MatchParticipant,
+        ScoreEvent,
+    )
+    from app.routers import tournaments, matches
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            db.Base.metadata.create_all,
+            tables=[
+                Sport.__table__,
+                Tournament.__table__,
+                Stage.__table__,
+                Match.__table__,
+                MatchParticipant.__table__,
+                ScoreEvent.__table__,
+            ],
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        session.add(Sport(id="padel", name="Padel"))
+        tournament = Tournament(id="t1", sport_id="padel", name="Championship")
+        stage_a = Stage(id="s1", tournament_id="t1", type="americano", config=None)
+        stage_b = Stage(id="s2", tournament_id="t1", type="americano", config=None)
+        session.add_all([tournament, stage_a, stage_b])
+
+        match_stage_a = Match(
+            id="m-stage",
+            sport_id="padel",
+            stage_id="s1",
+            best_of=3,
+            is_friendly=False,
+        )
+        match_stage_b = Match(
+            id="m-other",
+            sport_id="padel",
+            stage_id="s2",
+            best_of=3,
+            is_friendly=False,
+        )
+        match_no_stage = Match(
+            id="m-loose",
+            sport_id="padel",
+            stage_id=None,
+            best_of=5,
+            is_friendly=True,
+        )
+        session.add_all([match_stage_a, match_stage_b, match_no_stage])
+
+        session.add_all(
+            [
+                MatchParticipant(
+                    id="mp1",
+                    match_id="m-stage",
+                    side="A",
+                    player_ids=["p1", "p2"],
+                ),
+                MatchParticipant(
+                    id="mp2",
+                    match_id="m-stage",
+                    side="B",
+                    player_ids=["p3", "p4"],
+                ),
+                MatchParticipant(
+                    id="mp3",
+                    match_id="m-other",
+                    side="A",
+                    player_ids=["p5"],
+                ),
+                MatchParticipant(
+                    id="mp4",
+                    match_id="m-other",
+                    side="B",
+                    player_ids=["p6"],
+                ),
+            ]
+        )
+
+        await session.commit()
+
+    app = FastAPI()
+    app.include_router(tournaments.router)
+    app.include_router(matches.router)
+
+    with TestClient(app) as client:
+        stage_resp = client.get("/tournaments/t1/stages/s1/matches")
+        assert stage_resp.status_code == 200
+        stage_matches = stage_resp.json()
+        assert len(stage_matches) == 1
+        assert stage_matches[0]["id"] == "m-stage"
+        assert stage_matches[0]["stageId"] == "s1"
+        assert stage_matches[0]["participants"]
+
+        filtered_resp = client.get("/matches", params={"stageId": "s1"})
+        assert filtered_resp.status_code == 200
+        filtered = filtered_resp.json()
+        assert len(filtered) == 1
+        assert filtered[0]["id"] == "m-stage"
+        assert filtered[0]["stageId"] == "s1"
+        assert filtered[0]["isFriendly"] is False
+
+        detail_resp = client.get("/matches/m-stage")
+        assert detail_resp.status_code == 200
+        detail = detail_resp.json()
+        assert detail["stageId"] == "s1"
+        assert detail["participants"]

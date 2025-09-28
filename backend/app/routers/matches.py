@@ -48,6 +48,7 @@ def _coerce_utc(value: datetime | None) -> datetime | None:
 async def list_matches(
     response: Response,
     playerId: str | None = None,
+    stageId: str | None = None,
     upcoming: bool = False,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -59,6 +60,9 @@ async def list_matches(
         base_stmt = base_stmt.where(
             (Match.played_at.is_(None)) | (Match.played_at > func.now())
         )
+
+    if stageId:
+        base_stmt = base_stmt.where(Match.stage_id == stageId)
 
     if playerId:
         participant_matches = select(MatchParticipant.match_id).where(
@@ -85,6 +89,7 @@ async def list_matches(
         MatchSummaryOut(
             id=m.id,
             sport=m.sport_id,
+            stageId=m.stage_id,
             bestOf=m.best_of,
             playedAt=_coerce_utc(m.played_at),
             location=m.location,
@@ -396,6 +401,7 @@ async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
     return MatchOut(
         id=m.id,
         sport=m.sport_id,
+        stageId=m.stage_id,
         rulesetId=m.ruleset_id,
         bestOf=m.best_of,
         playedAt=_coerce_utc(m.played_at),

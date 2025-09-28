@@ -11,7 +11,15 @@ afterEach(() => {
 describe('enrichMatches', () => {
   it('falls back to Unknown when player name missing', async () => {
     const rows: MatchRow[] = [
-      { id: 'm1', sport: 'padel', bestOf: 3, playedAt: null, location: null },
+      {
+        id: 'm1',
+        sport: 'padel',
+        stageId: null,
+        bestOf: 3,
+        playedAt: null,
+        location: null,
+        isFriendly: false,
+      },
     ];
     const detail = {
       participants: [

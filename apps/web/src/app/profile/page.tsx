@@ -204,11 +204,11 @@ export default function ProfilePage() {
         const me: UserMe = await fetchMe();
         if (!active) return;
         setUsername(me.username);
-        setPhotoUrl(
+        const normalizedPhoto =
           typeof me.photo_url === "string" && me.photo_url
             ? ensureAbsoluteApiUrl(me.photo_url)
-            : null
-        );
+            : null;
+        setPhotoUrl(normalizedPhoto);
         try {
           const player = await fetchMyPlayer();
           if (!active) return;
@@ -254,7 +254,8 @@ export default function ProfilePage() {
   }, []);
 
   const handlePhotoChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const input = e.currentTarget;
+    const file = input.files?.[0];
     if (!file) return;
     clearFeedback();
     setUploading(true);
@@ -265,18 +266,23 @@ export default function ProfilePage() {
         method: "POST",
         body: form,
       });
-      const data = (await res.json()) as { photo_url?: string };
-      setPhotoUrl(
+      const data = (await res.json()) as UserMe;
+      const normalizedPhoto =
         typeof data.photo_url === "string" && data.photo_url
           ? ensureAbsoluteApiUrl(data.photo_url)
-          : null
-      );
+          : null;
+      const cacheBustedPhoto = normalizedPhoto
+        ? `${normalizedPhoto}${normalizedPhoto.includes("?") ? "&" : "?"}t=${Date.now()}`
+        : null;
+      setPhotoUrl(cacheBustedPhoto);
       setMessage("Profile photo updated");
     } catch {
       setError("Photo upload failed");
     } finally {
       setUploading(false);
-      e.target.value = "";
+      if (input) {
+        input.value = "";
+      }
     }
   };
 

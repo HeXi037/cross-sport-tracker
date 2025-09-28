@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import uuid
-from itertools import combinations
 from typing import Iterable, Sequence
 
 from sqlalchemy import delete, select
@@ -71,13 +70,15 @@ async def schedule_americano(
 
     Players are grouped into sets of four and scheduled so the first two face
     the second two. The function raises ``ValueError`` if the stage already has
-    matches, if any player ids are unknown, or if the player list is not an
-    even number of at least four competitors.
+    matches, if any player ids are unknown, or if the player list is not a
+    multiple of four competitors.
     """
 
     unique_players = _unique_player_ids(player_ids)
-    if len(unique_players) < 4 or len(unique_players) % 2 != 0:
-        raise ValueError("Americano scheduling requires an even number of >=4 players")
+    if len(unique_players) < 4 or len(unique_players) % 4 != 0:
+        raise ValueError(
+            "Americano scheduling requires groups of four players"
+        )
 
     existing_match = (
         await session.execute(
@@ -102,7 +103,8 @@ async def schedule_americano(
     resolved_ruleset = await _resolve_ruleset(session, sport_id, ruleset_id)
 
     created: list[tuple[Match, list[MatchParticipant]]] = []
-    for group in combinations(unique_players, 4):
+    for index in range(0, len(unique_players), 4):
+        group = unique_players[index : index + 4]
         match_id = uuid.uuid4().hex
         match = Match(
             id=match_id,

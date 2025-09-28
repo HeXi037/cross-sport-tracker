@@ -167,9 +167,11 @@ export default function CreateTournamentForm({
 
     if (
       selectedPlayers.length < MIN_AMERICANO_PLAYERS ||
-      selectedPlayers.length % 2 !== 0
+      selectedPlayers.length % 4 !== 0
     ) {
-      setError("Americano tournaments require an even number of at least four players.");
+      setError(
+        "Americano tournaments require groups of four players (at least four total)."
+      );
       return;
     }
 
@@ -212,7 +214,7 @@ export default function CreateTournamentForm({
   const selectedCount = selectedPlayers.length;
   const playerValidationMessage = selectedCount
     ? `${selectedCount} player${selectedCount === 1 ? "" : "s"} selected`
-    : "Select players to include in the Americano schedule.";
+    : "Select players in groups of four to include in the Americano schedule.";
 
   return (
     <section className="card" style={{ padding: 16 }}>

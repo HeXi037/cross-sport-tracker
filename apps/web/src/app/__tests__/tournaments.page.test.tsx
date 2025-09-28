@@ -175,6 +175,73 @@ describe('Tournaments client view', () => {
     expect(screen.getByText('Alex')).toBeInTheDocument();
     expect(screen.getByText('Billie')).toBeInTheDocument();
   });
+
+  it('requires players to be selected in groups of four', async () => {
+    const playerList = [
+      { id: 'p1', name: 'Alex' },
+      { id: 'p2', name: 'Billie' },
+      { id: 'p3', name: 'Casey' },
+      { id: 'p4', name: 'Devon' },
+      { id: 'p5', name: 'Emery' },
+      { id: 'p6', name: 'Frankie' },
+    ];
+
+    const apiResponses: Response[] = [
+      jsonResponse([
+        { id: 'padel', name: 'Padel' },
+      ]),
+      jsonResponse({ players: playerList }),
+      jsonResponse([
+        { id: 'padel', name: 'Padel' },
+      ]),
+      jsonResponse({ players: playerList }),
+      jsonResponse([
+        { id: 'padel-default', name: 'Padel Default' },
+      ]),
+    ];
+
+    mockedApiFetch.mockImplementation(async (path: RequestInfo | URL) => {
+      if (apiResponses.length > 0) {
+        return apiResponses.shift()!;
+      }
+      const url = typeof path === 'string' ? path : path.toString();
+      if (url.includes('/players')) {
+        return jsonResponse({ players: [] });
+      }
+      if (url.includes('/rulesets')) {
+        return jsonResponse([]);
+      }
+      if (url.includes('/sports')) {
+        return jsonResponse([]);
+      }
+      return jsonResponse([]);
+    });
+
+    render(<TournamentsClient initialTournaments={[]} loadError={false} />);
+
+    const nameInput = await screen.findByLabelText('Tournament name');
+    fireEvent.change(nameInput, { target: { value: 'Invalid Americano' } });
+
+    await waitFor(() => {
+      expect(mockedApiFetch.mock.calls.length).toBeGreaterThanOrEqual(3);
+    });
+
+    const playerCheckboxes = screen.getAllByRole('checkbox');
+    playerCheckboxes.slice(0, 6).forEach((box) => fireEvent.click(box));
+
+    const submitButton = screen.getByRole('button', { name: /create and schedule/i });
+    fireEvent.click(submitButton);
+
+    expect(
+      await screen.findByText(
+        /Americano tournaments require groups of four players/i
+      )
+    ).toBeInTheDocument();
+
+    expect(mockedCreateTournament).not.toHaveBeenCalled();
+    expect(mockedCreateStage).not.toHaveBeenCalled();
+    expect(mockedScheduleAmericanoStage).not.toHaveBeenCalled();
+  });
 });
 
 describe('Tournament detail page', () => {

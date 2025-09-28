@@ -23,6 +23,24 @@ const padelEnAuCopy: SportCopy = {
   confirmationMessage: 'Lock in this padel result?',
 };
 
+const padelAmericanoDefaultCopy: SportCopy = {
+  matchDetailsHint:
+    'Capture the Americano rotation so everyone can follow when each tie was played.',
+  timeHint:
+    'Enter the start time for this tie so the Americano session timeline stays accurate',
+  playersHint:
+    'Padel Americanos are doubles—select the two players on each side according to your rotation sheet.',
+  scoringHint:
+    'Enter the total points each pair collected (for example 24-20 in a race to 32).',
+  confirmationMessage: 'Save this padel Americano tie?',
+};
+
+const padelAmericanoEnAuCopy: SportCopy = {
+  matchDetailsHint:
+    'Log the Americano details so your Aussie crew knows when the session ran.',
+  confirmationMessage: 'Lock in this padel Americano tie?',
+};
+
 const SPORT_COPY: Record<string, Record<string, SportCopy>> = {
   bowling: {
     default: {
@@ -46,8 +64,8 @@ const SPORT_COPY: Record<string, Record<string, SportCopy>> = {
     'en-au': padelEnAuCopy,
   },
   padel_americano: {
-    default: padelDefaultCopy,
-    'en-au': padelEnAuCopy,
+    default: padelAmericanoDefaultCopy,
+    'en-au': padelAmericanoEnAuCopy,
   },
   pickleball: {
     default: {

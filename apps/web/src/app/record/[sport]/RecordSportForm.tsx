@@ -375,6 +375,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const router = useRouter();
   const sport = sportId;
   const isPadel = sport === "padel" || sport === "padel_americano";
+  const isPadelAmericano = sport === "padel_americano";
   const isPickleball = sport === "pickleball";
   const isBowling = sport === "bowling";
 
@@ -868,6 +869,33 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
 
   return (
     <main className="container">
+      {isPadelAmericano && (
+        <section className="card" aria-labelledby="padel-americano-tips-heading">
+          <h2 id="padel-americano-tips-heading" className="heading" style={{ marginBottom: "0.75rem" }}>
+            Recording a padel Americano tie
+          </h2>
+          <p style={{ marginTop: 0 }}>
+            Review the Americano rotation before saving each tie so every player pairing is captured accurately.
+          </p>
+          <ul>
+            <li>
+              <strong>Sign in first:</strong> logging in keeps all of your Americano ties together and lets you resume an unfinished session.
+            </li>
+            <li>
+              <strong>Set the pairings:</strong> Americanos are always doubles, so pick the two players on each side exactly as shown on your rotation sheet.
+            </li>
+            <li>
+              <strong>Capture the score:</strong> enter the total points earned by each pair (for example Team A 24 – Team B 20 in a race to 32). Use the target your club prefers if it differs from 32.
+            </li>
+            <li>
+              <strong>Note session details:</strong> record the date, start time and venue so everyone can find the tie later. Mark it as friendly for social hits.
+            </li>
+            <li>
+              <strong>Need fixtures?</strong> Generate a full Americano schedule from the <a href="/tournaments/">tournaments page</a> before logging results here.
+            </li>
+          </ul>
+        </section>
+      )}
       <form onSubmit={handleSubmit} className="form-stack">
         {isPickleball && (
           <label

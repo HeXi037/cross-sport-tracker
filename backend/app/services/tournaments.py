@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
+from math import gcd
 from typing import Iterable, Sequence
 
 from sqlalchemy import delete, select
@@ -58,6 +60,15 @@ def _unique_player_ids(player_ids: Iterable[str]) -> list[str]:
     return list(seen.keys())
 
 
+@dataclass
+class _AmericanoPlayerState:
+    """Track how often a player has been scheduled in the current run."""
+
+    player_id: str
+    matches_played: int
+    order: int
+
+
 async def schedule_americano(
     stage_id: str,
     sport_id: str,
@@ -65,20 +76,34 @@ async def schedule_americano(
     session: AsyncSession,
     *,
     ruleset_id: str | None = None,
+    court_count: int = 1,
 ) -> list[tuple[Match, list[MatchParticipant]]]:
     """Create Americano pairings for a stage.
 
     Players are grouped into sets of four and scheduled so the first two face
-    the second two. The function raises ``ValueError`` if the stage already has
-    matches, if any player ids are unknown, or if the player list is not a
-    multiple of four competitors.
+    the second two. ``court_count`` controls how many simultaneous matches can
+    be scheduled in a round (minimum ``1`` and maximum ``6``). Players will be
+    rotated so that everyone appears in the same number of matches, even when
+    the roster size is not divisible by four.
+
+    The function raises ``ValueError`` if the stage already has matches, if any
+    player ids are unknown, if fewer than four players are provided, or if the
+    requested number of courts falls outside the allowed range.
     """
 
     unique_players = _unique_player_ids(player_ids)
-    if len(unique_players) < 4 or len(unique_players) % 4 != 0:
-        raise ValueError(
-            "Americano scheduling requires groups of four players"
-        )
+    if len(unique_players) < 4:
+        raise ValueError("Americano scheduling requires at least four players")
+
+    if court_count < 1 or court_count > 6:
+        raise ValueError("Americano scheduling supports 1 to 6 courts")
+
+    matches_per_round = min(court_count, max(1, len(unique_players) // 4))
+    players_per_round = matches_per_round * 4
+    if players_per_round == 0:
+        raise ValueError("Americano scheduling requires at least four players")
+
+    total_rounds = len(unique_players) // gcd(len(unique_players), players_per_round)
 
     existing_match = (
         await session.execute(
@@ -102,35 +127,57 @@ async def schedule_americano(
 
     resolved_ruleset = await _resolve_ruleset(session, sport_id, ruleset_id)
 
+    player_states = [
+        _AmericanoPlayerState(player_id=pid, matches_played=0, order=index)
+        for index, pid in enumerate(unique_players)
+    ]
+
+    next_order = len(player_states)
     created: list[tuple[Match, list[MatchParticipant]]] = []
-    for index in range(0, len(unique_players), 4):
-        group = unique_players[index : index + 4]
-        match_id = uuid.uuid4().hex
-        match = Match(
-            id=match_id,
-            sport_id=sport_id,
-            stage_id=stage_id,
-            ruleset_id=resolved_ruleset,
-            best_of=None,
-            played_at=None,
-            location=None,
-            details=None,
-            is_friendly=False,
-        )
-        session.add(match)
 
-        participants: list[MatchParticipant] = []
-        for side, players in zip(("A", "B"), (group[:2], group[2:])):
-            participant = MatchParticipant(
-                id=uuid.uuid4().hex,
-                match_id=match_id,
-                side=side,
-                player_ids=list(players),
+    for _ in range(total_rounds):
+        player_states.sort(key=lambda state: (state.matches_played, state.order))
+        active_states = player_states[:players_per_round]
+        ordered_active = sorted(active_states, key=lambda state: state.order)
+
+        for index in range(0, len(ordered_active), 4):
+            group = ordered_active[index : index + 4]
+            if len(group) < 4:
+                break
+
+            match_id = uuid.uuid4().hex
+            match = Match(
+                id=match_id,
+                sport_id=sport_id,
+                stage_id=stage_id,
+                ruleset_id=resolved_ruleset,
+                best_of=None,
+                played_at=None,
+                location=None,
+                details=None,
+                is_friendly=False,
             )
-            session.add(participant)
-            participants.append(participant)
+            session.add(match)
 
-        created.append((match, participants))
+            participants: list[MatchParticipant] = []
+            for side, players in zip(("A", "B"), (group[:2], group[2:])):
+                participant = MatchParticipant(
+                    id=uuid.uuid4().hex,
+                    match_id=match_id,
+                    side=side,
+                    player_ids=[state.player_id for state in players],
+                )
+                session.add(participant)
+                participants.append(participant)
+
+            created.append((match, participants))
+
+        for state in active_states:
+            state.matches_played += 1
+
+        for state in active_states:
+            state.order = next_order
+            next_order += 1
 
     await session.flush()
     await recompute_stage_standings(stage_id, session)

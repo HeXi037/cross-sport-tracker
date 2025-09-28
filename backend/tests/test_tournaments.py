@@ -1,5 +1,6 @@
 import os
 import sys
+from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -305,6 +306,87 @@ async def test_stage_schedule_and_standings_flow(monkeypatch):
         assert stats["p3"]["pointsDiff"] == -5
         assert stats["p1"]["points"] == 3
         assert stats["p3"]["points"] == 0
+
+
+@pytest.mark.anyio
+async def test_schedule_americano_balances_odd_roster():
+    from sqlalchemy import select
+
+    from app import db
+    from app.models import (
+        Match,
+        MatchParticipant,
+        Player,
+        RuleSet,
+        Sport,
+        Stage,
+        StageStanding,
+        Tournament,
+    )
+    from app.services.tournaments import schedule_americano
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            db.Base.metadata.create_all,
+            tables=[
+                Sport.__table__,
+                Tournament.__table__,
+                Stage.__table__,
+                Player.__table__,
+                RuleSet.__table__,
+                Match.__table__,
+                MatchParticipant.__table__,
+                StageStanding.__table__,
+            ],
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        session.add(Sport(id="padel", name="Padel"))
+        session.add(Tournament(id="t1", sport_id="padel", name="Odd Americano"))
+        session.add(Stage(id="s1", tournament_id="t1", type="americano", config=None))
+        session.add(
+            RuleSet(id="padel-default", sport_id="padel", name="Padel", config={})
+        )
+        for idx in range(15):
+            session.add(Player(id=f"p{idx+1}", name=f"Player {idx+1}"))
+        await session.commit()
+
+    async with db.AsyncSessionLocal() as session:
+        players = [f"p{idx+1}" for idx in range(15)]
+        created = await schedule_americano(
+            "s1",
+            "padel",
+            players,
+            session,
+            ruleset_id="padel-default",
+            court_count=3,
+        )
+        await session.commit()
+
+        assert len(created) == 15
+
+        appearances: Counter[str] = Counter()
+        for match, participants in created:
+            assert match.stage_id == "s1"
+            assert len(participants) == 2
+            for participant in participants:
+                assert len(participant.player_ids) == 2
+                for pid in participant.player_ids:
+                    appearances[pid] += 1
+
+        assert set(appearances) == set(players)
+        assert all(count == 4 for count in appearances.values())
+
+        standings = (
+            await session.execute(
+                select(StageStanding).where(StageStanding.stage_id == "s1")
+            )
+        ).scalars().all()
+        assert len(standings) == 15
+        assert all(row.matches_played == 0 for row in standings)
 
 
 @pytest.mark.anyio

@@ -54,6 +54,13 @@ const RECORD_SPORTS: Record<string, RecordSportMeta> = {
   },
 };
 
+function titleizeSlug(slug: string): string {
+  return slug
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 export function normalizeRecordSportSlug(slug: string): string {
   return slug.replace(/-/g, "_");
 }
@@ -73,6 +80,14 @@ export function getRecordSportMetaById(id: string): RecordSportMeta | null {
 export function getRecordSportMetaBySlug(slug: string): RecordSportMeta | null {
   const id = normalizeRecordSportSlug(slug);
   return getRecordSportMetaById(id);
+}
+
+export function getImplementedRecordSportMetas(): RecordSportMeta[] {
+  return Object.values(RECORD_SPORTS).filter((meta) => meta.implemented);
+}
+
+export function getRecordSportDisplayName(meta: RecordSportMeta): string {
+  return titleizeSlug(meta.slug);
 }
 
 export function isSportIdImplementedForRecording(id: string): boolean {

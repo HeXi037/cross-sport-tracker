@@ -165,7 +165,12 @@ export default function AdminMatchesPage() {
     <main className="container">
       <h1 className="heading">Admin Matches</h1>
       {error && (
-        <p className="error" role="alert" aria-live="assertive">
+        <p
+          className="error"
+          role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
+        >
           {error}
         </p>
       )}

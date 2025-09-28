@@ -56,6 +56,17 @@ describe("resolveRecordSportRoute", () => {
     });
   });
 
+  it("redirects padel Americano requests using underscores to the canonical slug", () => {
+    const result = resolveRecordSportRoute({
+      params: { sport: "padel_americano" },
+    });
+
+    expect(result).toEqual({
+      type: "redirect",
+      destination: "/record/padel-americano/",
+    });
+  });
+
   it("returns not-found for an unknown sport", () => {
     const result = resolveRecordSportRoute({
       params: { sport: "archery" },
@@ -70,6 +81,14 @@ describe("resolveRecordSportRoute", () => {
     });
 
     expect(result).toEqual({ type: "render", sportId: "padel" });
+  });
+
+  it("renders the dynamic form for padel Americano", () => {
+    const result = resolveRecordSportRoute({
+      params: { sport: "padel-americano" },
+    });
+
+    expect(result).toEqual({ type: "render", sportId: "padel_americano" });
   });
 });
 

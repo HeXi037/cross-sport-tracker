@@ -27,6 +27,12 @@ const RECORD_SPORTS: Record<string, RecordSportMeta> = {
     form: "dynamic",
     implemented: true,
   },
+  padel_americano: {
+    id: "padel_americano",
+    slug: "padel-americano",
+    form: "dynamic",
+    implemented: true,
+  },
   pickleball: {
     id: "pickleball",
     slug: "pickleball",

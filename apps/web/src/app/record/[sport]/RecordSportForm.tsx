@@ -374,7 +374,7 @@ function validateBowlingFrameInput(
 export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const router = useRouter();
   const sport = sportId;
-  const isPadel = sport === "padel";
+  const isPadel = sport === "padel" || sport === "padel_americano";
   const isPickleball = sport === "pickleball";
   const isBowling = sport === "bowling";
 

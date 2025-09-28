@@ -1,10 +1,18 @@
 import uuid
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Tournament, Stage, StageStanding, Match, MatchParticipant
+from ..models import (
+    Tournament,
+    Stage,
+    StageStanding,
+    Match,
+    MatchParticipant,
+    ScoreEvent,
+    User,
+)
 from ..schemas import (
     TournamentCreate,
     TournamentOut,
@@ -19,7 +27,7 @@ from ..schemas import (
 )
 from ..exceptions import http_problem
 from ..services.tournaments import normalize_stage_type, schedule_americano
-from .admin import require_admin
+from .auth import get_current_user
 from ..time_utils import coerce_utc
 
 router = APIRouter()
@@ -27,20 +35,46 @@ router = APIRouter()
 
 @router.post("/tournaments", response_model=TournamentOut)
 async def create_tournament(
-    body: TournamentCreate, session: AsyncSession = Depends(get_session)
+    body: TournamentCreate,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
 ):
+    if not user.is_admin and body.sport != "padel":
+        raise http_problem(
+            status_code=403,
+            detail="forbidden",
+            code="tournament_forbidden",
+        )
     tid = uuid.uuid4().hex
-    t = Tournament(id=tid, sport_id=body.sport, name=body.name, club_id=body.clubId)
+    t = Tournament(
+        id=tid,
+        sport_id=body.sport,
+        name=body.name,
+        club_id=body.clubId,
+        created_by_user_id=user.id,
+    )
     session.add(t)
     await session.commit()
-    return TournamentOut(id=tid, sport=body.sport, name=body.name, clubId=body.clubId)
+    return TournamentOut(
+        id=tid,
+        sport=body.sport,
+        name=body.name,
+        clubId=body.clubId,
+        createdByUserId=user.id,
+    )
 
 
 @router.get("/tournaments", response_model=list[TournamentOut])
 async def list_tournaments(session: AsyncSession = Depends(get_session)):
     rows = (await session.execute(select(Tournament))).scalars().all()
     return [
-        TournamentOut(id=t.id, sport=t.sport_id, name=t.name, clubId=t.club_id)
+        TournamentOut(
+            id=t.id,
+            sport=t.sport_id,
+            name=t.name,
+            clubId=t.club_id,
+            createdByUserId=t.created_by_user_id,
+        )
         for t in rows
     ]
 
@@ -56,12 +90,21 @@ async def get_tournament(
             detail="tournament not found",
             code="tournament_not_found",
         )
-    return TournamentOut(id=t.id, sport=t.sport_id, name=t.name, clubId=t.club_id)
+    return TournamentOut(
+        id=t.id,
+        sport=t.sport_id,
+        name=t.name,
+        clubId=t.club_id,
+        createdByUserId=t.created_by_user_id,
+    )
 
 
 @router.post("/tournaments/{tournament_id}/stages", response_model=StageOut)
 async def create_stage(
-    tournament_id: str, body: StageCreate, session: AsyncSession = Depends(get_session)
+    tournament_id: str,
+    body: StageCreate,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
 ):
     t = await session.get(Tournament, tournament_id)
     if not t:
@@ -80,6 +123,14 @@ async def create_stage(
             code="stage_type_unsupported",
         )
 
+    if not user.is_admin:
+        if t.created_by_user_id != user.id or t.sport_id != "padel" or stage_type != "americano":
+            raise http_problem(
+                status_code=403,
+                detail="forbidden",
+                code="tournament_forbidden",
+            )
+
     sid = uuid.uuid4().hex
     s = Stage(
         id=sid,
@@ -95,6 +146,81 @@ async def create_stage(
         type=stage_type,
         config=body.config,
     )
+
+
+@router.delete("/tournaments/{tournament_id}", status_code=204)
+async def delete_tournament(
+    tournament_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    tournament = await session.get(Tournament, tournament_id)
+    if not tournament:
+        raise http_problem(
+            status_code=404,
+            detail="tournament not found",
+            code="tournament_not_found",
+        )
+
+    if not user.is_admin:
+        if tournament.created_by_user_id != user.id or tournament.sport_id != "padel":
+            raise http_problem(
+                status_code=403,
+                detail="forbidden",
+                code="tournament_forbidden",
+            )
+        stage_types = (
+            await session.execute(
+                select(Stage.type).where(Stage.tournament_id == tournament_id)
+            )
+        ).scalars().all()
+        if stage_types:
+            has_americano = False
+            for raw_type in stage_types:
+                try:
+                    normalized = normalize_stage_type(raw_type)
+                except ValueError:
+                    normalized = raw_type
+                if normalized == "americano":
+                    has_americano = True
+                    break
+            if not has_americano:
+                raise http_problem(
+                    status_code=403,
+                    detail="forbidden",
+                    code="tournament_forbidden",
+                )
+
+    stage_ids = (
+        await session.execute(
+            select(Stage.id).where(Stage.tournament_id == tournament_id)
+        )
+    ).scalars().all()
+
+    if stage_ids:
+        await session.execute(
+            delete(StageStanding).where(StageStanding.stage_id.in_(stage_ids))
+        )
+        match_ids = (
+            await session.execute(
+                select(Match.id).where(Match.stage_id.in_(stage_ids))
+            )
+        ).scalars().all()
+        if match_ids:
+            await session.execute(
+                delete(ScoreEvent).where(ScoreEvent.match_id.in_(match_ids))
+            )
+            await session.execute(
+                delete(MatchParticipant).where(
+                    MatchParticipant.match_id.in_(match_ids)
+                )
+            )
+            await session.execute(delete(Match).where(Match.id.in_(match_ids)))
+
+        await session.execute(delete(Stage).where(Stage.id.in_(stage_ids)))
+
+    await session.delete(tournament)
+    await session.commit()
 
 
 @router.get("/tournaments/{tournament_id}/stages", response_model=list[StageOut])
@@ -143,7 +269,7 @@ async def schedule_stage(
     stage_id: str,
     body: StageScheduleRequest,
     session: AsyncSession = Depends(get_session),
-    _admin=Depends(require_admin),
+    user: User = Depends(get_current_user),
 ):
     stage = await session.get(Stage, stage_id)
     if not stage or stage.tournament_id != tournament_id:
@@ -159,6 +285,13 @@ async def schedule_stage(
             status_code=404,
             detail="tournament not found",
             code="tournament_not_found",
+        )
+
+    if not user.is_admin and tournament.created_by_user_id != user.id:
+        raise http_problem(
+            status_code=403,
+            detail="forbidden",
+            code="tournament_forbidden",
         )
 
     try:

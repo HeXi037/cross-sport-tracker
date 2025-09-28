@@ -19,8 +19,9 @@ def anyio_backend():
 @pytest.mark.anyio
 async def test_tournament_crud(tmp_path):
     from app import db
-    from app.models import Sport, Tournament, Stage
+    from app.models import Sport, Tournament, Stage, StageStanding, User
     from app.routers import tournaments
+    from app.routers.auth import get_current_user
 
     db.engine = None
     db.AsyncSessionLocal = None
@@ -28,34 +29,59 @@ async def test_tournament_crud(tmp_path):
     async with engine.begin() as conn:
         await conn.run_sync(
             db.Base.metadata.create_all,
-            tables=[Sport.__table__, Tournament.__table__, Stage.__table__],
+            tables=[
+                Sport.__table__,
+                Tournament.__table__,
+                Stage.__table__,
+                StageStanding.__table__,
+                User.__table__,
+            ],
         )
     async with db.AsyncSessionLocal() as session:
         session.add(Sport(id="padel", name="Padel"))
+        session.add(
+            User(
+                id="admin",
+                username="admin",
+                password_hash="hashed",
+                is_admin=True,
+            )
+        )
         await session.commit()
 
     app = FastAPI()
     app.include_router(tournaments.router)
+    admin_user = SimpleNamespace(id="admin", is_admin=True)
+
+    async def _admin_dep():
+        return admin_user
+
+    app.dependency_overrides[get_current_user] = _admin_dep
 
     with TestClient(app) as client:
         resp = client.post("/tournaments", json={"sport": "padel", "name": "Winter Cup"})
         assert resp.status_code == 200
         tid = resp.json()["id"]
+        assert resp.json()["createdByUserId"] == "admin"
 
         resp = client.get("/tournaments")
         assert resp.status_code == 200
-        assert any(t["id"] == tid for t in resp.json())
+        tournaments_payload = resp.json()
+        assert any(t["id"] == tid for t in tournaments_payload)
+        assert all(t["createdByUserId"] == "admin" for t in tournaments_payload)
 
         resp = client.get(f"/tournaments/{tid}")
         assert resp.status_code == 200
         assert resp.json()["name"] == "Winter Cup"
+        assert resp.json()["createdByUserId"] == "admin"
 
 
 @pytest.mark.anyio
 async def test_stage_crud(tmp_path):
     from app import db
-    from app.models import Sport, Tournament, Stage
+    from app.models import Sport, Tournament, Stage, StageStanding, User
     from app.routers import tournaments
+    from app.routers.auth import get_current_user
 
     db.engine = None
     db.AsyncSessionLocal = None
@@ -63,14 +89,34 @@ async def test_stage_crud(tmp_path):
     async with engine.begin() as conn:
         await conn.run_sync(
             db.Base.metadata.create_all,
-            tables=[Sport.__table__, Tournament.__table__, Stage.__table__],
+            tables=[
+                Sport.__table__,
+                Tournament.__table__,
+                Stage.__table__,
+                StageStanding.__table__,
+                User.__table__,
+            ],
         )
     async with db.AsyncSessionLocal() as session:
         session.add(Sport(id="padel", name="Padel"))
+        session.add(
+            User(
+                id="admin",
+                username="admin",
+                password_hash="hashed",
+                is_admin=True,
+            )
+        )
         await session.commit()
 
     app = FastAPI()
     app.include_router(tournaments.router)
+    admin_user = SimpleNamespace(id="admin", is_admin=True)
+
+    async def _admin_dep():
+        return admin_user
+
+    app.dependency_overrides[get_current_user] = _admin_dep
 
     with TestClient(app) as client:
         tid = client.post("/tournaments", json={"sport": "padel", "name": "Winter Cup"}).json()["id"]
@@ -89,6 +135,561 @@ async def test_stage_crud(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_normal_user_can_create_americano_stage():
+    from app import db
+    from app.models import Sport, Tournament, Stage, StageStanding, User
+    from app.routers import tournaments
+    from app.routers.auth import get_current_user
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            db.Base.metadata.create_all,
+            tables=[
+                Sport.__table__,
+                Tournament.__table__,
+                Stage.__table__,
+                StageStanding.__table__,
+                User.__table__,
+            ],
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        session.add(Sport(id="padel", name="Padel"))
+        session.add(
+            User(
+                id="player1",
+                username="player1",
+                password_hash="hashed",
+                is_admin=False,
+            )
+        )
+        await session.commit()
+
+    app = FastAPI()
+    app.include_router(tournaments.router)
+
+    owner = SimpleNamespace(id="player1", is_admin=False)
+
+    async def _owner_dep():
+        return owner
+
+    app.dependency_overrides[get_current_user] = _owner_dep
+
+    with TestClient(app) as client:
+        tid = client.post("/tournaments", json={"sport": "padel", "name": "Club Night"}).json()["id"]
+        resp = client.post(f"/tournaments/{tid}/stages", json={"type": "americano"})
+        assert resp.status_code == 200
+        stage_payload = resp.json()
+        assert stage_payload["tournamentId"] == tid
+        assert stage_payload["type"] == "americano"
+
+
+@pytest.mark.anyio
+async def test_normal_user_cannot_create_non_americano_stage():
+    from app import db
+    from app.models import Sport, Tournament, Stage, StageStanding, User
+    from app.routers import tournaments
+    from app.routers.auth import get_current_user
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            db.Base.metadata.create_all,
+            tables=[
+                Sport.__table__,
+                Tournament.__table__,
+                Stage.__table__,
+                StageStanding.__table__,
+                User.__table__,
+            ],
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        session.add(Sport(id="padel", name="Padel"))
+        session.add(
+            User(
+                id="player1",
+                username="player1",
+                password_hash="hashed",
+                is_admin=False,
+            )
+        )
+        await session.commit()
+
+    app = FastAPI()
+    app.include_router(tournaments.router)
+
+    owner = SimpleNamespace(id="player1", is_admin=False)
+
+    async def _owner_dep():
+        return owner
+
+    app.dependency_overrides[get_current_user] = _owner_dep
+
+    with TestClient(app) as client:
+        tid = client.post("/tournaments", json={"sport": "padel", "name": "Club Night"}).json()["id"]
+        resp = client.post(f"/tournaments/{tid}/stages", json={"type": "round_robin"})
+        assert resp.status_code == 403
+
+
+@pytest.mark.anyio
+async def test_normal_user_cannot_create_stage_for_other_user():
+    from app import db
+    from app.models import Sport, Tournament, Stage, StageStanding, User
+    from app.routers import tournaments
+    from app.routers.auth import get_current_user
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            db.Base.metadata.create_all,
+            tables=[
+                Sport.__table__,
+                Tournament.__table__,
+                Stage.__table__,
+                StageStanding.__table__,
+                User.__table__,
+            ],
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        session.add(Sport(id="padel", name="Padel"))
+        session.add(
+            User(
+                id="owner",
+                username="owner",
+                password_hash="hashed",
+                is_admin=False,
+            )
+        )
+        session.add(
+            User(
+                id="other",
+                username="other",
+                password_hash="hashed",
+                is_admin=False,
+            )
+        )
+        await session.commit()
+
+    app = FastAPI()
+    app.include_router(tournaments.router)
+
+    owner = SimpleNamespace(id="owner", is_admin=False)
+
+    async def _owner_dep():
+        return owner
+
+    app.dependency_overrides[get_current_user] = _owner_dep
+
+    with TestClient(app) as client:
+        tid = client.post("/tournaments", json={"sport": "padel", "name": "Club Night"}).json()["id"]
+
+    other_user = SimpleNamespace(id="other", is_admin=False)
+
+    async def _other_dep():
+        return other_user
+
+    app.dependency_overrides[get_current_user] = _other_dep
+
+    with TestClient(app) as client:
+        resp = client.post(f"/tournaments/{tid}/stages", json={"type": "americano"})
+        assert resp.status_code == 403
+
+
+@pytest.mark.anyio
+async def test_normal_user_can_delete_own_americano():
+    from app import db
+    from sqlalchemy import select
+    from app.models import (
+        Match,
+        MatchParticipant,
+        ScoreEvent,
+        Sport,
+        Stage,
+        Tournament,
+        StageStanding,
+        User,
+    )
+    from app.routers import tournaments
+    from app.routers.auth import get_current_user
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            db.Base.metadata.create_all,
+            tables=[
+                Sport.__table__,
+                Tournament.__table__,
+                Stage.__table__,
+                StageStanding.__table__,
+                Match.__table__,
+                MatchParticipant.__table__,
+                ScoreEvent.__table__,
+                User.__table__,
+            ],
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        session.add(Sport(id="padel", name="Padel"))
+        session.add(
+            User(
+                id="player1",
+                username="player1",
+                password_hash="hashed",
+                is_admin=False,
+            )
+        )
+        await session.commit()
+
+    app = FastAPI()
+    app.include_router(tournaments.router)
+    owner = SimpleNamespace(id="player1", is_admin=False)
+
+    async def _owner_dep():
+        return owner
+
+    app.dependency_overrides[get_current_user] = _owner_dep
+
+    with TestClient(app) as client:
+        tid = client.post(
+            "/tournaments", json={"sport": "padel", "name": "Local Americano"}
+        ).json()["id"]
+        sid = client.post(
+            f"/tournaments/{tid}/stages", json={"type": "americano"}
+        ).json()["id"]
+
+    async with db.AsyncSessionLocal() as session:
+        match = Match(
+            id="m1",
+            sport_id="padel",
+            stage_id=sid,
+            ruleset_id=None,
+            best_of=None,
+            played_at=None,
+            location=None,
+            details=None,
+            is_friendly=False,
+        )
+        session.add(match)
+        session.add(
+            MatchParticipant(
+                id="mp1", match_id="m1", side="A", player_ids=["p1", "p2"]
+            )
+        )
+        session.add(
+            MatchParticipant(
+                id="mp2", match_id="m1", side="B", player_ids=["p3", "p4"]
+            )
+        )
+        session.add(
+            ScoreEvent(
+                id="se1",
+                match_id="m1",
+                type="POINT",
+                payload={"A": 6, "B": 2},
+            )
+        )
+        await session.commit()
+
+    with TestClient(app) as client:
+        resp = client.delete(f"/tournaments/{tid}")
+        assert resp.status_code == 204
+
+    async with db.AsyncSessionLocal() as session:
+        assert await session.get(Tournament, tid) is None
+        assert await session.get(Stage, sid) is None
+        assert await session.get(Match, "m1") is None
+        participants = (
+            await session.execute(
+                select(MatchParticipant).where(MatchParticipant.match_id == "m1")
+            )
+        ).scalars().all()
+        assert participants == []
+        score_events = (
+            await session.execute(
+                select(ScoreEvent).where(ScoreEvent.match_id == "m1")
+            )
+        ).scalars().all()
+        assert score_events == []
+
+
+@pytest.mark.anyio
+async def test_normal_user_cannot_delete_other_users_tournament():
+    from app import db
+    from app.models import (
+        Match,
+        MatchParticipant,
+        ScoreEvent,
+        Sport,
+        Stage,
+        StageStanding,
+        Tournament,
+        User,
+    )
+    from app.routers import tournaments
+    from app.routers.auth import get_current_user
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            db.Base.metadata.create_all,
+            tables=[
+                Sport.__table__,
+                Tournament.__table__,
+                Stage.__table__,
+                StageStanding.__table__,
+                Match.__table__,
+                MatchParticipant.__table__,
+                ScoreEvent.__table__,
+                User.__table__,
+            ],
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        session.add(Sport(id="padel", name="Padel"))
+        session.add(
+            User(
+                id="owner",
+                username="owner",
+                password_hash="hashed",
+                is_admin=False,
+            )
+        )
+        session.add(
+            User(
+                id="other",
+                username="other",
+                password_hash="hashed",
+                is_admin=False,
+            )
+        )
+        await session.commit()
+
+    app = FastAPI()
+    app.include_router(tournaments.router)
+
+    owner = SimpleNamespace(id="owner", is_admin=False)
+
+    async def _owner_dep():
+        return owner
+
+    app.dependency_overrides[get_current_user] = _owner_dep
+
+    with TestClient(app) as client:
+        tid = client.post(
+            "/tournaments", json={"sport": "padel", "name": "Club Americano"}
+        ).json()["id"]
+        client.post(
+            f"/tournaments/{tid}/stages", json={"type": "americano"}
+        )
+
+    other_user = SimpleNamespace(id="other", is_admin=False)
+
+    async def _other_dep():
+        return other_user
+
+    app.dependency_overrides[get_current_user] = _other_dep
+
+    with TestClient(app) as client:
+        resp = client.delete(f"/tournaments/{tid}")
+        assert resp.status_code == 403
+
+
+@pytest.mark.anyio
+async def test_admin_can_delete_user_tournament():
+    from app import db
+    from app.models import (
+        Match,
+        MatchParticipant,
+        ScoreEvent,
+        Sport,
+        Stage,
+        StageStanding,
+        Tournament,
+        User,
+    )
+    from app.routers import tournaments
+    from app.routers.auth import get_current_user
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            db.Base.metadata.create_all,
+            tables=[
+                Sport.__table__,
+                Tournament.__table__,
+                Stage.__table__,
+                StageStanding.__table__,
+                Match.__table__,
+                MatchParticipant.__table__,
+                ScoreEvent.__table__,
+                User.__table__,
+            ],
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        session.add(Sport(id="padel", name="Padel"))
+        session.add(
+            User(
+                id="owner",
+                username="owner",
+                password_hash="hashed",
+                is_admin=False,
+            )
+        )
+        session.add(
+            User(
+                id="admin",
+                username="admin",
+                password_hash="hashed",
+                is_admin=True,
+            )
+        )
+        await session.commit()
+
+    app = FastAPI()
+    app.include_router(tournaments.router)
+
+    owner = SimpleNamespace(id="owner", is_admin=False)
+
+    async def _owner_dep():
+        return owner
+
+    app.dependency_overrides[get_current_user] = _owner_dep
+
+    with TestClient(app) as client:
+        tid = client.post(
+            "/tournaments", json={"sport": "padel", "name": "Open Americano"}
+        ).json()["id"]
+        client.post(
+            f"/tournaments/{tid}/stages", json={"type": "americano"}
+        )
+
+    admin_user = SimpleNamespace(id="admin", is_admin=True)
+
+    async def _admin_dep():
+        return admin_user
+
+    app.dependency_overrides[get_current_user] = _admin_dep
+
+    with TestClient(app) as client:
+        resp = client.delete(f"/tournaments/{tid}")
+        assert resp.status_code == 204
+
+
+@pytest.mark.anyio
+async def test_owner_can_schedule_their_americano_stage(monkeypatch):
+    from app import db
+    from app.models import (
+        Match,
+        MatchParticipant,
+        Player,
+        RuleSet,
+        ScoreEvent,
+        Sport,
+        Stage,
+        StageStanding,
+        Tournament,
+        User,
+    )
+    from app.routers import tournaments
+    from app.routers.auth import get_current_user
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            db.Base.metadata.create_all,
+            tables=[
+                Sport.__table__,
+                Tournament.__table__,
+                Stage.__table__,
+                Player.__table__,
+                RuleSet.__table__,
+                Match.__table__,
+                MatchParticipant.__table__,
+                StageStanding.__table__,
+                ScoreEvent.__table__,
+                User.__table__,
+            ],
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        session.add(Sport(id="padel", name="Padel"))
+        session.add(
+            RuleSet(id="padel-default", sport_id="padel", name="Padel", config={})
+        )
+        for idx in range(4):
+            session.add(Player(id=f"p{idx+1}", name=f"Player {idx+1}"))
+        session.add(
+            User(
+                id="owner",
+                username="owner",
+                password_hash="hashed",
+                is_admin=False,
+            )
+        )
+        await session.commit()
+
+    app = FastAPI()
+    app.include_router(tournaments.router)
+
+    owner = SimpleNamespace(id="owner", is_admin=False)
+
+    async def _owner_dep():
+        return owner
+
+    app.dependency_overrides[get_current_user] = _owner_dep
+
+    async def _noop_update_ratings(*args, **kwargs):
+        return None
+
+    async def _noop_update_metrics(*args, **kwargs):
+        return None
+
+    async def _noop_broadcast(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr("app.routers.matches.update_ratings", _noop_update_ratings)
+    monkeypatch.setattr(
+        "app.routers.matches.update_player_metrics", _noop_update_metrics
+    )
+    monkeypatch.setattr("app.routers.matches.broadcast", _noop_broadcast)
+
+    with TestClient(app) as client:
+        tid = client.post(
+            "/tournaments", json={"sport": "padel", "name": "Owner Cup"}
+        ).json()["id"]
+        sid = client.post(
+            f"/tournaments/{tid}/stages",
+            json={"type": "americano", "config": {"format": "americano"}},
+        ).json()["id"]
+
+        resp = client.post(
+            f"/tournaments/{tid}/stages/{sid}/schedule",
+            json={"playerIds": ["p1", "p2", "p3", "p4"], "rulesetId": "padel-default"},
+        )
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert payload["stageId"] == sid
+        assert len(payload["matches"]) == 1
+
+@pytest.mark.anyio
 async def test_stage_schedule_rejects_invalid_type(monkeypatch):
     from app import db
     from app.models import (
@@ -101,6 +702,7 @@ async def test_stage_schedule_rejects_invalid_type(monkeypatch):
         MatchParticipant,
         StageStanding,
         ScoreEvent,
+        User,
     )
     from app.routers import tournaments, matches
     from app.routers.admin import require_admin
@@ -122,6 +724,7 @@ async def test_stage_schedule_rejects_invalid_type(monkeypatch):
                 MatchParticipant.__table__,
                 StageStanding.__table__,
                 ScoreEvent.__table__,
+                User.__table__,
             ],
         )
 
@@ -130,6 +733,14 @@ async def test_stage_schedule_rejects_invalid_type(monkeypatch):
         session.add(RuleSet(id="padel-default", sport_id="padel", name="Padel", config={}))
         for idx in range(4):
             session.add(Player(id=f"p{idx+1}", name=f"Player {idx+1}"))
+        session.add(
+            User(
+                id="admin",
+                username="admin",
+                password_hash="hashed",
+                is_admin=True,
+            )
+        )
         await session.commit()
 
     app = FastAPI()
@@ -192,6 +803,7 @@ async def test_stage_schedule_and_standings_flow(monkeypatch):
         MatchParticipant,
         StageStanding,
         ScoreEvent,
+        User,
     )
     from app.routers import tournaments, matches
     from app.routers.admin import require_admin
@@ -213,6 +825,7 @@ async def test_stage_schedule_and_standings_flow(monkeypatch):
                 MatchParticipant.__table__,
                 StageStanding.__table__,
                 ScoreEvent.__table__,
+                User.__table__,
             ],
         )
 
@@ -223,6 +836,14 @@ async def test_stage_schedule_and_standings_flow(monkeypatch):
         )
         for idx in range(4):
             session.add(Player(id=f"p{idx+1}", name=f"Player {idx+1}"))
+        session.add(
+            User(
+                id="admin",
+                username="admin",
+                password_hash="hashed",
+                is_admin=True,
+            )
+        )
         await session.commit()
 
     app = FastAPI()

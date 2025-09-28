@@ -10,6 +10,9 @@ import {
   fetchStageStandings,
   listStageMatches,
   isAdmin,
+  isLoggedIn,
+  currentUserId,
+  deleteTournament,
   type StageScheduleMatch,
   type StageStandings,
 } from '../../lib/api';
@@ -27,6 +30,9 @@ vi.mock('../../lib/api', async () => {
     fetchStageStandings: vi.fn(),
     listStageMatches: vi.fn(),
     isAdmin: vi.fn(),
+    isLoggedIn: vi.fn(),
+    currentUserId: vi.fn(),
+    deleteTournament: vi.fn(),
   };
 });
 
@@ -37,6 +43,9 @@ const mockedScheduleAmericanoStage = vi.mocked(scheduleAmericanoStage);
 const mockedFetchStageStandings = vi.mocked(fetchStageStandings);
 const mockedListStageMatches = vi.mocked(listStageMatches);
 const mockedIsAdmin = vi.mocked(isAdmin);
+const mockedIsLoggedIn = vi.mocked(isLoggedIn);
+const mockedCurrentUserId = vi.mocked(currentUserId);
+const mockedDeleteTournament = vi.mocked(deleteTournament);
 
 const jsonResponse = (data: unknown): Response =>
   ({
@@ -52,6 +61,12 @@ describe('Tournaments client view', () => {
     mockedScheduleAmericanoStage.mockReset();
     mockedIsAdmin.mockReset();
     mockedIsAdmin.mockReturnValue(true);
+    mockedIsLoggedIn.mockReset();
+    mockedIsLoggedIn.mockReturnValue(true);
+    mockedCurrentUserId.mockReset();
+    mockedCurrentUserId.mockReturnValue('admin');
+    mockedDeleteTournament.mockReset();
+    mockedApiFetch.mockResolvedValue(jsonResponse([]));
   });
 
   it('renders tournaments and appends newly created entries', async () => {
@@ -100,13 +115,19 @@ describe('Tournaments client view', () => {
     });
 
     const initial = [
-      { id: 't-existing', sport: 'padel', name: 'Existing Cup' },
+      {
+        id: 't-existing',
+        sport: 'padel',
+        name: 'Existing Cup',
+        createdByUserId: 'admin',
+      },
     ];
 
     mockedCreateTournament.mockResolvedValue({
       id: 't-new',
       sport: 'padel',
       name: 'Winter Americano',
+      createdByUserId: 'admin',
     });
     mockedCreateStage.mockResolvedValue({
       id: 's1',
@@ -228,7 +249,7 @@ describe('Tournaments client view', () => {
     });
 
     const playerCheckboxes = screen.getAllByRole('checkbox');
-    playerCheckboxes.slice(0, 6).forEach((box) => fireEvent.click(box));
+    playerCheckboxes.slice(0, 3).forEach((box) => fireEvent.click(box));
 
     const submitButton = screen.getByRole('button', { name: /create and schedule/i });
     fireEvent.click(submitButton);
@@ -271,6 +292,7 @@ describe('Tournaments client view', () => {
       id: 't1',
       sport: 'padel',
       name: 'Odd Courts',
+      createdByUserId: 'admin',
     });
     mockedCreateStage.mockResolvedValue({
       id: 'stage-1',
@@ -305,6 +327,76 @@ describe('Tournaments client view', () => {
       });
     });
   });
+
+  it('prompts visitors to sign in before creating tournaments', () => {
+    mockedIsAdmin.mockReturnValue(false);
+    mockedIsLoggedIn.mockReturnValue(false);
+    mockedCurrentUserId.mockReturnValue(null);
+
+    render(<TournamentsClient initialTournaments={[]} loadError={false} />);
+
+    expect(
+      screen.getByText(/Sign in to create an Americano tournament/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('Tournament name')).not.toBeInTheDocument();
+  });
+
+  it('lets tournament creators delete their americano tournaments', async () => {
+    mockedIsAdmin.mockReturnValue(false);
+    mockedIsLoggedIn.mockReturnValue(true);
+    mockedCurrentUserId.mockReturnValue('user-1');
+    mockedDeleteTournament.mockResolvedValue();
+
+    const initial = [
+      {
+        id: 't1',
+        sport: 'padel',
+        name: 'My Americano',
+        createdByUserId: 'user-1',
+      },
+    ];
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(<TournamentsClient initialTournaments={initial} loadError={false} />);
+
+    await waitFor(() => {
+      expect(mockedApiFetch).toHaveBeenCalled();
+    });
+
+    const deleteButton = await screen.findByRole('button', { name: /delete/i });
+    fireEvent.click(deleteButton);
+
+    await waitFor(() => {
+      expect(mockedDeleteTournament).toHaveBeenCalledWith('t1');
+      expect(screen.queryByText('My Americano')).not.toBeInTheDocument();
+    });
+
+    confirmSpy.mockRestore();
+  });
+
+  it('hides delete actions for tournaments created by other users', () => {
+    mockedIsAdmin.mockReturnValue(false);
+    mockedIsLoggedIn.mockReturnValue(true);
+    mockedCurrentUserId.mockReturnValue('user-2');
+
+    const initial = [
+      {
+        id: 't2',
+        sport: 'padel',
+        name: 'Club Night',
+        createdByUserId: 'user-1',
+      },
+    ];
+
+    render(<TournamentsClient initialTournaments={initial} loadError={false} />);
+
+    return waitFor(() => {
+      expect(mockedApiFetch).toHaveBeenCalled();
+      expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument();
+    });
+
+  });
 });
 
 describe('Tournament detail page', () => {
@@ -317,7 +409,12 @@ describe('Tournament detail page', () => {
 
   it('renders schedule and standings from API helpers', async () => {
     const detailResponses: Response[] = [
-      jsonResponse({ id: 't1', sport: 'padel', name: 'Championship' }),
+      jsonResponse({
+        id: 't1',
+        sport: 'padel',
+        name: 'Championship',
+        createdByUserId: 'admin',
+      }),
       jsonResponse([
         { id: 'stage-1', tournamentId: 't1', type: 'americano', config: null },
       ]),
@@ -336,7 +433,12 @@ describe('Tournament detail page', () => {
       if (url.includes('/players/by-ids')) {
         return jsonResponse([]);
       }
-      return jsonResponse({ id: 'noop', sport: 'padel', name: 'noop' });
+      return jsonResponse({
+        id: 'noop',
+        sport: 'padel',
+        name: 'noop',
+        createdByUserId: 'admin',
+      });
     });
 
     const matches: StageScheduleMatch[] = [
@@ -396,7 +498,12 @@ describe('Tournament detail page', () => {
 
   it('refetches schedule data after reload', async () => {
     const reloadResponses: Response[] = [
-      jsonResponse({ id: 't1', sport: 'padel', name: 'Championship' }),
+      jsonResponse({
+        id: 't1',
+        sport: 'padel',
+        name: 'Championship',
+        createdByUserId: 'admin',
+      }),
       jsonResponse([
         { id: 'stage-1', tournamentId: 't1', type: 'americano', config: null },
       ]),
@@ -404,7 +511,12 @@ describe('Tournament detail page', () => {
         { id: 'p1', name: 'Player One' },
         { id: 'p2', name: 'Player Two' },
       ]),
-      jsonResponse({ id: 't1', sport: 'padel', name: 'Championship' }),
+      jsonResponse({
+        id: 't1',
+        sport: 'padel',
+        name: 'Championship',
+        createdByUserId: 'admin',
+      }),
       jsonResponse([
         { id: 'stage-1', tournamentId: 't1', type: 'americano', config: null },
       ]),

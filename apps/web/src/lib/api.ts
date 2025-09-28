@@ -377,6 +377,7 @@ function base64UrlDecode(str: string): string {
 interface TokenPayload {
   username?: string;
   is_admin?: boolean;
+  sub?: string;
   [key: string]: unknown;
 }
 
@@ -394,6 +395,11 @@ function getTokenPayload(token?: string | null): TokenPayload | null {
 export function currentUsername(): string | null {
   const payload = getTokenPayload();
   return payload?.username ?? null;
+}
+
+export function currentUserId(): string | null {
+  const payload = getTokenPayload();
+  return typeof payload?.sub === "string" ? payload.sub : null;
 }
 
 export function isLoggedIn(): boolean {
@@ -596,6 +602,7 @@ export type TournamentCreatePayload = {
 
 export type TournamentSummary = TournamentCreatePayload & {
   id: string;
+  createdByUserId?: string | null;
 };
 
 export type StageCreatePayload = {
@@ -684,6 +691,10 @@ export async function createTournament(
     body: JSON.stringify(payload),
   });
   return res.json();
+}
+
+export async function deleteTournament(tournamentId: string): Promise<void> {
+  await apiFetch(`/v0/tournaments/${tournamentId}`, { method: "DELETE" });
 }
 
 export async function createStage(

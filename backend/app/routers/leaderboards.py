@@ -5,6 +5,7 @@ from fastapi import APIRouter, Query, Depends
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
+from sqlalchemy.exc import OperationalError
 
 from ..db import get_session
 from ..models import (
@@ -19,6 +20,11 @@ from ..models import (
 from ..services.master_rating import update_master_ratings
 from ..schemas import LeaderboardEntryOut, LeaderboardOut
 from ..exceptions import http_problem
+
+
+def _is_missing_stage_table(exc: OperationalError) -> bool:
+    message = str(getattr(exc, "orig", exc)).lower()
+    return "no such table" in message and "stage" in message
 
 # Resource-only prefix; no /api or /api/v0 here
 router = APIRouter(prefix="/leaderboards", tags=["leaderboards"])
@@ -91,23 +97,45 @@ async def leaderboard(
 
     if player_ids:
         stage_alias = aliased(Stage)
+
         match_filters = [Match.sport_id == sport, Match.deleted_at.is_(None)]
-        if sport == "padel":
+        base_match_query = (
+            select(MatchParticipant, Match)
+            .join(Match, Match.id == MatchParticipant.match_id)
+        )
+        mp_rows = []
+        use_stage_join = sport == "padel"
+        if use_stage_join:
+            stage_filters: list = []
             if americano_variant:
-                match_filters.append(stage_alias.type == "americano")
+                stage_filters.append(stage_alias.type == "americano")
             else:
-                match_filters.append(
+                stage_filters.append(
                     or_(stage_alias.type.is_(None), stage_alias.type != "americano")
                 )
+            try:
+                mp_rows = (
+                    await session.execute(
+                        base_match_query.outerjoin(
+                            stage_alias, stage_alias.id == Match.stage_id
+                        ).where(*(match_filters + stage_filters))
+                    )
+                ).all()
+            except OperationalError as exc:
+                if _is_missing_stage_table(exc):
+                    use_stage_join = False
+                else:
+                    raise
+            else:
+                use_stage_join = True
 
-        mp_rows = (
-            await session.execute(
-                select(MatchParticipant, Match)
-                .join(Match, Match.id == MatchParticipant.match_id)
-                .outerjoin(stage_alias, stage_alias.id == Match.stage_id)
-                .where(*match_filters)
-            )
-        ).all()
+        if not use_stage_join:
+            fallback_filters = list(match_filters)
+            if sport == "padel" and americano_variant:
+                fallback_filters.append(Match.stage_id.is_not(None))
+            mp_rows = (
+                await session.execute(base_match_query.where(*fallback_filters))
+            ).all()
         for mp, m in mp_rows:
             if not m.details or "sets" not in m.details:
                 continue
@@ -121,7 +149,6 @@ async def leaderboard(
                     set_stats[pid]["lost"] += lost
 
     # Build rating history for the sport using RATING score events
-    stage_alias_events = aliased(Stage)
     rating_filters = [
         Match.sport_id == sport,
         Match.deleted_at.is_(None),
@@ -129,21 +156,45 @@ async def leaderboard(
     ]
     if sport == "padel":
         if americano_variant:
-            rating_filters.append(stage_alias_events.type == "americano")
-        else:
-            rating_filters.append(
-                or_(stage_alias_events.type.is_(None), stage_alias_events.type != "americano")
-            )
+            rating_filters.append(Match.stage_id.is_not(None))
 
-    rating_events = (
-        await session.execute(
-            select(ScoreEvent)
-            .join(Match, Match.id == ScoreEvent.match_id)
-            .outerjoin(stage_alias_events, stage_alias_events.id == Match.stage_id)
-            .where(*rating_filters)
-            .order_by(ScoreEvent.created_at)
+    base_rating_query = select(ScoreEvent).join(Match, Match.id == ScoreEvent.match_id)
+    rating_events_result = None
+    use_stage_join_for_events = sport == "padel"
+    stage_alias_events = aliased(Stage)
+    if use_stage_join_for_events:
+        stage_filters_events: list = []
+        if americano_variant:
+            stage_filters_events.append(stage_alias_events.type == "americano")
+        else:
+            stage_filters_events.append(
+                or_(
+                    stage_alias_events.type.is_(None),
+                    stage_alias_events.type != "americano",
+                )
+            )
+        try:
+            rating_events_result = await session.execute(
+                base_rating_query.outerjoin(
+                    stage_alias_events, stage_alias_events.id == Match.stage_id
+                )
+                .where(*(rating_filters + stage_filters_events))
+                .order_by(ScoreEvent.created_at)
+            )
+        except OperationalError as exc:
+            if _is_missing_stage_table(exc):
+                use_stage_join_for_events = False
+            else:
+                raise
+        else:
+            use_stage_join_for_events = True
+
+    if not use_stage_join_for_events:
+        rating_events_result = await session.execute(
+            base_rating_query.where(*rating_filters).order_by(ScoreEvent.created_at)
         )
-    ).scalars().all()
+
+    rating_events = rating_events_result.scalars().all()
     histories = defaultdict(list)
     for ev in rating_events:
         payload = ev.payload or {}

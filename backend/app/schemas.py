@@ -595,6 +595,7 @@ class MatchSummaryOut(BaseModel):
 
     id: str
     sport: str
+    stageId: Optional[str] = None
     bestOf: Optional[int] = None
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
@@ -633,6 +634,7 @@ class MatchOut(BaseModel):
 
     id: str
     sport: str
+    stageId: Optional[str] = None
     rulesetId: Optional[str] = None
     bestOf: Optional[int] = None
     playedAt: Optional[datetime] = None
@@ -683,12 +685,10 @@ class StageScheduleRequest(BaseModel):
     rulesetId: Optional[str] = None
 
 
-class StageScheduleMatchOut(BaseModel):
+class StageScheduleMatchOut(MatchSummaryOut):
     """Representation of a match created during scheduling."""
 
-    id: str
-    sport: str
-    stageId: str
+    stageId: str  # Narrow ``MatchSummaryOut.stageId`` to be required here.
     rulesetId: Optional[str] = None
     participants: List[ParticipantOut] = Field(default_factory=list)
 

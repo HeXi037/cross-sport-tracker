@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Tournament, Stage, StageStanding
+from ..models import Tournament, Stage, StageStanding, Match, MatchParticipant
 from ..schemas import (
     TournamentCreate,
     TournamentOut,
@@ -20,6 +20,7 @@ from ..schemas import (
 from ..exceptions import http_problem
 from ..services.tournaments import normalize_stage_type, schedule_americano
 from .admin import require_admin
+from ..time_utils import coerce_utc
 
 router = APIRouter()
 
@@ -194,6 +195,10 @@ async def schedule_stage(
             id=match.id,
             sport=match.sport_id,
             stageId=match.stage_id,
+            bestOf=match.best_of,
+            playedAt=coerce_utc(match.played_at),
+            location=match.location,
+            isFriendly=match.is_friendly,
             rulesetId=match.ruleset_id,
             participants=[
                 ParticipantOut(id=part.id, side=part.side, playerIds=part.player_ids)
@@ -253,4 +258,66 @@ async def get_stage_standings(
             for row in standings
         ],
     )
+
+
+@router.get(
+    "/tournaments/{tournament_id}/stages/{stage_id}/matches",
+    response_model=list[StageScheduleMatchOut],
+)
+async def list_stage_matches(
+    tournament_id: str, stage_id: str, session: AsyncSession = Depends(get_session)
+):
+    stage = await session.get(Stage, stage_id)
+    if not stage or stage.tournament_id != tournament_id:
+        raise http_problem(
+            status_code=404,
+            detail="stage not found",
+            code="stage_not_found",
+        )
+
+    matches = (
+        await session.execute(
+            select(Match)
+            .where(Match.stage_id == stage_id, Match.deleted_at.is_(None))
+            .order_by(Match.played_at.asc().nullslast(), Match.id)
+        )
+    ).scalars().all()
+
+    if not matches:
+        return []
+
+    match_ids = [m.id for m in matches]
+    participants = (
+        await session.execute(
+            select(MatchParticipant).where(MatchParticipant.match_id.in_(match_ids))
+        )
+    ).scalars().all()
+
+    participants_by_match: dict[str, list[MatchParticipant]] = {
+        mid: [] for mid in match_ids
+    }
+    for participant in participants:
+        participants_by_match.setdefault(participant.match_id, []).append(participant)
+
+    return [
+        StageScheduleMatchOut(
+            id=match.id,
+            sport=match.sport_id,
+            stageId=match.stage_id or stage_id,
+            bestOf=match.best_of,
+            playedAt=coerce_utc(match.played_at),
+            location=match.location,
+            isFriendly=match.is_friendly,
+            rulesetId=match.ruleset_id,
+            participants=[
+                ParticipantOut(
+                    id=part.id,
+                    side=part.side,
+                    playerIds=part.player_ids,
+                )
+                for part in participants_by_match.get(match.id, [])
+            ],
+        )
+        for match in matches
+    ]
 

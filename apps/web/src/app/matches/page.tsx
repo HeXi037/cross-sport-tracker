@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
 type MatchRow = {
   id: string;
   sport: string;
+  stageId: string | null;
   bestOf: number | null;
   playedAt: string | null;
   location: string | null;

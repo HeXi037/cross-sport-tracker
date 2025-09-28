@@ -72,6 +72,7 @@ type MatchDetail = {
   statusLabel?: string | null;
   playedAt?: string | null;
   location?: string | null;
+  stageId?: string | null;
   participants?: Participant[] | null;
   summary?: SummaryData | null;
   events?: ScoreEvent[] | null;

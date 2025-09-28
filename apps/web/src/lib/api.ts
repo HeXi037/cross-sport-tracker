@@ -618,6 +618,10 @@ export type StageScheduleMatch = {
   id: string;
   sport: string;
   stageId: string;
+  bestOf?: number | null;
+  playedAt?: string | null;
+  location?: string | null;
+  isFriendly: boolean;
   rulesetId?: string | null;
   participants: StageScheduleParticipant[];
 };

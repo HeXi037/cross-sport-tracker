@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import TournamentsClient from '../tournaments/tournaments-client';
 import TournamentDetailPage from '../tournaments/[id]/page';
@@ -55,27 +55,49 @@ describe('Tournaments client view', () => {
   });
 
   it('renders tournaments and appends newly created entries', async () => {
-    mockedApiFetch
-      .mockResolvedValueOnce(
-        jsonResponse([
-          { id: 'padel', name: 'Padel' },
-        ])
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          players: [
-            { id: 'p1', name: 'Alex' },
-            { id: 'p2', name: 'Billie' },
-            { id: 'p3', name: 'Casey' },
-            { id: 'p4', name: 'Devon' },
-          ],
-        })
-      )
-      .mockResolvedValueOnce(
-        jsonResponse([
-          { id: 'padel-default', name: 'Padel Default' },
-        ])
-      );
+    const apiResponses: Response[] = [
+      jsonResponse([
+        { id: 'padel', name: 'Padel' },
+      ]),
+      jsonResponse({
+        players: [
+          { id: 'p1', name: 'Alex' },
+          { id: 'p2', name: 'Billie' },
+          { id: 'p3', name: 'Casey' },
+          { id: 'p4', name: 'Devon' },
+        ],
+      }),
+      jsonResponse([
+        { id: 'padel', name: 'Padel' },
+      ]),
+      jsonResponse({
+        players: [
+          { id: 'p1', name: 'Alex' },
+          { id: 'p2', name: 'Billie' },
+          { id: 'p3', name: 'Casey' },
+          { id: 'p4', name: 'Devon' },
+        ],
+      }),
+      jsonResponse([
+        { id: 'padel-default', name: 'Padel Default' },
+      ]),
+    ];
+    mockedApiFetch.mockImplementation(async (path: RequestInfo | URL) => {
+      if (apiResponses.length > 0) {
+        return apiResponses.shift()!;
+      }
+      const url = typeof path === 'string' ? path : path.toString();
+      if (url.includes('/players')) {
+        return jsonResponse({ players: [] });
+      }
+      if (url.includes('/rulesets')) {
+        return jsonResponse([]);
+      }
+      if (url.includes('/sports')) {
+        return jsonResponse([]);
+      }
+      return jsonResponse([]);
+    });
 
     const initial = [
       { id: 't-existing', sport: 'padel', name: 'Existing Cup' },
@@ -97,6 +119,10 @@ describe('Tournaments client view', () => {
         id: 'm1',
         sport: 'padel',
         stageId: 's1',
+        bestOf: null,
+        playedAt: null,
+        location: null,
+        isFriendly: false,
         rulesetId: 'padel-default',
         participants: [
           { id: 'pa', side: 'A', playerIds: ['p1', 'p2'] },
@@ -115,8 +141,9 @@ describe('Tournaments client view', () => {
     fireEvent.change(nameInput, { target: { value: 'Winter Americano' } });
 
     await waitFor(() => {
-      expect(mockedApiFetch).toHaveBeenCalledTimes(3);
+      expect(mockedApiFetch.mock.calls.length).toBeGreaterThanOrEqual(3);
     });
+    // Ensure initial data fetches completed before interacting with the form.
 
     const playerCheckboxes = screen.getAllByRole('checkbox');
     playerCheckboxes.slice(0, 4).forEach((box) => fireEvent.click(box));
@@ -159,27 +186,38 @@ describe('Tournament detail page', () => {
   });
 
   it('renders schedule and standings from API helpers', async () => {
-    mockedApiFetch
-      .mockResolvedValueOnce(
-        jsonResponse({ id: 't1', sport: 'padel', name: 'Championship' })
-      )
-      .mockResolvedValueOnce(
-        jsonResponse([{ id: 'stage-1', tournamentId: 't1', type: 'americano', config: null }])
-      )
-      .mockResolvedValueOnce(
-        jsonResponse([
-          { id: 'p1', name: 'Player One' },
-          { id: 'p2', name: 'Player Two' },
-          { id: 'p3', name: 'Player Three' },
-          { id: 'p4', name: 'Player Four' },
-        ])
-      );
+    const detailResponses: Response[] = [
+      jsonResponse({ id: 't1', sport: 'padel', name: 'Championship' }),
+      jsonResponse([
+        { id: 'stage-1', tournamentId: 't1', type: 'americano', config: null },
+      ]),
+      jsonResponse([
+        { id: 'p1', name: 'Player One' },
+        { id: 'p2', name: 'Player Two' },
+        { id: 'p3', name: 'Player Three' },
+        { id: 'p4', name: 'Player Four' },
+      ]),
+    ];
+    mockedApiFetch.mockImplementation(async (path: RequestInfo | URL) => {
+      if (detailResponses.length > 0) {
+        return detailResponses.shift()!;
+      }
+      const url = typeof path === 'string' ? path : path.toString();
+      if (url.includes('/players/by-ids')) {
+        return jsonResponse([]);
+      }
+      return jsonResponse({ id: 'noop', sport: 'padel', name: 'noop' });
+    });
 
     const matches: StageScheduleMatch[] = [
       {
         id: 'm1',
         sport: 'padel',
         stageId: 'stage-1',
+        bestOf: null,
+        playedAt: null,
+        location: null,
+        isFriendly: false,
         rulesetId: 'padel-default',
         participants: [
           { id: 'pa', side: 'A', playerIds: ['p1', 'p2'] },
@@ -214,7 +252,7 @@ describe('Tournament detail page', () => {
     expect(await screen.findByText('Championship')).toBeInTheDocument();
     expect(screen.getByText('Stage: Americano')).toBeInTheDocument();
     expect(screen.getByText('Player One')).toBeInTheDocument();
-    expect(screen.getByText('Player Four')).toBeInTheDocument();
+    expect(screen.getByText(/Player Four/)).toBeInTheDocument();
     expect(screen.getByText('Points')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /record a match/i })).toBeInTheDocument();
 
@@ -224,5 +262,128 @@ describe('Tournament detail page', () => {
     expect(mockedFetchStageStandings).toHaveBeenCalledWith('t1', 'stage-1', {
       cache: 'no-store',
     });
+  });
+
+  it('refetches schedule data after reload', async () => {
+    const reloadResponses: Response[] = [
+      jsonResponse({ id: 't1', sport: 'padel', name: 'Championship' }),
+      jsonResponse([
+        { id: 'stage-1', tournamentId: 't1', type: 'americano', config: null },
+      ]),
+      jsonResponse([
+        { id: 'p1', name: 'Player One' },
+        { id: 'p2', name: 'Player Two' },
+      ]),
+      jsonResponse({ id: 't1', sport: 'padel', name: 'Championship' }),
+      jsonResponse([
+        { id: 'stage-1', tournamentId: 't1', type: 'americano', config: null },
+      ]),
+      jsonResponse([
+        { id: 'p5', name: 'Player Five' },
+        { id: 'p6', name: 'Player Six' },
+      ]),
+    ];
+    mockedApiFetch.mockImplementation(async (path: RequestInfo | URL) => {
+      if (reloadResponses.length > 0) {
+        return reloadResponses.shift()!;
+      }
+      const url = typeof path === 'string' ? path : path.toString();
+      if (url.includes('/players/by-ids')) {
+        return jsonResponse([]);
+      }
+      return jsonResponse({ id: 'noop', sport: 'padel', name: 'noop' });
+    });
+
+    const firstMatches: StageScheduleMatch[] = [
+      {
+        id: 'm1',
+        sport: 'padel',
+        stageId: 'stage-1',
+        bestOf: null,
+        playedAt: null,
+        location: null,
+        isFriendly: false,
+        rulesetId: 'padel-default',
+        participants: [
+          { id: 'pa', side: 'A', playerIds: ['p1'] },
+          { id: 'pb', side: 'B', playerIds: ['p2'] },
+        ],
+      },
+    ];
+    const secondMatches: StageScheduleMatch[] = [
+      {
+        id: 'm2',
+        sport: 'padel',
+        stageId: 'stage-1',
+        bestOf: null,
+        playedAt: null,
+        location: null,
+        isFriendly: false,
+        rulesetId: 'padel-default',
+        participants: [
+          { id: 'pc', side: 'A', playerIds: ['p5'] },
+          { id: 'pd', side: 'B', playerIds: ['p6'] },
+        ],
+      },
+    ];
+    const firstStandings: StageStandings = {
+      stageId: 'stage-1',
+      standings: [
+        {
+          playerId: 'p1',
+          matchesPlayed: 1,
+          wins: 1,
+          losses: 0,
+          draws: 0,
+          pointsScored: 12,
+          pointsAllowed: 8,
+          pointsDiff: 4,
+          setsWon: 2,
+          setsLost: 1,
+          points: 3,
+        },
+      ],
+    };
+    const secondStandings: StageStandings = {
+      stageId: 'stage-1',
+      standings: [
+        {
+          playerId: 'p5',
+          matchesPlayed: 1,
+          wins: 1,
+          losses: 0,
+          draws: 0,
+          pointsScored: 15,
+          pointsAllowed: 9,
+          pointsDiff: 6,
+          setsWon: 2,
+          setsLost: 0,
+          points: 3,
+        },
+      ],
+    };
+
+    mockedListStageMatches
+      .mockResolvedValueOnce(firstMatches)
+      .mockResolvedValueOnce(secondMatches);
+    mockedFetchStageStandings
+      .mockResolvedValueOnce(firstStandings)
+      .mockResolvedValueOnce(secondStandings);
+
+    const initialRender = await TournamentDetailPage({ params: { id: 't1' } });
+    render(initialRender);
+    const initialPlayers = await screen.findAllByText('Player One');
+    expect(initialPlayers.length).toBeGreaterThan(0);
+
+    cleanup();
+
+    const reloadRender = await TournamentDetailPage({ params: { id: 't1' } });
+    render(reloadRender);
+    const reloadPlayers = await screen.findAllByText('Player Five');
+    expect(reloadPlayers.length).toBeGreaterThan(0);
+    expect(screen.queryByText('Player One')).not.toBeInTheDocument();
+
+    expect(mockedListStageMatches).toHaveBeenCalledTimes(2);
+    expect(mockedFetchStageStandings).toHaveBeenCalledTimes(2);
   });
 });

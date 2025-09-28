@@ -45,9 +45,11 @@ interface PlayerSocialLink {
 type MatchRow = {
   id: string;
   sport: string;
+  stageId: string | null;
   bestOf: number | null;
   playedAt: string | null;
   location: string | null;
+  isFriendly: boolean;
 };
 
 type Participant = { side: string; playerIds: string[] };

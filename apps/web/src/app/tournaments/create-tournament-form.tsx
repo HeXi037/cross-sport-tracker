@@ -55,6 +55,7 @@ export default function CreateTournamentForm({
   const [rulesetId, setRulesetId] = useState("");
   const [name, setName] = useState("");
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
+  const [playerSearch, setPlayerSearch] = useState("");
   const [courtCount, setCourtCount] = useState(1);
   const [loadingSports, setLoadingSports] = useState(false);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
@@ -158,6 +159,16 @@ export default function CreateTournamentForm({
     return map;
   }, [players]);
 
+  const trimmedPlayerSearch = playerSearch.trim();
+
+  const filteredPlayers = useMemo(() => {
+    if (!trimmedPlayerSearch) {
+      return players;
+    }
+    const query = trimmedPlayerSearch.toLowerCase();
+    return players.filter((player) => player.name.toLowerCase().includes(query));
+  }, [players, trimmedPlayerSearch]);
+
   const handlePlayerToggle = (playerId: string) => {
     setError(null);
     setSuccess(null);
@@ -210,6 +221,7 @@ export default function CreateTournamentForm({
       onCreated?.(tournament);
       setName("");
       setSelectedPlayers([]);
+      setPlayerSearch("");
       setCourtCount(1);
     } catch (err) {
       console.error("Failed to create tournament", err);
@@ -354,36 +366,61 @@ export default function CreateTournamentForm({
             {loadingPlayers ? (
               <p className="form-hint">Loading players…</p>
             ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gap: 8,
-                  gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-                }}
-              >
-                {players.map((player) => {
-                  const checkboxId = `player-${player.id}`;
-                  const checked = selectedPlayers.includes(player.id);
-                  return (
-                    <label
-                      key={player.id}
-                      className="form-field"
-                      htmlFor={checkboxId}
-                      style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-                    >
-                      <input
-                        id={checkboxId}
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => handlePlayerToggle(player.id)}
-                      />
-                      <span className="form-label" style={{ margin: 0 }}>
-                        {player.name}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
+              <>
+                <div className="form-field" style={{ marginBottom: 8 }}>
+                  <label className="form-label" htmlFor="player-search">
+                    Search players
+                  </label>
+                  <input
+                    id="player-search"
+                    type="search"
+                    value={playerSearch}
+                    onChange={(event) => {
+                      setPlayerSearch(event.target.value);
+                      setSuccess(null);
+                    }}
+                    placeholder="Start typing a name…"
+                  />
+                </div>
+                {filteredPlayers.length > 0 ? (
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: 8,
+                      gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+                    }}
+                  >
+                    {filteredPlayers.map((player) => {
+                      const checkboxId = `player-${player.id}`;
+                      const checked = selectedPlayers.includes(player.id);
+                      return (
+                        <label
+                          key={player.id}
+                          className="form-field"
+                          htmlFor={checkboxId}
+                          style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+                        >
+                          <input
+                            id={checkboxId}
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => handlePlayerToggle(player.id)}
+                          />
+                          <span className="form-label" style={{ margin: 0 }}>
+                            {player.name}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="form-hint" role="status">
+                    {trimmedPlayerSearch
+                      ? `No players match "${trimmedPlayerSearch}".`
+                      : "No players are available yet."}
+                  </p>
+                )}
+              </>
             )}
             <p className="form-hint" style={{ marginTop: 8 }}>
               {playerValidationMessage}

@@ -1,9 +1,10 @@
 export const ALL_SPORTS = "all" as const;
 export const MASTER_SPORT = "master" as const;
 export const SPORTS = [
+  "bowling",
   "padel",
   "padel_americano",
-  "badminton",
+  "pickleball",
   "table-tennis",
   "disc_golf",
 ] as const;

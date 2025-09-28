@@ -72,9 +72,10 @@ const canonicalizePathname = (pathname: string) => {
 const SPORT_ICONS: Record<LeaderboardSport, string> = {
   [ALL_SPORTS]: "🏅",
   [MASTER_SPORT]: "🌍",
+  bowling: "🎳",
   padel: "🎾",
   padel_americano: "🎾",
-  badminton: "🏸",
+  pickleball: "🥒",
   "table-tennis": "🏓",
   disc_golf: "🥏",
 };

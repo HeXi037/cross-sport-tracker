@@ -133,6 +133,42 @@ describe("ProfilePage", () => {
     expect(img).toHaveAttribute("src", "/api/media/photos/me.png");
   });
 
+  it("uploads a new profile photo and refreshes the preview", async () => {
+    const file = new File(["dummy"], "avatar.png", { type: "image/png" });
+    apiMocks.apiFetch.mockResolvedValue({
+      json: async () => ({
+        id: "user-default",
+        username: "default-user",
+        is_admin: false,
+        photo_url: "/static/users/avatar.png",
+      }),
+    } as unknown as Response);
+    const dateSpy = vi.spyOn(Date, "now").mockReturnValue(123456789);
+
+    await act(async () => {
+      render(<ProfilePage />);
+    });
+
+    const fileInput = await screen.findByLabelText("Profile photo");
+
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [file] } });
+    });
+
+    expect(apiMocks.apiFetch).toHaveBeenCalledWith("/v0/auth/me/photo", {
+      method: "POST",
+      body: expect.any(FormData),
+    });
+
+    const preview = await screen.findByAltText("default-user profile photo");
+    expect(preview).toHaveAttribute(
+      "src",
+      "/api/static/users/avatar.png?t=123456789",
+    );
+    expect(screen.queryByText("Uploading…")).not.toBeInTheDocument();
+    dateSpy.mockRestore();
+  });
+
   it("submits updated country and favorite club when saving", async () => {
     apiMocks.fetchMe.mockResolvedValue({
       id: "user-existing",

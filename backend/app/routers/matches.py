@@ -558,19 +558,25 @@ async def append_event(
             )
 
     try:
-        engine = importlib.import_module(f"..scoring.{m.sport_id}", package="backend.app")
-    except ModuleNotFoundError:
-        raise http_problem(
-            status_code=400,
-            detail="unknown sport",
-            code="match_unknown_sport",
+        engine = importlib.import_module(
+            f"..scoring.{m.sport_id}", package="backend.app"
         )
+    except ModuleNotFoundError:
+        try:
+            engine = importlib.import_module(f"app.scoring.{m.sport_id}")
+        except ModuleNotFoundError:
+            raise http_problem(
+                status_code=400,
+                detail="unknown sport",
+                code="match_unknown_sport",
+            )
 
     existing = (
         await session.execute(
             select(ScoreEvent).where(ScoreEvent.match_id == mid).order_by(ScoreEvent.created_at)
         )
     ).scalars().all()
+    rating_recorded = any(ev.type == "RATING" for ev in existing)
     state = engine.init_state({})
     for old in existing:
         state = engine.apply(old.payload, state)
@@ -593,6 +599,76 @@ async def append_event(
     )
     session.add(e)
     m.details = engine.summary(state)
+    summary = m.details if isinstance(m.details, dict) else None
+
+    players_a = [pid for p in parts if p.side == "A" for pid in (p.player_ids or [])]
+    players_b = [pid for p in parts if p.side == "B" for pid in (p.player_ids or [])]
+
+    winners: list[str] = []
+    losers: list[str] = []
+    draws: list[str] = []
+
+    def _to_int(value: object) -> int:
+        try:
+            return int(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return 0
+
+    match_complete = False
+    if (
+        not rating_recorded
+        and summary
+        and players_a
+        and players_b
+    ):
+        sets = summary.get("sets") if isinstance(summary, dict) else None
+        if isinstance(sets, dict):
+            sets_a = _to_int(sets.get("A"))
+            sets_b = _to_int(sets.get("B"))
+            total_sets = sets_a + sets_b
+            if total_sets:
+                sets_needed: int | None = None
+                if m.best_of:
+                    sets_needed = m.best_of // 2 + 1
+                else:
+                    config = summary.get("config")
+                    if isinstance(config, dict):
+                        cfg_sets = config.get("sets")
+                        if isinstance(cfg_sets, int):
+                            sets_needed = cfg_sets // 2 + 1 if cfg_sets else None
+                if sets_needed:
+                    match_complete = sets_a >= sets_needed or sets_b >= sets_needed
+                else:
+                    if sets_a != sets_b:
+                        match_complete = True
+                    elif sets_a == sets_b and sets_a > 0:
+                        match_complete = True
+                if match_complete:
+                    if sets_a == sets_b:
+                        draws = players_a + players_b
+                    else:
+                        winner_side = "A" if sets_a > sets_b else "B"
+                        winners = players_a if winner_side == "A" else players_b
+                        losers = players_b if winner_side == "A" else players_a
+
+    if match_complete:
+        try:
+            await update_ratings(
+                session,
+                m.sport_id,
+                winners,
+                losers,
+                draws=draws or None,
+                match_id=mid,
+            )
+        except Exception:
+            pass
+        await update_player_metrics(session, m.sport_id, winners, losers, draws)
+
+    stage_id = m.stage_id
+    await session.flush()
+    if stage_id:
+        await recompute_stage_standings(stage_id, session)
     await session.commit()
     await player_stats_cache.invalidate_players(match_player_ids)
     await broadcast(mid, {"event": e.payload, "summary": m.details})

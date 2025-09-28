@@ -364,12 +364,13 @@ export default function PlayersPage() {
     }
   }
 
-  async function handleDelete(id: string) {
+  async function handleDelete(id: string, hard = false) {
     if (!admin) {
       return;
     }
     try {
-      await apiFetch(`/v0/players/${id}`, { method: "DELETE" });
+      const query = hard ? "?hard=true" : "";
+      await apiFetch(`/v0/players/${id}${query}`, { method: "DELETE" });
       await load();
     } catch {
       setError("Failed to delete player.");
@@ -576,6 +577,13 @@ export default function PlayersPage() {
                           onClick={() => handleDelete(p.id)}
                         >
                           Delete
+                        </button>
+                        <button
+                          type="button"
+                          className="player-list__action player-list__delete"
+                          onClick={() => handleDelete(p.id, true)}
+                        >
+                          Hard delete
                         </button>
                       </div>
                     )}

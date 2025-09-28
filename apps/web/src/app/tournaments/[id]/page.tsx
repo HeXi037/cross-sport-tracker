@@ -7,7 +7,7 @@ import {
   withAbsolutePhotoUrl,
   type ApiError,
   type StageScheduleMatch,
-  type StageStandings,
+  type StageStandings as StageStandingsResponse,
   type StageSummary,
   type TournamentSummary,
 } from "../../../lib/api";
@@ -88,7 +88,7 @@ export default async function TournamentDetailPage({
   const stageData = await Promise.all(
     stages.map(async (stage) => {
       let matches: StageScheduleMatch[] = [];
-      let standings: StageStandings | null = null;
+      let standings: StageStandingsResponse | null = null;
 
       try {
         matches = await listStageMatches(params.id, stage.id, {

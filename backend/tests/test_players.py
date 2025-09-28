@@ -189,6 +189,28 @@ def test_delete_player_soft_delete() -> None:
     asyncio.run(check_deleted())
 
 
+def test_hard_delete_player_after_soft_delete() -> None:
+    with TestClient(app) as client:
+        token = admin_token(client)
+        headers = {"Authorization": f"Bearer {token}"}
+
+        pid = client.post("/players", json={"name": "Carol"}, headers=headers).json()["id"]
+
+        # soft delete first
+        resp = client.delete(f"/players/{pid}", headers=headers)
+        assert resp.status_code == 204
+
+        # now hard delete the already soft-deleted player
+        resp = client.delete(f"/players/{pid}", params={"hard": "true"}, headers=headers)
+        assert resp.status_code == 204
+
+    async def check_removed():
+        async with db.AsyncSessionLocal() as session:
+            assert await session.get(Player, pid) is None
+
+    asyncio.run(check_removed())
+
+
 def test_hide_player_removes_from_public_list() -> None:
     with TestClient(app) as client:
         token = admin_token(client)

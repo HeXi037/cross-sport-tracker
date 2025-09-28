@@ -855,7 +855,7 @@ async def delete_player(
     user: User = Depends(require_admin),
 ):
     p = await session.get(Player, player_id)
-    if not p or p.deleted_at is not None:
+    if not p or (not hard and p.deleted_at is not None):
         raise PlayerNotFound(player_id)
 
     if hard:

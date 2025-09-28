@@ -930,6 +930,143 @@ async def test_stage_schedule_and_standings_flow(monkeypatch):
 
 
 @pytest.mark.anyio
+async def test_americano_match_events_trigger_rating(monkeypatch):
+    from sqlalchemy import select
+
+    from app import db
+    from app.models import (
+        Sport,
+        Tournament,
+        Stage,
+        Player,
+        RuleSet,
+        Match,
+        MatchParticipant,
+        StageStanding,
+        ScoreEvent,
+        Rating,
+        PlayerMetric,
+        GlickoRating,
+        User,
+    )
+    from app.routers import tournaments, matches, leaderboards
+    from app.routers.admin import require_admin
+    from app.routers.auth import get_current_user
+    from app.scoring import padel as padel_engine
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            db.Base.metadata.create_all,
+            tables=[
+                Sport.__table__,
+                Tournament.__table__,
+                Stage.__table__,
+                Player.__table__,
+                RuleSet.__table__,
+                Match.__table__,
+                MatchParticipant.__table__,
+                StageStanding.__table__,
+                ScoreEvent.__table__,
+                Rating.__table__,
+                PlayerMetric.__table__,
+                GlickoRating.__table__,
+                User.__table__,
+            ],
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        session.add(Sport(id="padel", name="Padel"))
+        session.add(
+            RuleSet(id="padel-default", sport_id="padel", name="Padel", config={})
+        )
+        for idx in range(4):
+            session.add(Player(id=f"p{idx+1}", name=f"Player {idx+1}"))
+        session.add(
+            User(
+                id="admin",
+                username="admin",
+                password_hash="hashed",
+                is_admin=True,
+            )
+        )
+        await session.commit()
+
+    app = FastAPI()
+    app.include_router(tournaments.router)
+    app.include_router(matches.router)
+    app.include_router(leaderboards.router)
+
+    admin_user = SimpleNamespace(id="admin", is_admin=True)
+
+    async def _admin_dep():
+        return admin_user
+
+    app.dependency_overrides[require_admin] = _admin_dep
+    app.dependency_overrides[get_current_user] = _admin_dep
+
+    async def _noop_broadcast(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr("app.routers.matches.broadcast", _noop_broadcast)
+
+    with TestClient(app) as client:
+        tid = client.post(
+            "/tournaments", json={"sport": "padel", "name": "Americano Cup"}
+        ).json()["id"]
+        sid = client.post(
+            f"/tournaments/{tid}/stages",
+            json={"type": "americano", "config": {"format": "americano"}},
+        ).json()["id"]
+
+        schedule_payload = client.post(
+            f"/tournaments/{tid}/stages/{sid}/schedule",
+            json={"playerIds": ["p1", "p2", "p3", "p4"], "rulesetId": "padel-default"},
+        ).json()
+        assert schedule_payload["matches"]
+        match_id = schedule_payload["matches"][0]["id"]
+
+        events, _ = padel_engine.record_sets([(6, 4)])
+        for ev in events:
+            resp = client.post(f"/matches/{match_id}/events", json=ev)
+            assert resp.status_code == 200
+
+        standings_payload = client.get(
+            f"/tournaments/{tid}/stages/{sid}/standings"
+        ).json()
+        stats = {row["playerId"]: row for row in standings_payload["standings"]}
+        assert stats["p1"]["wins"] == 1
+        assert stats["p2"]["wins"] == 1
+        assert stats["p3"]["losses"] == 1
+        assert stats["p4"]["losses"] == 1
+        assert stats["p1"]["matchesPlayed"] == 1
+
+        leaderboard = client.get(
+            "/leaderboards", params={"sport": "padel"}
+        ).json()
+        assert {entry["playerId"] for entry in leaderboard["leaders"]} >= {
+            "p1",
+            "p2",
+            "p3",
+            "p4",
+        }
+        ratings = {entry["playerId"]: entry["rating"] for entry in leaderboard["leaders"]}
+        assert ratings["p1"] > ratings["p3"]
+
+    async with db.AsyncSessionLocal() as session:
+        rating_events = (
+            await session.execute(
+                select(ScoreEvent).where(
+                    ScoreEvent.match_id == match_id, ScoreEvent.type == "RATING"
+                )
+            )
+        ).scalars().all()
+        assert len(rating_events) == 4
+
+
+@pytest.mark.anyio
 async def test_schedule_americano_balances_odd_roster():
     from sqlalchemy import select
 

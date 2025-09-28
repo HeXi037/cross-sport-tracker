@@ -634,6 +634,7 @@ async def test_owner_can_schedule_their_americano_stage(monkeypatch):
         session.add(
             RuleSet(id="padel-default", sport_id="padel", name="Padel", config={})
         )
+        session.add(Sport(id="padel_americano", name="Padel Americano"))
         for idx in range(4):
             session.add(Player(id=f"p{idx+1}", name=f"Player {idx+1}"))
         session.add(
@@ -1043,16 +1044,23 @@ async def test_americano_match_events_trigger_rating(monkeypatch):
         assert stats["p4"]["losses"] == 1
         assert stats["p1"]["matchesPlayed"] == 1
 
-        leaderboard = client.get(
+        padel_board = client.get(
             "/leaderboards", params={"sport": "padel"}
         ).json()
-        assert {entry["playerId"] for entry in leaderboard["leaders"]} >= {
+        assert padel_board["leaders"] == []
+
+        americano_board = client.get(
+            "/leaderboards", params={"sport": "padel_americano"}
+        ).json()
+        assert {entry["playerId"] for entry in americano_board["leaders"]} >= {
             "p1",
             "p2",
             "p3",
             "p4",
         }
-        ratings = {entry["playerId"]: entry["rating"] for entry in leaderboard["leaders"]}
+        ratings = {
+            entry["playerId"]: entry["rating"] for entry in americano_board["leaders"]
+        }
         assert ratings["p1"] > ratings["p3"]
 
     async with db.AsyncSessionLocal() as session:

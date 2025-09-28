@@ -6,12 +6,20 @@ from datetime import datetime
 from typing import Any, Sequence
 
 from fastapi import APIRouter, Depends, Query, Response
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
 from ..cache import player_stats_cache
-from ..models import Match, MatchParticipant, Player, ScoreEvent, User, Rating
+from ..models import (
+    Match,
+    MatchParticipant,
+    Player,
+    ScoreEvent,
+    Stage,
+    User,
+    Rating,
+)
 from ..schemas import (
     MatchCreate,
     MatchCreateByName,
@@ -42,6 +50,22 @@ router = APIRouter(prefix="/matches", tags=["matches"])
 
 def _coerce_utc(value: datetime | None) -> datetime | None:
     return coerce_utc(value)
+
+
+AMERICANO_STAGE_TYPE = "americano"
+AMERICANO_RATING_SUFFIX = "_americano"
+
+
+def _rating_sport_id_for_stage(sport_id: str, stage: Stage | None) -> str:
+    if stage and stage.type == AMERICANO_STAGE_TYPE:
+        return f"{sport_id}{AMERICANO_RATING_SUFFIX}"
+    return sport_id
+
+
+async def _get_match_stage(session: AsyncSession, match: Match) -> Stage | None:
+    if not match.stage_id:
+        return None
+    return await session.get(Stage, match.stage_id)
 
 # GET /api/v0/matches
 @router.get("", response_model=list[MatchSummaryOut])
@@ -266,6 +290,8 @@ async def create_match(
         )
         session.add(e)
 
+    stage = await _get_match_stage(session, match)
+    rating_sport_id = _rating_sport_id_for_stage(match.sport_id, stage)
     players_a = side_players.get("A", [])
     players_b = side_players.get("B", [])
     if not match.is_friendly and summary and players_a and players_b:
@@ -282,7 +308,7 @@ async def create_match(
                 try:
                     await update_ratings(
                         session,
-                        match.sport_id,
+                        rating_sport_id,
                         players_a,
                         players_b,
                         draws=draws,
@@ -290,18 +316,26 @@ async def create_match(
                     )
                 except Exception:
                     pass
-                await update_player_metrics(session, match.sport_id, [], [], draws)
+                await update_player_metrics(
+                    session, rating_sport_id, [], [], draws
+                )
             else:
                 winner_side = "A" if a_sets > b_sets else "B"
                 winners = players_a if winner_side == "A" else players_b
                 losers = players_b if winner_side == "A" else players_a
                 try:
                     await update_ratings(
-                        session, match.sport_id, winners, losers, match_id=mid
+                        session,
+                        rating_sport_id,
+                        winners,
+                        losers,
+                        match_id=mid,
                     )
                 except Exception:
                     pass
-                await update_player_metrics(session, match.sport_id, winners, losers)
+                await update_player_metrics(
+                    session, rating_sport_id, winners, losers
+                )
 
     stage_id = match.stage_id
     await session.flush()
@@ -446,6 +480,8 @@ async def delete_match(
     except Exception:
         parts = []
     match_player_ids = {pid for p in parts for pid in (p.player_ids or [])}
+    stage = await _get_match_stage(session, m)
+    rating_sport_id = _rating_sport_id_for_stage(m.sport_id, stage)
     if not user.is_admin:
         user_player_ids = (
             await session.execute(select(Player.id).where(Player.user_id == user.id))
@@ -470,7 +506,7 @@ async def delete_match(
         # Reset existing ratings to the default value
         rows = (
             await session.execute(
-                select(Rating).where(Rating.sport_id == sport_id)
+                select(Rating).where(Rating.sport_id == rating_sport_id)
             )
         ).scalars().all()
         for r in rows:
@@ -478,15 +514,21 @@ async def delete_match(
         await session.commit()
 
         # Replay remaining matches to rebuild ratings
-        matches = (
-            await session.execute(
-                select(Match)
-                .where(Match.sport_id == sport_id, Match.deleted_at.is_(None))
-                .order_by(Match.played_at)
+        stmt = (
+            select(Match, Stage)
+            .join(Stage, Stage.id == Match.stage_id, isouter=True)
+            .where(Match.sport_id == sport_id, Match.deleted_at.is_(None))
+            .order_by(Match.played_at)
+        )
+        if rating_sport_id != sport_id:
+            stmt = stmt.where(Stage.type == AMERICANO_STAGE_TYPE)
+        else:
+            stmt = stmt.where(
+                or_(Stage.id.is_(None), Stage.type != AMERICANO_STAGE_TYPE)
             )
-        ).scalars().all()
+        rows = (await session.execute(stmt)).all()
 
-        for match in matches:
+        for match, match_stage in rows:
             parts = (
                 await session.execute(
                     select(MatchParticipant).where(
@@ -500,10 +542,13 @@ async def delete_match(
             sets = details.get("sets") if isinstance(details, dict) else None
             if not sets or not players_a or not players_b:
                 continue
+            current_rating_sport = _rating_sport_id_for_stage(
+                match.sport_id, match_stage
+            )
             if sets.get("A") == sets.get("B"):
                 await update_ratings(
                     session,
-                    match.sport_id,
+                    current_rating_sport,
                     players_a,
                     players_b,
                     draws=players_a + players_b,
@@ -514,7 +559,7 @@ async def delete_match(
                 winners = players_a if winner_side == "A" else players_b
                 losers = players_b if winner_side == "A" else players_a
                 await update_ratings(
-                    session, match.sport_id, winners, losers, match_id=match.id
+                    session, current_rating_sport, winners, losers, match_id=match.id
                 )
         await session.commit()
     except Exception:
@@ -546,6 +591,8 @@ async def append_event(
         )
     ).scalars().all()
     match_player_ids = {pid for p in parts for pid in (p.player_ids or [])}
+    stage = await _get_match_stage(session, m)
+    rating_sport_id = _rating_sport_id_for_stage(m.sport_id, stage)
     if not user.is_admin:
         user_player_ids = (
             await session.execute(select(Player.id).where(Player.user_id == user.id))
@@ -655,7 +702,7 @@ async def append_event(
         try:
             await update_ratings(
                 session,
-                m.sport_id,
+                rating_sport_id,
                 winners,
                 losers,
                 draws=draws or None,
@@ -663,7 +710,9 @@ async def append_event(
             )
         except Exception:
             pass
-        await update_player_metrics(session, m.sport_id, winners, losers, draws)
+        await update_player_metrics(
+            session, rating_sport_id, winners, losers, draws
+        )
 
     stage_id = m.stage_id
     await session.flush()
@@ -704,6 +753,8 @@ async def record_sets_endpoint(
         ).scalars().all()
     except Exception:
         parts = []
+    stage = await _get_match_stage(session, m)
+    rating_sport_id = _rating_sport_id_for_stage(m.sport_id, stage)
     if not user.is_admin:
         user_player_ids = (
             await session.execute(select(Player.id).where(Player.user_id == user.id))
@@ -767,7 +818,7 @@ async def record_sets_endpoint(
             try:
                 await update_ratings(
                     session,
-                    m.sport_id,
+                    rating_sport_id,
                     players_a,
                     players_b,
                     draws=draws,
@@ -776,7 +827,7 @@ async def record_sets_endpoint(
             except Exception:
                 pass
             await update_player_metrics(
-                session, m.sport_id, [], [], draws
+                session, rating_sport_id, [], [], draws
             )
         else:
             winner_side = "A" if sets["A"] > sets["B"] else "B"
@@ -784,12 +835,12 @@ async def record_sets_endpoint(
             losers = players_b if winner_side == "A" else players_a
             try:
                 await update_ratings(
-                    session, m.sport_id, winners, losers, match_id=mid
+                    session, rating_sport_id, winners, losers, match_id=mid
                 )
             except Exception:
                 pass
             await update_player_metrics(
-                session, m.sport_id, winners, losers
+                session, rating_sport_id, winners, losers
             )
 
     stage_id = m.stage_id

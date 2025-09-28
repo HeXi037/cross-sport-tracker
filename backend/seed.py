@@ -20,6 +20,7 @@ async def main():
         have = {x.id for x in existing}
         for sid, name in [
             ("padel", "Padel"),
+            ("padel_americano", "Padel Americano"),
             ("bowling", "Bowling"),
             ("tennis", "Tennis"),
             ("pickleball", "Pickleball"),

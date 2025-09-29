@@ -603,52 +603,76 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     };
   }, [sport, appliedCountry, appliedClubId, buildUrl, preferencesApplied]);
 
+  const tableStyle = useMemo(
+    () => ({
+      width: "100%",
+      borderCollapse: "collapse" as const,
+      fontSize: "0.9rem",
+    }),
+    [],
+  );
+
+  const headerCellStyle = useMemo(
+    () => ({
+      position: "sticky" as const,
+      top: 0,
+      zIndex: 1,
+      textAlign: "left" as const,
+      padding: "4px 16px 4px 0",
+      background: "var(--leaderboard-table-header-bg)",
+    }),
+    [],
+  );
+
+  const lastHeaderCellStyle = useMemo(
+    () => ({
+      ...headerCellStyle,
+      padding: "4px 0",
+    }),
+    [headerCellStyle],
+  );
+
+  const cellStyle = useMemo(
+    () => ({
+      padding: "4px 16px 4px 0",
+    }),
+    [],
+  );
+
+  const lastCellStyle = useMemo(
+    () => ({
+      padding: "4px 0",
+    }),
+    [],
+  );
+
   const TableHeader = () => (
     <thead>
       <tr>
-        <th
-          scope="col"
-          aria-sort="ascending"
-          style={{ textAlign: "left", padding: "4px 16px 4px 0" }}
-        >
+        <th scope="col" aria-sort="ascending" style={headerCellStyle}>
           #
         </th>
-        <th scope="col" style={{ textAlign: "left", padding: "4px 16px 4px 0" }}>
+        <th scope="col" style={headerCellStyle}>
           Player
         </th>
         {sport === ALL_SPORTS && (
-          <th
-            scope="col"
-            style={{ textAlign: "left", padding: "4px 16px 4px 0" }}
-          >
+          <th scope="col" style={headerCellStyle}>
             Sport
           </th>
         )}
-        <th
-          scope="col"
-          style={{ textAlign: "left", padding: "4px 16px 4px 0" }}
-        >
+        <th scope="col" style={headerCellStyle}>
           Rating
         </th>
-        <th
-          scope="col"
-          style={{ textAlign: "left", padding: "4px 16px 4px 0" }}
-        >
+        <th scope="col" style={headerCellStyle}>
           W
         </th>
-        <th
-          scope="col"
-          style={{ textAlign: "left", padding: "4px 16px 4px 0" }}
-        >
+        <th scope="col" style={headerCellStyle}>
           L
         </th>
-        <th
-          scope="col"
-          style={{ textAlign: "left", padding: "4px 16px 4px 0" }}
-        >
+        <th scope="col" style={headerCellStyle}>
           Matches
         </th>
-        <th scope="col" style={{ textAlign: "left", padding: "4px 0" }}>
+        <th scope="col" style={lastHeaderCellStyle}>
           Win%
         </th>
       </tr>
@@ -850,49 +874,43 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       )}
 
       {loading ? (
-        <table
-          id={RESULTS_TABLE_ID}
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            marginTop: "1rem",
-            fontSize: "0.9rem",
-          }}
-        >
-          <TableHeader />
-          <tbody>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <tr key={`skeleton-${i}`} style={{ borderTop: "1px solid #ccc" }}>
-                <td style={{ padding: "4px 16px 4px 0" }}>
-                  <div className="skeleton" style={{ width: "12px", height: "1em" }} />
-                </td>
-                <td style={{ padding: "4px 16px 4px 0" }}>
-                  <div className="skeleton" style={{ width: "120px", height: "1em" }} />
-                </td>
-                {sport === ALL_SPORTS && (
-                  <td style={{ padding: "4px 16px 4px 0" }}>
-                    <div className="skeleton" style={{ width: "80px", height: "1em" }} />
+        <div className="leaderboard-table-wrapper">
+          <table id={RESULTS_TABLE_ID} className="leaderboard-table" style={tableStyle}>
+            <TableHeader />
+            <tbody>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <tr key={`skeleton-${i}`} style={{ borderTop: "1px solid #ccc" }}>
+                  <td style={cellStyle}>
+                    <div className="skeleton" style={{ width: "12px", height: "1em" }} />
                   </td>
-                )}
-                <td style={{ padding: "4px 16px 4px 0" }}>
-                  <div className="skeleton" style={{ width: "40px", height: "1em" }} />
-                </td>
-                <td style={{ padding: "4px 16px 4px 0" }}>
-                  <div className="skeleton" style={{ width: "20px", height: "1em" }} />
-                </td>
-                <td style={{ padding: "4px 16px 4px 0" }}>
-                  <div className="skeleton" style={{ width: "20px", height: "1em" }} />
-                </td>
-                <td style={{ padding: "4px 16px 4px 0" }}>
-                  <div className="skeleton" style={{ width: "30px", height: "1em" }} />
-                </td>
-                <td style={{ padding: "4px 0" }}>
-                  <div className="skeleton" style={{ width: "40px", height: "1em" }} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  <td style={cellStyle}>
+                    <div className="skeleton" style={{ width: "120px", height: "1em" }} />
+                  </td>
+                  {sport === ALL_SPORTS && (
+                    <td style={cellStyle}>
+                      <div className="skeleton" style={{ width: "80px", height: "1em" }} />
+                    </td>
+                  )}
+                  <td style={cellStyle}>
+                    <div className="skeleton" style={{ width: "40px", height: "1em" }} />
+                  </td>
+                  <td style={cellStyle}>
+                    <div className="skeleton" style={{ width: "20px", height: "1em" }} />
+                  </td>
+                  <td style={cellStyle}>
+                    <div className="skeleton" style={{ width: "20px", height: "1em" }} />
+                  </td>
+                  <td style={cellStyle}>
+                    <div className="skeleton" style={{ width: "30px", height: "1em" }} />
+                  </td>
+                  <td style={lastCellStyle}>
+                    <div className="skeleton" style={{ width: "40px", height: "1em" }} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : leaders.length === 0 ? (
         error ? (
           <div
@@ -912,46 +930,36 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           <EmptyState {...emptyStateContent} />
         )
       ) : (
-        <table
-          id={RESULTS_TABLE_ID}
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            marginTop: "1rem",
-            fontSize: "0.9rem",
-          }}
-        >
-          <TableHeader />
-          <tbody>
-            {leaders.map((row) => {
-              const won = row.setsWon ?? 0;
-              const lost = row.setsLost ?? 0;
-              const total = won + lost;
-              const winPct = total > 0 ? Math.round((won / total) * 100) : null;
-              return (
-                <tr
-                  key={`${row.rank}-${row.playerId}-${row.sport ?? ""}`}
-                  style={{ borderTop: "1px solid #ccc" }}
-                >
-                  <td style={{ padding: "4px 16px 4px 0" }}>{row.rank}</td>
-                  <td style={{ padding: "4px 16px 4px 0" }}>{row.playerName}</td>
-                  {sport === ALL_SPORTS && (
-                    <td style={{ padding: "4px 16px 4px 0" }}>{row.sport}</td>
-                  )}
-                  <td style={{ padding: "4px 16px 4px 0" }}>
-                    {row.rating != null ? Math.round(row.rating) : "—"}
-                  </td>
-                  <td style={{ padding: "4px 16px 4px 0" }}>{row.setsWon ?? "—"}</td>
-                  <td style={{ padding: "4px 16px 4px 0" }}>{row.setsLost ?? "—"}</td>
-                  <td style={{ padding: "4px 16px 4px 0" }}>{total || "—"}</td>
-                  <td style={{ padding: "4px 0" }}>
-                    {winPct != null ? `${winPct}%` : "—"}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className="leaderboard-table-wrapper">
+          <table id={RESULTS_TABLE_ID} className="leaderboard-table" style={tableStyle}>
+            <TableHeader />
+            <tbody>
+              {leaders.map((row) => {
+                const won = row.setsWon ?? 0;
+                const lost = row.setsLost ?? 0;
+                const total = won + lost;
+                const winPct = total > 0 ? Math.round((won / total) * 100) : null;
+                return (
+                  <tr
+                    key={`${row.rank}-${row.playerId}-${row.sport ?? ""}`}
+                    style={{ borderTop: "1px solid #ccc" }}
+                  >
+                    <td style={cellStyle}>{row.rank}</td>
+                    <td style={cellStyle}>{row.playerName}</td>
+                    {sport === ALL_SPORTS && <td style={cellStyle}>{row.sport}</td>}
+                    <td style={cellStyle}>
+                      {row.rating != null ? Math.round(row.rating) : "—"}
+                    </td>
+                    <td style={cellStyle}>{row.setsWon ?? "—"}</td>
+                    <td style={cellStyle}>{row.setsLost ?? "—"}</td>
+                    <td style={cellStyle}>{total || "—"}</td>
+                    <td style={lastCellStyle}>{winPct != null ? `${winPct}%` : "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </main>
   );

@@ -99,6 +99,17 @@ describe("Leaderboard", () => {
     );
   });
 
+  it("renders the leaderboard table inside a scrollable wrapper while loading", () => {
+    const pendingFetch = new Promise<Response>(() => {});
+    global.fetch = vi.fn().mockReturnValue(pendingFetch) as unknown as typeof fetch;
+
+    render(<Leaderboard sport="padel" />);
+
+    const table = screen.getByRole("table");
+    expect(table).toHaveClass("leaderboard-table");
+    expect(table.parentElement).toHaveClass("leaderboard-table-wrapper");
+  });
+
   it("falls back to a dropdown when the tab navigation overflows", async () => {
     const fetchMock = vi
       .fn()
@@ -376,11 +387,20 @@ describe("Leaderboard", () => {
 
     const table = await screen.findByRole("table");
     expect(table).toHaveAttribute("id", "leaderboard-results");
+    expect(table).toHaveClass("leaderboard-table");
+    expect(table.parentElement).toHaveClass("leaderboard-table-wrapper");
 
     const headers = screen.getAllByRole("columnheader");
     headers.forEach((header) => {
       expect(header).toHaveAttribute("scope", "col");
     });
+
+    const stickyHeader = screen.getByRole("columnheader", { name: "#" });
+    expect(stickyHeader).toHaveStyle("position: sticky");
+    expect(stickyHeader).toHaveStyle("top: 0");
+    expect(stickyHeader).toHaveStyle(
+      "background: var(--leaderboard-table-header-bg)",
+    );
 
     expect(screen.getByRole("columnheader", { name: "#" })).toHaveAttribute(
       "aria-sort",

@@ -18,6 +18,7 @@
   /* Navigation */
   --color-nav-bg: #0a1f44;
   --color-nav-text: #ffffff;
+  --leaderboard-table-header-bg: var(--color-surface);
 }
 
 *,
@@ -1081,6 +1082,38 @@ textarea {
 
 .bowling-total {
   font-weight: 700;
+}
+
+.leaderboard-table-wrapper {
+  margin-top: 1rem;
+  overflow-x: auto;
+  padding-inline: clamp(0.5rem, 4vw, 2rem);
+}
+
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  min-width: 560px;
+}
+
+.leaderboard-table-wrapper::-webkit-scrollbar {
+  height: 8px;
+}
+
+.leaderboard-table-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(10, 31, 68, 0.25);
+  border-radius: 999px;
+}
+
+.leaderboard-table-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (min-width: 768px) {
+  .leaderboard-table-wrapper {
+    padding-inline: clamp(0.5rem, 2vw, 1.5rem);
+  }
 }
 
 .leaderboard-nav {

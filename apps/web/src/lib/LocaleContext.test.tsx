@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { LocaleProvider, useLocale } from './LocaleContext';
+import { LocaleProvider, useLocale, useTimeZone } from './LocaleContext';
 import {
   formatDateTime,
   LOCALE_STORAGE_KEY,
@@ -25,6 +25,17 @@ describe('LocaleProvider', () => {
   function LocaleConsumer() {
     const locale = useLocale();
     return <span data-testid="locale-value">{locale}</span>;
+  }
+
+  function LocaleAndTimeZoneConsumer() {
+    const locale = useLocale();
+    const timeZone = useTimeZone();
+    return (
+      <>
+        <span data-testid="locale-value">{locale}</span>
+        <span data-testid="time-zone-value">{timeZone}</span>
+      </>
+    );
   }
 
   it('prefers the primary browser locale when available', async () => {
@@ -143,6 +154,36 @@ describe('LocaleProvider', () => {
 
     const dateDisplay = await screen.findByTestId('date-value');
     expect(dateDisplay).toHaveTextContent('21 Nov 2001, 09:30');
+  });
+
+  it('uses Intl resolved locale and time zone when browser hints are unavailable', async () => {
+    vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue([]);
+    vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('');
+
+    const originalResolvedOptions =
+      Intl.DateTimeFormat.prototype.resolvedOptions;
+
+    vi
+      .spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions')
+      .mockImplementation(function (...args) {
+        const resolved = originalResolvedOptions.apply(this, args as never);
+        return {
+          ...resolved,
+          timeZone: 'Australia/Melbourne',
+        };
+      });
+
+    render(
+      <LocaleProvider locale="en-GB" acceptLanguage={null} timeZone={null}>
+        <LocaleAndTimeZoneConsumer />
+      </LocaleProvider>,
+    );
+
+    const localeDisplay = await screen.findByTestId('locale-value');
+    expect(localeDisplay).toHaveTextContent('en-GB');
+
+    const timeZoneDisplay = await screen.findByTestId('time-zone-value');
+    expect(timeZoneDisplay).toHaveTextContent('Australia/Melbourne');
   });
 
   it('updates when the browser language changes', async () => {

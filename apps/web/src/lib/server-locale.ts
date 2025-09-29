@@ -19,13 +19,18 @@ export function resolveServerLocale(
       ? options.acceptLanguage
       : headers().get('accept-language');
 
+  const normalizedAcceptLanguage =
+    typeof acceptLanguage === 'string' && acceptLanguage.trim().length > 0
+      ? acceptLanguage.trim()
+      : null;
+
   const cookieLocale = cookieStore.get(LOCALE_COOKIE_KEY)?.value ?? null;
 
   return {
     locale: normalizeLocale(
       cookieLocale,
-      parseAcceptLanguage(acceptLanguage),
+      parseAcceptLanguage(normalizedAcceptLanguage),
     ),
-    acceptLanguage,
+    acceptLanguage: normalizedAcceptLanguage,
   };
 }

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import TournamentsClient from '../tournaments/tournaments-client';
 import TournamentDetailPage from '../tournaments/[id]/page';
@@ -53,6 +53,21 @@ const jsonResponse = (data: unknown): Response =>
     json: async () => data,
   } as Response);
 
+const selectPlayers = async (listbox: HTMLElement, names: string[]) => {
+  await waitFor(() => {
+    expect(within(listbox).queryByText('No players are available yet.')).toBeNull();
+  });
+  for (const name of names) {
+    await waitFor(() => {
+      const node = within(listbox).queryByText(new RegExp(`^${name}$`, 'i'));
+      expect(node).not.toBeNull();
+      return true;
+    });
+    const option = within(listbox).getByText(new RegExp(`^${name}$`, 'i'));
+    fireEvent.click(option);
+  }
+};
+
 describe('Tournaments client view', () => {
   beforeEach(() => {
     mockedApiFetch.mockReset();
@@ -70,29 +85,21 @@ describe('Tournaments client view', () => {
   });
 
   it('renders tournaments and appends newly created entries', async () => {
+    const playerList = [
+      { id: 'p1', name: 'Alex' },
+      { id: 'p2', name: 'Billie' },
+      { id: 'p3', name: 'Casey' },
+      { id: 'p4', name: 'Devon' },
+    ];
     const apiResponses: Response[] = [
       jsonResponse([
         { id: 'padel', name: 'Padel' },
       ]),
-      jsonResponse({
-        players: [
-          { id: 'p1', name: 'Alex' },
-          { id: 'p2', name: 'Billie' },
-          { id: 'p3', name: 'Casey' },
-          { id: 'p4', name: 'Devon' },
-        ],
-      }),
+      jsonResponse({ players: playerList }),
       jsonResponse([
         { id: 'padel', name: 'Padel' },
       ]),
-      jsonResponse({
-        players: [
-          { id: 'p1', name: 'Alex' },
-          { id: 'p2', name: 'Billie' },
-          { id: 'p3', name: 'Casey' },
-          { id: 'p4', name: 'Devon' },
-        ],
-      }),
+      jsonResponse({ players: playerList }),
       jsonResponse([
         { id: 'padel-default', name: 'Padel Default' },
       ]),
@@ -103,13 +110,13 @@ describe('Tournaments client view', () => {
       }
       const url = typeof path === 'string' ? path : path.toString();
       if (url.includes('/players')) {
-        return jsonResponse({ players: [] });
+        return jsonResponse({ players: playerList });
       }
       if (url.includes('/rulesets')) {
-        return jsonResponse([]);
+        return jsonResponse([{ id: 'padel-default', name: 'Padel Default' }]);
       }
       if (url.includes('/sports')) {
-        return jsonResponse([]);
+        return jsonResponse([{ id: 'padel', name: 'Padel' }]);
       }
       return jsonResponse([]);
     });
@@ -166,8 +173,16 @@ describe('Tournaments client view', () => {
     });
     // Ensure initial data fetches completed before interacting with the form.
 
-    const playerCheckboxes = screen.getAllByRole('checkbox');
-    playerCheckboxes.slice(0, 4).forEach((box) => fireEvent.click(box));
+    const listbox = await screen.findByRole('listbox', { name: /available players/i });
+    await waitFor(() =>
+      expect(
+        mockedApiFetch
+          .mock.calls
+          .some(([url]) => (typeof url === 'string' ? url : url.toString()).includes('/v0/players'))
+      ).toBe(true)
+    );
+    await screen.findByText('Alex');
+    await selectPlayers(listbox, ['Alex', 'Billie', 'Casey', 'Devon']);
 
     const submitButton = screen.getByRole('button', { name: /create and schedule/i });
     fireEvent.click(submitButton);
@@ -228,13 +243,13 @@ describe('Tournaments client view', () => {
       }
       const url = typeof path === 'string' ? path : path.toString();
       if (url.includes('/players')) {
-        return jsonResponse({ players: [] });
+        return jsonResponse({ players: playerList });
       }
       if (url.includes('/rulesets')) {
-        return jsonResponse([]);
+        return jsonResponse([{ id: 'padel-default', name: 'Padel Default' }]);
       }
       if (url.includes('/sports')) {
-        return jsonResponse([]);
+        return jsonResponse([{ id: 'padel', name: 'Padel' }]);
       }
       return jsonResponse([]);
     });
@@ -248,8 +263,8 @@ describe('Tournaments client view', () => {
       expect(mockedApiFetch.mock.calls.length).toBeGreaterThanOrEqual(3);
     });
 
-    const playerCheckboxes = screen.getAllByRole('checkbox');
-    playerCheckboxes.slice(0, 3).forEach((box) => fireEvent.click(box));
+    const listbox = await screen.findByRole('listbox', { name: /available players/i });
+    await selectPlayers(listbox, ['Alex', 'Billie', 'Casey']);
 
     const submitButton = screen.getByRole('button', { name: /create and schedule/i });
     fireEvent.click(submitButton);
@@ -285,6 +300,16 @@ describe('Tournaments client view', () => {
       if (apiResponses.length > 0) {
         return apiResponses.shift()!;
       }
+      const url = typeof path === 'string' ? path : path.toString();
+      if (url.includes('/players')) {
+        return jsonResponse({ players: playerList });
+      }
+      if (url.includes('/rulesets')) {
+        return jsonResponse([{ id: 'padel-default', name: 'Padel Default' }]);
+      }
+      if (url.includes('/sports')) {
+        return jsonResponse([{ id: 'padel', name: 'Padel' }]);
+      }
       return jsonResponse([]);
     });
 
@@ -310,8 +335,8 @@ describe('Tournaments client view', () => {
     const courtSelect = await screen.findByLabelText('Courts in play');
     fireEvent.change(courtSelect, { target: { value: '3' } });
 
-    const checkboxes = await screen.findAllByRole('checkbox');
-    checkboxes.forEach((box) => fireEvent.click(box));
+    const listbox = await screen.findByRole('listbox', { name: /available players/i });
+    await selectPlayers(listbox, ['Alex', 'Billie', 'Casey', 'Devon']);
 
     const nameInput = screen.getByLabelText('Tournament name');
     fireEvent.change(nameInput, { target: { value: 'Odd Courts' } });
@@ -398,6 +423,88 @@ describe('Tournaments client view', () => {
 
   });
 });
+
+  it('supports keyboard selection, filtering, and deselection in the player multi-select', async () => {
+    const apiResponses: Response[] = [
+      jsonResponse([
+        { id: 'padel', name: 'Padel' },
+      ]),
+      jsonResponse({
+        players: [
+          { id: 'p1', name: 'Alex' },
+          { id: 'p2', name: 'Billie' },
+          { id: 'p3', name: 'Casey' },
+          { id: 'p4', name: 'Devon' },
+          { id: 'p5', name: 'Elliott' },
+        ],
+      }),
+      jsonResponse([
+        { id: 'padel-default', name: 'Padel Default' },
+      ]),
+    ];
+
+    mockedApiFetch.mockImplementation(async (path: RequestInfo | URL) => {
+      if (apiResponses.length > 0) {
+        return apiResponses.shift()!;
+      }
+      const url = typeof path === 'string' ? path : path.toString();
+      if (url.includes('/players')) {
+        return jsonResponse({ players: [
+          { id: 'p1', name: 'Alex' },
+          { id: 'p2', name: 'Billie' },
+          { id: 'p3', name: 'Casey' },
+          { id: 'p4', name: 'Devon' },
+          { id: 'p5', name: 'Elliott' },
+        ] });
+      }
+      if (url.includes('/rulesets')) {
+        return jsonResponse([{ id: 'padel-default', name: 'Padel Default' }]);
+      }
+      if (url.includes('/sports')) {
+        return jsonResponse([{ id: 'padel', name: 'Padel' }]);
+      }
+      return jsonResponse([]);
+    });
+
+    render(<TournamentsClient initialTournaments={[]} loadError={false} />);
+
+    const searchInput = await screen.findByLabelText('Search players');
+    const listbox = await screen.findByRole('listbox', { name: /available players/i });
+    await waitFor(() =>
+      expect(
+        mockedApiFetch
+          .mock.calls
+          .some(([url]) => (typeof url === 'string' ? url : url.toString()).includes('/v0/players'))
+      ).toBe(true)
+    );
+    await screen.findByText('Alex');
+    await within(listbox).findByText(/^[Aa]lex$/);
+
+    fireEvent.keyDown(searchInput, { key: 'Enter' });
+    expect(await screen.findByRole('button', { name: /Remove Alex/i })).toBeInTheDocument();
+
+    fireEvent.change(searchInput, { target: { value: 'Dev' } });
+    await within(listbox).findByText(/Devon/i);
+    fireEvent.keyDown(searchInput, { key: 'ArrowDown' });
+    fireEvent.keyDown(searchInput, { key: 'Enter' });
+    expect(await screen.findByRole('button', { name: /Remove Devon/i })).toBeInTheDocument();
+
+    fireEvent.change(searchInput, { target: { value: '' } });
+    fireEvent.keyDown(searchInput, { key: 'Backspace' });
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /Remove Devon/i })).not.toBeInTheDocument();
+    });
+
+    fireEvent.change(searchInput, { target: { value: 'zzz' } });
+    expect(await screen.findByText('No players match "zzz".')).toBeInTheDocument();
+
+    fireEvent.change(searchInput, { target: { value: '' } });
+    await within(listbox).findByText(/^[Aa]lex$/);
+    fireEvent.keyDown(searchInput, { key: 'Home' });
+    fireEvent.keyDown(searchInput, { key: 'ArrowDown' });
+    fireEvent.keyDown(searchInput, { key: 'Enter' });
+    expect(await screen.findByRole('button', { name: /Remove Billie/i })).toBeInTheDocument();
+  });
 
 describe('Tournament detail page', () => {
   beforeEach(() => {

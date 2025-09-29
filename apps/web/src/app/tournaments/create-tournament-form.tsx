@@ -19,6 +19,7 @@ import {
   type TournamentSummary,
 } from "../../lib/api";
 import type { PlayerInfo } from "../../components/PlayerName";
+import MultiSelect from "../../components/MultiSelect";
 import StageScheduleTable from "./stage-schedule";
 
 interface SportOption {
@@ -159,27 +160,15 @@ export default function CreateTournamentForm({
     return map;
   }, [players]);
 
-  const trimmedPlayerSearch = playerSearch.trim();
-
-  const filteredPlayers = useMemo(() => {
-    if (!trimmedPlayerSearch) {
-      return players;
-    }
-    const query = trimmedPlayerSearch.toLowerCase();
-    return players.filter((player) => player.name.toLowerCase().includes(query));
-  }, [players, trimmedPlayerSearch]);
-
-  const handlePlayerToggle = (playerId: string) => {
-    setError(null);
-    setSuccess(null);
-    setScheduledMatches([]);
-    setSelectedPlayers((prev) => {
-      if (prev.includes(playerId)) {
-        return prev.filter((id) => id !== playerId);
-      }
-      return [...prev, playerId];
-    });
-  };
+  const handlePlayerSelectionChange = useCallback(
+    (playerIds: string[]) => {
+      setError(null);
+      setSuccess(null);
+      setScheduledMatches([]);
+      setSelectedPlayers(playerIds);
+    },
+    []
+  );
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -253,9 +242,10 @@ export default function CreateTournamentForm({
   }
 
   const selectedCount = selectedPlayers.length;
-  const playerValidationMessage = selectedCount
-    ? `${selectedCount} player${selectedCount === 1 ? "" : "s"} selected`
-    : "Select at least four players to include in the Americano schedule.";
+  const playerValidationMessage =
+    selectedCount >= MIN_AMERICANO_PLAYERS
+      ? `${selectedCount} player${selectedCount === 1 ? "" : "s"} selected`
+      : `Select at least ${MIN_AMERICANO_PLAYERS} players to include in the Americano schedule.`;
 
   const title = admin
     ? "Admin: Create Americano tournament"
@@ -363,65 +353,24 @@ export default function CreateTournamentForm({
           </div>
           <fieldset className="form-fieldset">
             <legend className="form-legend">Players</legend>
-            {loadingPlayers ? (
-              <p className="form-hint">Loading players…</p>
-            ) : (
-              <>
-                <div className="form-field" style={{ marginBottom: 8 }}>
-                  <label className="form-label" htmlFor="player-search">
-                    Search players
-                  </label>
-                  <input
-                    id="player-search"
-                    type="search"
-                    value={playerSearch}
-                    onChange={(event) => {
-                      setPlayerSearch(event.target.value);
-                      setSuccess(null);
-                    }}
-                    placeholder="Start typing a name…"
-                  />
-                </div>
-                {filteredPlayers.length > 0 ? (
-                  <div
-                    style={{
-                      display: "grid",
-                      gap: 8,
-                      gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-                    }}
-                  >
-                    {filteredPlayers.map((player) => {
-                      const checkboxId = `player-${player.id}`;
-                      const checked = selectedPlayers.includes(player.id);
-                      return (
-                        <label
-                          key={player.id}
-                          className="form-field"
-                          htmlFor={checkboxId}
-                          style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-                        >
-                          <input
-                            id={checkboxId}
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => handlePlayerToggle(player.id)}
-                          />
-                          <span className="form-label" style={{ margin: 0 }}>
-                            {player.name}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="form-hint" role="status">
-                    {trimmedPlayerSearch
-                      ? `No players match "${trimmedPlayerSearch}".`
-                      : "No players are available yet."}
-                  </p>
-                )}
-              </>
-            )}
+            <MultiSelect
+              ariaLabel="Available players"
+              id="player"
+              loading={loadingPlayers}
+              noOptionsMessage="No players are available yet."
+              noResultsMessage={(query) => `No players match "${query}".`}
+              onSearchChange={(value) => {
+                setPlayerSearch(value);
+                setSuccess(null);
+              }}
+              onSelectionChange={handlePlayerSelectionChange}
+              options={players}
+              placeholder="Start typing a name…"
+              searchLabel="Search players"
+              searchValue={playerSearch}
+              selectedIds={selectedPlayers}
+              selectedSummaryLabel={`${selectedCount} player${selectedCount === 1 ? "" : "s"} selected`}
+            />
             <p className="form-hint" style={{ marginTop: 8 }}>
               {playerValidationMessage}
             </p>

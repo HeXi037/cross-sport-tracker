@@ -506,9 +506,10 @@ export default async function PlayerPage({
         console.warn("Failed to resolve club name", err);
       }
     }
-    const matches = allMatches.filter(
-      (m) => m.playedAt && new Date(m.playedAt) <= new Date()
-    );
+    const matches = allMatches.filter((m) => {
+      if (!m.playedAt) return true;
+      return new Date(m.playedAt) <= new Date();
+    });
 
     const view = searchParams?.view === "summary" ? "summary" : "timeline";
     const seasons = summariseSeasons(matches);

@@ -12,6 +12,8 @@ import {
   useRef,
   useState,
 } from "react";
+import CountrySelect from "../../components/CountrySelect";
+import ClubSelect from "../../components/ClubSelect";
 import { apiUrl } from "../../lib/api";
 import { ensureTrailingSlash, recordPathForSport } from "../../lib/routes";
 import { loadUserSettings } from "../user-settings";
@@ -754,29 +756,30 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             alignItems: "flex-end",
           }}
         >
-          <div style={{ display: "flex", flexDirection: "column", minWidth: "120px" }}>
+          <div style={{ display: "flex", flexDirection: "column", minWidth: "160px" }}>
             <label style={{ fontSize: "0.85rem", fontWeight: 600 }} htmlFor="leaderboard-country">
               Country
             </label>
-            <input
+            <CountrySelect
               id="leaderboard-country"
               value={draftCountry}
-              onChange={(event) => setDraftCountry(event.target.value.toUpperCase())}
-              placeholder="e.g. SE"
-              maxLength={5}
+              onChange={(next) => setDraftCountry(normalizeCountry(next))}
+              placeholder="Select a country"
               style={{ padding: "0.35rem", border: "1px solid #ccc", borderRadius: "4px" }}
             />
           </div>
-          <div style={{ display: "flex", flexDirection: "column", minWidth: "140px" }}>
-            <label style={{ fontSize: "0.85rem", fontWeight: 600 }} htmlFor="leaderboard-club">
+          <div style={{ display: "flex", flexDirection: "column", minWidth: "220px" }}>
+            <label style={{ fontSize: "0.85rem", fontWeight: 600 }} htmlFor="leaderboard-club-search">
               Club
             </label>
-            <input
-              id="leaderboard-club"
+            <ClubSelect
               value={draftClubId}
-              onChange={(event) => setDraftClubId(event.target.value)}
-              placeholder="e.g. club-123"
-              style={{ padding: "0.35rem", border: "1px solid #ccc", borderRadius: "4px" }}
+              onChange={(next) => setDraftClubId(normalizeClubId(next))}
+              placeholder="Search for a club"
+              searchInputId="leaderboard-club-search"
+              selectId="leaderboard-club-select"
+              ariaLabel="Club"
+              className="leaderboard-club-select"
             />
           </div>
           <div style={{ display: "flex", gap: "0.5rem" }}>

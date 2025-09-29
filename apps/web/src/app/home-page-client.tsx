@@ -93,13 +93,39 @@ function resolveRulesetLabel(match: MatchWithOptionalRuleset): string | undefine
   return undefined;
 }
 
-const sportIcons: Record<string, string> = {
-  padel: '\uD83C\uDFBE', // tennis ball
-  bowling: '🎳',
-  tennis: '🎾',
-  pickleball: '🥒',
-  badminton: '🏸',
-  table_tennis: '🏓',
+const sportIcons: Record<string, { glyph: string; label: string }> = {
+  padel: {
+    glyph: '\uD83C\uDFBE',
+    label: 'Padel tennis ball icon',
+  },
+  padel_americano: {
+    glyph: '🧮',
+    label: 'Padel Americano abacus icon',
+  },
+  bowling: {
+    glyph: '🎳',
+    label: 'Bowling ball and pins icon',
+  },
+  tennis: {
+    glyph: '🎾',
+    label: 'Tennis racket and ball icon',
+  },
+  pickleball: {
+    glyph: '🥒',
+    label: 'Pickleball cucumber icon',
+  },
+  badminton: {
+    glyph: '🏸',
+    label: 'Badminton shuttlecock icon',
+  },
+  table_tennis: {
+    glyph: '🏓',
+    label: 'Table tennis paddles icon',
+  },
+  disc_golf: {
+    glyph: '🥏',
+    label: 'Disc golf flying disc icon',
+  },
 };
 
 interface Props {
@@ -291,12 +317,9 @@ export default function HomePageClient({
                 <li key={s.id} className="sport-item">
                   <Link href={href} className="sport-link">
                     {icon ? (
-                      <span className="sport-icon" aria-hidden="true">
-                        {icon}
+                      <span className="sport-icon" role="img" aria-label={icon.label}>
+                        {icon.glyph}
                       </span>
-                    ) : null}
-                    {icon ? (
-                      <span className="sr-only">{`${s.name} icon`}</span>
                     ) : null}
                     <span className="sport-name">{s.name}</span>
                   </Link>

@@ -230,38 +230,61 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   }, []);
 
   useEffect(() => {
+    if (country === undefined) {
+      return;
+    }
+    const normalized = normalizeCountry(country);
+    setDraftCountry((prev) => (prev === normalized ? prev : normalized));
+  }, [country]);
+
+  useEffect(() => {
+    if (clubId === undefined) {
+      return;
+    }
+    const normalized = normalizeClubId(clubId);
+    setDraftClubId((prev) => (prev === normalized ? prev : normalized));
+  }, [clubId]);
+
+  useEffect(() => {
     const hasCountryProp = country !== undefined;
     const hasClubProp = clubId !== undefined;
-    const nextCountry = hasCountryProp ? normalizeCountry(country) : draftCountry;
-    const nextClubId = hasClubProp ? normalizeClubId(clubId) : draftClubId;
-
-    if (hasCountryProp && draftCountry !== nextCountry) {
-      setDraftCountry(nextCountry);
-    }
-    if (hasClubProp && draftClubId !== nextClubId) {
-      setDraftClubId(nextClubId);
-    }
-
     if (!hasCountryProp && !hasClubProp) {
       return;
     }
 
+    const normalizedCountry = hasCountryProp
+      ? normalizeCountry(country)
+      : undefined;
+    const normalizedClubId = hasClubProp ? normalizeClubId(clubId) : undefined;
+
     const sanitizedCountry =
-      !nextCountry || countryCodes.has(nextCountry) ? nextCountry : "";
+      normalizedCountry === undefined
+        ? undefined
+        : normalizedCountry === "" || countryCodes.has(normalizedCountry)
+          ? normalizedCountry
+          : "";
+
     const sanitizedClubId =
-      !nextClubId
-        ? ""
-        : clubsLoaded && !clubIds.has(nextClubId)
+      normalizedClubId === undefined
+        ? undefined
+        : normalizedClubId === ""
           ? ""
-          : nextClubId;
+          : clubsLoaded && !clubIds.has(normalizedClubId)
+            ? ""
+            : normalizedClubId;
 
     setFilters((prev) => {
-      if (prev.country === sanitizedCountry && prev.clubId === sanitizedClubId) {
+      const nextCountry =
+        sanitizedCountry === undefined ? prev.country : sanitizedCountry;
+      const nextClubId =
+        sanitizedClubId === undefined ? prev.clubId : sanitizedClubId;
+
+      if (prev.country === nextCountry && prev.clubId === nextClubId) {
         return prev;
       }
-      return { country: sanitizedCountry, clubId: sanitizedClubId };
+      return { country: nextCountry, clubId: nextClubId };
     });
-  }, [clubId, clubsLoaded, clubIds, country, countryCodes, draftClubId, draftCountry]);
+  }, [clubId, clubsLoaded, clubIds, country, countryCodes]);
 
   const validateFilters = useCallback(
     (countryCode: string, clubIdentifier: string) => {

@@ -75,6 +75,7 @@ export default function MultiSelect({
   const listboxId = id ? `${id}-listbox` : `multi-select-${generatedId}-listbox`;
   const searchInputId = id ? `${id}-search` : `multi-select-${generatedId}-search`;
   const summaryId = `${listboxId}-summary`;
+  const searchDescriptionId = selectedSummaryLabel ? summaryId : undefined;
   const listRef = useRef<HTMLDivElement | null>(null);
   const [internalSearch, setInternalSearch] = useState("");
   const [scrollTop, setScrollTop] = useState(0);
@@ -367,6 +368,7 @@ export default function MultiSelect({
           aria-controls={listboxId}
           aria-activedescendant={activeDescendantId}
           aria-autocomplete="list"
+          aria-describedby={searchDescriptionId}
           autoComplete="off"
         />
       </div>
@@ -376,6 +378,7 @@ export default function MultiSelect({
         aria-multiselectable
         aria-label={ariaLabel}
         aria-describedby={selectedSummaryLabel ? summaryId : undefined}
+        aria-busy={loading}
         ref={listRef}
         onScroll={handleScroll}
         style={{

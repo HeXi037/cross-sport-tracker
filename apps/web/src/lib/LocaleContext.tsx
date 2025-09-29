@@ -8,6 +8,11 @@ import {
   storeLocalePreference,
   NEUTRAL_FALLBACK_LOCALE,
   LOCALE_STORAGE_KEY,
+  resolveTimeZone,
+  storeTimeZonePreference,
+  DEFAULT_TIME_ZONE,
+  normalizeTimeZone,
+  TIME_ZONE_STORAGE_KEY,
 } from './i18n';
 import {
   loadUserSettings,
@@ -16,6 +21,7 @@ import {
 } from '../app/user-settings';
 
 const LocaleContext = createContext(NEUTRAL_FALLBACK_LOCALE);
+const TimeZoneContext = createContext(DEFAULT_TIME_ZONE);
 
 function resolveLocaleCandidates(
   fallback: string,
@@ -86,12 +92,21 @@ function pickLocaleCandidate(
 interface ProviderProps {
   locale: string;
   acceptLanguage?: string | null;
+  timeZone?: string | null;
   children: React.ReactNode;
 }
 
-export function LocaleProvider({ locale, acceptLanguage, children }: ProviderProps) {
+export function LocaleProvider({
+  locale,
+  acceptLanguage,
+  timeZone,
+  children,
+}: ProviderProps) {
   const [currentLocale, setCurrentLocale] = useState(() =>
     normalizeLocale(locale, NEUTRAL_FALLBACK_LOCALE),
+  );
+  const [currentTimeZone, setCurrentTimeZone] = useState(() =>
+    resolveTimeZone(timeZone),
   );
 
   useEffect(() => {
@@ -110,61 +125,85 @@ export function LocaleProvider({ locale, acceptLanguage, children }: ProviderPro
   }, [locale]);
 
   useEffect(() => {
-    const applyResolvedLocale = () => {
-      const fallback = normalizeLocale(locale, NEUTRAL_FALLBACK_LOCALE);
+    const applyResolvedPreferences = () => {
+      const fallbackLocale = normalizeLocale(locale, NEUTRAL_FALLBACK_LOCALE);
       const storedLocale = getStoredLocale();
-      const preferredSettingsLocale = (() => {
+      const preferredSettings = (() => {
         try {
-          const settings = loadUserSettings();
-          const normalizedPreferred = normalizeLocale(
-            settings.preferredLocale,
-            '',
-          );
-          return normalizedPreferred || null;
+          return loadUserSettings();
         } catch {
           return null;
         }
       })();
+      const preferredSettingsLocale = normalizeLocale(
+        preferredSettings?.preferredLocale,
+        '',
+      );
       const candidates = resolveLocaleCandidates(
-        fallback,
+        fallbackLocale,
         acceptLanguage,
         storedLocale,
         preferredSettingsLocale,
       );
-      const nextLocale = pickLocaleCandidate(candidates, fallback);
+      const nextLocale = pickLocaleCandidate(candidates, fallbackLocale);
       setCurrentLocale((prev) => (prev === nextLocale ? prev : nextLocale));
       storeLocalePreference(nextLocale);
+
+      const cookieTimeZone = normalizeTimeZone(timeZone, '');
+      const preferredSettingsTimeZone = normalizeTimeZone(
+        preferredSettings?.preferredTimeZone,
+        '',
+      );
+      const nextTimeZone = resolveTimeZone(
+        preferredSettingsTimeZone || cookieTimeZone || null,
+      );
+      setCurrentTimeZone((prev) => (prev === nextTimeZone ? prev : nextTimeZone));
+      storeTimeZonePreference(nextTimeZone);
     };
 
-    applyResolvedLocale();
+    applyResolvedPreferences();
 
     if (typeof window === 'undefined') {
       return;
     }
 
-    window.addEventListener('languagechange', applyResolvedLocale);
-    window.addEventListener(USER_SETTINGS_CHANGED_EVENT, applyResolvedLocale);
+    window.addEventListener('languagechange', applyResolvedPreferences);
+    window.addEventListener(USER_SETTINGS_CHANGED_EVENT, applyResolvedPreferences);
     const handleStorage = (event: StorageEvent) => {
       if (
         !event.key ||
         event.key === USER_SETTINGS_STORAGE_KEY ||
-        event.key === LOCALE_STORAGE_KEY
+        event.key === LOCALE_STORAGE_KEY ||
+        event.key === TIME_ZONE_STORAGE_KEY
       ) {
-        applyResolvedLocale();
+        applyResolvedPreferences();
       }
     };
     window.addEventListener('storage', handleStorage);
 
     return () => {
-      window.removeEventListener('languagechange', applyResolvedLocale);
-      window.removeEventListener(USER_SETTINGS_CHANGED_EVENT, applyResolvedLocale);
+      window.removeEventListener('languagechange', applyResolvedPreferences);
+      window.removeEventListener(
+        USER_SETTINGS_CHANGED_EVENT,
+        applyResolvedPreferences,
+      );
       window.removeEventListener('storage', handleStorage);
     };
-  }, [acceptLanguage, locale]);
+  }, [acceptLanguage, locale, timeZone]);
 
-  return <LocaleContext.Provider value={currentLocale}>{children}</LocaleContext.Provider>;
+  return (
+    <LocaleContext.Provider value={currentLocale}>
+      <TimeZoneContext.Provider value={currentTimeZone}>
+        {children}
+      </TimeZoneContext.Provider>
+    </LocaleContext.Provider>
+  );
 }
 
 export function useLocale(): string {
   return useContext(LocaleContext);
+}
+
+export function useTimeZone(): string {
+  return useContext(TimeZoneContext);
 }

@@ -6,6 +6,7 @@ import {
   formatDateTime,
   LOCALE_STORAGE_KEY,
   LOCALE_COOKIE_KEY,
+  TIME_ZONE_COOKIE_KEY,
 } from './i18n';
 import {
   USER_SETTINGS_CHANGED_EVENT,
@@ -17,6 +18,7 @@ describe('LocaleProvider', () => {
     vi.restoreAllMocks();
     window.localStorage.clear();
     document.cookie = `${LOCALE_COOKIE_KEY}=; path=/; max-age=0`;
+    document.cookie = `${TIME_ZONE_COOKIE_KEY}=; path=/; max-age=0`;
     document.documentElement.lang = '';
   });
 

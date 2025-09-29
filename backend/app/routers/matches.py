@@ -126,7 +126,12 @@ async def list_matches(
     players_by_id: dict[str, Player] = {}
     if player_ids:
         player_rows = (
-            await session.execute(select(Player).where(Player.id.in_(player_ids)))
+            await session.execute(
+                select(Player).where(
+                    Player.id.in_(player_ids),
+                    Player.deleted_at.is_(None),
+                )
+            )
         ).scalars().all()
         players_by_id = {player.id: player for player in player_rows}
 

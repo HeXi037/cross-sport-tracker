@@ -464,7 +464,7 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
   from app import db
-  from app.models import Sport, Match, MatchParticipant, Player, User
+  from app.models import Sport, Match, MatchParticipant, Player, Stage, User
   from app.routers import matches
   from app.routers.auth import get_current_user
 
@@ -582,6 +582,92 @@ async def test_list_matches_upcoming_filter(tmp_path):
     assert [m["id"] for m in data] == ["future"]
     assert resp.headers.get("x-has-more") == "false"
     assert data[0]["participants"] == []
+
+
+@pytest.mark.anyio
+async def test_list_matches_omits_soft_deleted_player_details(tmp_path):
+  from datetime import datetime, timezone
+  from fastapi import FastAPI
+  from fastapi.testclient import TestClient
+  from app import db
+  from app.models import Sport, Match, MatchParticipant, Player, User
+  from app.routers import matches
+  from app.routers.auth import get_current_user
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+        db.Base.metadata.create_all,
+        tables=[
+            Sport.__table__,
+            Stage.__table__,
+            Match.__table__,
+            MatchParticipant.__table__,
+            Player.__table__,
+        ],
+    )
+
+  async with db.AsyncSessionLocal() as session:
+    session.add(Sport(id="padel", name="Padel"))
+    session.add(Player(id="active", name="Alice"))
+    session.add(
+        Player(
+            id="deleted",
+            name="Bob",
+            photo_url="https://example.com/deleted.jpg",
+            deleted_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        )
+    )
+    session.add(
+        Match(
+            id="m1",
+            sport_id="padel",
+            played_at=datetime(2024, 2, 1, tzinfo=timezone.utc),
+        )
+    )
+    session.add(
+        MatchParticipant(
+            id="part-a",
+            match_id="m1",
+            side="A",
+            player_ids=["active"],
+        )
+    )
+    session.add(
+        MatchParticipant(
+            id="part-b",
+            match_id="m1",
+            side="B",
+            player_ids=["deleted"],
+        )
+    )
+    await session.commit()
+
+  app = FastAPI()
+  app.include_router(matches.router)
+  app.dependency_overrides[get_current_user] = lambda: User(
+      id="u1", username="admin", password_hash="", is_admin=True
+  )
+
+  with TestClient(app) as client:
+    resp = client.get("/matches")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    participants = data[0]["participants"]
+    assert len(participants) == 2
+
+    side_a = next(part for part in participants if part["side"] == "A")
+    side_b = next(part for part in participants if part["side"] == "B")
+
+    assert side_a["players"] == [
+        {"id": "active", "name": "Alice", "photo_url": None}
+    ]
+    assert side_b["players"] == [
+        {"id": "deleted", "name": "Unknown", "photo_url": None}
+    ]
 
 
 @pytest.mark.skip(reason="SQLite lacks ARRAY support for MatchParticipant")

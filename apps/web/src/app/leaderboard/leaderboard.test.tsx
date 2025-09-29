@@ -35,9 +35,10 @@ describe("Leaderboard", () => {
       return undefined;
     });
     window.localStorage.clear();
-    fetchClubsSpy = vi
-      .spyOn(api, "fetchClubs")
-      .mockResolvedValue([{ id: "club-123", name: "Club 123" }]);
+    fetchClubsSpy = vi.spyOn(api, "fetchClubs").mockResolvedValue([
+      { id: "club-123", name: "Club 123" },
+      { id: "club-a", name: "Club A" },
+    ]);
   });
 
   afterEach(() => {
@@ -188,6 +189,69 @@ describe("Leaderboard", () => {
     );
   });
 
+  it("lets users apply structured region filters", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+    updateMockLocation("/leaderboard/padel");
+
+    render(<Leaderboard sport="padel" />);
+
+    await waitFor(() => expect(fetchClubsSpy).toHaveBeenCalled());
+
+    const user = userEvent.setup();
+    const countrySelect = screen.getByRole("combobox", { name: "Country" });
+    await user.selectOptions(countrySelect, "SE");
+
+    const clubSelect = screen.getByRole("combobox", { name: "Club" });
+    await user.selectOptions(clubSelect, "club-123");
+
+    replaceMock.mockClear();
+
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+
+    await waitFor(() =>
+      expect(replaceMock).toHaveBeenCalledWith(
+        "/leaderboard/padel?country=SE&clubId=club-123",
+        { scroll: false },
+      ),
+    );
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows validation feedback when the URL references unsupported filters", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+    fetchClubsSpy.mockResolvedValue([{ id: "club-123", name: "Club 123" }]);
+    updateMockLocation("/leaderboard/padel?country=ZZ&clubId=club-missing");
+
+    render(<Leaderboard sport="padel" country="ZZ" clubId="club-missing" />);
+
+    const countryAlert = await screen.findByText(
+      "We don't support country code \"ZZ\". Please pick a country from the list.",
+    );
+    expect(countryAlert).toHaveAttribute("role", "alert");
+
+    const clubAlert = await screen.findByText(
+      "We don't recognise the club \"club-missing\". Please choose an option from the list.",
+    );
+    expect(clubAlert).toHaveAttribute("role", "alert");
+
+    const countrySelect = screen.getByRole("combobox", { name: "Country" });
+    expect(countrySelect).toHaveAttribute("aria-invalid", "true");
+
+    const clubSelect = screen.getByRole("combobox", { name: "Club" });
+    expect(clubSelect).toHaveAttribute("aria-invalid", "true");
+
+    await waitFor(() =>
+      expect(replaceMock).toHaveBeenCalledWith("/leaderboard/padel", { scroll: false }),
+    );
+  });
+
   it("explains when a sport has no recorded matches", async () => {
     const fetchMock = vi
       .fn()
@@ -279,8 +343,8 @@ describe("Leaderboard", () => {
     updateMockLocation("/leaderboard?sport=padel&country=SE");
     view.rerender(<Leaderboard sport="padel" />);
 
-    const countrySelect = (await screen.findByLabelText("Country")) as HTMLSelectElement;
-    expect(countrySelect.value).toBe("SE");
+    const countrySelect = (await screen.findByRole("combobox", { name: "Country" })) as HTMLSelectElement;
+    await waitFor(() => expect(countrySelect.value).toBe("SE"));
   });
 
   it("preserves additional query params when updating filters", async () => {

@@ -14,7 +14,8 @@ import {
 } from "react";
 import CountrySelect from "../../components/CountrySelect";
 import ClubSelect from "../../components/ClubSelect";
-import { apiUrl } from "../../lib/api";
+import { apiUrl, fetchClubs, type ClubSummary } from "../../lib/api";
+import { COUNTRY_OPTIONS } from "../../lib/countries";
 import { ensureTrailingSlash, recordPathForSport } from "../../lib/routes";
 import { loadUserSettings } from "../user-settings";
 import {
@@ -47,6 +48,11 @@ type Props = {
 type Filters = {
   country: string;
   clubId: string;
+};
+
+type FilterErrors = {
+  country?: string;
+  clubId?: string;
 };
 
 const normalizeCountry = (value?: string | null) =>
@@ -156,6 +162,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     country: initialCountry,
     clubId: initialClubId,
   });
+  const [filterErrors, setFilterErrors] = useState<FilterErrors>({});
+  const [clubOptions, setClubOptions] = useState<ClubSummary[]>([]);
+  const [clubsLoaded, setClubsLoaded] = useState(false);
 
   const appliedCountry = filters.country;
   const appliedClubId = filters.clubId;
@@ -175,17 +184,102 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         : "No leaderboard results available.";
   const [preferencesApplied, setPreferencesApplied] = useState(false);
 
+  const countryCodes = useMemo(
+    () => new Set(COUNTRY_OPTIONS.map((option) => normalizeCountry(option.code))),
+    [],
+  );
+
+  const clubIds = useMemo(
+    () => new Set(clubOptions.map((club) => normalizeClubId(club.id))),
+    [clubOptions],
+  );
+
+  const clubNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    clubOptions.forEach((club) => {
+      map.set(normalizeClubId(club.id), club.name);
+    });
+    return map;
+  }, [clubOptions]);
+
   useEffect(() => {
-    const nextCountry = normalizeCountry(country);
-    const nextClubId = normalizeClubId(clubId);
-    setDraftCountry(nextCountry);
-    setDraftClubId(nextClubId);
-    setFilters((prev) =>
-      prev.country === nextCountry && prev.clubId === nextClubId
-        ? prev
-        : { country: nextCountry, clubId: nextClubId }
-    );
-  }, [country, clubId]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const clubs = await fetchClubs();
+        if (cancelled) {
+          return;
+        }
+        setClubOptions(clubs);
+      } catch (err) {
+        if (cancelled) {
+          return;
+        }
+        setClubOptions([]);
+        console.error("Failed to load clubs", err);
+      } finally {
+        if (!cancelled) {
+          setClubsLoaded(true);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const hasCountryProp = country !== undefined;
+    const hasClubProp = clubId !== undefined;
+    const nextCountry = hasCountryProp ? normalizeCountry(country) : draftCountry;
+    const nextClubId = hasClubProp ? normalizeClubId(clubId) : draftClubId;
+
+    if (hasCountryProp && draftCountry !== nextCountry) {
+      setDraftCountry(nextCountry);
+    }
+    if (hasClubProp && draftClubId !== nextClubId) {
+      setDraftClubId(nextClubId);
+    }
+
+    if (!hasCountryProp && !hasClubProp) {
+      return;
+    }
+
+    const sanitizedCountry =
+      !nextCountry || countryCodes.has(nextCountry) ? nextCountry : "";
+    const sanitizedClubId =
+      !nextClubId
+        ? ""
+        : clubsLoaded && !clubIds.has(nextClubId)
+          ? ""
+          : nextClubId;
+
+    setFilters((prev) => {
+      if (prev.country === sanitizedCountry && prev.clubId === sanitizedClubId) {
+        return prev;
+      }
+      return { country: sanitizedCountry, clubId: sanitizedClubId };
+    });
+  }, [clubId, clubsLoaded, clubIds, country, countryCodes, draftClubId, draftCountry]);
+
+  const validateFilters = useCallback(
+    (countryCode: string, clubIdentifier: string) => {
+      const errors: FilterErrors = {};
+      if (countryCode && !countryCodes.has(countryCode)) {
+        errors.country = `We don't support country code "${countryCode}". Please pick a country from the list.`;
+      }
+      if (clubIdentifier && clubsLoaded) {
+        if (!clubIds.has(clubIdentifier)) {
+          const label = clubNameById.get(clubIdentifier) ?? clubIdentifier;
+          errors.clubId = `We don't recognise the club "${label}". Please choose an option from the list.`;
+        }
+      }
+      setFilterErrors(errors);
+      return errors;
+    },
+    [clubIds, clubNameById, clubsLoaded, countryCodes],
+  );
+
 
   const updateFiltersInQuery = useCallback(
     (nextFilters: Filters) => {
@@ -429,6 +523,11 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const canClear = supportsFilters
     ? hasDraftValues || hasAppliedFilters
     : hasAppliedFilters;
+  useEffect(() => {
+    validateFilters(normalizedDraftCountry, normalizedDraftClubId);
+  }, [normalizedDraftClubId, normalizedDraftCountry, validateFilters]);
+  const countryErrorId = filterErrors.country ? "leaderboard-country-error" : undefined;
+  const clubErrorId = filterErrors.clubId ? "leaderboard-club-error" : undefined;
 
   const emptyStateContent = useMemo<EmptyStateContent>(() => {
     const icon = SPORT_ICONS[sport] ?? "🏅";
@@ -504,6 +603,10 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     }
     const nextCountry = normalizedDraftCountry;
     const nextClubId = normalizedDraftClubId;
+    const errors = validateFilters(nextCountry, nextClubId);
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
     const nextFilters = { country: nextCountry, clubId: nextClubId };
     setDraftCountry(nextCountry);
     setDraftClubId(nextClubId);
@@ -518,6 +621,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const handleClear = () => {
     setDraftCountry("");
     setDraftClubId("");
+    setFilterErrors({});
     const cleared = { country: "", clubId: "" };
     setFilters((prev) =>
       prev.country === "" && prev.clubId === "" ? prev : cleared
@@ -766,7 +870,22 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
               onChange={(next) => setDraftCountry(normalizeCountry(next))}
               placeholder="Select a country"
               style={{ padding: "0.35rem", border: "1px solid #ccc", borderRadius: "4px" }}
+              aria-invalid={filterErrors.country ? true : undefined}
+              aria-describedby={countryErrorId}
             />
+            {filterErrors.country ? (
+              <p
+                id="leaderboard-country-error"
+                role="alert"
+                style={{
+                  marginTop: "0.35rem",
+                  fontSize: "0.8rem",
+                  color: "#b91c1c",
+                }}
+              >
+                {filterErrors.country}
+              </p>
+            ) : null}
           </div>
           <div style={{ display: "flex", flexDirection: "column", minWidth: "220px" }}>
             <label style={{ fontSize: "0.85rem", fontWeight: 600 }} htmlFor="leaderboard-club-search">
@@ -780,7 +899,22 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
               selectId="leaderboard-club-select"
               ariaLabel="Club"
               className="leaderboard-club-select"
+              invalid={filterErrors.clubId ? true : false}
+              describedById={clubErrorId}
             />
+            {filterErrors.clubId ? (
+              <p
+                id="leaderboard-club-error"
+                role="alert"
+                style={{
+                  marginTop: "0.35rem",
+                  fontSize: "0.8rem",
+                  color: "#b91c1c",
+                }}
+              >
+                {filterErrors.clubId}
+              </p>
+            ) : null}
           </div>
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <button

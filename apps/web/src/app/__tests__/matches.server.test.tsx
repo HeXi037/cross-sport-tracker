@@ -42,8 +42,26 @@ describe('resolveServerLocale', () => {
     mockHeadersGet.mockReturnValue('fr-CA');
     mockCookiesGet.mockReturnValue(undefined);
 
-    const { locale } = resolveServerLocale();
+    const { locale, acceptLanguage } = resolveServerLocale();
 
     expect(locale).toBe('fr-CA');
+    expect(acceptLanguage).toBe('fr-CA');
+  });
+
+  it('trims the Accept-Language header and treats empty values as null', () => {
+    mockHeadersGet.mockReturnValue('  en-AU  ');
+    mockCookiesGet.mockReturnValue(undefined);
+
+    const { locale, acceptLanguage } = resolveServerLocale();
+
+    expect(locale).toBe('en-AU');
+    expect(acceptLanguage).toBe('en-AU');
+
+    mockHeadersGet.mockReturnValue('   ');
+
+    const resultWithoutHeader = resolveServerLocale();
+
+    expect(resultWithoutHeader.locale).toBe('en-GB');
+    expect(resultWithoutHeader.acceptLanguage).toBeNull();
   });
 });

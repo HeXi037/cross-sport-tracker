@@ -427,4 +427,46 @@ describe("Leaderboard", () => {
     expect(filterClear).toBeDefined();
     expect(filterClear).toHaveAttribute("aria-controls", "leaderboard-results");
   });
+
+  it("reuses cached sport results when revisiting a previously viewed sport", async () => {
+    const padelResponse = {
+      ok: true,
+      json: async () => [
+        { rank: 1, playerId: "padel-1", playerName: "Padel Ace", rating: 2000 },
+      ],
+    } as Response;
+    const discResponse = {
+      ok: true,
+      json: async () => [
+        {
+          rank: 1,
+          playerId: "disc-1",
+          playerName: "Disc Star",
+          rating: 1950,
+        },
+      ],
+    } as Response;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(padelResponse)
+      .mockResolvedValueOnce(discResponse);
+    global.fetch = fetchMock as typeof fetch;
+
+    const { rerender } = render(<Leaderboard sport="padel" />);
+
+    await screen.findByText("Padel Ace");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    updateMockLocation("/leaderboard?sport=disc_golf");
+    rerender(<Leaderboard sport="disc_golf" />);
+
+    await screen.findByText("Disc Star");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    updateMockLocation("/leaderboard?sport=padel");
+    rerender(<Leaderboard sport="padel" />);
+
+    await screen.findByText("Padel Ace");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  });
 });

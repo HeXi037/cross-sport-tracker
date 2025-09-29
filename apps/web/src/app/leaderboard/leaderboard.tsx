@@ -163,6 +163,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const resultsCacheRef = useRef<Map<string, Leader[]>>(new Map());
 
   const resultsCount = leaders.length;
   const hasResults = resultsCount > 0;
@@ -537,42 +538,112 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       controller.abort();
     }, LEADERBOARD_TIMEOUT_MS);
     (async () => {
-      setLoading(true);
+      const getCacheKey = (sportId: LeaderboardSport) =>
+        [sportId, appliedCountry || "", appliedClubId || ""].join("::");
+      const getCachedLeaders = (sportId: LeaderboardSport) =>
+        resultsCacheRef.current.get(getCacheKey(sportId));
+      const storeCachedLeaders = (
+        sportId: LeaderboardSport,
+        data: Leader[],
+      ) => {
+        resultsCacheRef.current.set(getCacheKey(sportId), data);
+      };
+      const combineLeaders = (
+        entries: { sportId: LeaderboardSport; leaders: Leader[] }[],
+      ) =>
+        entries
+          .flatMap(({ sportId, leaders: source }) =>
+            source.map((leader) => ({ ...leader, sport: sportId })),
+          )
+          .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+          .map((leader, index) => ({ ...leader, rank: index + 1 }));
+
       setError(null);
+      let hadCachedResultsForCurrentView = false;
       try {
         if (sport === ALL_SPORTS) {
-          const results = await Promise.all(
-            SPORTS.map(async (s) => {
+          const cachedEntries = SPORTS.map((s) => {
+            const cached = getCachedLeaders(s);
+            return cached ? { sportId: s, leaders: cached } : null;
+          }).filter(Boolean) as { sportId: LeaderboardSport; leaders: Leader[] }[];
+          const missingSports = SPORTS.filter(
+            (s) => !resultsCacheRef.current.has(getCacheKey(s)),
+          );
+
+          if (cachedEntries.length > 0) {
+            hadCachedResultsForCurrentView = true;
+            const combinedCached = combineLeaders(cachedEntries);
+            if (!cancelled) {
+              setLeaders(combinedCached);
+              setLoading(missingSports.length > 0);
+            }
+            if (missingSports.length === 0) {
+              return;
+            }
+          } else {
+            setLoading(true);
+          }
+
+          const fetchedEntries = await Promise.all(
+            missingSports.map(async (s) => {
               const res = await fetch(buildUrl(s), {
                 signal: controller.signal,
               });
-              if (!res.ok) return [] as Leader[];
+              if (!res.ok) {
+                return { sportId: s, leaders: [] as Leader[] };
+              }
               const data = await res.json();
-              const arr = Array.isArray(data) ? data : data.leaders ?? [];
-              return (arr as Leader[]).map((l) => ({ ...l, sport: s }));
-            })
+              const arr = (Array.isArray(data) ? data : data.leaders ?? []) as Leader[];
+              storeCachedLeaders(s, arr);
+              return { sportId: s, leaders: arr };
+            }),
           );
-          const combined = results
-            .flat()
-            .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
-            .map((l, i) => ({ ...l, rank: i + 1 }));
-          if (!cancelled) setLeaders(combined);
+
+          const combined = combineLeaders([...cachedEntries, ...fetchedEntries]);
+          if (!cancelled) {
+            setLeaders(combined);
+            setLoading(false);
+          }
         } else if (sport === MASTER_SPORT) {
+          const cached = getCachedLeaders(MASTER_SPORT);
+          if (cached) {
+            hadCachedResultsForCurrentView = true;
+            if (!cancelled) {
+              setLeaders(cached);
+              setLoading(false);
+            }
+            return;
+          }
+          setLoading(true);
           const res = await fetch(apiUrl(`/v0/leaderboards/master`), {
             signal: controller.signal,
           });
           if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
           const data = await res.json();
-          const arr = Array.isArray(data) ? data : data.leaders ?? [];
-          if (!cancelled) setLeaders(arr as Leader[]);
+          const arr = (Array.isArray(data) ? data : data.leaders ?? []) as Leader[];
+          storeCachedLeaders(MASTER_SPORT, arr);
+          if (!cancelled) {
+            setLeaders(arr);
+          }
         } else {
+          const cached = getCachedLeaders(sport);
+          if (cached) {
+            hadCachedResultsForCurrentView = true;
+            if (!cancelled) {
+              setLeaders(cached);
+              setLoading(false);
+            }
+            return;
+          }
+          setLoading(true);
           const res = await fetch(buildUrl(sport), {
             signal: controller.signal,
           });
           if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
           const data = await res.json();
-          const arr = Array.isArray(data) ? data : data.leaders ?? [];
-          if (!cancelled) setLeaders(arr as Leader[]);
+          const arr = (Array.isArray(data) ? data : data.leaders ?? []) as Leader[];
+          storeCachedLeaders(sport, arr);
+          if (!cancelled) setLeaders(arr);
         }
       } catch (err) {
         if (cancelled) {
@@ -583,7 +654,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           return;
         }
         console.error("Failed to load leaderboard", err);
-        setLeaders([]);
+        if (!(sport === ALL_SPORTS && hadCachedResultsForCurrentView)) {
+          setLeaders([]);
+        }
         const fallbackMessage = didTimeout
           ? "Loading the leaderboard took too long. Please try again."
           : appliedCountry || appliedClubId

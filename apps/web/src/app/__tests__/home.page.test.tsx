@@ -83,6 +83,8 @@ describe('HomePageClient error messages', () => {
             playedAt: null,
             location: null,
             isFriendly: false,
+            participants: [],
+            summary: null,
           },
         ],
         headers: new Headers({ 'X-Limit': '5', 'X-Has-More': 'false' }),

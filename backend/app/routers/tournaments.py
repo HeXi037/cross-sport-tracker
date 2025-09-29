@@ -23,7 +23,7 @@ from ..schemas import (
     StageScheduleMatchOut,
     StageStandingsOut,
     StageStandingOut,
-    ParticipantOut,
+    MatchSummaryParticipantOut,
 )
 from ..exceptions import http_problem
 from ..services.tournaments import normalize_stage_type, schedule_americano
@@ -335,7 +335,11 @@ async def schedule_stage(
             isFriendly=match.is_friendly,
             rulesetId=match.ruleset_id,
             participants=[
-                ParticipantOut(id=part.id, side=part.side, playerIds=part.player_ids)
+                MatchSummaryParticipantOut(
+                    id=part.id,
+                    side=part.side,
+                    playerIds=part.player_ids,
+                )
                 for part in participants
             ],
         )
@@ -444,7 +448,7 @@ async def list_stage_matches(
             isFriendly=match.is_friendly,
             rulesetId=match.ruleset_id,
             participants=[
-                ParticipantOut(
+                MatchSummaryParticipantOut(
                     id=part.id,
                     side=part.side,
                     playerIds=part.player_ids,

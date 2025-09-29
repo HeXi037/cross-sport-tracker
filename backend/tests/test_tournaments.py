@@ -8,6 +8,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.schemas import ParticipantOut
+
 # Ensure backend app modules can be imported
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -1165,6 +1167,7 @@ async def test_list_stage_matches_filters_and_includes_stage_id():
         Match,
         MatchParticipant,
         ScoreEvent,
+        Player,
     )
     from app.routers import tournaments, matches
 
@@ -1181,6 +1184,7 @@ async def test_list_stage_matches_filters_and_includes_stage_id():
                 Match.__table__,
                 MatchParticipant.__table__,
                 ScoreEvent.__table__,
+                Player.__table__,
             ],
         )
 

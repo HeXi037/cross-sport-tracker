@@ -23,6 +23,8 @@ interface ClubSelectProps {
   searchInputId?: string;
   selectId?: string;
   searchLabel?: string;
+  describedById?: string;
+  invalid?: boolean;
 }
 
 type LoadStatus = "idle" | "loading" | "loaded" | "error";
@@ -38,6 +40,8 @@ export default function ClubSelect({
   searchInputId: searchInputIdProp,
   selectId: selectIdProp,
   searchLabel,
+  describedById,
+  invalid = false,
 }: ClubSelectProps) {
   const reactId = useId();
   const [options, setOptions] = useState<ClubSummary[]>([]);
@@ -52,8 +56,11 @@ export default function ClubSelect({
   const describedByIds = [
     status === "loading" ? loadingMessageId : null,
     status === "error" ? errorMessageId : null,
+    describedById ?? null,
   ].filter(Boolean);
   const ariaDescribedBy = describedByIds.length ? describedByIds.join(" ") : undefined;
+
+  const invalidAttributes = invalid ? { "aria-invalid": true } : {};
 
   const searchLabelText =
     searchLabel ?? (ariaLabel ? `${ariaLabel} search` : "Search clubs");
@@ -182,6 +189,7 @@ export default function ClubSelect({
           disabled={disabled}
           autoComplete="off"
           style={{ flex: 1 }}
+          {...invalidAttributes}
         />
         <button
           type="button"
@@ -200,6 +208,7 @@ export default function ClubSelect({
         style={{ width: "100%" }}
         aria-label={selectAriaLabel}
         aria-describedby={ariaDescribedBy}
+        {...invalidAttributes}
       >
         <option value="">No club selected</option>
         {optionList.length ? (

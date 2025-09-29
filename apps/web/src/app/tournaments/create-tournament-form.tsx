@@ -244,8 +244,8 @@ export default function CreateTournamentForm({
   const selectedCount = selectedPlayers.length;
   const playerValidationMessage =
     selectedCount >= MIN_AMERICANO_PLAYERS
-      ? `${selectedCount} player${selectedCount === 1 ? "" : "s"} selected`
-      : `Select at least ${MIN_AMERICANO_PLAYERS} players to include in the Americano schedule.`;
+      ? `Ready to schedule with ${selectedCount} player${selectedCount === 1 ? "" : "s"}. Use the search box to adjust the roster.`
+      : `Use the search box to add at least ${MIN_AMERICANO_PLAYERS} players before generating the Americano schedule.`;
 
   const title = admin
     ? "Admin: Create Americano tournament"
@@ -353,6 +353,10 @@ export default function CreateTournamentForm({
           </div>
           <fieldset className="form-fieldset">
             <legend className="form-legend">Players</legend>
+            <p className="form-hint" style={{ marginBottom: 12 }}>
+              Search or arrow through the list to add players. Selected entries are displayed as
+              removable chips above the search field.
+            </p>
             <MultiSelect
               ariaLabel="Available players"
               id="player"

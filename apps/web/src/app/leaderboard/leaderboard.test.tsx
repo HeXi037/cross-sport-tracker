@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import Leaderboard from "./leaderboard";
 import { apiUrl } from "../../lib/api";
+import * as api from "../../lib/api";
 import { USER_SETTINGS_STORAGE_KEY } from "../user-settings";
 
 const replaceMock = vi.fn();
@@ -24,6 +25,8 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("Leaderboard", () => {
+  let fetchClubsSpy: vi.SpiedFunction<typeof api.fetchClubs>;
+
   beforeEach(() => {
     updateMockLocation("/leaderboard");
     replaceMock.mockReset();
@@ -32,6 +35,9 @@ describe("Leaderboard", () => {
       return undefined;
     });
     window.localStorage.clear();
+    fetchClubsSpy = vi
+      .spyOn(api, "fetchClubs")
+      .mockResolvedValue([{ id: "club-123", name: "Club 123" }]);
   });
 
   afterEach(() => {
@@ -273,8 +279,8 @@ describe("Leaderboard", () => {
     updateMockLocation("/leaderboard?sport=padel&country=SE");
     view.rerender(<Leaderboard sport="padel" />);
 
-    const countryInput = (await screen.findByLabelText("Country")) as HTMLInputElement;
-    expect(countryInput.value).toBe("SE");
+    const countrySelect = (await screen.findByLabelText("Country")) as HTMLSelectElement;
+    expect(countrySelect.value).toBe("SE");
   });
 
   it("preserves additional query params when updating filters", async () => {
@@ -288,8 +294,8 @@ describe("Leaderboard", () => {
 
     render(<Leaderboard sport="padel" />);
 
-    const countryInput = (await screen.findByLabelText("Country")) as HTMLInputElement;
-    await user.type(countryInput, "se");
+    const countrySelect = (await screen.findByLabelText("Country")) as HTMLSelectElement;
+    await user.selectOptions(countrySelect, "SE");
     const applyButton = screen.getByRole("button", { name: "Apply" });
 
     const initialCallCount = replaceMock.mock.calls.length;
@@ -306,8 +312,9 @@ describe("Leaderboard", () => {
     expect(url.searchParams.get("sport")).toBe("padel");
     expect(url.searchParams.get("country")).toBe("SE");
 
-    const clubInput = (await screen.findByLabelText("Club")) as HTMLInputElement;
-    await user.type(clubInput, "club-123");
+    const clubSelect = (await screen.findByRole("combobox", { name: "Club" })) as HTMLSelectElement;
+    await waitFor(() => expect(fetchClubsSpy).toHaveBeenCalled());
+    await user.selectOptions(clubSelect, "club-123");
 
     const postCountryCallCount = replaceMock.mock.calls.length;
     await user.click(applyButton);
@@ -324,9 +331,14 @@ describe("Leaderboard", () => {
     expect(url.searchParams.get("country")).toBe("SE");
     expect(url.searchParams.get("clubId")).toBe("club-123");
 
-    const clearButton = screen.getByRole("button", { name: "Clear" });
+    const clearButton = screen
+      .getAllByRole("button", { name: "Clear" })
+      .find((button): button is HTMLButtonElement =>
+        button.getAttribute("aria-controls") === "leaderboard-results"
+      );
+    expect(clearButton).toBeDefined();
     const postClubCallCount = replaceMock.mock.calls.length;
-    await user.click(clearButton);
+    await user.click(clearButton!);
     await waitFor(() =>
       expect(replaceMock.mock.calls.length).toBeGreaterThan(postClubCallCount)
     );
@@ -339,6 +351,8 @@ describe("Leaderboard", () => {
     expect(url.searchParams.get("sport")).toBe("padel");
     expect(url.searchParams.has("country")).toBe(false);
     expect(url.searchParams.has("clubId")).toBe(false);
+    expect(countrySelect.value).toBe("");
+    expect(clubSelect.value).toBe("");
   });
 
   it("annotates the leaderboard table for accessibility", async () => {
@@ -386,9 +400,11 @@ describe("Leaderboard", () => {
       "leaderboard-results",
     );
 
-    expect(screen.getByRole("button", { name: "Clear" })).toHaveAttribute(
-      "aria-controls",
-      "leaderboard-results",
+    const clearButtons = screen.getAllByRole("button", { name: "Clear" });
+    const filterClear = clearButtons.find((button) =>
+      button.getAttribute("aria-controls") === "leaderboard-results"
     );
+    expect(filterClear).toBeDefined();
+    expect(filterClear).toHaveAttribute("aria-controls", "leaderboard-results");
   });
 });

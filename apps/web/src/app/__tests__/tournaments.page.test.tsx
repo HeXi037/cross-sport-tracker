@@ -213,6 +213,104 @@ describe('Tournaments client view', () => {
     expect(screen.getByText('Billie')).toBeInTheDocument();
   });
 
+  it('allows bulk selecting and clearing filtered players', async () => {
+    const playerList = [
+      { id: 'p1', name: 'Alex' },
+      { id: 'p2', name: 'Billie' },
+      { id: 'p3', name: 'Casey' },
+      { id: 'p4', name: 'Devon' },
+    ];
+
+    mockedApiFetch.mockImplementation(async (path: RequestInfo | URL) => {
+      const url = typeof path === 'string' ? path : path.toString();
+      if (url.includes('/sports')) {
+        return jsonResponse([{ id: 'padel', name: 'Padel' }]);
+      }
+      if (url.includes('/players')) {
+        return jsonResponse({ players: playerList });
+      }
+      if (url.includes('/rulesets')) {
+        return jsonResponse([{ id: 'padel-default', name: 'Padel Default' }]);
+      }
+      return jsonResponse([]);
+    });
+
+    render(<TournamentsClient initialTournaments={[]} loadError={false} />);
+
+    const nameInput = await screen.findByLabelText('Tournament name');
+    fireEvent.change(nameInput, { target: { value: 'Autumn Americano' } });
+
+    const selectAllButton = await screen.findByRole('button', { name: /select all shown/i });
+    const clearButton = await screen.findByRole('button', { name: /clear selection/i });
+
+    fireEvent.click(selectAllButton);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('4 players selected').length).toBeGreaterThanOrEqual(1);
+    });
+    expect(selectAllButton).toBeDisabled();
+
+    const searchInput = await screen.findByLabelText('Search players');
+    fireEvent.change(searchInput, { target: { value: 'Alex' } });
+
+    await waitFor(() => {
+      expect(selectAllButton).toBeDisabled();
+      expect(clearButton).not.toBeDisabled();
+    });
+
+    fireEvent.click(clearButton);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('3 players selected').length).toBeGreaterThanOrEqual(1);
+    });
+    await waitFor(() => expect(clearButton).toBeDisabled());
+    expect(selectAllButton).not.toBeDisabled();
+  });
+
+  it('validates minimum player requirement after bulk selection', async () => {
+    const playerList = [
+      { id: 'p1', name: 'Alex' },
+      { id: 'p2', name: 'Blake' },
+      { id: 'p3', name: 'Casey' },
+      { id: 'p4', name: 'Devon' },
+    ];
+
+    mockedApiFetch.mockImplementation(async (path: RequestInfo | URL) => {
+      const url = typeof path === 'string' ? path : path.toString();
+      if (url.includes('/sports')) {
+        return jsonResponse([{ id: 'padel', name: 'Padel' }]);
+      }
+      if (url.includes('/players')) {
+        return jsonResponse({ players: playerList });
+      }
+      if (url.includes('/rulesets')) {
+        return jsonResponse([{ id: 'padel-default', name: 'Padel Default' }]);
+      }
+      return jsonResponse([]);
+    });
+
+    render(<TournamentsClient initialTournaments={[]} loadError={false} />);
+
+    const nameInput = await screen.findByLabelText('Tournament name');
+    fireEvent.change(nameInput, { target: { value: 'Too Small Americano' } });
+
+    const searchInput = await screen.findByLabelText('Search players');
+    fireEvent.change(searchInput, { target: { value: 'a' } });
+
+    const selectAllButton = await screen.findByRole('button', { name: /select all shown/i });
+    fireEvent.click(selectAllButton);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('3 players selected').length).toBeGreaterThanOrEqual(1);
+    });
+
+    const submitButton = screen.getByRole('button', { name: /create and schedule/i });
+    fireEvent.click(submitButton);
+
+    await screen.findByText('Americano tournaments require at least four players.');
+    expect(mockedCreateTournament).not.toHaveBeenCalled();
+  });
+
   it('requires at least four players before scheduling', async () => {
     const playerList = [
       { id: 'p1', name: 'Alex' },

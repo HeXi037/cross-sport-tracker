@@ -242,6 +242,73 @@ export default function CreateTournamentForm({
   }
 
   const selectedCount = selectedPlayers.length;
+  const filteredPlayers = useMemo(() => {
+    const trimmedSearch = playerSearch.trim().toLowerCase();
+    if (!trimmedSearch) {
+      return players;
+    }
+    const words = trimmedSearch.split(/\s+/).filter(Boolean);
+    if (words.length === 0) {
+      return players;
+    }
+    return players.filter((player) => {
+      const lower = player.name.toLowerCase();
+      return words.every((word) => lower.includes(word));
+    });
+  }, [playerSearch, players]);
+  const filteredPlayerIds = useMemo(
+    () => filteredPlayers.map((player) => player.id),
+    [filteredPlayers]
+  );
+  const selectedPlayerSet = useMemo(
+    () => new Set(selectedPlayers),
+    [selectedPlayers]
+  );
+  const hasFilteredPlayers = filteredPlayerIds.length > 0;
+  const allFilteredSelected =
+    hasFilteredPlayers && filteredPlayerIds.every((id) => selectedPlayerSet.has(id));
+  const hasSelectedInFiltered = filteredPlayerIds.some((id) => selectedPlayerSet.has(id));
+
+  const handleSelectFilteredPlayers = useCallback(() => {
+    if (!filteredPlayerIds.length) {
+      return;
+    }
+    let changed = false;
+    setSelectedPlayers((previous) => {
+      const additions = filteredPlayerIds.filter((id) => !previous.includes(id));
+      if (additions.length === 0) {
+        return previous;
+      }
+      changed = true;
+      return [...previous, ...additions];
+    });
+    if (changed) {
+      setError(null);
+      setSuccess(null);
+      setScheduledMatches([]);
+    }
+  }, [filteredPlayerIds]);
+
+  const handleClearFilteredPlayers = useCallback(() => {
+    if (!filteredPlayerIds.length) {
+      return;
+    }
+    const removalSet = new Set(filteredPlayerIds);
+    let changed = false;
+    setSelectedPlayers((previous) => {
+      if (!previous.some((id) => removalSet.has(id))) {
+        return previous;
+      }
+      changed = true;
+      return previous.filter((id) => !removalSet.has(id));
+    });
+    if (changed) {
+      setError(null);
+      setSuccess(null);
+      setScheduledMatches([]);
+    }
+  }, [filteredPlayerIds]);
+
   const playerValidationMessage =
     selectedCount >= MIN_AMERICANO_PLAYERS
       ? `${selectedCount} player${selectedCount === 1 ? "" : "s"} selected`
@@ -371,6 +438,22 @@ export default function CreateTournamentForm({
               selectedIds={selectedPlayers}
               selectedSummaryLabel={`${selectedCount} player${selectedCount === 1 ? "" : "s"} selected`}
             />
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+              <button
+                type="button"
+                onClick={handleSelectFilteredPlayers}
+                disabled={!hasFilteredPlayers || allFilteredSelected}
+              >
+                Select all shown
+              </button>
+              <button
+                type="button"
+                onClick={handleClearFilteredPlayers}
+                disabled={!hasSelectedInFiltered}
+              >
+                Clear selection
+              </button>
+            </div>
             <p className="form-hint" style={{ marginTop: 8 }}>
               {playerValidationMessage}
             </p>

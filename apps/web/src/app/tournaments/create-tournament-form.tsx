@@ -273,41 +273,30 @@ export default function CreateTournamentForm({
     if (!filteredPlayerIds.length) {
       return;
     }
-    let changed = false;
-    setSelectedPlayers((previous) => {
-      const additions = filteredPlayerIds.filter((id) => !previous.includes(id));
-      if (additions.length === 0) {
-        return previous;
-      }
-      changed = true;
-      return [...previous, ...additions];
-    });
-    if (changed) {
-      setError(null);
-      setSuccess(null);
-      setScheduledMatches([]);
+    const additions = filteredPlayerIds.filter((id) => !selectedPlayerSet.has(id));
+    if (additions.length === 0) {
+      return;
     }
-  }, [filteredPlayerIds]);
+    setSelectedPlayers([...selectedPlayers, ...additions]);
+    setError(null);
+    setSuccess(null);
+    setScheduledMatches([]);
+  }, [filteredPlayerIds, selectedPlayerSet, selectedPlayers]);
 
   const handleClearFilteredPlayers = useCallback(() => {
     if (!filteredPlayerIds.length) {
       return;
     }
     const removalSet = new Set(filteredPlayerIds);
-    let changed = false;
-    setSelectedPlayers((previous) => {
-      if (!previous.some((id) => removalSet.has(id))) {
-        return previous;
-      }
-      changed = true;
-      return previous.filter((id) => !removalSet.has(id));
-    });
-    if (changed) {
-      setError(null);
-      setSuccess(null);
-      setScheduledMatches([]);
+    const nextSelected = selectedPlayers.filter((id) => !removalSet.has(id));
+    if (nextSelected.length === selectedPlayers.length) {
+      return;
     }
-  }, [filteredPlayerIds]);
+    setSelectedPlayers(nextSelected);
+    setError(null);
+    setSuccess(null);
+    setScheduledMatches([]);
+  }, [filteredPlayerIds, selectedPlayers]);
 
   const playerValidationMessage =
     selectedCount >= MIN_AMERICANO_PLAYERS

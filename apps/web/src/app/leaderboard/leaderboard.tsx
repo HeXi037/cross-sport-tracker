@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  ChangeEvent,
   FormEvent,
   startTransition,
   useCallback,
@@ -315,14 +316,51 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     [sport],
   );
 
-  const navItems = useMemo(
+  type NavItem = { id: LeaderboardSport; label: string };
+  const navItems: NavItem[] = useMemo(
     () => [
       { id: ALL_SPORTS, label: getSportDisplayName(ALL_SPORTS) },
       { id: MASTER_SPORT, label: getSportDisplayName(MASTER_SPORT) },
-      ...SPORTS.map((id) => ({ id, label: getSportDisplayName(id) })),
+      ...SPORTS.map((id) => ({
+        id,
+        label: getSportDisplayName(id),
+      })),
     ],
     [],
   );
+
+  const tablistRef = useRef<HTMLUListElement>(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+
+  const measureOverflow = useCallback(() => {
+    const element = tablistRef.current;
+    if (!element) {
+      setIsOverflowing(false);
+      return;
+    }
+    const overflow = element.scrollWidth - element.clientWidth > 1;
+    setIsOverflowing(overflow);
+  }, []);
+
+  useEffect(() => {
+    measureOverflow();
+    const handleResize = () => measureOverflow();
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [measureOverflow]);
+
+  useEffect(() => {
+    if (typeof window.requestAnimationFrame === "function") {
+      const frame = window.requestAnimationFrame(() => {
+        measureOverflow();
+      });
+      return () => window.cancelAnimationFrame(frame);
+    }
+    const timeout = window.setTimeout(() => measureOverflow(), 0);
+    return () => window.clearTimeout(timeout);
+  }, [measureOverflow, sport]);
 
   const supportsFilters = SPORTS.includes(
     sport as (typeof SPORTS)[number],
@@ -343,6 +381,28 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         : normalizedBase;
     },
     [regionQueryString],
+  );
+
+  const getSportHref = useCallback(
+    (sportId: LeaderboardSport) =>
+      sportId === ALL_SPORTS
+        ? withRegion("/leaderboard?sport=all")
+        : withRegion(`/leaderboard?sport=${sportId}`),
+    [withRegion],
+  );
+
+  const handleSportChange = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      const nextSport = event.target.value as LeaderboardSport;
+      if (!nextSport || nextSport === sport) {
+        return;
+      }
+      const nextHref = getSportHref(nextSport);
+      startTransition(() => {
+        router.replace(nextHref, { scroll: false });
+      });
+    },
+    [getSportHref, router, sport],
   );
 
   const regionDescription = useMemo(() => {
@@ -628,45 +688,28 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           <nav
             aria-label="Leaderboard sports"
             aria-controls={RESULTS_TABLE_ID}
+            className="leaderboard-nav"
           >
             <ul
+              ref={tablistRef}
               role="tablist"
-              style={{
-                display: "flex",
-                gap: "0.5rem",
-                padding: 0,
-                margin: 0,
-                listStyle: "none",
-              }}
+              className={`leaderboard-tablist${
+                isOverflowing ? " leaderboard-tablist--overflow" : ""
+              }`}
             >
               {navItems.map((item) => {
                 const isActive = item.id === sport;
                 return (
-                  <li key={item.id}>
+                  <li key={item.id} className="leaderboard-tablist__item">
                     <Link
-                      href={
-                        item.id === ALL_SPORTS
-                          ? withRegion("/leaderboard?sport=all")
-                          : withRegion(`/leaderboard?sport=${item.id}`)
-                      }
+                      href={getSportHref(item.id)}
                       role="tab"
                       aria-selected={isActive}
                       aria-current={isActive ? "page" : undefined}
                       aria-controls={RESULTS_TABLE_ID}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: "0.35rem 0.85rem",
-                        borderRadius: "999px",
-                        border: "1px solid",
-                        borderColor: isActive ? "#222" : "#ccc",
-                        background: isActive ? "#222" : "transparent",
-                        color: isActive ? "#fff" : "#222",
-                        fontWeight: isActive ? 600 : 500,
-                        textDecoration: "none",
-                        transition: "background 0.2s ease, color 0.2s ease",
-                      }}
+                      className={`leaderboard-tab${
+                        isActive ? " leaderboard-tab--active" : ""
+                      }`}
                     >
                       {item.label}
                     </Link>
@@ -674,6 +717,26 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                 );
               })}
             </ul>
+            {isOverflowing ? (
+              <div className="leaderboard-nav-select">
+                <label className="sr-only" htmlFor="leaderboard-sport-more">
+                  More sports
+                </label>
+                <select
+                  id="leaderboard-sport-more"
+                  value={sport}
+                  onChange={handleSportChange}
+                  aria-label="Select a sport"
+                  className="leaderboard-nav-select__control"
+                >
+                  {navItems.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
           </nav>
         </section>
       </header>

@@ -1,6 +1,7 @@
 import { render, waitFor, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
+import { act } from "react";
 import Leaderboard from "./leaderboard";
 import { apiUrl } from "../../lib/api";
 import { USER_SETTINGS_STORAGE_KEY } from "../user-settings";
@@ -59,6 +60,78 @@ describe("Leaderboard", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
     const urls = fetchMock.mock.calls.map((c) => c[0]);
     expect(urls).toContain(apiUrl("/v0/leaderboards?sport=disc_golf"));
+  });
+
+  it("keeps the tab navigation scrollable without a dropdown on wide viewports", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<Leaderboard sport="padel" />);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    const tablist = screen.getByRole("tablist");
+    Object.defineProperty(tablist, "clientWidth", {
+      configurable: true,
+      value: 640,
+    });
+    Object.defineProperty(tablist, "scrollWidth", {
+      configurable: true,
+      value: 600,
+    });
+
+    await act(async () => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("combobox", { name: /select a sport/i }),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it("falls back to a dropdown when the tab navigation overflows", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<Leaderboard sport="padel" />);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    replaceMock.mockClear();
+
+    const tablist = screen.getByRole("tablist");
+    Object.defineProperty(tablist, "clientWidth", {
+      configurable: true,
+      value: 240,
+    });
+    Object.defineProperty(tablist, "scrollWidth", {
+      configurable: true,
+      value: 640,
+    });
+
+    await act(async () => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    const select = await screen.findByRole("combobox", {
+      name: /select a sport/i,
+    });
+    expect(select).toHaveValue("padel");
+
+    const user = userEvent.setup();
+    await user.selectOptions(select, "disc_golf");
+
+    await waitFor(() =>
+      expect(replaceMock).toHaveBeenCalledWith(
+        "/leaderboard/?sport=disc_golf",
+        { scroll: false },
+      ),
+    );
   });
 
   it("includes the country filter when provided", async () => {

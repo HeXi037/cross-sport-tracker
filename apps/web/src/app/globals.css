@@ -1082,3 +1082,109 @@ textarea {
 .bowling-total {
   font-weight: 700;
 }
+
+.leaderboard-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.leaderboard-tablist {
+  --leaderboard-tablist-padding: 0.25rem;
+  display: flex;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: var(--leaderboard-tablist-padding);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(10, 31, 68, 0.4) transparent;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: var(--leaderboard-tablist-padding);
+}
+
+.leaderboard-tablist::-webkit-scrollbar {
+  height: 8px;
+}
+
+.leaderboard-tablist::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.leaderboard-tablist::-webkit-scrollbar-thumb {
+  background: rgba(10, 31, 68, 0.25);
+  border-radius: 999px;
+}
+
+.leaderboard-tablist--overflow {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    rgba(0, 0, 0, 1) 24px,
+    rgba(0, 0, 0, 1) calc(100% - 24px),
+    transparent
+  );
+}
+
+.leaderboard-tablist__item {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
+.leaderboard-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(10, 31, 68, 0.25);
+  background: transparent;
+  color: var(--color-text);
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.leaderboard-tab:hover {
+  border-color: rgba(26, 115, 232, 0.5);
+}
+
+.leaderboard-tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.35);
+}
+
+.leaderboard-tab--active {
+  border-color: #222;
+  background: #222;
+  color: #fff;
+  font-weight: 600;
+}
+
+.leaderboard-nav-select {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.leaderboard-nav-select__control {
+  appearance: none;
+  padding: 0.35rem 1.75rem 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(10, 31, 68, 0.35);
+  background: var(--color-surface)
+    linear-gradient(45deg, transparent 50%, rgba(10, 31, 68, 0.65) 50%)
+    calc(100% - 16px) center/10px 10px no-repeat;
+  color: var(--color-text);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.leaderboard-nav-select__control:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.35);
+}
+
+.leaderboard-nav-select__control:hover {
+  border-color: rgba(26, 115, 232, 0.5);
+}

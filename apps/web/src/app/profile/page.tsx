@@ -170,7 +170,7 @@ export default function ProfilePage() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [photoPending, setPhotoPending] = useState(false);
   const [countryCode, setCountryCode] = useState("");
   const [clubId, setClubId] = useState("");
   const [bio, setBio] = useState("");
@@ -296,7 +296,7 @@ export default function ProfilePage() {
     const file = input.files?.[0];
     if (!file) return;
     clearFeedback();
-    setUploading(true);
+    setPhotoPending(true);
     try {
       const form = new FormData();
       form.append("file", file);
@@ -317,10 +317,29 @@ export default function ProfilePage() {
     } catch {
       setError("Photo upload failed");
     } finally {
-      setUploading(false);
+      setPhotoPending(false);
       if (input) {
         input.value = "";
       }
+    }
+  };
+
+  const handlePhotoRemove = async () => {
+    clearFeedback();
+    setPhotoPending(true);
+    try {
+      const res = await apiFetch("/v0/auth/me/photo", { method: "DELETE" });
+      const data = (await res.json()) as UserMe;
+      const normalizedPhoto =
+        typeof data.photo_url === "string" && data.photo_url
+          ? ensureAbsoluteApiUrl(data.photo_url)
+          : null;
+      setPhotoUrl(normalizedPhoto ?? null);
+      setMessage("Profile photo removed");
+    } catch {
+      setError("Failed to remove profile photo");
+    } finally {
+      setPhotoPending(false);
     }
   };
 
@@ -561,8 +580,19 @@ export default function ProfilePage() {
           type="file"
           accept="image/png,image/jpeg"
           onChange={handlePhotoChange}
+          disabled={photoPending}
         />
-        {uploading && <span>Uploading…</span>}
+        {photoUrl ? (
+          <button
+            type="button"
+            onClick={handlePhotoRemove}
+            disabled={photoPending}
+            style={{ marginTop: "0.5rem" }}
+          >
+            Remove photo
+          </button>
+        ) : null}
+        {photoPending && <span>Updating photo…</span>}
       </div>
       <form onSubmit={handleSubmit} className="auth-form">
         <label className="form-field" htmlFor="profile-username">

@@ -8,8 +8,7 @@ import {
   type EnrichedMatch,
   type MatchRow,
 } from '../lib/matches';
-import { headers } from 'next/headers';
-import { parseAcceptLanguage } from '../lib/i18n';
+import { resolveServerLocale } from '../lib/server-locale';
 
 type Sport = { id: string; name: string };
 
@@ -21,7 +20,7 @@ export default async function HomePage() {
   let matchPageSize = 5;
   let sportError = false;
   let matchError = false;
-  const locale = parseAcceptLanguage(headers().get('accept-language'));
+  const { locale } = resolveServerLocale();
 
   const MATCHES_LIMIT = 5;
 

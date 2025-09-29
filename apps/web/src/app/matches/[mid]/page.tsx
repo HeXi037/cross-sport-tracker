@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { headers, cookies } from "next/headers";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { apiFetch, withAbsolutePhotoUrl } from "../../../lib/api";
 import LiveSummary from "./live-summary";
@@ -8,7 +8,6 @@ import { PlayerInfo } from "../../../components/PlayerName";
 import {
   formatDate,
   formatDateTime,
-  parseAcceptLanguage,
   resolveTimeZone,
   TIME_ZONE_COOKIE_KEY,
 } from "../../../lib/i18n";
@@ -24,6 +23,7 @@ import {
   isRecord,
 } from "../../../lib/match-summary";
 import { resolveParticipantGroups } from "../../../lib/participants";
+import { resolveServerLocale } from "../../../lib/server-locale";
 
 export const dynamic = "force-dynamic";
 
@@ -474,7 +474,7 @@ export default async function MatchDetailPage({
     );
   }
   const cookieStore = cookies();
-  const locale = parseAcceptLanguage(headers().get("accept-language"));
+  const { locale } = resolveServerLocale({ cookieStore });
   const timeZoneCookie = cookieStore.get(TIME_ZONE_COOKIE_KEY)?.value ?? null;
   const timeZone = resolveTimeZone(timeZoneCookie);
 

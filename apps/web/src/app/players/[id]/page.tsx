@@ -1,4 +1,4 @@
-import { headers, cookies } from "next/headers";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { apiFetch, fetchClubs, withAbsolutePhotoUrl } from "../../../lib/api";
@@ -12,10 +12,10 @@ import MatchParticipants from "../../../components/MatchParticipants";
 import PhotoUpload from "./PhotoUpload";
 import {
   formatDate,
-  parseAcceptLanguage,
   resolveTimeZone,
   TIME_ZONE_COOKIE_KEY,
 } from "../../../lib/i18n";
+import { resolveServerLocale } from "../../../lib/server-locale";
 import {
   formatMatchRecord,
   normalizeMatchSummary,
@@ -443,7 +443,7 @@ export default async function PlayerPage({
   searchParams: { view?: string };
 }) {
   const cookieStore = cookies();
-  const locale = parseAcceptLanguage(headers().get("accept-language"));
+  const { locale } = resolveServerLocale({ cookieStore });
   const timeZoneCookie = cookieStore.get(TIME_ZONE_COOKIE_KEY)?.value ?? null;
   const timeZone = resolveTimeZone(timeZoneCookie);
   let player: Player;

@@ -4,14 +4,10 @@ import Header from './header';
 import ChunkErrorReload from '../components/ChunkErrorReload';
 import ToastProvider from '../components/ToastProvider';
 import SessionBanner from '../components/SessionBanner';
-import { headers, cookies } from 'next/headers';
+import { cookies } from 'next/headers';
 import { LocaleProvider } from '../lib/LocaleContext';
-import {
-  parseAcceptLanguage,
-  normalizeLocale,
-  LOCALE_COOKIE_KEY,
-  TIME_ZONE_COOKIE_KEY,
-} from '../lib/i18n';
+import { TIME_ZONE_COOKIE_KEY } from '../lib/i18n';
+import { resolveServerLocale } from '../lib/server-locale';
 
 export const metadata = {
   title: 'cross-sport-tracker',
@@ -23,15 +19,9 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const headerList = headers();
-  const acceptLanguage = headerList.get('accept-language');
   const cookieStore = cookies();
-  const cookieLocale = cookieStore.get(LOCALE_COOKIE_KEY)?.value ?? null;
+  const { locale, acceptLanguage } = resolveServerLocale({ cookieStore });
   const cookieTimeZone = cookieStore.get(TIME_ZONE_COOKIE_KEY)?.value ?? null;
-  const locale = normalizeLocale(
-    cookieLocale,
-    parseAcceptLanguage(acceptLanguage),
-  );
 
   return (
     <html lang={locale}>

@@ -215,6 +215,54 @@ def test_upload_my_photo():
         assert player_photo == data["photo_url"]
 
 
+def test_delete_my_photo():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup", json={"username": "erasepic", "password": "Str0ng!Pass!"}
+        )
+        assert resp.status_code == 200
+        token = resp.json()["access_token"]
+
+        files = {"file": ("avatar.png", VALID_PNG_BYTES, "image/png")}
+        upload_resp = client.post(
+            "/auth/me/photo",
+            files=files,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert upload_resp.status_code == 200
+        photo_url = upload_resp.json()["photo_url"]
+        filename = photo_url.split("/")[-1]
+        filepath = auth.USER_UPLOAD_DIR / filename
+        assert filepath.exists()
+
+        delete_resp = client.delete(
+            "/auth/me/photo", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert delete_resp.status_code == 200
+        payload = delete_resp.json()
+        assert payload["photo_url"] is None
+        assert not filepath.exists()
+
+        async def fetch_user_and_player_photo():
+            async with db.AsyncSessionLocal() as session:
+                user = (
+                    await session.execute(
+                        select(User).where(User.username == "erasepic")
+                    )
+                ).scalar_one()
+                player = (
+                    await session.execute(
+                        select(Player).where(Player.user_id == user.id)
+                    )
+                ).scalar_one()
+                return user.photo_url, player.photo_url
+
+        user_photo, player_photo = asyncio.run(fetch_user_and_player_photo())
+        assert user_photo is None
+        assert player_photo is None
+
+
 def test_me_missing_user():
     auth.limiter.reset()
     with TestClient(app) as client:

@@ -4,6 +4,7 @@ import secrets
 import hashlib
 from pathlib import Path
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 
 import bcrypt
 import jwt
@@ -67,6 +68,27 @@ FLAGGED_IPS = {
 
 USER_UPLOAD_DIR = Path(__file__).resolve().parent.parent / "static" / "users"
 USER_UPLOAD_URL_PREFIX = f"{API_PREFIX}/static/users"
+
+
+def _delete_user_photo_file(photo_url: str | None) -> None:
+  if not photo_url:
+    return
+
+  parsed = urlparse(photo_url)
+  path = parsed.path if parsed.scheme or parsed.netloc else photo_url
+  if not path or not path.startswith(str(USER_UPLOAD_URL_PREFIX)):
+    return
+
+  relative = path[len(str(USER_UPLOAD_URL_PREFIX)) :].lstrip("/")
+  if not relative or "/" in relative or relative.startswith(".."):
+    return
+
+  file_path = USER_UPLOAD_DIR / relative
+  try:
+    file_path.unlink(missing_ok=True)
+  except OSError:
+    # Removing the file is a best-effort operation; ignore filesystem errors.
+    pass
 
 
 def signup_rate_limit(key: str) -> str:
@@ -263,6 +285,29 @@ async def update_my_photo(
   ).scalar_one_or_none()
   if player:
     player.photo_url = current.photo_url
+
+  await session.commit()
+  return UserOut(
+      id=current.id,
+      username=current.username,
+      is_admin=current.is_admin,
+      photo_url=current.photo_url,
+  )
+
+
+@router.delete("/me/photo", response_model=UserOut)
+async def delete_my_photo(
+    current: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+  _delete_user_photo_file(current.photo_url)
+  current.photo_url = None
+
+  player = (
+      await session.execute(select(Player).where(Player.user_id == current.id))
+  ).scalar_one_or_none()
+  if player:
+    player.photo_url = None
 
   await session.commit()
   return UserOut(

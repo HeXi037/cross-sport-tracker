@@ -165,8 +165,45 @@ describe("ProfilePage", () => {
       "src",
       "/api/static/users/avatar.png?t=123456789",
     );
-    expect(screen.queryByText("Uploading…")).not.toBeInTheDocument();
+    expect(screen.queryByText("Updating photo…")).not.toBeInTheDocument();
     dateSpy.mockRestore();
+  });
+
+  it("removes the profile photo", async () => {
+    apiMocks.fetchMe.mockResolvedValue({
+      id: "user-with-photo",
+      username: "has-photo",
+      is_admin: false,
+      photo_url: "/static/users/avatar.png",
+    });
+    apiMocks.apiFetch.mockResolvedValueOnce({
+      json: async () => ({
+        id: "user-with-photo",
+        username: "has-photo",
+        is_admin: false,
+        photo_url: null,
+      }),
+    } as unknown as Response);
+
+    await act(async () => {
+      render(<ProfilePage />);
+    });
+
+    const removeButton = await screen.findByRole("button", {
+      name: "Remove photo",
+    });
+
+    await act(async () => {
+      fireEvent.click(removeButton);
+    });
+
+    expect(apiMocks.apiFetch).toHaveBeenCalledWith("/v0/auth/me/photo", {
+      method: "DELETE",
+    });
+    expect(screen.queryByAltText("has-photo profile photo")).not.toBeInTheDocument();
+    expect(
+      await screen.findByText("Profile photo removed")
+    ).toBeInTheDocument();
   });
 
   it("submits updated country and favorite club when saving", async () => {

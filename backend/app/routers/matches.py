@@ -28,6 +28,8 @@ from ..schemas import (
     SetsIn,
     MatchIdOut,
     MatchSummaryOut,
+    MatchSummaryParticipantOut,
+    PlayerNameOut,
     MatchOut,
     ParticipantOut,
     ScoreEventOut,
@@ -103,6 +105,39 @@ async def list_matches(
     matches = result[:limit]
     next_offset = offset + limit if has_more else None
 
+    match_ids = [m.id for m in matches]
+    participants_by_match: dict[str, list[MatchParticipant]] = {
+        mid: [] for mid in match_ids
+    }
+    player_ids: set[str] = set()
+
+    if match_ids:
+        participant_rows = (
+            await session.execute(
+                select(MatchParticipant).where(MatchParticipant.match_id.in_(match_ids))
+            )
+        ).scalars().all()
+        for participant in participant_rows:
+            participants_by_match.setdefault(participant.match_id, []).append(participant)
+            for pid in participant.player_ids or []:
+                if pid:
+                    player_ids.add(pid)
+
+    players_by_id: dict[str, Player] = {}
+    if player_ids:
+        player_rows = (
+            await session.execute(select(Player).where(Player.id.in_(player_ids)))
+        ).scalars().all()
+        players_by_id = {player.id: player for player in player_rows}
+
+    def _player_payload(pid: str) -> PlayerNameOut:
+        player = players_by_id.get(pid)
+        if not player:
+            return PlayerNameOut(id=pid, name="Unknown", photo_url=None)
+        name = player.name or "Unknown"
+        photo_url = getattr(player, "photo_url", None)
+        return PlayerNameOut(id=pid, name=name, photo_url=photo_url)
+
     response.headers["X-Limit"] = str(limit)
     response.headers["X-Offset"] = str(offset)
     response.headers["X-Has-More"] = "true" if has_more else "false"
@@ -118,6 +153,19 @@ async def list_matches(
             playedAt=_coerce_utc(m.played_at),
             location=m.location,
             isFriendly=m.is_friendly,
+            participants=[
+                MatchSummaryParticipantOut(
+                    id=p.id,
+                    side=p.side,
+                    playerIds=p.player_ids,
+                    players=[_player_payload(pid) for pid in p.player_ids or []],
+                )
+                for p in sorted(
+                    participants_by_match.get(m.id, []),
+                    key=lambda part: part.side,
+                )
+            ],
+            summary=m.details,
         )
         for m in matches
     ]

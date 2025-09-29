@@ -26,6 +26,7 @@ vi.mock('next/headers', () => ({
   headers: () => ({
     get: (key: string) => (key.toLowerCase() === 'accept-language' ? 'en-GB' : null),
   }),
+  cookies: () => ({ get: () => undefined }),
 }));
 
 vi.mock('../[id]/PlayerCharts', () => ({
@@ -116,6 +117,22 @@ describe('PlayerPage server component', () => {
             bestOf: 3,
             playedAt: '2024-01-02T00:00:00Z',
             location: 'Court A',
+            isFriendly: false,
+            participants: [
+              {
+                id: 'mp-1a',
+                side: 'A',
+                playerIds: ['player-1'],
+                players: [{ id: 'player-1', name: 'Pat Jones' }],
+              },
+              {
+                id: 'mp-1b',
+                side: 'B',
+                playerIds: ['opponent-1'],
+                players: [{ id: 'opponent-1', name: 'Taylor Opponent' }],
+              },
+            ],
+            summary: { sets: { A: 2, B: 1 } },
           },
         ]);
       }

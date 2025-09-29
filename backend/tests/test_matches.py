@@ -464,7 +464,7 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
   from app import db
-  from app.models import Sport, Match, User
+  from app.models import Sport, Match, MatchParticipant, Player, User
   from app.routers import matches
   from app.routers.auth import get_current_user
 
@@ -478,6 +478,8 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
             Sport.__table__,
             Stage.__table__,
             Match.__table__,
+            MatchParticipant.__table__,
+            Player.__table__,
         ],
     )
 
@@ -518,6 +520,9 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
     assert ids == sorted_ids
     assert resp.headers.get("x-has-more") == "false"
     assert resp.headers.get("x-next-offset") is None
+    for match in matches:
+        assert match.get("participants") == []
+        assert "summary" in match
     assert all(
         (
             m["playedAt"] is None
@@ -533,7 +538,7 @@ async def test_list_matches_upcoming_filter(tmp_path):
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
   from app import db
-  from app.models import Sport, Match, User
+  from app.models import Sport, Match, MatchParticipant, Player, User
   from app.routers import matches
   from app.routers.auth import get_current_user
 
@@ -547,6 +552,8 @@ async def test_list_matches_upcoming_filter(tmp_path):
             Sport.__table__,
             Stage.__table__,
             Match.__table__,
+            MatchParticipant.__table__,
+            Player.__table__,
         ],
     )
 
@@ -574,6 +581,7 @@ async def test_list_matches_upcoming_filter(tmp_path):
     data = resp.json()
     assert [m["id"] for m in data] == ["future"]
     assert resp.headers.get("x-has-more") == "false"
+    assert data[0]["participants"] == []
 
 
 @pytest.mark.skip(reason="SQLite lacks ARRAY support for MatchParticipant")

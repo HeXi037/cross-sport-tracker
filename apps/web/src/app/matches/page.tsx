@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { apiFetch, withAbsolutePhotoUrl, type ApiError } from "../../lib/api";
+import { apiFetch, type ApiError } from "../../lib/api";
 import Pager from "./pager";
-import { PlayerInfo } from "../../components/PlayerName";
 import MatchParticipants from "../../components/MatchParticipants";
 import {
   formatDate,
@@ -12,41 +11,15 @@ import {
 } from "../../lib/i18n";
 import { hasTimeComponent } from "../../lib/datetime";
 import { ensureTrailingSlash } from "../../lib/routes";
-import { resolveParticipantGroups } from "../../lib/participants";
 import { resolveServerLocale } from "../../lib/server-locale";
+import {
+  enrichMatches,
+  type EnrichedMatch,
+  type MatchRow,
+  type MatchSummaryData,
+} from "../../lib/matches";
 
 export const dynamic = "force-dynamic";
-
-type MatchRow = {
-  id: string;
-  sport: string;
-  stageId: string | null;
-  bestOf: number | null;
-  playedAt: string | null;
-  location: string | null;
-  isFriendly: boolean;
-};
-
-type Participant = {
-  side: string;
-  playerIds: string[];
-};
-
-type MatchDetail = {
-  participants: Participant[];
-  summary?: {
-    sets?: Record<string, number>;
-    games?: Record<string, number>;
-    points?: Record<string, number>;
-    set_scores?: Array<Record<string, number>>;
-  } | null;
-  isFriendly?: boolean;
-};
-
-type EnrichedMatch = MatchRow & {
-  participants: PlayerInfo[][];
-  summary?: MatchDetail["summary"];
-};
 
 const MATCH_ERROR_COPY: Record<string, string> = {
   match_forbidden: "You do not have permission to view these matches.",
@@ -101,80 +74,7 @@ async function getMatches(limit: number, offset: number): Promise<MatchPage> {
   return { rows, hasMore, nextOffset, totalCount };
 }
 
-async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
-  // Load match details for participants + score summaries.
-  const details = await Promise.all(
-    rows.map(async (m) => {
-      const r = await apiFetch(`/v0/matches/${m.id}`, { cache: "no-store" });
-      if (!r.ok) throw new Error(`Failed to load match ${m.id}`);
-      const d = (await r.json()) as MatchDetail;
-      return { row: m, detail: d };
-    })
-  );
-
-  // Fetch all unique player names.
-  const ids = new Set<string>();
-  for (const { detail } of details) {
-    for (const p of detail.participants) p.playerIds.forEach((id) => ids.add(id));
-  }
-  const idToPlayer = new Map<string, PlayerInfo>();
-  const idList = Array.from(ids);
-  if (idList.length) {
-    const r = await apiFetch(
-      `/v0/players/by-ids?ids=${idList.join(",")}`,
-      { cache: "no-store" }
-    );
-    if (r.ok) {
-      const players = (await r.json()) as {
-        id: string;
-        name?: string;
-        photo_url?: string | null;
-      }[];
-      const remaining = new Set(idList);
-      const missing: string[] = [];
-      players.forEach((p) => {
-        if (p.id) {
-          remaining.delete(p.id);
-          if (p.name) {
-            const info: PlayerInfo = {
-              id: p.id,
-              name: p.name,
-              photo_url: p.photo_url ?? null,
-            };
-            idToPlayer.set(p.id, withAbsolutePhotoUrl(info));
-          } else {
-            missing.push(p.id);
-            idToPlayer.set(p.id, { id: p.id, name: "Unknown" });
-          }
-        }
-      });
-      if (remaining.size) {
-        missing.push(...Array.from(remaining));
-        remaining.forEach((id) =>
-          idToPlayer.set(id, { id, name: "Unknown" })
-        );
-      }
-      if (missing.length) {
-        console.warn(
-          `Player names missing for ids: ${missing.join(", ")}`
-        );
-      }
-    }
-  }
-
-  return details.map(({ row, detail }) => {
-    const sortedParticipants = detail.participants
-      .slice()
-      .sort((a, b) => a.side.localeCompare(b.side));
-    const participants = resolveParticipantGroups(
-      sortedParticipants,
-      (id) => idToPlayer.get(id)
-    );
-    return { ...row, participants, summary: detail.summary };
-  });
-}
-
-function formatSummary(s?: MatchDetail["summary"]): string {
+function formatSummary(s?: MatchSummaryData | null): string {
   if (!s) return "";
   if (Array.isArray(s.set_scores) && s.set_scores.length) {
     const formatted = s.set_scores
@@ -287,10 +187,13 @@ export default async function MatchesPage(
                 playedAtText,
                 m.location,
               ]);
+              const participantSides = Object.entries(m.players)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([, players]) => players);
 
               return (
                 <li key={m.id} className="card match-item">
-                  <MatchParticipants sides={m.participants} />
+                  <MatchParticipants sides={participantSides} />
                   <div className="match-meta">
                     {summaryText}
                     {summaryText && metadataText ? " · " : ""}

@@ -1,3 +1,25 @@
+export type PlayerInfo = {
+  id: string;
+  name: string;
+  photo_url?: string | null;
+};
+
+export type MatchSummaryData = {
+  sets?: Record<string, number>;
+  games?: Record<string, number>;
+  points?: Record<string, number>;
+  set_scores?: Array<Record<string, number>>;
+  score?: Record<string, number>;
+  [key: string]: unknown;
+};
+
+export type MatchParticipantSummary = {
+  id: string;
+  side: string;
+  playerIds: string[];
+  players?: Array<PlayerInfo | null | undefined> | null;
+};
+
 export type MatchRow = {
   id: string;
   sport: string;
@@ -6,34 +28,77 @@ export type MatchRow = {
   playedAt: string | null;
   location: string | null;
   isFriendly: boolean;
-};
-
-export type Participant = {
-  side: string;
-  playerIds: string[];
-};
-
-export type MatchDetail = {
-  participants: Participant[];
-};
-
-export type PlayerInfo = {
-  id: string;
-  name: string;
-  photo_url?: string | null;
+  participants: MatchParticipantSummary[];
+  summary?: MatchSummaryData | null;
 };
 
 export type EnrichedMatch = MatchRow & {
   players: Record<string, PlayerInfo[]>;
 };
 
-import { apiFetch, withAbsolutePhotoUrl } from './api';
+import { withAbsolutePhotoUrl } from './api';
 import { sanitizePlayersBySide } from './participants';
 
-function parseNumber(value: string | null | undefined): number | null {
-  if (!value) return null;
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : null;
+function normalizePlayer(
+  player: PlayerInfo | null | undefined,
+  fallbackId: string,
+): PlayerInfo {
+  if (player) {
+    const name = typeof player.name === 'string' ? player.name.trim() : '';
+    if (name) {
+      return {
+        id: player.id ?? fallbackId,
+        name,
+        photo_url: player.photo_url ?? null,
+      };
+    }
+  }
+
+  return { id: fallbackId, name: 'Unknown', photo_url: null };
+}
+
+function resolveParticipantPlayers(
+  participant: MatchParticipantSummary,
+): PlayerInfo[] {
+  const ids = Array.isArray(participant.playerIds)
+    ? participant.playerIds
+    : [];
+  const provided = Array.isArray(participant.players)
+    ? participant.players
+    : [];
+
+  const players: PlayerInfo[] = [];
+
+  ids.forEach((rawId, index) => {
+    if (!rawId) {
+      return;
+    }
+    const id = String(rawId);
+    const player = normalizePlayer(provided[index] ?? null, id);
+    players.push(player);
+  });
+
+  if (provided.length > players.length) {
+    for (let i = players.length; i < provided.length; i += 1) {
+      const player = provided[i];
+      if (!player) {
+        continue;
+      }
+      const id = player.id ?? `extra-${i}`;
+      players.push(normalizePlayer(player, id));
+    }
+  }
+
+  if (!players.length && ids.length) {
+    ids.forEach((rawId) => {
+      if (rawId) {
+        const id = String(rawId);
+        players.push({ id, name: 'Unknown' });
+      }
+    });
+  }
+
+  return players.map((player) => withAbsolutePhotoUrl(player));
 }
 
 export function extractMatchPagination(
@@ -44,6 +109,12 @@ export function extractMatchPagination(
   hasMore: boolean;
   nextOffset: number | null;
 } {
+  function parseNumber(value: string | null | undefined): number | null {
+    if (!value) return null;
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
   const limit = parseNumber(headers.get('X-Limit'));
   const hasMoreHeader = headers.get('X-Has-More');
   const hasMore = hasMoreHeader?.toLowerCase() === 'true';
@@ -57,64 +128,22 @@ export function extractMatchPagination(
 }
 
 export async function enrichMatches(rows: MatchRow[]): Promise<EnrichedMatch[]> {
-  const details = await Promise.all(
-    rows.map(async (m) => {
-      const r = await apiFetch(`/v0/matches/${m.id}`, { cache: 'no-store' });
-      if (!r.ok) throw new Error(`Failed to load match ${m.id}`);
-      const d = (await r.json()) as MatchDetail;
-      return { row: m, detail: d };
-    })
-  );
+  return rows.map((row) => {
+    const playersBySide: Record<string, PlayerInfo[]> = {};
+    const participants = Array.isArray(row.participants)
+      ? row.participants.slice().sort((a, b) => a.side.localeCompare(b.side))
+      : [];
 
-  const ids = new Set<string>();
-  for (const { detail } of details) {
-    for (const p of detail.participants) p.playerIds.forEach((id) => ids.add(id));
-  }
+    participants.forEach((participant) => {
+      playersBySide[participant.side] = resolveParticipantPlayers(participant);
+    });
 
-  const idToPlayer = new Map<string, PlayerInfo>();
-  const idList = Array.from(ids);
-  if (idList.length) {
-    const r = await apiFetch(
-      `/v0/players/by-ids?ids=${idList.join(',')}`,
-      { cache: 'no-store' }
-    );
-    if (r.ok) {
-      const players = (await r.json()) as PlayerInfo[];
-      const remaining = new Set(idList);
-      const missing: string[] = [];
-      players.forEach((p) => {
-        if (p.id) {
-          remaining.delete(p.id);
-          if (p.name) {
-            idToPlayer.set(p.id, withAbsolutePhotoUrl(p));
-          } else {
-            missing.push(p.id);
-            idToPlayer.set(p.id, { id: p.id, name: 'Unknown' });
-          }
-        }
-      });
-      if (remaining.size) {
-        missing.push(...Array.from(remaining));
-        remaining.forEach((id) =>
-          idToPlayer.set(id, { id, name: 'Unknown' })
-        );
-      }
-      if (missing.length) {
-        console.warn(
-          `Player names missing for ids: ${missing.join(', ')}`
-        );
-      }
-    }
-  }
+    const sanitizedPlayers = sanitizePlayersBySide(playersBySide);
 
-  return details.map(({ row, detail }) => {
-    const players: Record<string, PlayerInfo[]> = {};
-    for (const p of detail.participants) {
-      players[p.side] = p.playerIds.map(
-        (id) => idToPlayer.get(id) ?? { id, name: 'Unknown' }
-      );
-    }
-    const sanitizedPlayers = sanitizePlayersBySide(players);
-    return { ...row, players: sanitizedPlayers };
+    return {
+      ...row,
+      players: sanitizedPlayers,
+      summary: row.summary ?? undefined,
+    };
   });
 }

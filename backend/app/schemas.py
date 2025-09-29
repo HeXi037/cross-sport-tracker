@@ -600,6 +600,8 @@ class MatchSummaryOut(BaseModel):
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
     isFriendly: bool
+    participants: List["MatchSummaryParticipantOut"] = Field(default_factory=list)
+    summary: Optional[Dict[str, Any]] = None
 
 
 class MatchSummaryPageOut(BaseModel):
@@ -618,6 +620,12 @@ class ParticipantOut(BaseModel):
     id: str
     side: Literal["A", "B", "C", "D", "E", "F"]
     playerIds: List[str]
+
+
+class MatchSummaryParticipantOut(ParticipantOut):
+    """Participant information included in match summaries."""
+
+    players: List[PlayerNameOut] = Field(default_factory=list)
 
 
 class ScoreEventOut(BaseModel):
@@ -692,7 +700,7 @@ class StageScheduleMatchOut(MatchSummaryOut):
 
     stageId: str  # Narrow ``MatchSummaryOut.stageId`` to be required here.
     rulesetId: Optional[str] = None
-    participants: List[ParticipantOut] = Field(default_factory=list)
+    participants: List["MatchSummaryParticipantOut"] = Field(default_factory=list)
 
 
 class StageScheduleResponse(BaseModel):

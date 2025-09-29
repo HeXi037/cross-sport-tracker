@@ -1,4 +1,4 @@
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { apiFetch, fetchClubs, withAbsolutePhotoUrl } from "../../../lib/api";
@@ -10,7 +10,12 @@ import PlayerDetailErrorBoundary, {
 import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
 import MatchParticipants from "../../../components/MatchParticipants";
 import PhotoUpload from "./PhotoUpload";
-import { formatDate, parseAcceptLanguage } from "../../../lib/i18n";
+import {
+  formatDate,
+  parseAcceptLanguage,
+  resolveTimeZone,
+  TIME_ZONE_COOKIE_KEY,
+} from "../../../lib/i18n";
 import {
   formatMatchRecord,
   normalizeMatchSummary,
@@ -437,7 +442,10 @@ export default async function PlayerPage({
   params: { id: string };
   searchParams: { view?: string };
 }) {
+  const cookieStore = cookies();
   const locale = parseAcceptLanguage(headers().get("accept-language"));
+  const timeZoneCookie = cookieStore.get(TIME_ZONE_COOKIE_KEY)?.value ?? null;
+  const timeZone = resolveTimeZone(timeZoneCookie);
   let player: Player;
   try {
     player = await getPlayer(params.id);
@@ -522,7 +530,7 @@ export default async function PlayerPage({
           .flatMap(([, pl]) => pl);
         const winner = winnerFromSummary(m.summary);
         const result = winner ? (winner === mySide ? "Win" : "Loss") : "—";
-        const date = formatDate(m.playedAt, locale);
+        const date = formatDate(m.playedAt, locale, undefined, timeZone);
         return { id: m.id, opponents, date, result };
       })
       .filter(Boolean) as {
@@ -656,7 +664,7 @@ export default async function PlayerPage({
                             {result ? ` · ${result}` : ""}
                             {m.summary || result ? " · " : ""}
                             {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
-                            {formatDate(m.playedAt, locale)}
+                            {formatDate(m.playedAt, locale, undefined, timeZone)}
                             {" · "}
                             {m.location ?? "—"}
                           </div>
@@ -740,7 +748,8 @@ export default async function PlayerPage({
                     />
                   </Link>
                   <div className="text-sm text-gray-700">
-                    {formatDate(m.playedAt, locale)} · {m.location ?? "—"}
+                    {formatDate(m.playedAt, locale, undefined, timeZone)} ·{' '}
+                    {m.location ?? "—"}
                   </div>
                 </li>
               ))}

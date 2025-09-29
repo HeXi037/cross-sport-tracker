@@ -10,6 +10,7 @@ import {
   parseAcceptLanguage,
   normalizeLocale,
   LOCALE_COOKIE_KEY,
+  TIME_ZONE_COOKIE_KEY,
 } from '../lib/i18n';
 
 export const metadata = {
@@ -26,6 +27,7 @@ export default function RootLayout({
   const acceptLanguage = headerList.get('accept-language');
   const cookieStore = cookies();
   const cookieLocale = cookieStore.get(LOCALE_COOKIE_KEY)?.value ?? null;
+  const cookieTimeZone = cookieStore.get(TIME_ZONE_COOKIE_KEY)?.value ?? null;
   const locale = normalizeLocale(
     cookieLocale,
     parseAcceptLanguage(acceptLanguage),
@@ -37,7 +39,11 @@ export default function RootLayout({
         <a className="skip-link" href="#main-content">
           Skip to main content
         </a>
-        <LocaleProvider locale={locale} acceptLanguage={acceptLanguage}>
+        <LocaleProvider
+          locale={locale}
+          acceptLanguage={acceptLanguage}
+          timeZone={cookieTimeZone}
+        >
           <ToastProvider>
             <ChunkErrorReload />
             <Header />

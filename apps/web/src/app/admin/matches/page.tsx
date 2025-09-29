@@ -6,7 +6,7 @@ import { apiFetch, isAdmin, withAbsolutePhotoUrl } from "../../../lib/api";
 import { ensureTrailingSlash } from "../../../lib/routes";
 import { PlayerInfo } from "../../../components/PlayerName";
 import MatchParticipants from "../../../components/MatchParticipants";
-import { useLocale } from "../../../lib/LocaleContext";
+import { useLocale, useTimeZone } from "../../../lib/LocaleContext";
 import { formatDate } from "../../../lib/i18n";
 import { resolveParticipantGroups } from "../../../lib/participants";
 
@@ -127,9 +127,10 @@ export default function AdminMatchesPage() {
   const [matches, setMatches] = useState<EnrichedMatch[]>([]);
   const [error, setError] = useState<string | null>(null);
   const locale = useLocale();
+  const timeZone = useTimeZone();
   const formatMatchDate = useMemo(
-    () => (value: Date | string) => formatDate(value, locale),
-    [locale],
+    () => (value: Date | string) => formatDate(value, locale, undefined, timeZone),
+    [locale, timeZone],
   );
 
   const load = useCallback(async () => {

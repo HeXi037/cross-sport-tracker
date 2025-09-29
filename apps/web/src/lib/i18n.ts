@@ -1,5 +1,5 @@
 export const NEUTRAL_FALLBACK_LOCALE = 'en-GB';
-export const DEFAULT_TIME_ZONE = 'Australia/Melbourne';
+export const DEFAULT_TIME_ZONE = 'UTC';
 
 type LocalePreference = {
   locale: string;
@@ -78,19 +78,144 @@ export function normalizeLocale(
   return trimmed.length > 0 ? trimmed : fallback;
 }
 
-export function resolveTimeZone(preferred?: string | null): string {
-  if (typeof preferred === 'string') {
-    const trimmed = preferred.trim();
-    if (trimmed) {
-      return trimmed;
+export const LOCALE_STORAGE_KEY = 'cst:locale';
+export const LOCALE_COOKIE_KEY = 'cst-preferred-locale';
+
+export const TIME_ZONE_STORAGE_KEY = 'cst:time-zone';
+export const TIME_ZONE_COOKIE_KEY = 'cst-preferred-time-zone';
+
+function normalizeTimeZoneInternal(
+  value: string | null | undefined,
+  fallback: string,
+): string {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return fallback;
+  }
+
+  try {
+    // Validate the time zone identifier using Intl.
+    new Intl.DateTimeFormat('en-US', { timeZone: trimmed });
+    return trimmed;
+  } catch {
+    return fallback;
+  }
+}
+
+export function normalizeTimeZone(
+  value: string | null | undefined,
+  fallback = DEFAULT_TIME_ZONE,
+): string {
+  return normalizeTimeZoneInternal(value, fallback);
+}
+
+export function getStoredTimeZone(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage?.getItem(TIME_ZONE_STORAGE_KEY);
+    const normalized = normalizeTimeZoneInternal(raw, '');
+    if (normalized) {
+      return normalized;
     }
+  } catch {
+    // Ignore storage errors and fall through to cookie lookup.
+  }
+
+  if (typeof document !== 'undefined') {
+    try {
+      const cookieValue = document.cookie
+        .split(';')
+        .map((value) => value.trim())
+        .find((part) => part.startsWith(`${TIME_ZONE_COOKIE_KEY}=`));
+      if (cookieValue) {
+        const [, value] = cookieValue.split('=');
+        const normalized = normalizeTimeZoneInternal(
+          decodeURIComponent(value ?? ''),
+          '',
+        );
+        return normalized || null;
+      }
+    } catch {
+      // Ignore cookie parsing failures.
+    }
+  }
+
+  return null;
+}
+
+export function storeTimeZonePreference(
+  timeZone: string | null | undefined,
+): void {
+  if (typeof window === 'undefined' && typeof document === 'undefined') {
+    return;
+  }
+  const normalized = normalizeTimeZoneInternal(timeZone, '');
+
+  if (typeof window !== 'undefined') {
+    try {
+      if (normalized) {
+        window.localStorage?.setItem(TIME_ZONE_STORAGE_KEY, normalized);
+      } else {
+        window.localStorage?.removeItem(TIME_ZONE_STORAGE_KEY);
+      }
+    } catch {
+      // Ignore storage quota errors or unavailable localStorage.
+    }
+  }
+
+  if (typeof document !== 'undefined') {
+    const expires = normalized ? `; max-age=${60 * 60 * 24 * 365}` : '; max-age=0';
+    try {
+      document.cookie = `${TIME_ZONE_COOKIE_KEY}=${
+        normalized ? encodeURIComponent(normalized) : ''
+      }; path=/${expires}`;
+    } catch {
+      // Ignore cookie write errors.
+    }
+  }
+}
+
+export function clearStoredTimeZone(): void {
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage?.removeItem(TIME_ZONE_STORAGE_KEY);
+    } catch {
+      // Ignore storage errors.
+    }
+  }
+
+  if (typeof document !== 'undefined') {
+    try {
+      document.cookie = `${TIME_ZONE_COOKIE_KEY}=; path=/; max-age=0`;
+    } catch {
+      // Ignore cookie errors.
+    }
+  }
+}
+
+export function resolveTimeZone(preferred?: string | null): string {
+  const normalizedPreferred = normalizeTimeZoneInternal(preferred, '');
+  if (normalizedPreferred) {
+    return normalizedPreferred;
+  }
+
+  const stored = getStoredTimeZone();
+  if (stored) {
+    return stored;
   }
 
   if (typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function') {
     try {
       const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      if (detected) {
-        return detected;
+      const normalizedDetected = normalizeTimeZoneInternal(detected, '');
+      if (normalizedDetected) {
+        return normalizedDetected;
       }
     } catch {
       // Ignore detection failures and fall through to the default.
@@ -99,9 +224,6 @@ export function resolveTimeZone(preferred?: string | null): string {
 
   return DEFAULT_TIME_ZONE;
 }
-
-export const LOCALE_STORAGE_KEY = 'cst:locale';
-export const LOCALE_COOKIE_KEY = 'cst-preferred-locale';
 
 export function getStoredLocale(): string | null {
   if (typeof window === 'undefined') {
@@ -274,6 +396,7 @@ export function formatDate(
   value: Date | string | number | null | undefined,
   locale: string,
   options?: Intl.DateTimeFormatOptions,
+  preferredTimeZone?: string | null,
 ): string {
   if (!value) return '—';
   const date = value instanceof Date ? value : new Date(value);
@@ -284,7 +407,7 @@ export function formatDate(
     ...baseOptions,
   };
   if (!formatterOptions.timeZone) {
-    formatterOptions.timeZone = resolveTimeZone();
+    formatterOptions.timeZone = resolveTimeZone(preferredTimeZone);
   }
   const localeForFormatter = normalizedLocale || undefined;
 
@@ -346,21 +469,23 @@ export function formatDateTime(
   value: Date | string | number | null | undefined,
   locale: string,
   options: Intl.DateTimeFormatOptions | DateTimePreset = 'default',
+  preferredTimeZone?: string | null,
 ): string {
   const resolvedOptions =
     typeof options === 'string'
       ? DATE_TIME_PRESETS[options]
       : ensureOptions(options, DATE_TIME_PRESETS.default);
-  return formatDate(value, locale, resolvedOptions);
+  return formatDate(value, locale, resolvedOptions, preferredTimeZone);
 }
 
 export function formatTime(
   value: Date | string | number | null | undefined,
   locale: string,
   options: Intl.DateTimeFormatOptions = { timeStyle: 'short' },
+  preferredTimeZone?: string | null,
 ): string {
   const resolvedOptions = ensureOptions(options, { timeStyle: 'short' });
-  return formatDate(value, locale, resolvedOptions);
+  return formatDate(value, locale, resolvedOptions, preferredTimeZone);
 }
 
 export function getDateExample(locale: string, preset: DateTimePreset = 'default'): string {

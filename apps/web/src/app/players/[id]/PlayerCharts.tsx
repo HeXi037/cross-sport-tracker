@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import WinRateChart, { WinRatePoint } from '../../../components/charts/WinRateChart';
 import RankingHistoryChart, { RankingPoint } from '../../../components/charts/RankingHistoryChart';
 import MatchHeatmap, { HeatmapDatum } from '../../../components/charts/MatchHeatmap';
-import { useLocale } from '../../../lib/LocaleContext';
+import { useLocale, useTimeZone } from '../../../lib/LocaleContext';
 import { formatDate } from '../../../lib/i18n';
 
 interface EnrichedMatch {
@@ -20,9 +20,10 @@ function parseMatchDate(value: string | null | undefined): Date | null {
 
 export default function PlayerCharts({ matches }: { matches: EnrichedMatch[] }) {
   const locale = useLocale();
+  const timeZone = useTimeZone();
   const formatMatchDate = useMemo(
-    () => (value: Date | string) => formatDate(value, locale),
-    [locale],
+    () => (value: Date | string) => formatDate(value, locale, undefined, timeZone),
+    [locale, timeZone],
   );
   const sorted = [...matches].sort((a, b) => {
     const da = parseMatchDate(a.playedAt)?.getTime() ?? 0;

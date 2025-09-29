@@ -10,7 +10,7 @@ import {
   type MatchRow,
 } from '../lib/matches';
 import MatchParticipants from '../components/MatchParticipants';
-import { useLocale } from '../lib/LocaleContext';
+import { useLocale, useTimeZone } from '../lib/LocaleContext';
 import { ensureTrailingSlash, recordPathForSport } from '../lib/routes';
 import { formatDateTime, NEUTRAL_FALLBACK_LOCALE } from '../lib/i18n';
 
@@ -135,12 +135,13 @@ export default function HomePageClient({
   const [loadingMore, setLoadingMore] = useState(false);
   const [paginationError, setPaginationError] = useState(false);
   const localeFromContext = useLocale();
+  const timeZone = useTimeZone();
   const activeLocale =
     localeFromContext || initialLocale || NEUTRAL_FALLBACK_LOCALE;
   const formatMatchDate = useMemo(
     () => (value: Date | string | number | null | undefined) =>
-      formatDateTime(value, activeLocale, 'compact'),
-    [activeLocale],
+      formatDateTime(value, activeLocale, 'compact', timeZone),
+    [activeLocale, timeZone],
   );
 
   const parseMatchesResponse = async (

@@ -1,11 +1,17 @@
 import Link from "next/link";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { apiFetch, withAbsolutePhotoUrl } from "../../../lib/api";
 import LiveSummary from "./live-summary";
 import MatchParticipants from "../../../components/MatchParticipants";
 import { PlayerInfo } from "../../../components/PlayerName";
-import { formatDate, formatDateTime, parseAcceptLanguage } from "../../../lib/i18n";
+import {
+  formatDate,
+  formatDateTime,
+  parseAcceptLanguage,
+  resolveTimeZone,
+  TIME_ZONE_COOKIE_KEY,
+} from "../../../lib/i18n";
 import { hasTimeComponent } from "../../../lib/datetime";
 import { ensureTrailingSlash } from "../../../lib/routes";
 import {
@@ -467,7 +473,10 @@ export default async function MatchDetailPage({
       </main>
     );
   }
+  const cookieStore = cookies();
   const locale = parseAcceptLanguage(headers().get("accept-language"));
+  const timeZoneCookie = cookieStore.get(TIME_ZONE_COOKIE_KEY)?.value ?? null;
+  const timeZone = resolveTimeZone(timeZoneCookie);
 
   const parts = match.participants ?? [];
   const uniqueIds = Array.from(
@@ -519,8 +528,8 @@ export default async function MatchDetailPage({
   const playedAtDate = match.playedAt ? new Date(match.playedAt) : null;
   const playedAtStr = playedAtDate
     ? hasTimeComponent(match.playedAt)
-      ? formatDateTime(playedAtDate, locale)
-      : formatDate(playedAtDate, locale)
+      ? formatDateTime(playedAtDate, locale, undefined, timeZone)
+      : formatDate(playedAtDate, locale, undefined, timeZone)
     : "";
   const playedAtLabel = normalizeLabel(playedAtStr);
   const locationLabel = normalizeLabel(match.location);

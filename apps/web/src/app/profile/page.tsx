@@ -41,6 +41,11 @@ import {
   type UserSettings,
 } from "../user-settings";
 import {
+  normalizeTimeZone,
+  resolveTimeZone,
+  DEFAULT_TIME_ZONE,
+} from "../../lib/i18n";
+import {
   ALL_SPORTS,
   MASTER_SPORT,
   SPORT_OPTIONS,
@@ -55,6 +60,7 @@ type SaveFeedback = { type: "success" | "error"; message: string } | null;
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 const PREFERENCES_LOCALE_HINT_ID = "preferences-locale-hint";
+const PREFERENCES_TIME_ZONE_HINT_ID = "preferences-time-zone-hint";
 const LOCALE_SUGGESTIONS = [
   { value: "en-GB", label: "English (United Kingdom)" },
   { value: "en-US", label: "English (United States)" },
@@ -64,6 +70,38 @@ const LOCALE_SUGGESTIONS = [
   { value: "es-ES", label: "Spanish (Spain)" },
   { value: "sv-SE", label: "Swedish (Sweden)" },
 ];
+
+const COMMON_TIME_ZONES = [
+  "UTC",
+  "Europe/London",
+  "Europe/Paris",
+  "America/New_York",
+  "America/Los_Angeles",
+  "America/Chicago",
+  "America/Toronto",
+  "Asia/Tokyo",
+  "Asia/Singapore",
+  "Asia/Hong_Kong",
+  "Australia/Sydney",
+  "Australia/Melbourne",
+];
+
+const SUPPORTED_TIME_ZONES = (() => {
+  const intlWithSupport = Intl as typeof Intl & {
+    supportedValuesOf?: (key: string) => string[];
+  };
+  if (typeof intlWithSupport.supportedValuesOf === "function") {
+    try {
+      const values = intlWithSupport.supportedValuesOf("timeZone");
+      if (Array.isArray(values) && values.length > 0) {
+        return values;
+      }
+    } catch {
+      // Ignore unsupported environments and fall back to the common list.
+    }
+  }
+  return COMMON_TIME_ZONES;
+})();
 
 function isValidHttpUrl(value: string): boolean {
   if (!value) {
@@ -812,6 +850,66 @@ export default function ProfilePage() {
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
+          ))}
+        </datalist>
+        <label className="form-field" htmlFor="preferences-time-zone">
+          <span className="form-label">Preferred time zone</span>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <input
+              id="preferences-time-zone"
+              type="text"
+              value={preferences.preferredTimeZone}
+              onChange={(event) => {
+                setPreferencesFeedback(null);
+                setMessage(null);
+                setError(null);
+                setPreferences((prev) => ({
+                  ...prev,
+                  preferredTimeZone: event.target.value,
+                }));
+              }}
+              list="preferences-time-zone-options"
+              placeholder="e.g., Europe/Paris"
+              autoComplete="off"
+              spellCheck={false}
+              disabled={preferencesInputsDisabled}
+              aria-describedby={PREFERENCES_TIME_ZONE_HINT_ID}
+            />
+            <button
+              type="button"
+              className="button"
+              onClick={() => {
+                setPreferencesFeedback(null);
+                setMessage(null);
+                setError(null);
+                let detected: string | null = null;
+                try {
+                  detected =
+                    Intl.DateTimeFormat().resolvedOptions().timeZone ?? null;
+                } catch {
+                  detected = null;
+                }
+                const normalized = normalizeTimeZone(
+                  detected ?? DEFAULT_TIME_ZONE,
+                  DEFAULT_TIME_ZONE,
+                );
+                setPreferences((prev) => ({
+                  ...prev,
+                  preferredTimeZone: normalized,
+                }));
+              }}
+              disabled={preferencesInputsDisabled}
+            >
+              Detect automatically
+            </button>
+          </div>
+        </label>
+        <span id={PREFERENCES_TIME_ZONE_HINT_ID} className="form-hint">
+          Determines how match dates and times display across the app.
+        </span>
+        <datalist id="preferences-time-zone-options">
+          {SUPPORTED_TIME_ZONES.map((zone) => (
+            <option key={zone} value={zone} />
           ))}
         </datalist>
         <label

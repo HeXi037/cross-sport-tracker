@@ -1,10 +1,16 @@
 import Link from "next/link";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { apiFetch, withAbsolutePhotoUrl, type ApiError } from "../../lib/api";
 import Pager from "./pager";
 import { PlayerInfo } from "../../components/PlayerName";
 import MatchParticipants from "../../components/MatchParticipants";
-import { formatDate, formatDateTime, parseAcceptLanguage } from "../../lib/i18n";
+import {
+  formatDate,
+  formatDateTime,
+  parseAcceptLanguage,
+  resolveTimeZone,
+  TIME_ZONE_COOKIE_KEY,
+} from "../../lib/i18n";
 import { hasTimeComponent } from "../../lib/datetime";
 import { ensureTrailingSlash } from "../../lib/routes";
 import { resolveParticipantGroups } from "../../lib/participants";
@@ -229,7 +235,10 @@ export default async function MatchesPage(
   const searchParams = props.searchParams ?? {};
   const limit = Number(searchParams.limit) || 25;
   const offset = Number(searchParams.offset) || 0;
+  const cookieStore = cookies();
   const locale = parseAcceptLanguage(headers().get('accept-language'));
+  const timeZoneCookie = cookieStore.get(TIME_ZONE_COOKIE_KEY)?.value ?? null;
+  const timeZone = resolveTimeZone(timeZoneCookie);
 
   try {
     const { rows, hasMore, nextOffset, totalCount } = await getMatches(
@@ -264,8 +273,13 @@ export default async function MatchesPage(
               const summaryText = formatSummary(m.summary);
               const playedAtText =
                 m.playedAt && hasTimeComponent(m.playedAt)
-                  ? formatDateTime(m.playedAt, locale, 'compact')
-                  : formatDate(m.playedAt, locale, { dateStyle: 'medium' });
+                  ? formatDateTime(m.playedAt, locale, 'compact', timeZone)
+                  : formatDate(
+                      m.playedAt,
+                      locale,
+                      { dateStyle: 'medium' },
+                      timeZone,
+                    );
               const metadataText = formatMatchMetadata([
                 m.isFriendly ? "Friendly" : null,
                 m.sport,

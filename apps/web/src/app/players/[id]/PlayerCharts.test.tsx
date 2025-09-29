@@ -25,6 +25,7 @@ vi.mock("../../../components/charts/MatchHeatmap", () => ({
 
 vi.mock("../../../lib/LocaleContext", () => ({
   useLocale: () => "en-US",
+  useTimeZone: () => "UTC",
 }));
 
 import PlayerCharts from "./PlayerCharts";

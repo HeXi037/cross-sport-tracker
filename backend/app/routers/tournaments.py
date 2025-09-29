@@ -448,7 +448,7 @@ async def list_stage_matches(
             isFriendly=match.is_friendly,
             rulesetId=match.ruleset_id,
             participants=[
-                ParticipantOut(
+                MatchSummaryParticipantOut(
                     id=part.id,
                     side=part.side,
                     playerIds=part.player_ids,

@@ -13,9 +13,10 @@ vi.mock('../../lib/api', async () => {
   };
 });
 
-vi.mock('next/headers', () => ({
-  headers: () => ({
-    get: () => 'en-GB',
+vi.mock('../../lib/server-locale', () => ({
+  resolveServerLocale: () => ({
+    locale: 'en-GB',
+    acceptLanguage: 'en-GB',
   }),
 }));
 

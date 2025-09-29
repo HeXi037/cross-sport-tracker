@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { headers, cookies } from "next/headers";
+import { cookies } from "next/headers";
 import { apiFetch, withAbsolutePhotoUrl, type ApiError } from "../../lib/api";
 import Pager from "./pager";
 import { PlayerInfo } from "../../components/PlayerName";
@@ -7,13 +7,13 @@ import MatchParticipants from "../../components/MatchParticipants";
 import {
   formatDate,
   formatDateTime,
-  parseAcceptLanguage,
   resolveTimeZone,
   TIME_ZONE_COOKIE_KEY,
 } from "../../lib/i18n";
 import { hasTimeComponent } from "../../lib/datetime";
 import { ensureTrailingSlash } from "../../lib/routes";
 import { resolveParticipantGroups } from "../../lib/participants";
+import { resolveServerLocale } from "../../lib/server-locale";
 
 export const dynamic = "force-dynamic";
 
@@ -236,7 +236,7 @@ export default async function MatchesPage(
   const limit = Number(searchParams.limit) || 25;
   const offset = Number(searchParams.offset) || 0;
   const cookieStore = cookies();
-  const locale = parseAcceptLanguage(headers().get('accept-language'));
+  const { locale } = resolveServerLocale({ cookieStore });
   const timeZoneCookie = cookieStore.get(TIME_ZONE_COOKIE_KEY)?.value ?? null;
   const timeZone = resolveTimeZone(timeZoneCookie);
 

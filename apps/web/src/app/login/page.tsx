@@ -84,19 +84,13 @@ function humanizeSignupDetail(message: string): string {
   return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 }
 
-interface PasswordRequirement {
-  id: string;
-  label: string;
-  met: boolean;
-}
-
 interface PasswordStrengthResult {
   score: number;
   label: string;
   helper: string;
   variant: "empty" | "weak" | "fair" | "strong" | "very-strong";
-  checks: PasswordRequirement[];
   activeSegments: number;
+  showTips: boolean;
 }
 
 function getPasswordStrength(password: string): PasswordStrengthResult {
@@ -106,21 +100,14 @@ function getPasswordStrength(password: string): PasswordStrengthResult {
   const hasNumber = /\d/.test(trimmed);
   const hasSymbol = /[^A-Za-z0-9]/.test(trimmed);
 
-  const checks: PasswordRequirement[] = [
-    { id: "length", label: "At least 12 characters", met: length >= 12 },
-    { id: "letter", label: "Includes a letter", met: hasLetter },
-    { id: "number", label: "Includes a number", met: hasNumber },
-    { id: "symbol", label: "Includes a symbol", met: hasSymbol },
-  ];
-
   if (!trimmed) {
     return {
       score: 0,
       label: "Start typing a password",
       helper: "Use at least 12 characters with letters, numbers, and symbols.",
       variant: "empty",
-      checks,
       activeSegments: 0,
+      showTips: true,
     };
   }
 
@@ -171,14 +158,15 @@ function getPasswordStrength(password: string): PasswordStrengthResult {
   const feedback =
     zxcvbnResult.feedback.warning || zxcvbnResult.feedback.suggestions?.[0] || "";
   const helper = feedback ? `${detail.helper} ${feedback}`.trim() : detail.helper;
+  const showTips = score <= 1 || !hasLetter || !hasNumber || !hasSymbol || length < 12;
 
   return {
     score,
     label: detail.label,
     helper,
     variant: detail.variant,
-    checks,
     activeSegments: detail.activeSegments,
+    showTips,
   };
 }
 
@@ -336,6 +324,9 @@ export default function LoginPage() {
     () => getPasswordStrength(newPass),
     [newPass]
   );
+  const passwordStrengthDescription = passwordStrength.showTips
+    ? `${passwordStrengthLabelId} ${passwordStrengthHelperId}`
+    : passwordStrengthLabelId;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -590,7 +581,7 @@ export default function LoginPage() {
               aria-valuemin={0}
               aria-valuemax={4}
               aria-valuenow={passwordStrength.score}
-              aria-describedby={`${passwordStrengthLabelId} ${passwordStrengthHelperId}`}
+              aria-describedby={passwordStrengthDescription}
             >
               {Array.from({ length: 4 }, (_, index) => {
                 const isActive = passwordStrength.activeSegments > index;
@@ -610,25 +601,12 @@ export default function LoginPage() {
             <div id={passwordStrengthLabelId} className="password-strength__label">
               Password strength: {passwordStrength.label}
             </div>
-            <p id={passwordStrengthHelperId} className="password-strength__helper">
-              {passwordStrength.helper}
-            </p>
+            {passwordStrength.showTips && (
+              <p id={passwordStrengthHelperId} className="password-strength__helper">
+                {passwordStrength.helper}
+              </p>
+            )}
           </div>
-          <ul className="password-guidelines">
-            {passwordStrength.checks.map((check) => (
-              <li
-                key={check.id}
-                className={`password-guidelines__item${
-                  check.met ? " password-guidelines__item--met" : ""
-                }`}
-              >
-                <span className="password-guidelines__status" aria-hidden="true">
-                  {check.met ? "✓" : "•"}
-                </span>
-                {check.label}
-              </li>
-            ))}
-          </ul>
         </div>
         <div className="form-field">
           <label htmlFor="signup-confirm-password" className="form-label">

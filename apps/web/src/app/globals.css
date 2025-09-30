@@ -427,45 +427,6 @@ textarea {
   margin: 0;
 }
 
-.password-guidelines {
-  list-style: none;
-  padding: 0;
-  margin: 0.5rem 0 0;
-  display: grid;
-  gap: 0.35rem;
-}
-
-.password-guidelines__item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8rem;
-  color: rgba(10, 31, 68, 0.7);
-}
-
-.password-guidelines__item--met {
-  color: var(--color-success);
-  font-weight: 600;
-}
-
-.password-guidelines__status {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.25rem;
-  height: 1.25rem;
-  border-radius: 999px;
-  border: 1px solid currentColor;
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.password-guidelines__item--met .password-guidelines__status {
-  background: var(--color-success);
-  color: var(--color-surface);
-  border-color: transparent;
-}
-
 .session-banner {
   background: var(--color-accent-red);
   color: var(--color-surface);

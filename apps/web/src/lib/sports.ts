@@ -1,4 +1,4 @@
-import { apiFetch } from "./api";
+import { apiFetch, type ApiRequestInit } from "./api";
 import {
   getRecordSportDisplayName,
   getRecordSportMetaById,
@@ -6,11 +6,38 @@ import {
 
 export type Sport = { id: string; name: string };
 
-export async function fetchSportsCatalog(): Promise<Sport[]> {
+const DEFAULT_SPORTS_CATALOG_REQUEST: ApiRequestInit = {
+  next: { revalidate: 300 },
+};
+
+function buildSportsCatalogRequestInit(
+  init?: ApiRequestInit
+): ApiRequestInit {
+  if (!init) {
+    return {
+      ...DEFAULT_SPORTS_CATALOG_REQUEST,
+      next: { ...DEFAULT_SPORTS_CATALOG_REQUEST.next },
+    };
+  }
+
+  const mergedNext = {
+    ...(DEFAULT_SPORTS_CATALOG_REQUEST.next ?? {}),
+    ...(init.next ?? {}),
+  };
+
+  return {
+    ...DEFAULT_SPORTS_CATALOG_REQUEST,
+    ...init,
+    next: mergedNext,
+  };
+}
+
+export async function fetchSportsCatalog(
+  init?: ApiRequestInit
+): Promise<Sport[]> {
   try {
-    const response = (await apiFetch(`/v0/sports`, {
-      cache: "no-store",
-    } as RequestInit)) as Response;
+    const requestInit = buildSportsCatalogRequestInit(init);
+    const response = (await apiFetch(`/v0/sports`, requestInit)) as Response;
     if (!response.ok) {
       return [];
     }

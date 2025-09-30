@@ -1,5 +1,12 @@
 // apps/web/src/lib/api.ts
 import { TIME_ZONE_COOKIE_KEY } from "./i18n";
+
+export type ApiRequestInit = RequestInit & {
+  next?: {
+    revalidate?: number;
+    tags?: string[];
+  };
+};
 export function apiBase(): string {
   const server = typeof window === 'undefined';
   const base = server
@@ -274,7 +281,7 @@ export type ApiError = Error & {
 
 async function executeFetch(
   path: string,
-  init: RequestInit | undefined,
+  init: ApiRequestInit | undefined,
   attempt: number
 ): Promise<Response> {
   const headers = new Headers(init?.headers);
@@ -401,7 +408,7 @@ async function executeFetch(
   throw err;
 }
 
-export async function apiFetch(path: string, init?: RequestInit) {
+export async function apiFetch(path: string, init?: ApiRequestInit) {
   try {
     return await executeFetch(path, init, 0);
   } catch (err) {
@@ -811,9 +818,9 @@ export type StageStandings = {
   standings: StageStanding[];
 };
 
-function withNoStore<T extends RequestInit | undefined>(
+function withNoStore<T extends ApiRequestInit | undefined>(
   init?: T
-): RequestInit | undefined {
+): ApiRequestInit | undefined {
   if (!init) {
     return { cache: "no-store" };
   }

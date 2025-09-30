@@ -201,7 +201,6 @@ describe("RecordPadelPage", () => {
 
     const playerA1 = await screen.findByRole("combobox", { name: "Player A 1" });
     const playerB1 = await screen.findByRole("combobox", { name: "Player B 1" });
-    const playerB2 = await screen.findByRole("combobox", { name: "Player B 2" });
     const saveButton = screen.getByRole("button", { name: /save/i });
 
     fireEvent.change(playerA1, {

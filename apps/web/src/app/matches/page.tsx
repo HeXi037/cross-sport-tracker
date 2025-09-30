@@ -14,7 +14,6 @@ import { ensureTrailingSlash } from "../../lib/routes";
 import { resolveServerLocale } from "../../lib/server-locale";
 import {
   enrichMatches,
-  type EnrichedMatch,
   type MatchRow,
   type MatchSummaryData,
 } from "../../lib/matches";

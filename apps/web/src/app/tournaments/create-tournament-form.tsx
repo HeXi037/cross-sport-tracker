@@ -227,20 +227,6 @@ export default function CreateTournamentForm({
     }
   };
 
-  if (!loggedIn) {
-    return (
-      <section className="card" style={{ padding: 16 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>
-          Sign in to create an Americano tournament
-        </h2>
-        <p className="form-hint">
-          Log in to create padel Americano tournaments, schedule matches, and share them
-          with your club.
-        </p>
-      </section>
-    );
-  }
-
   const selectedCount = selectedPlayers.length;
   const filteredPlayers = useMemo(() => {
     const trimmedSearch = playerSearch.trim().toLowerCase();
@@ -297,6 +283,20 @@ export default function CreateTournamentForm({
     setSuccess(null);
     setScheduledMatches([]);
   }, [filteredPlayerIds, selectedPlayers]);
+
+  if (!loggedIn) {
+    return (
+      <section className="card" style={{ padding: 16 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>
+          Sign in to create an Americano tournament
+        </h2>
+        <p className="form-hint">
+          Log in to create padel Americano tournaments, schedule matches, and share them
+          with your club.
+        </p>
+      </section>
+    );
+  }
 
   const playerValidationMessage =
     selectedCount >= MIN_AMERICANO_PLAYERS

@@ -7,6 +7,8 @@ import {
   formatDateTime,
   getStoredTimeZone,
   NEUTRAL_FALLBACK_LOCALE,
+  normalizeLocale,
+  parseAcceptLanguage,
   resolveFormatterLocale,
   resolveTimeZone,
   storeTimeZonePreference,
@@ -71,5 +73,21 @@ describe('formatter helpers', () => {
 
   it('formats dates with the neutral fallback when locale hints are missing', () => {
     expect(formatDateTime('2001-11-21T09:30:00Z', '')).toBe('21 Nov 2001, 09:30');
+  });
+});
+
+describe('locale helpers', () => {
+  it('canonicalises locales with underscores and casing differences', () => {
+    expect(normalizeLocale('en_au')).toBe('en-AU');
+    expect(normalizeLocale('EN_us')).toBe('en-US');
+  });
+
+  it('applies canonicalisation to fallbacks', () => {
+    expect(normalizeLocale(undefined, 'en_gb')).toBe('en-GB');
+    expect(normalizeLocale(null, '')).toBe('');
+  });
+
+  it('parses Accept-Language values that include underscores', () => {
+    expect(parseAcceptLanguage('en_US,en_AU;q=0.8')).toBe('en-AU');
   });
 });

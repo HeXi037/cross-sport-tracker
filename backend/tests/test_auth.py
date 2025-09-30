@@ -392,3 +392,74 @@ def test_create_token_flushes_before_refresh_token():
     assert any(isinstance(obj, RefreshToken) for obj in session.added)
     assert access
     assert refresh
+
+
+def _create_admin_and_user(client: TestClient, user_name: str):
+    admin = client.post(
+        "/auth/signup",
+        json={"username": "adminuser", "password": "Str0ng!Pass!", "is_admin": True},
+        headers={"X-Admin-Secret": "admintest"},
+    )
+    assert admin.status_code == 200
+    admin_token = admin.json()["access_token"]
+
+    user_resp = client.post(
+        "/auth/signup", json={"username": user_name, "password": "Str0ng!Pass!"}
+    )
+    assert user_resp.status_code == 200
+
+    return admin_token
+
+
+def test_admin_reset_password_generates_temporary_password():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        admin_token = _create_admin_and_user(client, "resetme")
+
+        resp = client.post(
+            "/auth/admin/reset-password",
+            json={"username": "resetme"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["username"] == "resetme"
+        temp_password = data["temporaryPassword"]
+        assert len(temp_password) >= 12
+        assert any(c.islower() for c in temp_password)
+        assert any(c.isupper() for c in temp_password)
+        assert any(c.isdigit() for c in temp_password)
+        assert any(c in "!@#$%^&*()-_=+" for c in temp_password)
+
+        bad_login = client.post(
+            "/auth/login", json={"username": "resetme", "password": "Str0ng!Pass!"}
+        )
+        assert bad_login.status_code == 401
+
+        good_login = client.post(
+            "/auth/login", json={"username": "resetme", "password": temp_password}
+        )
+        assert good_login.status_code == 200
+
+
+def test_admin_reset_password_forbidden_for_non_admin():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        client.post(
+            "/auth/signup", json={"username": "regularadmin", "password": "Str0ng!Pass!"}
+        )
+        client.post(
+            "/auth/signup", json={"username": "resettarget", "password": "Str0ng!Pass!"}
+        )
+
+        login = client.post(
+            "/auth/login", json={"username": "regularadmin", "password": "Str0ng!Pass!"}
+        )
+        token = login.json()["access_token"]
+
+        resp = client.post(
+            "/auth/admin/reset-password",
+            json={"username": "resettarget"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 403

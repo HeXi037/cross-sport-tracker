@@ -472,6 +472,36 @@ class UserUpdate(BaseModel):
         return v
 
 
+class AdminPasswordResetRequest(BaseModel):
+    """Payload for administrators to reset a user's password."""
+
+    user_id: Optional[str] = Field(default=None, alias="userId")
+    username: Optional[str] = Field(default=None, min_length=1)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @model_validator(mode="after")
+    def _ensure_identifier(self) -> "AdminPasswordResetRequest":
+        if not self.user_id and not self.username:
+            raise ValueError("user_id or username is required")
+        if self.username is not None:
+            trimmed = self.username.strip().lower()
+            if not trimmed:
+                raise ValueError("username must not be empty")
+            self.username = trimmed
+        return self
+
+
+class AdminPasswordResetOut(BaseModel):
+    """Response when an administrator resets a user's password."""
+
+    user_id: str = Field(alias="userId")
+    username: str
+    temporary_password: str = Field(alias="temporaryPassword")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class RefreshRequest(BaseModel):
     """Request body for refreshing or revoking tokens."""
     refresh_token: str

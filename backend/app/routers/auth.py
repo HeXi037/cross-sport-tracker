@@ -2,6 +2,8 @@ import os
 import uuid
 import secrets
 import hashlib
+import string
+import random
 from pathlib import Path
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
@@ -12,7 +14,7 @@ from fastapi import APIRouter, Depends, Header, Request, UploadFile, File
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +28,8 @@ from ..schemas import (
     UserOut,
     UserUpdate,
     RefreshRequest,
+    AdminPasswordResetRequest,
+    AdminPasswordResetOut,
 )
 from ..services.photo_uploads import save_photo_upload
 from ..exceptions import http_problem
@@ -117,6 +121,26 @@ pwd_context = _BcryptContext()
 
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
   return JSONResponse(status_code=429, content={"detail": "Too Many Requests"})
+
+
+def _generate_temporary_password(length: int = 16) -> str:
+  if length < 12:
+    raise ValueError("Temporary passwords must be at least 12 characters long")
+  lower = string.ascii_lowercase
+  upper = string.ascii_uppercase
+  digits = string.digits
+  symbols = "!@#$%^&*()-_=+"
+  all_chars = lower + upper + digits + symbols
+  required = [
+      secrets.choice(lower),
+      secrets.choice(upper),
+      secrets.choice(digits),
+      secrets.choice(symbols),
+  ]
+  remaining = [secrets.choice(all_chars) for _ in range(length - len(required))]
+  password_chars = required + remaining
+  random.SystemRandom().shuffle(password_chars)
+  return "".join(password_chars)
 
 
 async def create_token(user: User, session: AsyncSession) -> tuple[str, str]:
@@ -378,6 +402,48 @@ async def update_me(
   access_token, refresh_token = await create_token(current, session)
   await session.commit()
   return TokenOut(access_token=access_token, refresh_token=refresh_token)
+
+
+@router.post("/admin/reset-password", response_model=AdminPasswordResetOut)
+async def admin_reset_password(
+    body: AdminPasswordResetRequest,
+    current: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+  if not current.is_admin:
+    raise http_problem(
+        status_code=403,
+        detail="forbidden",
+        code="admin_forbidden",
+    )
+  user: User | None
+  if body.user_id:
+    user = await session.get(User, body.user_id)
+  else:
+    user = (
+        await session.execute(
+            select(User).where(func.lower(User.username) == body.username)
+        )
+    ).scalar_one_or_none()
+  if not user:
+    raise http_problem(
+        status_code=404,
+        detail="user not found",
+        code="auth_user_not_found",
+    )
+  temporary_password = _generate_temporary_password()
+  user.password_hash = pwd_context.hash(temporary_password)
+  await session.execute(
+      update(RefreshToken)
+      .where(RefreshToken.user_id == user.id)
+      .values(revoked=True)
+  )
+  await session.commit()
+  return AdminPasswordResetOut(
+      user_id=user.id,
+      username=user.username,
+      temporary_password=temporary_password,
+  )
 
 
 @router.post("/refresh", response_model=TokenOut)

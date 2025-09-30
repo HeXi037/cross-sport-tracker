@@ -7,11 +7,52 @@ type LocalePreference = {
   order: number;
 };
 
+function canonicalizeLocaleCandidate(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const attempts = [trimmed, trimmed.replace(/_/g, '-')];
+
+  for (const attempt of attempts) {
+    try {
+      const [canonical] = Intl.getCanonicalLocales(attempt);
+      if (canonical) {
+        return canonical;
+      }
+    } catch {
+      // Ignore and try the next attempt.
+    }
+  }
+
+  return null;
+}
+
+function normalizeLocaleFallback(fallback: string): string {
+  if (typeof fallback !== 'string') {
+    return NEUTRAL_FALLBACK_LOCALE;
+  }
+
+  const trimmed = fallback.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  return canonicalizeLocaleCandidate(trimmed) ?? trimmed.replace(/_/g, '-');
+}
+
 export function parseAcceptLanguage(
   header: string | null | undefined,
   defaultLocale = NEUTRAL_FALLBACK_LOCALE,
 ): string {
-  if (!header) return defaultLocale;
+  if (!header) return normalizeLocale(defaultLocale, NEUTRAL_FALLBACK_LOCALE);
+
+  const normalizedDefault = normalizeLocale(defaultLocale, NEUTRAL_FALLBACK_LOCALE);
 
   const preferences = header
     .split(',')
@@ -30,7 +71,9 @@ export function parseAcceptLanguage(
         }
       }
 
-      const locale = rawLocale === '*' ? defaultLocale : rawLocale;
+      const localeCandidate = rawLocale === '*' ? normalizedDefault : rawLocale;
+      const locale =
+        canonicalizeLocaleCandidate(localeCandidate) ?? localeCandidate.replace(/_/g, '-');
 
       return {
         locale,
@@ -41,7 +84,7 @@ export function parseAcceptLanguage(
     .filter((pref): pref is LocalePreference => Boolean(pref));
 
   if (!preferences.length) {
-    return defaultLocale;
+    return normalizedDefault;
   }
 
   const australianPreference = preferences
@@ -64,18 +107,30 @@ export function parseAcceptLanguage(
     return a.order - b.order;
   });
 
-  return topPreference?.locale ?? defaultLocale;
+  return topPreference?.locale ?? normalizedDefault;
 }
 
 export function normalizeLocale(
   locale: string | null | undefined,
   fallback = NEUTRAL_FALLBACK_LOCALE,
 ): string {
+  const normalizedFallback = normalizeLocaleFallback(fallback);
+
   if (typeof locale !== 'string') {
-    return fallback;
+    return normalizedFallback;
   }
+
   const trimmed = locale.trim();
-  return trimmed.length > 0 ? trimmed : fallback;
+  if (!trimmed) {
+    return normalizedFallback;
+  }
+
+  const canonical = canonicalizeLocaleCandidate(trimmed);
+  if (canonical) {
+    return canonical;
+  }
+
+  return trimmed.replace(/_/g, '-');
 }
 
 export const LOCALE_STORAGE_KEY = 'cst:locale';

@@ -60,6 +60,7 @@ export default function RecordPadelPage() {
     b2: "",
   });
   const [saving, setSaving] = useState(false);
+  const [showSummaryValidation, setShowSummaryValidation] = useState(false);
   const locale = useLocale();
   const [success, setSuccess] = useState(false);
   const saveSummaryId = useId();
@@ -172,10 +173,14 @@ export default function RecordPadelPage() {
   const buttonOpacity = canSave ? 1 : 0.75;
   const sideASummaryMessage = hasSideAPlayers
     ? `Side A: ${sideAPlayerNames.join(", ")}`
-    : "Add at least one player to side A.";
+    : showSummaryValidation
+      ? "Add at least one player to side A."
+      : "Add players to both sides.";
   const sideBSummaryMessage = hasSideBPlayers
     ? `Side B: ${sideBPlayerNames.join(", ")}`
-    : "Add at least one player to side B.";
+    : showSummaryValidation
+      ? "Add at least one player to side B."
+      : "Add players to both sides.";
   const duplicatePlayersMessage = duplicatePlayerNames.length
     ? `Players cannot appear on both sides: ${duplicatePlayerNames.join(", ")}.`
     : null;
@@ -273,6 +278,7 @@ export default function RecordPadelPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setShowSummaryValidation(true);
     if (saving || !canSave) {
       return;
     }
@@ -660,14 +666,22 @@ export default function RecordPadelPage() {
         </p>
         <div id={saveSummaryId} aria-live="polite">
           <p
-            className={hasSideAPlayers ? "form-hint" : "error"}
-            role={hasSideAPlayers ? undefined : "alert"}
+            className={
+              !hasSideAPlayers && showSummaryValidation ? "error" : "form-hint"
+            }
+            role={
+              !hasSideAPlayers && showSummaryValidation ? "alert" : undefined
+            }
           >
             {sideASummaryMessage}
           </p>
           <p
-            className={hasSideBPlayers ? "form-hint" : "error"}
-            role={hasSideBPlayers ? undefined : "alert"}
+            className={
+              !hasSideBPlayers && showSummaryValidation ? "error" : "form-hint"
+            }
+            role={
+              !hasSideBPlayers && showSummaryValidation ? "alert" : undefined
+            }
           >
             {sideBSummaryMessage}
           </p>
@@ -677,8 +691,12 @@ export default function RecordPadelPage() {
             </p>
           )}
           <p
-            className={setStatus.message ? "error" : "form-hint"}
-            role={setStatus.message ? "alert" : undefined}
+            className={
+              setStatus.message && showSummaryValidation ? "error" : "form-hint"
+            }
+            role={
+              setStatus.message && showSummaryValidation ? "alert" : undefined
+            }
           >
             {completedSetsMessage}
           </p>
@@ -687,7 +705,6 @@ export default function RecordPadelPage() {
           type="submit"
           aria-disabled={!canSave ? "true" : "false"}
           aria-describedby={`padel-save-hint ${saveSummaryId}`}
-          disabled={!canSave}
           data-saving={saving}
           style={{
             opacity: buttonOpacity,

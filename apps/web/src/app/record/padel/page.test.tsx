@@ -226,6 +226,12 @@ describe("RecordPadelPage", () => {
     const playerB1 = await screen.findByRole("combobox", { name: "Player B 1" });
     const saveButton = screen.getByRole("button", { name: /save/i });
 
+    const playerHints = await screen.findAllByText(/Add players to both sides\./i);
+    expect(playerHints).toHaveLength(2);
+    expect(
+      screen.queryByText(/Add at least one player to side B\./i),
+    ).not.toBeInTheDocument();
+
     fireEvent.change(playerA1, {
       target: { value: "p1" },
     });

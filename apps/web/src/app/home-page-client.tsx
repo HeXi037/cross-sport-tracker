@@ -262,14 +262,78 @@ export default function HomePageClient({
 
   useEffect(() => {
     if (!matchPage) return;
-    setMatches(matchPage.enriched);
-    setHasMore(matchPage.hasMore);
-    setNextOffset(matchPage.nextOffset);
-    if (typeof matchPage.limit === 'number' && matchPage.limit !== pageSize) {
-      setPageSize(matchPage.limit);
+
+    let hasAdditionalMatches = false;
+
+    setMatches((previousMatches) => {
+      const nextPageMatches = matchPage.enriched;
+      if (!previousMatches.length) {
+        return nextPageMatches;
+      }
+
+      const nextIds = new Set(nextPageMatches.map((match) => match.id));
+      const preservedMatches: EnrichedMatch[] = [];
+
+      for (const match of previousMatches) {
+        if (!nextIds.has(match.id)) {
+          preservedMatches.push(match);
+          hasAdditionalMatches = true;
+        }
+      }
+
+      if (!hasAdditionalMatches && previousMatches.length === nextPageMatches.length) {
+        let isSameOrder = true;
+        for (let index = 0; index < previousMatches.length; index += 1) {
+          if (previousMatches[index]?.id !== nextPageMatches[index]?.id) {
+            isSameOrder = false;
+            break;
+          }
+        }
+
+        if (isSameOrder) {
+          return previousMatches;
+        }
+      }
+
+      if (!preservedMatches.length && previousMatches.length === nextPageMatches.length) {
+        return nextPageMatches;
+      }
+
+      return [...nextPageMatches, ...preservedMatches];
+    });
+
+    if (typeof matchPage.limit === 'number') {
+      setPageSize((currentPageSize) =>
+        matchPage.limit !== currentPageSize ? matchPage.limit : currentPageSize,
+      );
     }
+
+    setHasMore(matchPage.hasMore);
+
+    setNextOffset((currentNextOffset) => {
+      if (!hasAdditionalMatches) {
+        return matchPage.nextOffset;
+      }
+
+      if (matchPage.nextOffset === null || matchPage.nextOffset === undefined) {
+        return currentNextOffset ?? null;
+      }
+
+      if (currentNextOffset === null || currentNextOffset === undefined) {
+        return matchPage.nextOffset;
+      }
+
+      if (typeof currentNextOffset === 'number') {
+        return typeof matchPage.nextOffset === 'number'
+          ? Math.max(currentNextOffset, matchPage.nextOffset)
+          : currentNextOffset;
+      }
+
+      return currentNextOffset ?? null;
+    });
+
     setMatchError(false);
-  }, [matchPage, pageSize]);
+  }, [matchPage]);
 
   const matchesLoading =
     !matchError && matches.length === 0 && matchesIsLoading;
@@ -299,11 +363,29 @@ export default function HomePageClient({
       }
       const result = await parseMatchesResponse(r, pageSize);
       setMatches((prev) => {
-        const updatedMatches = [...prev, ...result.enriched];
+        const mergedMatches = [...prev];
+        const indexById = new Map<string, number>();
+
+        mergedMatches.forEach((match, index) => {
+          indexById.set(match.id, index);
+        });
+
+        result.enriched.forEach((match) => {
+          const existingIndex = indexById.get(match.id);
+          if (existingIndex === undefined) {
+            indexById.set(match.id, mergedMatches.length);
+            mergedMatches.push(match);
+            return;
+          }
+
+          mergedMatches[existingIndex] = match;
+        });
+
         requestAnimationFrame(() => {
           window.scrollTo({ top: previousScrollPosition, behavior: 'auto' });
         });
-        return updatedMatches;
+
+        return mergedMatches;
       });
       setHasMore(result.hasMore);
       setNextOffset(result.nextOffset);

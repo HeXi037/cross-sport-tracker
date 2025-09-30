@@ -281,6 +281,86 @@ describe("MatchDetailPage", () => {
     );
   });
 
+  it("displays participant breakdown and match logistics", async () => {
+    const match = {
+      id: "m7",
+      sport: "padel",
+      rulesetId: "padel_standard",
+      status: "Completed",
+      playedAt: "2024-03-01T15:30:00Z",
+      location: "Center Court",
+      isFriendly: false,
+      participants: [
+        { side: "A", playerIds: ["p1", "p2"] },
+        { side: "B", playerIds: ["p3", "p4"] },
+      ],
+      summary: {
+        sets: { A: 2, B: 1 },
+        games: { A: 18, B: 15 },
+        points: { A: 120, B: 110 },
+      },
+    };
+
+    apiFetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => match })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: "p1", name: "Ana" },
+          { id: "p2", name: "Bea" },
+          { id: "p3", name: "Cara" },
+          { id: "p4", name: "Dina" },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: "padel", name: "Padel" }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: "padel_standard", name: "World Padel Tour" },
+        ],
+      });
+
+    render(await MatchDetailPage({ params: { mid: "m7" } }));
+
+    expect(
+      screen.getByRole("heading", { level: 2, name: /participants/i })
+    ).toBeInTheDocument();
+
+    const participantList = screen.getByRole("list", {
+      name: /match participants/i,
+    });
+    const participantItems = within(participantList).getAllByRole("listitem");
+    expect(participantItems).toHaveLength(2);
+    expect(
+      within(participantItems[0]).getByText(/side a/i)
+    ).toBeInTheDocument();
+    expect(
+      within(participantItems[0]).getByText(/winner/i)
+    ).toBeInTheDocument();
+
+    const totalsTable = screen.getByRole("table", { name: /score totals/i });
+    const totalRows = within(totalsTable).getAllByRole("row");
+    expect(totalRows).toHaveLength(3);
+    const sideACells = within(totalRows[1])
+      .getAllByRole("cell")
+      .map((cell) => cell.textContent?.trim());
+    expect(sideACells).toEqual(["2", "18", "120"]);
+
+    expect(
+      screen.getByRole("heading", { level: 2, name: /match info/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Counts toward leaderboard standings/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText("Center Court")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /view padel rules/i })
+    ).toHaveAttribute("href", expect.stringMatching(/^\/record\/padel\/?$/));
+  });
+
   it("renders racket sport summary with detailed scoreboard", async () => {
     const match = {
       id: "m3",

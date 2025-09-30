@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
+import { SWRConfig } from "swr";
 
 const apiMocks = vi.hoisted(() => ({
   apiFetch: vi.fn<
@@ -46,10 +47,18 @@ describe("PlayerComments", () => {
     );
   });
 
-  it("prompts unauthenticated users to log in", async () => {
-    await act(async () => {
-      render(<PlayerComments playerId="player-1" />);
+  function renderComponent() {
+    return act(async () => {
+      render(
+        <SWRConfig value={{ provider: () => new Map() }}>
+          <PlayerComments playerId="player-1" />
+        </SWRConfig>,
+      );
     });
+  }
+
+  it("prompts unauthenticated users to log in", async () => {
+    await renderComponent();
 
     expect(await screen.findByText("No comments.")).toBeInTheDocument();
     expect(
@@ -57,7 +66,7 @@ describe("PlayerComments", () => {
     ).toBeInTheDocument();
     expect(apiMocks.apiFetch).toHaveBeenCalledWith(
       "/v0/players/player-1/comments",
-      { cache: "no-store" }
+      undefined
     );
   });
 
@@ -97,9 +106,7 @@ describe("PlayerComments", () => {
       );
     });
 
-    await act(async () => {
-      render(<PlayerComments playerId="player-1" />);
-    });
+    await renderComponent();
 
     const textarea = await screen.findByLabelText("Add a comment");
     fireEvent.change(textarea, { target: { value: "Great match!" } });
@@ -138,9 +145,7 @@ describe("PlayerComments", () => {
       );
     });
 
-    await act(async () => {
-      render(<PlayerComments playerId="player-1" />);
-    });
+    await renderComponent();
 
     const textarea = await screen.findByLabelText("Add a comment");
     fireEvent.change(textarea, { target: { value: "Hi" } });

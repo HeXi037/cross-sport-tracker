@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
+import { invalidateMatchesCache } from "../../../lib/useApiSWR";
 import { ensureTrailingSlash } from "../../../lib/routes";
 import { useLocale } from "../../../lib/LocaleContext";
 import {
@@ -367,6 +368,11 @@ export default function RecordPadelPage() {
         });
       }
       setSuccess(true);
+      try {
+        await invalidateMatchesCache();
+      } catch (cacheErr) {
+        console.error("Failed to invalidate match caches", cacheErr);
+      }
       router.push(`/matches`);
     } catch (err) {
       console.error("Failed to save padel match", err);

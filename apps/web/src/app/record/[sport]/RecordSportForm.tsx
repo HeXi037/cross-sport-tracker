@@ -13,6 +13,7 @@ import {
 import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
+import { invalidateMatchesCache } from "../../../lib/useApiSWR";
 import { useLocale } from "../../../lib/LocaleContext";
 import {
   getDateExample,
@@ -802,6 +803,11 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+        try {
+          await invalidateMatchesCache();
+        } catch (cacheErr) {
+          console.error("Failed to invalidate match caches", cacheErr);
+        }
         router.push(`/matches`);
       } catch (err) {
         console.error(err);
@@ -858,6 +864,11 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      try {
+        await invalidateMatchesCache();
+      } catch (cacheErr) {
+        console.error("Failed to invalidate match caches", cacheErr);
+      }
       router.push(`/matches`);
     } catch (err) {
       console.error(err);

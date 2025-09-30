@@ -17,6 +17,7 @@ vi.mock('../../lib/server-locale', () => ({
   resolveServerLocale: () => ({
     locale: 'en-GB',
     acceptLanguage: 'en-GB',
+    preferredTimeZone: null,
   }),
 }));
 

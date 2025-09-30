@@ -6,7 +6,6 @@ import ToastProvider from '../components/ToastProvider';
 import SessionBanner from '../components/SessionBanner';
 import { cookies } from 'next/headers';
 import { LocaleProvider } from '../lib/LocaleContext';
-import { TIME_ZONE_COOKIE_KEY } from '../lib/i18n';
 import { resolveServerLocale } from '../lib/server-locale';
 
 export const metadata = {
@@ -20,8 +19,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const cookieStore = cookies();
-  const { locale, acceptLanguage } = resolveServerLocale({ cookieStore });
-  const cookieTimeZone = cookieStore.get(TIME_ZONE_COOKIE_KEY)?.value ?? null;
+  const { locale, acceptLanguage, preferredTimeZone } = resolveServerLocale({
+    cookieStore,
+  });
 
   return (
     <html lang={locale}>
@@ -32,7 +32,7 @@ export default function RootLayout({
         <LocaleProvider
           locale={locale}
           acceptLanguage={acceptLanguage}
-          timeZone={cookieTimeZone}
+          timeZone={preferredTimeZone}
         >
           <ToastProvider>
             <ChunkErrorReload />

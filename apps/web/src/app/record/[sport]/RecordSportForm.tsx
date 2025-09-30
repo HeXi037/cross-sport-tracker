@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -870,14 +871,17 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   return (
     <main className="container">
       {isPadelAmericano && (
-        <section className="card" aria-labelledby="padel-americano-tips-heading">
-          <h2 id="padel-americano-tips-heading" className="heading" style={{ marginBottom: "0.75rem" }}>
+        <section
+          className="card padel-americano-tips"
+          aria-labelledby="padel-americano-tips-heading"
+        >
+          <h2 id="padel-americano-tips-heading" className="heading">
             Recording a padel Americano tie
           </h2>
-          <p style={{ marginTop: 0 }}>
+          <p className="padel-americano-tips__intro">
             Review the Americano rotation before saving each tie so every player pairing is captured accurately.
           </p>
-          <ul>
+          <ul className="padel-americano-tips__list">
             <li>
               <strong>Sign in first:</strong> logging in keeps all of your Americano ties together and lets you resume an unfinished session.
             </li>
@@ -890,10 +894,11 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
             <li>
               <strong>Note session details:</strong> record the date, start time and venue so everyone can find the tie later. Mark it as friendly for social hits.
             </li>
-            <li>
-              <strong>Need fixtures?</strong> Generate a full Americano schedule from the <a href="/tournaments/">tournaments page</a> before logging results here.
-            </li>
           </ul>
+          <p className="padel-americano-tips__footer">
+            <strong>Need fixtures?</strong> Generate a full Americano schedule from the{" "}
+            <Link href="/tournaments/">tournaments page</Link> before logging results here.
+          </p>
         </section>
       )}
       <form onSubmit={handleSubmit} className="form-stack">

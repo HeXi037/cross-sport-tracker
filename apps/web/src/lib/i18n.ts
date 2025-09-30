@@ -233,9 +233,12 @@ function getLocaleTimeZoneInfo(
 
   try {
     const locale = new Intl.Locale(trimmed);
+    const { timeZones: localeTimeZones } = locale as Intl.Locale & {
+      timeZones?: readonly string[];
+    };
     const timeZones = Array.from(
       new Set(
-        (locale.timeZones ?? [])
+        (localeTimeZones ?? [])
           .map((zone) => normalizeTimeZoneInternal(zone, ''))
           .filter((zone): zone is string => Boolean(zone)),
       ),

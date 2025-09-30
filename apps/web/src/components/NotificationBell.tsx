@@ -11,6 +11,7 @@ import {
 } from "react";
 import {
   markNotificationRead,
+  type NotificationListResponse,
   type NotificationRecord,
 } from "../lib/api";
 import { useNotifications } from "../lib/useNotifications";
@@ -109,7 +110,7 @@ export default function NotificationBell() {
       setMarking((current) => new Set(current).add(id));
       try {
         await markNotificationRead(id);
-        await mutate((pages) => {
+        await mutate((pages: NotificationListResponse[] | undefined) => {
           if (!pages) return pages;
           let updated = false;
           const nextPages = pages.map((page, pageIndex) => {

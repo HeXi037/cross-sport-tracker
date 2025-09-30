@@ -127,11 +127,12 @@ function isPushSupported(): boolean {
   );
 }
 
-function base64ToUint8Array(value: string): Uint8Array {
+function base64ToUint8Array(value: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (value.length % 4)) % 4);
   const normalized = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
   const raw = typeof window === "undefined" ? Buffer.from(normalized, "base64") : atob(normalized);
-  const output = new Uint8Array(raw.length ?? 0);
+  const buffer = new ArrayBuffer(raw.length ?? 0);
+  const output = new Uint8Array(buffer);
   if (typeof raw === "string") {
     for (let i = 0; i < raw.length; i += 1) {
       output[i] = raw.charCodeAt(i);

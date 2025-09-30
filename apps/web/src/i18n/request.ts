@@ -4,7 +4,9 @@ import { NEUTRAL_FALLBACK_LOCALE } from '../lib/i18n';
 
 export default getRequestConfig(async ({ locale }) => {
   try {
-    const { locale: supportedLocale, messages } = await loadLocaleMessages(locale);
+    const { locale: supportedLocale, messages } = await loadLocaleMessages(
+      locale ?? NEUTRAL_FALLBACK_LOCALE,
+    );
     return { locale: supportedLocale, messages };
   } catch (error) {
     console.error('Failed to load locale messages', locale, error);

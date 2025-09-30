@@ -200,7 +200,7 @@ function normalizeGameSeries(
     if (reached === null || reached === "invalid") {
       return false;
     }
-    if (!Number.isFinite(reached) || reached <= 0) {
+    if (typeof reached !== "number" || !Number.isFinite(reached) || reached <= 0) {
       return false;
     }
     if (winnerWins !== option) {

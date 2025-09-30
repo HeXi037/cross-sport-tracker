@@ -45,9 +45,7 @@ function normalizeMetadataSegment(value: unknown): string | undefined {
   return trimmed;
 }
 
-function formatMatchMetadata(
-  parts: Array<string | null | undefined>,
-): string {
+function formatMatchMetadata(parts: Array<string | null | undefined>): string {
   const normalizedParts = parts
     .map((part) => normalizeMetadataSegment(part))
     .filter((part): part is string => Boolean(part));
@@ -138,6 +136,76 @@ interface Props {
   initialHasMore: boolean;
   initialNextOffset: number | null;
   initialPageSize: number;
+}
+
+function mergeMatchPageWithPrevious(
+  previousMatches: EnrichedMatch[],
+  nextPageMatches: EnrichedMatch[],
+): { matches: EnrichedMatch[]; hasAdditionalMatches: boolean } {
+  let hasAdditionalMatches = false;
+  let matches: EnrichedMatch[] = nextPageMatches;
+
+  if (previousMatches.length) {
+    const nextIds = new Set(nextPageMatches.map((match) => match.id));
+    const preservedMatches: EnrichedMatch[] = [];
+
+    for (const match of previousMatches) {
+      if (!nextIds.has(match.id)) {
+        preservedMatches.push(match);
+        hasAdditionalMatches = true;
+      }
+    }
+
+    if (!hasAdditionalMatches && previousMatches.length === nextPageMatches.length) {
+      let isSameOrder = true;
+      for (let index = 0; index < previousMatches.length; index += 1) {
+        if (previousMatches[index]?.id !== nextPageMatches[index]?.id) {
+          isSameOrder = false;
+          break;
+        }
+      }
+
+      if (isSameOrder) {
+        matches = previousMatches;
+      }
+    }
+
+    if (matches === nextPageMatches) {
+      if (!preservedMatches.length && previousMatches.length === nextPageMatches.length) {
+        matches = nextPageMatches;
+      } else {
+        matches = [...nextPageMatches, ...preservedMatches];
+      }
+    }
+  }
+
+  return { matches, hasAdditionalMatches };
+}
+
+function resolveNextOffset(
+  currentNextOffset: number | null | undefined,
+  matchPageNextOffset: number | null | undefined,
+  hasAdditionalMatches: boolean,
+): number | null | undefined {
+  if (!hasAdditionalMatches) {
+    return matchPageNextOffset;
+  }
+
+  if (matchPageNextOffset === null || matchPageNextOffset === undefined) {
+    return currentNextOffset ?? null;
+  }
+
+  if (currentNextOffset === null || currentNextOffset === undefined) {
+    return matchPageNextOffset;
+  }
+
+  if (typeof currentNextOffset === 'number') {
+    return typeof matchPageNextOffset === 'number'
+      ? Math.max(currentNextOffset, matchPageNextOffset)
+      : currentNextOffset;
+  }
+
+  return currentNextOffset ?? null;
 }
 
 export default function HomePageClient({
@@ -264,65 +332,14 @@ export default function HomePageClient({
     if (!matchPage) return;
 
     setMatches((previousMatches) => {
-      const nextPageMatches = matchPage.enriched;
-      let hasAdditionalMatches = false;
-      let nextMatches: EnrichedMatch[] = nextPageMatches;
+      const { matches: nextMatches, hasAdditionalMatches } = mergeMatchPageWithPrevious(
+        previousMatches,
+        matchPage.enriched,
+      );
 
-      if (previousMatches.length) {
-        const nextIds = new Set(nextPageMatches.map((match) => match.id));
-        const preservedMatches: EnrichedMatch[] = [];
-
-        for (const match of previousMatches) {
-          if (!nextIds.has(match.id)) {
-            preservedMatches.push(match);
-            hasAdditionalMatches = true;
-          }
-        }
-
-        if (!hasAdditionalMatches && previousMatches.length === nextPageMatches.length) {
-          let isSameOrder = true;
-          for (let index = 0; index < previousMatches.length; index += 1) {
-            if (previousMatches[index]?.id !== nextPageMatches[index]?.id) {
-              isSameOrder = false;
-              break;
-            }
-          }
-
-          if (isSameOrder) {
-            nextMatches = previousMatches;
-          }
-        }
-
-        if (nextMatches === nextPageMatches) {
-          if (!preservedMatches.length && previousMatches.length === nextPageMatches.length) {
-            nextMatches = nextPageMatches;
-          } else {
-            nextMatches = [...nextPageMatches, ...preservedMatches];
-          }
-        }
-      }
-
-      setNextOffset((currentNextOffset) => {
-        if (!hasAdditionalMatches) {
-          return matchPage.nextOffset;
-        }
-
-        if (matchPage.nextOffset === null || matchPage.nextOffset === undefined) {
-          return currentNextOffset ?? null;
-        }
-
-        if (currentNextOffset === null || currentNextOffset === undefined) {
-          return matchPage.nextOffset;
-        }
-
-        if (typeof currentNextOffset === 'number') {
-          return typeof matchPage.nextOffset === 'number'
-            ? Math.max(currentNextOffset, matchPage.nextOffset)
-            : currentNextOffset;
-        }
-
-        return currentNextOffset ?? null;
-      });
+      setNextOffset((currentNextOffset) =>
+        resolveNextOffset(currentNextOffset, matchPage.nextOffset, hasAdditionalMatches),
+      );
 
       return nextMatches;
     });

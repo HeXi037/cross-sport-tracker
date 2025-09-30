@@ -8,7 +8,7 @@ import {
   getRecordSportMetaBySlug,
 } from "../../lib/recording";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 type Sport = { id: string; name: string };
 

@@ -201,6 +201,59 @@ function findFrameStartKey(
   return null;
 }
 
+function findBowlingInputKeyInFrame(
+  entry: BowlingEntry | undefined,
+  entryIndex: number,
+  frameIndex: number,
+  preferredRollIndex: number,
+): string | null {
+  if (!entry) {
+    return null;
+  }
+  const frames = entry.frames ?? [];
+  const frame = frames[frameIndex];
+  if (!frame) {
+    return null;
+  }
+  if (
+    preferredRollIndex < frame.length &&
+    isBowlingRollEnabled(frames, frameIndex, preferredRollIndex)
+  ) {
+    return getBowlingInputKey(entryIndex, frameIndex, preferredRollIndex);
+  }
+  for (let r = 0; r < frame.length; r += 1) {
+    if (isBowlingRollEnabled(frames, frameIndex, r)) {
+      return getBowlingInputKey(entryIndex, frameIndex, r);
+    }
+  }
+  return null;
+}
+
+function findVerticalBowlingInputKey(
+  entries: BowlingEntry[],
+  entryIndex: number,
+  frameIndex: number,
+  rollIndex: number,
+  direction: 1 | -1,
+): string | null {
+  for (
+    let e = entryIndex + direction;
+    e >= 0 && e < entries.length;
+    e += direction
+  ) {
+    const key = findBowlingInputKeyInFrame(
+      entries[e],
+      e,
+      frameIndex,
+      rollIndex,
+    );
+    if (key) {
+      return key;
+    }
+  }
+  return null;
+}
+
 function findFirstEnabledKey(entries: BowlingEntry[], startEntry: number): string | null {
   for (let e = startEntry; e < entries.length; e += 1) {
     const frames = entries[e]?.frames ?? [];
@@ -681,6 +734,58 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     frameIndex: number,
     rollIndex: number,
   ) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      const direction = event.key === "ArrowDown" ? 1 : -1;
+      const verticalKey = findVerticalBowlingInputKey(
+        bowlingEntries,
+        entryIndex,
+        frameIndex,
+        rollIndex,
+        direction,
+      );
+      if (verticalKey) {
+        event.preventDefault();
+        focusBowlingInput(verticalKey);
+        return;
+      }
+
+      const targetFrameIndex = frameIndex + direction;
+      const samePlayerFrameKey =
+        targetFrameIndex >= 0 && targetFrameIndex < BOWLING_FRAME_COUNT
+          ? findBowlingInputKeyInFrame(
+              bowlingEntries[entryIndex],
+              entryIndex,
+              targetFrameIndex,
+              rollIndex,
+            )
+          : null;
+      if (samePlayerFrameKey) {
+        event.preventDefault();
+        focusBowlingInput(samePlayerFrameKey);
+        return;
+      }
+
+      const fallbackKey =
+        direction > 0
+          ? findNextBowlingInputKey(
+              bowlingEntries,
+              entryIndex,
+              frameIndex,
+              rollIndex,
+            )
+          : findPreviousBowlingInputKey(
+              bowlingEntries,
+              entryIndex,
+              frameIndex,
+              rollIndex,
+            );
+      if (fallbackKey) {
+        event.preventDefault();
+        focusBowlingInput(fallbackKey);
+      }
+      return;
+    }
+
     if (event.key === "ArrowRight") {
       const nextKey = findNextBowlingInputKey(
         bowlingEntries,

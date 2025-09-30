@@ -34,7 +34,24 @@ interface SetScore {
 
 const VALID_BEST_OF = new Set([1, 3, 5]);
 const MIN_SET_SCORE = 0;
-const MAX_SET_SCORE = 6;
+const MAX_REGULAR_SET_SCORE = 6;
+const MAX_TIEBREAK_SET_SCORE = 7;
+const TIEBREAK_ELIGIBLE_LOSING_SCORES = new Set([5, 6]);
+
+function isValidPadelSetScore(score: number, opponentScore: number): boolean {
+  if (!Number.isInteger(score) || score < MIN_SET_SCORE) {
+    return false;
+  }
+
+  if (score <= MAX_REGULAR_SET_SCORE) {
+    return true;
+  }
+
+  return (
+    score === MAX_TIEBREAK_SET_SCORE &&
+    TIEBREAK_ELIGIBLE_LOSING_SCORES.has(opponentScore)
+  );
+}
 
 interface PadelSetAnalysis {
   errors: string[];
@@ -76,16 +93,14 @@ function analysePadelSets(sets: SetScore[], rawBestOf: number): PadelSetAnalysis
     const bNum = Number(b);
 
     if (
-      !Number.isInteger(aNum) ||
-      !Number.isInteger(bNum) ||
-      aNum < MIN_SET_SCORE ||
-      bNum < MIN_SET_SCORE ||
-      aNum > MAX_SET_SCORE ||
-      bNum > MAX_SET_SCORE
+      !isValidPadelSetScore(aNum, bNum) ||
+      !isValidPadelSetScore(bNum, aNum)
     ) {
-      errors[idx] = "Scores must be whole numbers between 0 and 6.";
+      errors[idx] =
+        "Scores must be whole numbers between 0 and 6, unless 7 is used to win a tie-break.";
       if (!summaryError) {
-        summaryError = `Scores in ${setLabel} must be whole numbers between 0 and 6.`;
+        summaryError =
+          `Scores in ${setLabel} must be whole numbers between 0 and 6, unless 7 is used to win a tie-break.`;
       }
       return;
     }
@@ -648,7 +663,7 @@ export default function RecordPadelPage() {
                     id={`padel-set-${idx + 1}-a`}
                     type="number"
                     min="0"
-                    max={MAX_SET_SCORE}
+                    max={MAX_TIEBREAK_SET_SCORE}
                     step="1"
                     placeholder={`Set ${idx + 1} A`}
                     value={s.A}
@@ -664,7 +679,7 @@ export default function RecordPadelPage() {
                     id={`padel-set-${idx + 1}-b`}
                     type="number"
                     min="0"
-                    max={MAX_SET_SCORE}
+                    max={MAX_TIEBREAK_SET_SCORE}
                     step="1"
                     placeholder={`Set ${idx + 1} B`}
                     value={s.B}

@@ -821,13 +821,18 @@ export type StageStandings = {
 function withNoStore(
   init?: ApiRequestInit
 ): ApiRequestInit | undefined {
+  const headers = new Headers(init?.headers ?? {});
+  headers.set("Cache-Control", "no-store");
+
   if (!init) {
-    return { cache: "no-store" };
+    return { cache: "no-store", headers };
   }
-  if (init.cache) {
-    return init;
+
+  if (init.cache === "no-store") {
+    return { ...init, headers };
   }
-  return { ...init, cache: "no-store" };
+
+  return { ...init, cache: "no-store", headers };
 }
 
 export async function listTournaments(

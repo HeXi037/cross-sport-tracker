@@ -235,3 +235,49 @@ class Comment(Base):
     deleted_at = Column(DateTime, nullable=True)
 
     user = relationship("User")
+
+
+class NotificationPreference(Base):
+    __tablename__ = "notification_preference"
+
+    user_id = Column(String, ForeignKey("user.id"), primary_key=True)
+    notify_on_profile_comments = Column(Boolean, nullable=False, default=False)
+    notify_on_match_results = Column(Boolean, nullable=False, default=False)
+    push_enabled = Column(Boolean, nullable=False, default=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class PushSubscription(Base):
+    __tablename__ = "push_subscription"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, ForeignKey("user.id"), nullable=False)
+    endpoint = Column(Text, nullable=False, unique=True)
+    p256dh = Column(String, nullable=False)
+    auth = Column(String, nullable=False)
+    content_encoding = Column(String, nullable=False, default="aes128gcm")
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class Notification(Base):
+    __tablename__ = "notification"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(String, ForeignKey("user.id"), nullable=False, index=True)
+    type = Column(String, nullable=False)
+    payload = Column(JSON().with_variant(JSONB, "postgresql"), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    read_at = Column(DateTime(timezone=True), nullable=True)

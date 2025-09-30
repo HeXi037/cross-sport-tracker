@@ -71,6 +71,7 @@ from ..services import (
     compute_streaks,
     rolling_win_percentage,
 )
+from ..services.notifications import notify_profile_comment
 from ..services.photo_uploads import (
     ALLOWED_PHOTO_TYPES as DEFAULT_ALLOWED_PHOTO_TYPES,
     CHUNK_SIZE as DEFAULT_CHUNK_SIZE,
@@ -894,6 +895,7 @@ async def add_comment(
     session.add(comment)
     await session.commit()
     await session.refresh(comment)
+    await notify_profile_comment(session, comment, user)
     return CommentOut(
         id=comment.id,
         playerId=comment.player_id,

@@ -15,6 +15,7 @@ from .routers import (
     auth,
     badges,
     clubs,
+    notifications,
 )
 from .routes import player as player_pages
 from .exceptions import DomainException, ProblemDetail
@@ -146,6 +147,7 @@ v0_router.include_router(tournaments.router)
 v0_router.include_router(auth.router)
 v0_router.include_router(badges.router)
 v0_router.include_router(clubs.router)
+v0_router.include_router(notifications.router)
 
 api_router.include_router(v0_router)
 

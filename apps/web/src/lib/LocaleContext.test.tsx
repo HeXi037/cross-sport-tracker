@@ -157,7 +157,7 @@ describe('LocaleProvider', () => {
     expect(localeDisplay).toHaveTextContent('en-GB');
 
     const dateDisplay = await screen.findByTestId('date-value');
-    expect(dateDisplay).toHaveTextContent('21 Nov 2001, 09:30');
+    expect(dateDisplay).toHaveTextContent('21/11/2001, 09:30');
   });
 
   it('uses Intl resolved locale and time zone when browser hints are unavailable', async () => {

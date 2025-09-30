@@ -1,11 +1,13 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import userEvent from '@testing-library/user-event';
+import { NextIntlClientProvider } from 'next-intl';
 import HomePageClient from '../home-page-client';
 import * as apiModule from '../../lib/api';
 import * as matchesModule from '../../lib/matches';
 import { SWRConfig } from 'swr';
 import { useLocale, useTimeZone } from '../../lib/LocaleContext';
+import enMessages from '../../messages/en-GB.json';
 
 vi.mock('../../lib/LocaleContext', () => ({
   useLocale: vi.fn(() => 'en-GB'),
@@ -22,6 +24,9 @@ const defaultProps = {
   initialNextOffset: null,
   initialPageSize: 5,
 };
+
+const homeMessages = enMessages.Home as Record<string, any>;
+const commonMessages = enMessages.Common as Record<string, any>;
 
 const scrollToMock = vi.fn();
 
@@ -45,25 +50,29 @@ afterEach(() => {
 describe('HomePageClient error messages', () => {
   function renderComponent(props = defaultProps) {
     return render(
-      <SWRConfig value={{ provider: () => new Map() }}>
-        <HomePageClient {...props} />
-      </SWRConfig>,
+      <NextIntlClientProvider locale="en-GB" messages={enMessages}>
+        <SWRConfig value={{ provider: () => new Map() }}>
+          <HomePageClient {...props} />
+        </SWRConfig>
+      </NextIntlClientProvider>,
     );
   }
 
   it('shows sports error message', () => {
     vi.spyOn(apiModule, 'apiFetch').mockRejectedValue(new Error('network'));
     renderComponent({ ...defaultProps, sportError: true });
+    expect(screen.getByText(homeMessages.sports.error)).toBeInTheDocument();
     expect(
-      screen.getByText(/Unable to load sports\. Check connection\./i)
+      screen.getByRole('button', { name: commonMessages.retry })
     ).toBeInTheDocument();
   });
 
   it('shows matches error message', () => {
     vi.spyOn(apiModule, 'apiFetch').mockRejectedValue(new Error('network'));
     renderComponent({ ...defaultProps, matchError: true });
+    expect(screen.getByText(homeMessages.matches.error)).toBeInTheDocument();
     expect(
-      screen.getByText(/Unable to load matches\. Check connection\./i)
+      screen.getByRole('button', { name: commonMessages.retry })
     ).toBeInTheDocument();
   });
 
@@ -126,7 +135,7 @@ describe('HomePageClient error messages', () => {
     expect(screen.getByText('A2')).toBeInTheDocument();
     expect(screen.getByText('B1')).toBeInTheDocument();
     expect(screen.getByText('B2')).toBeInTheDocument();
-    const link = screen.getByText('Match details');
+    const link = screen.getByText(homeMessages.matches.details);
     expect(link).toBeInTheDocument();
     expect(link.getAttribute('href')).toBe('/matches/m1');
   });
@@ -181,7 +190,9 @@ describe('HomePageClient error messages', () => {
       initialNextOffset: 5,
     });
 
-    const button = screen.getByRole('button', { name: /load more matches/i });
+    const button = screen.getByRole('button', {
+      name: homeMessages.matches.loadMore,
+    });
     await userEvent.click(button);
 
     await waitFor(() => {
@@ -194,7 +205,7 @@ describe('HomePageClient error messages', () => {
       '/v0/matches?limit=5&offset=5',
       { cache: 'no-store' }
     );
-    expect(screen.getByText(/View all matches/i)).toBeInTheDocument();
+    expect(screen.getByText(commonMessages.viewAllMatches)).toBeInTheDocument();
   });
 
   it('shows an error if loading more matches fails', async () => {
@@ -223,12 +234,14 @@ describe('HomePageClient error messages', () => {
       initialNextOffset: 5,
     });
 
-    const button = screen.getByRole('button', { name: /load more matches/i });
+    const button = screen.getByRole('button', {
+      name: homeMessages.matches.loadMore,
+    });
     await userEvent.click(button);
 
     await waitFor(() => {
       expect(
-        screen.getByText(/Unable to load more matches/i)
+        screen.getByText(homeMessages.matches.paginationError)
       ).toBeInTheDocument();
     });
   });

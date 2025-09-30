@@ -1,5 +1,6 @@
 'use client';
 
+import { NextIntlClientProvider } from 'next-intl';
 import { createContext, useContext, useEffect, useState } from 'react';
 import {
   getStoredLocale,
@@ -19,6 +20,7 @@ import {
   USER_SETTINGS_STORAGE_KEY,
   USER_SETTINGS_CHANGED_EVENT,
 } from '../app/user-settings';
+import { prepareMessages } from '../i18n/messages';
 
 const LocaleContext = createContext(NEUTRAL_FALLBACK_LOCALE);
 const TimeZoneContext = createContext(DEFAULT_TIME_ZONE);
@@ -249,10 +251,18 @@ export function LocaleProvider({
     };
   }, [acceptLanguage, locale, timeZone]);
 
+  const { messages } = prepareMessages(currentLocale);
+
   return (
     <LocaleContext.Provider value={currentLocale}>
       <TimeZoneContext.Provider value={currentTimeZone}>
-        {children}
+        <NextIntlClientProvider
+          locale={currentLocale}
+          messages={messages}
+          timeZone={currentTimeZone}
+        >
+          {children}
+        </NextIntlClientProvider>
       </TimeZoneContext.Provider>
     </LocaleContext.Provider>
   );

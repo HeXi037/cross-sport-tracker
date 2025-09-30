@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
+import { createTranslator } from "next-intl";
 import { apiFetch, type ApiError } from "../../lib/api";
 import Pager from "./pager";
 import MatchParticipants from "../../components/MatchParticipants";
@@ -13,15 +14,16 @@ import { hasTimeComponent } from "../../lib/datetime";
 import { ensureTrailingSlash } from "../../lib/routes";
 import { resolveServerLocale } from "../../lib/server-locale";
 import { enrichMatches, type MatchRow, type MatchSummaryData } from "../../lib/matches";
+import { prepareMessages } from "../../i18n/messages";
 
 export const dynamic = "force-dynamic";
 
-const MATCH_ERROR_COPY: Record<string, string> = {
-  match_forbidden: "You do not have permission to view these matches.",
-  match_not_found: "We couldn't find that match.",
-  auth_token_expired: "Your session expired. Please refresh and try again.",
-  auth_missing_token: "Your session expired. Please refresh and try again.",
-  auth_invalid_token: "Your session expired. Please refresh and try again.",
+const MATCH_ERROR_TRANSLATION_KEYS: Record<string, string> = {
+  match_forbidden: "errors.match_forbidden",
+  match_not_found: "errors.match_not_found",
+  auth_token_expired: "errors.auth_token_expired",
+  auth_missing_token: "errors.auth_missing_token",
+  auth_invalid_token: "errors.auth_invalid_token",
 };
 
 type MatchPage = {
@@ -69,7 +71,10 @@ async function getMatches(limit: number, offset: number): Promise<MatchPage> {
   return { rows, hasMore, nextOffset, totalCount };
 }
 
-function formatSummary(s?: MatchSummaryData | null): string {
+function formatSummary(
+  s: MatchSummaryData | null | undefined,
+  labels: { sets: string; games: string; points: string },
+): string {
   if (!s) return "";
   if (Array.isArray(s.set_scores) && s.set_scores.length) {
     const formatted = s.set_scores
@@ -98,9 +103,9 @@ function formatSummary(s?: MatchSummaryData | null): string {
       .map((k) => scores[k]);
     return `${label} ${parts.join("-")}`;
   };
-  if (s.sets) return render(s.sets, "Sets");
-  if (s.games) return render(s.games, "Games");
-  if (s.points) return render(s.points, "Points");
+  if (s.sets) return render(s.sets, labels.sets);
+  if (s.games) return render(s.games, labels.games);
+  if (s.points) return render(s.points, labels.points);
   return "";
 }
 
@@ -132,8 +137,19 @@ export default async function MatchesPage(
   const offset = Number(searchParams.offset) || 0;
   const cookieStore = cookies();
   const { locale, preferredTimeZone } = resolveServerLocale({ cookieStore });
-  const timeZone = resolveTimeZone(preferredTimeZone, locale);
-  const preferredDateOptions = getPreferredDateOptions(locale);
+  const { locale: normalizedLocale, messages } = prepareMessages(locale);
+  const matchesTranslator = createTranslator({
+    locale: normalizedLocale,
+    messages,
+    namespace: "Matches",
+  });
+  const commonTranslator = createTranslator({
+    locale: normalizedLocale,
+    messages,
+    namespace: "Common",
+  });
+  const timeZone = resolveTimeZone(preferredTimeZone, normalizedLocale);
+  const preferredDateOptions = getPreferredDateOptions(normalizedLocale);
 
   try {
     const { rows, hasMore, nextOffset, totalCount } = await getMatches(
@@ -161,24 +177,30 @@ export default async function MatchesPage(
 
     return (
       <main className="container">
-        <h1 className="heading">Matches</h1>
+        <h1 className="heading">{matchesTranslator("title")}</h1>
         {hasMatches ? (
           <ul className="match-list">
             {matches.map((m) => {
-              const summaryText = formatSummary(m.summary);
+              const summaryText = formatSummary(m.summary, {
+                sets: matchesTranslator("metadata.sets"),
+                games: matchesTranslator("metadata.games"),
+                points: matchesTranslator("metadata.points"),
+              });
               const playedAtText =
                 m.playedAt && hasTimeComponent(m.playedAt)
-                  ? formatDateTime(m.playedAt, locale, 'compact', timeZone)
+                  ? formatDateTime(m.playedAt, normalizedLocale, 'compact', timeZone)
                   : formatDate(
                       m.playedAt,
-                      locale,
+                      normalizedLocale,
                       preferredDateOptions,
                       timeZone,
                     );
               const metadataText = formatMatchMetadata([
-                m.isFriendly ? "Friendly" : null,
+                m.isFriendly ? matchesTranslator("metadata.friendly") : null,
                 m.sport,
-                m.bestOf != null ? `Best of ${m.bestOf}` : null,
+                m.bestOf != null
+                  ? matchesTranslator("metadata.bestOf", { count: m.bestOf })
+                  : null,
                 playedAtText,
                 m.location,
               ]);
@@ -196,7 +218,7 @@ export default async function MatchesPage(
                   </div>
                   <div>
                     <Link href={ensureTrailingSlash(`/matches/${m.id}`)}>
-                      More info
+                      {matchesTranslator("linkMoreInfo")}
                     </Link>
                   </div>
                 </li>
@@ -205,7 +227,9 @@ export default async function MatchesPage(
           </ul>
         ) : (
           <p className="empty-state">
-            {offset > 0 ? "No matches on this page." : "No matches yet."}
+            {offset > 0
+              ? matchesTranslator("emptyPage")
+              : matchesTranslator("emptyInitial")}
           </p>
         )}
         {showPager && (
@@ -224,7 +248,7 @@ export default async function MatchesPage(
     );
   } catch (err) {
     const apiError = err as ApiError | null;
-    const fallbackMessage = "Failed to load matches. Try again later.";
+    const fallbackMessage = matchesTranslator("fallbackError");
     let message = fallbackMessage;
     const code = typeof apiError?.code === "string" ? apiError.code : null;
     const serverDetail =
@@ -233,9 +257,9 @@ export default async function MatchesPage(
         ? apiError.parsedMessage.trim()
         : null;
     if (code) {
-      const mapped = MATCH_ERROR_COPY[code];
-      if (mapped) {
-        message = mapped;
+      const translationKey = MATCH_ERROR_TRANSLATION_KEYS[code];
+      if (translationKey) {
+        message = matchesTranslator(translationKey);
       } else {
         console.error(
           "Unhandled matches error code",
@@ -249,10 +273,10 @@ export default async function MatchesPage(
     }
     return (
       <main className="container">
-        <h1 className="heading">Matches</h1>
+        <h1 className="heading">{matchesTranslator("title")}</h1>
         <p className="error">{message}</p>
         <Link href="/matches" style={{ textDecoration: "underline" }}>
-          Retry
+          {commonTranslator("retry")}
         </Link>
       </main>
     );

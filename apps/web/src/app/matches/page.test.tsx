@@ -1,7 +1,9 @@
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
+import { NextIntlClientProvider, createTranslator } from "next-intl";
 import MatchesPage from "./page";
+import enMessages from "../../messages/en-GB.json";
 
 type MockMatch = {
   id: string;
@@ -68,6 +70,26 @@ vi.mock("next/headers", () => ({
 
 const originalFetch = global.fetch;
 
+const matchesTranslator = createTranslator({
+  locale: "en-GB",
+  messages: enMessages,
+  namespace: "Matches",
+});
+
+const pagerTranslator = createTranslator({
+  locale: "en-GB",
+  messages: enMessages,
+  namespace: "Pager",
+});
+
+function renderWithIntl(element: ReactElement) {
+  return render(
+    <NextIntlClientProvider locale="en-GB" messages={enMessages}>
+      {element}
+    </NextIntlClientProvider>,
+  );
+}
+
 describe("MatchesPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -97,7 +119,7 @@ describe("MatchesPage", () => {
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const page = await MatchesPage({ searchParams: {} });
-    render(page);
+    renderWithIntl(page);
 
     const listItem = await screen.findByRole("listitem");
     expect(within(listItem).getByText("Alice")).toBeInTheDocument();
@@ -123,13 +145,17 @@ describe("MatchesPage", () => {
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const page = await MatchesPage({ searchParams: {} });
-    render(page);
+    renderWithIntl(page);
 
-    const prev = screen.getByText("Previous") as HTMLButtonElement;
-    const next = screen.getByText("Next") as HTMLButtonElement;
+    const prev = screen.getByText(pagerTranslator("previous")) as HTMLButtonElement;
+    const next = screen.getByText(pagerTranslator("next")) as HTMLButtonElement;
     expect(prev).toBeDisabled();
     expect(next).toBeDisabled();
-    expect(screen.getByText("Page 1 · Showing matches 1-1")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        pagerTranslator("status.range", { page: 1, start: 1, end: 1 })
+      )
+    ).toBeInTheDocument();
   });
 
   it("renders an empty state when there are no matches", async () => {
@@ -143,10 +169,12 @@ describe("MatchesPage", () => {
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const page = await MatchesPage({ searchParams: {} });
-    render(page);
+    renderWithIntl(page);
 
-    expect(await screen.findByText("No matches yet.")).toBeInTheDocument();
-    expect(screen.queryByText("Next")).not.toBeInTheDocument();
+    expect(
+      await screen.findByText(matchesTranslator("emptyInitial"))
+    ).toBeInTheDocument();
+    expect(screen.queryByText(pagerTranslator("next"))).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -180,7 +208,7 @@ describe("MatchesPage", () => {
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const page = await MatchesPage({ searchParams: {} });
-    const { container } = render(page);
+    const { container } = renderWithIntl(page);
 
     const metadataElements = container.querySelectorAll(".match-meta");
     expect(metadataElements).toHaveLength(matches.length);
@@ -196,8 +224,16 @@ describe("MatchesPage", () => {
     }
 
     expect(metadataTexts.some((text) => text.includes("padel"))).toBe(true);
-    expect(metadataTexts.some((text) => text.includes("Best of 5"))).toBe(true);
-    expect(metadataTexts.some((text) => text.includes("Friendly"))).toBe(true);
+    expect(
+      metadataTexts.some((text) =>
+        text.includes(matchesTranslator("metadata.bestOf", { count: 5 }))
+      )
+    ).toBe(true);
+    expect(
+      metadataTexts.some((text) =>
+        text.includes(matchesTranslator("metadata.friendly"))
+      )
+    ).toBe(true);
   });
 
   it("disables the next button when the API reports no more results", async () => {
@@ -216,10 +252,14 @@ describe("MatchesPage", () => {
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const page = await MatchesPage({ searchParams: { limit: "2" } });
-    render(page);
+    renderWithIntl(page);
 
-    const next = screen.getByText("Next") as HTMLButtonElement;
+    const next = screen.getByText(pagerTranslator("next")) as HTMLButtonElement;
     expect(next).toBeDisabled();
-    expect(screen.getByText("Page 1 · Showing matches 1-2")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        pagerTranslator("status.range", { page: 1, start: 1, end: 2 })
+      )
+    ).toBeInTheDocument();
   });
 });

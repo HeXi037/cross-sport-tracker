@@ -1,7 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { createTranslator } from 'next-intl';
 import MatchesPage from '../matches/page';
 import { apiFetch, type ApiError } from '../../lib/api';
+import enMessages from '../../messages/en-GB.json';
 
 vi.mock('../../lib/api', async () => {
   const actual = await vi.importActual<typeof import('../../lib/api')>(
@@ -29,6 +31,12 @@ vi.mock('next/headers', () => ({
 }));
 
 const mockedApiFetch = vi.mocked(apiFetch);
+
+const matchesTranslator = createTranslator({
+  locale: 'en-GB',
+  messages: enMessages,
+  namespace: 'Matches',
+});
 
 const makeApiError = (
   code: string,
@@ -62,7 +70,7 @@ describe('MatchesPage error handling', () => {
     render(ui);
 
     expect(
-      screen.getByText(/You do not have permission to view these matches\./i)
+      screen.getByText(matchesTranslator('errors.match_forbidden'))
     ).toBeInTheDocument();
 
     expect(consoleErrorSpy).not.toHaveBeenCalledWith(

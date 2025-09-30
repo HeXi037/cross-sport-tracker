@@ -1,0 +1,89 @@
+{
+  "Common": {
+    "appName": "cross-sport-tracker",
+    "tagline": "Proyecto autoalojado en curso",
+    "skipToContent": "Saltar al contenido principal",
+    "retry": "Reintentar",
+    "loading": "Cargando…",
+    "loadingMore": "Cargando más partidos…",
+    "viewAllMatches": "Ver todos los partidos"
+  },
+  "Header": {
+    "toggleNavigation": "Mostrar u ocultar navegación",
+    "home": "Inicio",
+    "players": "Jugadores",
+    "matches": "Partidos",
+    "record": "Registrar",
+    "tournaments": "Torneos",
+    "leaderboards": "Clasificaciones",
+    "adminMatches": "Partidos de administración",
+    "adminBadges": "Insignias de administración",
+    "profile": "Perfil",
+    "login": "Iniciar sesión",
+    "logout": "Cerrar sesión",
+    "loggedInAs": "Sesión iniciada como {username}"
+  },
+  "Home": {
+    "sports": {
+      "heading": "Deportes",
+      "updating": "Actualizando deportes…",
+      "loading": "Cargando deportes…",
+      "error": "No se pudieron cargar los deportes. Comprueba la conexión.",
+      "empty": "No se encontraron deportes."
+    },
+    "sportsIconLabels": {
+      "padel": "Icono de pelota de pádel",
+      "padel_americano": "Icono de ábaco de pádel americano",
+      "bowling": "Icono de bola y bolos",
+      "tennis": "Icono de raqueta y pelota de tenis",
+      "pickleball": "Icono de pepino de pickleball",
+      "badminton": "Icono de volante de bádminton",
+      "table_tennis": "Icono de palas de tenis de mesa"
+    },
+    "matches": {
+      "heading": "Partidos recientes",
+      "updating": "Actualizando partidos…",
+      "loading": "Cargando partidos recientes…",
+      "error": "No se pudieron cargar los partidos. Comprueba la conexión.",
+      "empty": "Todavía no hay partidos registrados.",
+      "details": "Detalles del partido",
+      "loadMore": "Cargar más partidos",
+      "paginationError": "No se pudieron cargar más partidos. Inténtalo de nuevo."
+    }
+  },
+  "Matches": {
+    "title": "Partidos",
+    "linkMoreInfo": "Más información",
+    "emptyPage": "No hay partidos en esta página.",
+    "emptyInitial": "Todavía no hay partidos.",
+    "fallbackError": "No se pudieron cargar los partidos. Inténtalo más tarde.",
+    "metadata": {
+      "friendly": "Amistoso",
+      "bestOf": "Mejor de {count}",
+      "sets": "Sets",
+      "games": "Juegos",
+      "points": "Puntos"
+    },
+    "errors": {
+      "match_forbidden": "No tienes permiso para ver estos partidos.",
+      "match_not_found": "No pudimos encontrar ese partido.",
+      "auth_token_expired": "Tu sesión expiró. Actualiza e inténtalo de nuevo.",
+      "auth_missing_token": "Tu sesión expiró. Actualiza e inténtalo de nuevo.",
+      "auth_invalid_token": "No pudimos verificar tu sesión. Inicia sesión de nuevo."
+    }
+  },
+  "Pager": {
+    "matchesNavigation": "Paginación de partidos",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "status": {
+      "empty": "Página {page} · No hay partidos en esta página",
+      "range": "Página {page} · Mostrando partidos {start}-{end}",
+      "rangeWithTotal": "Página {page} · Mostrando partidos {start}-{end} de {total}"
+    }
+  },
+  "NotFound": {
+    "title": "Página no encontrada",
+    "returnHome": "Volver al inicio"
+  }
+}

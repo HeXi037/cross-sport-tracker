@@ -452,7 +452,7 @@ describe("RecordPadelPage", () => {
     });
 
     fireEvent.change(screen.getByPlaceholderText("Set 1 A"), {
-      target: { value: "7" },
+      target: { value: "8" },
     });
     fireEvent.change(screen.getByPlaceholderText("Set 1 B"), {
       target: { value: "5" },
@@ -470,7 +470,9 @@ describe("RecordPadelPage", () => {
     );
     expect(alertMessage).toHaveAttribute("role", "alert");
     expect(
-      screen.getByText("Scores in set 1 must be whole numbers between 0 and 6."),
+      screen.getByText(
+        "Scores in set 1 must be whole numbers between 0 and 6, unless 7 is used to win a tie-break.",
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /save/i }),

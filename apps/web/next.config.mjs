@@ -1,3 +1,12 @@
+import createNextIntlPlugin from 'next-intl/plugin';
+
+const locales = ['en-GB', 'es-ES'];
+const defaultLocale = 'en-GB';
+
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts', {
+  localePrefix: 'never',
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -22,6 +31,10 @@ const nextConfig = {
     // Allow production builds to complete even if there are ESLint errors.
     ignoreDuringBuilds: true,
   },
+  i18n: {
+    locales,
+    defaultLocale,
+  },
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);

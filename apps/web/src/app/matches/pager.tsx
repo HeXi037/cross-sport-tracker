@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { ensureTrailingSlash } from "../../lib/routes";
 
@@ -24,6 +25,7 @@ export default function Pager({
   disablePrev,
   disableNext,
 }: PagerProps) {
+  const t = useTranslations("Pager");
   const router = useRouter();
   const basePath = ensureTrailingSlash('/matches');
 
@@ -31,17 +33,22 @@ export default function Pager({
   const totalKnown =
     typeof totalCount === 'number' && Number.isFinite(totalCount);
 
-  let statusText: string;
-  if (itemCount <= 0) {
-    statusText = `Page ${pageNumber} · No matches on this page`;
-  } else {
+  const statusText = (() => {
+    if (itemCount <= 0) {
+      return t('status.empty', { page: pageNumber });
+    }
     const start = offset + 1;
     const end = offset + itemCount;
-    statusText = `Page ${pageNumber} · Showing matches ${start}-${end}`;
     if (totalKnown) {
-      statusText += ` of ${totalCount}`;
+      return t('status.rangeWithTotal', {
+        page: pageNumber,
+        start,
+        end,
+        total: totalCount ?? 0,
+      });
     }
-  }
+    return t('status.range', { page: pageNumber, start, end });
+  })();
 
   const handlePrev = () => {
     if (disablePrev) return;
@@ -54,7 +61,7 @@ export default function Pager({
   };
 
   return (
-    <div className="pager" role="navigation" aria-label="Matches pagination">
+    <div className="pager" role="navigation" aria-label={t('matchesNavigation')}>
       <p className="pager__status" aria-live="polite">
         {statusText}
       </p>
@@ -65,7 +72,7 @@ export default function Pager({
           disabled={disablePrev}
           onClick={handlePrev}
         >
-          Previous
+          {t('previous')}
         </button>
         <button
           type="button"
@@ -73,7 +80,7 @@ export default function Pager({
           disabled={disableNext}
           onClick={handleNext}
         >
-          Next
+          {t('next')}
         </button>
       </div>
     </div>

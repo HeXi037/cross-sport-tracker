@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { currentUsername, isAdmin, logout } from '../lib/api';
@@ -8,6 +9,7 @@ import { ensureTrailingSlash } from '../lib/routes';
 import { rememberLoginRedirect } from '../lib/loginRedirect';
 
 export default function Header() {
+  const t = useTranslations('Header');
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<string | null>(null);
   const [admin, setAdmin] = useState(false);
@@ -55,7 +57,7 @@ export default function Header() {
     <header className="nav">
       <button
         className="hamburger"
-        aria-label="Toggle navigation"
+        aria-label={t('toggleNavigation')}
         aria-expanded={open}
         aria-controls="nav-menu"
         onClick={() => setOpen((prev) => !prev)}
@@ -71,7 +73,7 @@ export default function Header() {
               aria-current={linkAriaCurrent('/')}
               onClick={() => setOpen(false)}
             >
-              Home
+              {t('home')}
             </Link>
           </li>
           <li>
@@ -81,7 +83,7 @@ export default function Header() {
               aria-current={linkAriaCurrent('/players')}
               onClick={() => setOpen(false)}
             >
-              Players
+              {t('players')}
             </Link>
           </li>
           <li>
@@ -91,7 +93,7 @@ export default function Header() {
               aria-current={linkAriaCurrent('/matches')}
               onClick={() => setOpen(false)}
             >
-              Matches
+              {t('matches')}
             </Link>
           </li>
           <li>
@@ -101,7 +103,7 @@ export default function Header() {
               aria-current={linkAriaCurrent('/record')}
               onClick={() => setOpen(false)}
             >
-              Record
+              {t('record')}
             </Link>
           </li>
           <li>
@@ -111,7 +113,7 @@ export default function Header() {
               aria-current={linkAriaCurrent('/tournaments')}
               onClick={() => setOpen(false)}
             >
-              Tournaments
+              {t('tournaments')}
             </Link>
           </li>
           <li>
@@ -121,7 +123,7 @@ export default function Header() {
               aria-current={linkAriaCurrent('/leaderboard')}
               onClick={() => setOpen(false)}
             >
-              Leaderboards
+              {t('leaderboards')}
             </Link>
           </li>
           {admin && (
@@ -133,7 +135,7 @@ export default function Header() {
                   aria-current={linkAriaCurrent('/admin/matches')}
                   onClick={() => setOpen(false)}
                 >
-                  Admin Matches
+                  {t('adminMatches')}
                 </Link>
               </li>
               <li>
@@ -143,7 +145,7 @@ export default function Header() {
                   aria-current={linkAriaCurrent('/admin/badges')}
                   onClick={() => setOpen(false)}
                 >
-                  Admin Badges
+                  {t('adminBadges')}
                 </Link>
               </li>
             </>
@@ -157,12 +159,12 @@ export default function Header() {
                   aria-current={linkAriaCurrent('/profile')}
                   onClick={() => setOpen(false)}
                 >
-                  Profile
+                  {t('profile')}
                 </Link>
               </li>
-              <li className="user-status">Logged in as {user}</li>
+              <li className="user-status">{t('loggedInAs', { username: user })}</li>
               <li>
-                <button onClick={handleLogout}>Logout</button>
+                <button onClick={handleLogout}>{t('logout')}</button>
               </li>
             </>
           ) : (
@@ -176,7 +178,7 @@ export default function Header() {
                   setOpen(false);
                 }}
               >
-                Login
+                {t('login')}
               </Link>
             </li>
           )}

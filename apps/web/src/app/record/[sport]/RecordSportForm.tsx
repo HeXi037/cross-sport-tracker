@@ -389,6 +389,12 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const [bowlingValidationErrors, setBowlingValidationErrors] = useState<
     (string | null)[]
   >([null]);
+  const [
+    bowlingFieldErrors,
+    setBowlingFieldErrors,
+  ] = useState<(null | { frameIndex: number; rollIndex: number | null })[]>([
+    null,
+  ]);
   const bowlingMaxReached =
     bowlingEntries.length >= MAX_BOWLING_PLAYERS;
   const bowlingInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -431,6 +437,23 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     const needsPeriod = !/[.!?]$/.test(base);
     return `${base}${needsPeriod ? '.' : ''} ${example}.`;
   }, [sportCopy.timeHint, timeExample]);
+
+  const setBowlingFieldError = useCallback(
+    (entryIndex: number, frameIndex: number | null, rollIndex: number | null) => {
+      setBowlingFieldErrors((prev) => {
+        const next = prev.slice();
+        if (entryIndex >= next.length) {
+          next.length = entryIndex + 1;
+        }
+        next[entryIndex] =
+          frameIndex === null
+            ? null
+            : { frameIndex, rollIndex: rollIndex ?? null };
+        return next;
+      });
+    },
+    [],
+  );
 
   const focusBowlingInput = useCallback((key: string | null) => {
     if (!key) {
@@ -503,6 +526,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       next[index] = null;
       return next;
     });
+    setBowlingFieldError(index, null, null);
   };
 
   const handleBowlingRollChange = (
@@ -540,6 +564,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         next[entryIndex] = invalidRollMessage(playerLabel, frameIndex, rollIndex);
         return next;
       });
+      setBowlingFieldError(entryIndex, frameIndex, rollIndex);
       return;
     }
 
@@ -551,6 +576,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
           next[entryIndex] = `${playerLabel} – Frame ${frameIndex + 1}: leave roll 2 empty after a strike.`;
           return next;
         });
+        setBowlingFieldError(entryIndex, frameIndex, rollIndex);
         return;
       }
     }
@@ -563,6 +589,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
           next[entryIndex] = `${playerLabel} – Frame ${BOWLING_FRAME_COUNT}: enter roll 2 before roll 3.`;
           return next;
         });
+        setBowlingFieldError(entryIndex, frameIndex, rollIndex);
         return;
       }
     }
@@ -616,6 +643,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         next[entryIndex] = validationError;
         return next;
       });
+      setBowlingFieldError(entryIndex, frameIndex, null);
       return;
     }
 
@@ -637,6 +665,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       next[entryIndex] = null;
       return next;
     });
+    setBowlingFieldError(entryIndex, null, null);
   };
 
   const handleBowlingInputKeyDown = (
@@ -685,6 +714,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const handleRemoveBowlingPlayer = (index: number) => {
     setBowlingEntries((prev) => prev.filter((_, i) => i !== index));
     setBowlingValidationErrors((prev) => prev.filter((_, i) => i !== index));
+    setBowlingFieldErrors((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleAddBowlingPlayer = () => {
@@ -699,6 +729,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     });
     flushSync(() => {
       setBowlingValidationErrors((prev) => [...prev, null]);
+    });
+    flushSync(() => {
+      setBowlingFieldErrors((prev) => [...prev, null]);
     });
   };
 
@@ -748,6 +781,15 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
             playerLabel,
           );
           if (validationError) {
+            setBowlingValidationErrors((prev) => {
+              const next = prev.slice();
+              if (idx >= next.length) {
+                next.length = idx + 1;
+              }
+              next[idx] = validationError;
+              return next;
+            });
+            setBowlingFieldError(idx, frameIdx, null);
             setError(validationError);
             return null;
           }
@@ -1005,7 +1047,17 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
 
         {isBowling ? (
           <fieldset className="form-fieldset">
-            <legend className="form-legend">Players and scores</legend>
+            <legend className="form-legend bowling-legend">
+              <span>Players and scores</span>
+              <span
+                className="bowling-info-icon"
+                role="img"
+                aria-label="Bowling scoring input help"
+                title="Enter 0-10 for pins. Use X for strikes, / to finish a spare, and - for gutters."
+              >
+                ⓘ
+              </span>
+            </legend>
             {sportCopy.playersHint && (
               <p className="form-hint">{sportCopy.playersHint}</p>
             )}
@@ -1016,6 +1068,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
               {bowlingEntries.map((entry, idx) => {
                 const playerLabel = getBowlingPlayerLabel(entry, idx, players);
                 const entryError = bowlingValidationErrors[idx] ?? null;
+                const entryFieldError = bowlingFieldErrors[idx] ?? null;
                 const preview = previewBowlingInput(entry.frames);
                 const previewTotal = preview.total;
                 return (
@@ -1068,8 +1121,15 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                         const partialPins = getBowlingFramePinSum(frame);
                         const displayTotal =
                           frameTotal ?? (hasAnyPins ? partialPins : null);
+                        const isFrameInvalid =
+                          entryFieldError?.frameIndex === frameIdx;
                         return (
-                          <div key={frameIdx} className="bowling-frame-card">
+                          <div
+                            key={frameIdx}
+                            className={`bowling-frame-card${
+                              isFrameInvalid ? " bowling-frame-card--invalid" : ""
+                            }`}
+                          >
                             <span className="bowling-frame-label">
                               Frame {frameIdx + 1}
                             </span>
@@ -1111,6 +1171,10 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                   ? String(10 - Number(firstValue))
                                   : null;
                                 const canSetGutter = isRollEnabled;
+                                const isRollInvalid =
+                                  isFrameInvalid &&
+                                  (entryFieldError?.rollIndex === null ||
+                                    entryFieldError?.rollIndex === rollIdx);
                                 return (
                                   <div key={rollIdx} className="bowling-roll-field">
                                     <label
@@ -1122,11 +1186,14 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                     <input
                                       id={inputId}
                                       ref={registerBowlingInput(inputKey)}
-                                      className="bowling-roll-input"
+                                      className={`bowling-roll-input${
+                                        isRollInvalid ? " bowling-roll-input--invalid" : ""
+                                      }`}
                                       type="text"
                                       inputMode="numeric"
                                       pattern="[0-9]*"
                                       maxLength={2}
+                                      placeholder="0, X, /"
                                       value={roll}
                                       disabled={!isRollEnabled}
                                       onChange={(e) =>
@@ -1148,6 +1215,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                       aria-label={`${playerLabel} frame ${
                                         frameIdx + 1
                                       } roll ${rollIdx + 1}`}
+                                      aria-invalid={isRollInvalid || undefined}
                                     />
                                     <div
                                       className="bowling-roll-actions"
@@ -1372,3 +1440,4 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     </main>
   );
 }
+

@@ -1034,6 +1034,11 @@ textarea {
   gap: 0.5rem;
 }
 
+.bowling-frame-card--invalid {
+  border-color: var(--color-accent-red);
+  box-shadow: 0 0 0 1px rgba(186, 12, 47, 0.35);
+}
+
 .bowling-frame-label {
   font-weight: 600;
   text-align: center;
@@ -1071,6 +1076,19 @@ textarea {
 .bowling-roll-input {
   width: 3.25rem;
   text-align: center;
+}
+
+.bowling-roll-input::placeholder {
+  color: rgba(10, 31, 68, 0.45);
+}
+
+.bowling-roll-input--invalid {
+  border-color: var(--color-accent-red);
+  background: rgba(186, 12, 47, 0.12);
+}
+
+.bowling-roll-input--invalid:focus {
+  outline-color: var(--color-accent-red);
 }
 
 .bowling-roll-actions {
@@ -1116,6 +1134,23 @@ textarea {
 .bowling-frame-total {
   font-size: 0.75rem;
   color: rgba(10, 31, 68, 0.7);
+}
+
+.bowling-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.bowling-info-icon {
+  font-size: 0.85rem;
+  color: rgba(10, 31, 68, 0.7);
+  cursor: help;
+}
+
+.bowling-info-icon:hover,
+.bowling-info-icon:focus-visible {
+  color: var(--color-accent-blue);
 }
 
 .bowling-total {

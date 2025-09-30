@@ -242,6 +242,7 @@ export default function HomePageClient({
 
   const loadMoreMatches = async () => {
     if (!hasMore || loadingMore) return;
+    const previousScrollPosition = window.scrollY;
     setPaginationError(false);
     setLoadingMore(true);
     try {
@@ -256,7 +257,13 @@ export default function HomePageClient({
         throw new Error('Failed to fetch more matches');
       }
       const result = await parseMatchesResponse(r, pageSize);
-      setMatches((prev) => [...prev, ...result.enriched]);
+      setMatches((prev) => {
+        const updatedMatches = [...prev, ...result.enriched];
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: previousScrollPosition, behavior: 'auto' });
+        });
+        return updatedMatches;
+      });
       setHasMore(result.hasMore);
       setNextOffset(result.nextOffset);
       setPageSize(result.limit ?? pageSize);

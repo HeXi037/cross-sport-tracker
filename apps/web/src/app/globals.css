@@ -198,6 +198,29 @@ img {
   margin: 0;
 }
 
+.padel-americano-tips {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.padel-americano-tips__intro,
+.padel-americano-tips__footer {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.padel-americano-tips__list {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.5rem;
+  line-height: 1.6;
+}
+
+.padel-americano-tips__list li {
+  margin: 0;
+}
+
 .form-hint {
   font-size: 0.8rem;
   color: rgba(10, 31, 68, 0.7);

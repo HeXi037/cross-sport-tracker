@@ -4,6 +4,7 @@ import sys
 import uuid
 
 import pytest
+import jwt
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -14,6 +15,7 @@ from fastapi.testclient import TestClient
 from fastapi.responses import JSONResponse
 from app import db
 from app.routers import players, auth
+from app.routers.auth import get_jwt_secret, JWT_ALG
 from app.models import Player, User, Comment, Club, RefreshToken
 from app.exceptions import DomainException, ProblemDetail
 
@@ -58,6 +60,16 @@ app.include_router(players.router)
 TEST_PASSWORD = "Str0ng!Pass!"
 
 
+def auth_headers(token: str, *, csrf: bool = False) -> dict[str, str]:
+    headers = {"Authorization": f"Bearer {token}"}
+    if csrf:
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALG])
+        csrf_token = payload.get("csrf")
+        assert isinstance(csrf_token, str)
+        headers["X-CSRF-Token"] = csrf_token
+    return headers
+
+
 def signup_user(client: TestClient, *, is_admin: bool = False) -> tuple[str, str]:
     username_prefix = "admin" if is_admin else "user"
     username = f"{username_prefix}_{uuid.uuid4().hex[:8]}"
@@ -76,7 +88,7 @@ def create_player(client: TestClient, admin_token: str) -> str:
     resp = client.post(
         "/players",
         json={"name": name},
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers=auth_headers(admin_token),
     )
     assert resp.status_code == 200
     return resp.json()["id"]
@@ -86,7 +98,7 @@ def post_comment(client: TestClient, player_id: str, token: str, content: str) -
     resp = client.post(
         f"/players/{player_id}/comments",
         json={"content": content},
-        headers={"Authorization": f"Bearer {token}"},
+        headers=auth_headers(token, csrf=True),
     )
     assert resp.status_code == 200
     return resp.json()
@@ -141,12 +153,12 @@ def test_comment_crud():
         assert data["items"][0]["username"] == username
         resp = client.delete(
             f"/players/{pid}/comments/{cid}",
-            headers={"Authorization": f"Bearer {token}"},
+            headers=auth_headers(token, csrf=True),
         )
         assert resp.status_code == 204
         missing = client.delete(
             f"/players/{pid}/comments/{cid}",
-            headers={"Authorization": f"Bearer {token}"},
+            headers=auth_headers(token, csrf=True),
         )
         assert missing.status_code == 404
         assert missing.json()["code"] == "player_comment_not_found"

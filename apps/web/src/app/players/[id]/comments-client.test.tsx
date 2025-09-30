@@ -159,4 +159,41 @@ describe("PlayerComments", () => {
       expect(screen.getByText("Comment too short")).toBeInTheDocument()
     );
   });
+
+  it("prompts the user to refresh the page when CSRF validation fails", async () => {
+    apiMocks.isLoggedIn.mockReturnValue(true);
+    apiMocks.currentUserId.mockReturnValue("user-1");
+
+    apiMocks.apiFetch.mockImplementation(async (path, init) => {
+      if (init?.method === "POST") {
+        const error = new Error("HTTP 403: invalid CSRF token");
+        (error as Error & { parsedMessage?: string; code?: string }).code =
+          "auth_csrf_invalid";
+        throw error;
+      }
+      return new Response(
+        JSON.stringify({ items: [], total: 0, limit: 50, offset: 0 }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    });
+
+    await renderComponent();
+
+    const textarea = await screen.findByLabelText("Add a comment");
+    fireEvent.change(textarea, { target: { value: "Session?" } });
+
+    const submitButton = screen.getByRole("button", { name: "Add Comment" });
+    await act(async () => {
+      fireEvent.click(submitButton);
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("Your session expired. Please refresh and try again.")
+      ).toBeInTheDocument()
+    );
+  });
 });

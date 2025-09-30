@@ -20,6 +20,7 @@ const REFRESH_TOKEN_KEY = "refresh_token";
 export const SESSION_ENDED_STORAGE_KEY = "cst:session-ended";
 export const SESSION_ENDED_EVENT = "cst:session-ended";
 const REFRESH_BUFFER_SECONDS = 30;
+const SAFE_HTTP_METHODS = new Set(["GET", "HEAD", "OPTIONS", "TRACE"]);
 
 type LogoutReason = "manual" | "expired" | "error";
 export type SessionEndDetail = {
@@ -284,7 +285,16 @@ async function executeFetch(
       console.error("Failed to ensure access token", err);
       token = readStoredAccessToken();
     }
-    if (token) headers.set("Authorization", `Bearer ${token}`);
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (!SAFE_HTTP_METHODS.has(method)) {
+        const csrf = getCsrfTokenFromToken(token);
+        if (csrf) {
+          headers.set("X-CSRF-Token", csrf);
+        }
+      }
+    }
   }
 
   const res = await fetch(apiUrl(path), { ...init, headers });
@@ -378,6 +388,7 @@ interface TokenPayload {
   username?: string;
   is_admin?: boolean;
   sub?: string;
+  csrf?: string;
   [key: string]: unknown;
 }
 
@@ -392,6 +403,12 @@ function getTokenPayload(token?: string | null): TokenPayload | null {
   }
 }
 
+function getCsrfTokenFromToken(token?: string | null): string | null {
+  const payload = getTokenPayload(token);
+  const csrf = payload?.csrf;
+  return typeof csrf === "string" ? csrf : null;
+}
+
 export function currentUsername(): string | null {
   const payload = getTokenPayload();
   return payload?.username ?? null;
@@ -404,6 +421,10 @@ export function currentUserId(): string | null {
 
 export function isLoggedIn(): boolean {
   return getTokenPayload() !== null;
+}
+
+export function csrfToken(): string | null {
+  return getCsrfTokenFromToken();
 }
 
 export function logout(reason: LogoutReason = "manual") {
@@ -452,6 +473,7 @@ export async function fetchMe(): Promise<UserMe> {
 export interface TokenResponse {
   access_token: string;
   refresh_token: string;
+  csrf_token?: string;
 }
 
 export type UpdateMeResponse = Partial<TokenResponse>;

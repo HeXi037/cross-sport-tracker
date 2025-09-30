@@ -80,7 +80,7 @@ from ..services.photo_uploads import (
     save_photo_upload,
 )
 from .admin import require_admin
-from .auth import get_current_user
+from .auth import get_current_user, get_current_user_with_csrf
 from ..location_utils import normalize_location_fields, continent_for_country
 from ..time_utils import coerce_utc
 
@@ -880,7 +880,7 @@ async def add_comment(
     player_id: str,
     body: CommentCreate,
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user_with_csrf),
 ):
     p = await session.get(Player, player_id)
     if not p or p.deleted_at is not None:
@@ -910,7 +910,7 @@ async def delete_comment(
     player_id: str,
     comment_id: str,
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user_with_csrf),
 ):
     comment = await session.get(Comment, comment_id)
     if not comment or comment.player_id != player_id or comment.deleted_at is not None:

@@ -448,6 +448,7 @@ class TokenOut(BaseModel):
     """Returned on successful authentication."""
     access_token: str
     refresh_token: str
+    csrf_token: str
 
 
 class UserOut(BaseModel):

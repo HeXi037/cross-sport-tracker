@@ -331,18 +331,16 @@ export default function HomePageClient({
   useEffect(() => {
     if (!matchPage) return;
 
-    setMatches((previousMatches) => {
-      const { matches: nextMatches, hasAdditionalMatches } = mergeMatchPageWithPrevious(
-        previousMatches,
-        matchPage.enriched,
-      );
+    const { matches: nextMatches, hasAdditionalMatches } = mergeMatchPageWithPrevious(
+      matches,
+      matchPage.enriched,
+    );
 
-      setNextOffset((currentNextOffset) =>
-        resolveNextOffset(currentNextOffset, matchPage.nextOffset, hasAdditionalMatches),
-      );
+    setMatches(nextMatches);
 
-      return nextMatches;
-    });
+    setNextOffset((currentNextOffset) =>
+      resolveNextOffset(currentNextOffset, matchPage.nextOffset, hasAdditionalMatches),
+    );
 
     if (typeof matchPage.limit === 'number') {
       setPageSize((currentPageSize) =>
@@ -353,7 +351,7 @@ export default function HomePageClient({
     setHasMore(matchPage.hasMore);
 
     setMatchError(false);
-  }, [matchPage]);
+  }, [matchPage, matches]);
 
   const matchesLoading =
     !matchError && matches.length === 0 && matchesIsLoading;

@@ -227,20 +227,6 @@ export default function CreateTournamentForm({
     }
   };
 
-  if (!loggedIn) {
-    return (
-      <section className="card" style={{ padding: 16 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>
-          Sign in to create an Americano tournament
-        </h2>
-        <p className="form-hint">
-          Log in to create padel Americano tournaments, schedule matches, and share them
-          with your club.
-        </p>
-      </section>
-    );
-  }
-
   const selectedCount = selectedPlayers.length;
   const filteredPlayers = useMemo(() => {
     const trimmedSearch = playerSearch.trim().toLowerCase();
@@ -302,6 +288,20 @@ export default function CreateTournamentForm({
     selectedCount >= MIN_AMERICANO_PLAYERS
       ? `Ready to schedule with ${selectedCount} player${selectedCount === 1 ? "" : "s"}. Use the search box to adjust the roster.`
       : `Use the search box to add at least ${MIN_AMERICANO_PLAYERS} players before generating the Americano schedule.`;
+
+  if (!loggedIn) {
+    return (
+      <section className="card" style={{ padding: 16 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>
+          Sign in to create an Americano tournament
+        </h2>
+        <p className="form-hint">
+          Log in to create padel Americano tournaments, schedule matches, and share them
+          with your club.
+        </p>
+      </section>
+    );
+  }
 
   const title = admin
     ? "Admin: Create Americano tournament"

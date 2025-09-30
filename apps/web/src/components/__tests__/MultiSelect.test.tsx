@@ -36,7 +36,7 @@ describe('MultiSelect', () => {
       { id: 'p4', name: 'Drew' },
     ];
 
-    const listbox = renderComponent(options);
+    renderComponent(options);
 
     const user = userEvent.setup();
     const searchInput = screen.getByLabelText('Search players');

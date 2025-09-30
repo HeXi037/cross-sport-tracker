@@ -322,21 +322,27 @@ export default function MatchScoreboard({
       hideIfEmpty: Boolean(isFinished),
     });
     if (racket) {
-      return <div className="scoreboard-wrapper">{racket}</div>;
+      return (
+        <div className="scoreboard-wrapper table-scroll-container">{racket}</div>
+      );
     }
   }
 
   if (sportId === "disc_golf") {
     const discGolf = renderDiscGolfSummary(summary);
     if (discGolf) {
-      return <div className="scoreboard-wrapper">{discGolf}</div>;
+      return (
+        <div className="scoreboard-wrapper table-scroll-container">{discGolf}</div>
+      );
     }
   }
 
   if (sportId === "bowling") {
     const bowling = renderBowlingSummary(summary);
     if (bowling) {
-      return <div className="scoreboard-wrapper">{bowling}</div>;
+      return (
+        <div className="scoreboard-wrapper table-scroll-container">{bowling}</div>
+      );
     }
   }
 
@@ -344,8 +350,14 @@ export default function MatchScoreboard({
     hideIfEmpty: Boolean(isFinished),
   });
   if (racketFallback) {
-    return <div className="scoreboard-wrapper">{racketFallback}</div>;
+    return (
+      <div className="scoreboard-wrapper table-scroll-container">{racketFallback}</div>
+    );
   }
 
-  return <div className="scoreboard-wrapper">{renderFallback(summary)}</div>;
+  return (
+    <div className="scoreboard-wrapper table-scroll-container">
+      {renderFallback(summary)}
+    </div>
+  );
 }

@@ -15,6 +15,10 @@ const apiSWRMocks = vi.hoisted(() => ({
   invalidateMatchesCacheMock: vi.fn(async () => {}),
 }));
 
+const notificationMocks = vi.hoisted(() => ({
+  invalidateNotificationsCacheMock: vi.fn(async () => {}),
+}));
+
 vi.mock("next/navigation", () => ({
   useSearchParams: () => useSearchParamsMock(),
   useRouter: () => ({ push: pushMock }),
@@ -22,6 +26,11 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("../../../lib/useApiSWR", () => ({
   invalidateMatchesCache: apiSWRMocks.invalidateMatchesCacheMock,
+}));
+
+vi.mock("../../../lib/useNotifications", () => ({
+  invalidateNotificationsCache:
+    notificationMocks.invalidateNotificationsCacheMock,
 }));
 
 const originalFetch = global.fetch;
@@ -35,6 +44,7 @@ describe("RecordDiscGolfPage", () => {
     vi.clearAllMocks();
     pushMock.mockReset();
     apiSWRMocks.invalidateMatchesCacheMock.mockReset();
+    notificationMocks.invalidateNotificationsCacheMock.mockReset();
     if (originalFetch) {
       global.fetch = originalFetch;
     } else {
@@ -336,6 +346,10 @@ describe("RecordDiscGolfPage", () => {
 
     await waitFor(() => {
       expect(apiSWRMocks.invalidateMatchesCacheMock).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(notificationMocks.invalidateNotificationsCacheMock).toHaveBeenCalled();
     });
 
     const createCall = fetchMock.mock.calls.find(([calledUrl]) => calledUrl === "/api/v0/matches");

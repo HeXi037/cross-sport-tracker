@@ -17,6 +17,10 @@ const localeMocks = vi.hoisted(() => ({
   useTimeZone: vi.fn(() => "UTC"),
 }));
 
+const notificationMocks = vi.hoisted(() => ({
+  invalidateNotificationsCache: vi.fn(async () => {}),
+}));
+
 vi.mock("../../../lib/api", async () => {
   const actual = await vi.importActual<typeof import("../../../lib/api")>(
     "../../../lib/api"
@@ -35,6 +39,17 @@ vi.mock("../../../lib/LocaleContext", () => ({
   useTimeZone: () => localeMocks.useTimeZone(),
 }));
 
+vi.mock("../../../lib/useNotifications", async () => {
+  const actual = await vi.importActual<
+    typeof import("../../../lib/useNotifications")
+  >("../../../lib/useNotifications");
+  return {
+    ...actual,
+    invalidateNotificationsCache:
+      notificationMocks.invalidateNotificationsCache,
+  };
+});
+
 import { formatDateTime } from "../../../lib/i18n";
 
 import PlayerComments from "./comments-client";
@@ -49,6 +64,7 @@ describe("PlayerComments", () => {
     localeMocks.useTimeZone.mockReset();
     localeMocks.useLocale.mockReturnValue("en-GB");
     localeMocks.useTimeZone.mockReturnValue("UTC");
+    notificationMocks.invalidateNotificationsCache.mockReset();
     apiMocks.isLoggedIn.mockReturnValue(false);
     apiMocks.currentUserId.mockReturnValue(null);
     apiMocks.isAdmin.mockReturnValue(false);
@@ -148,6 +164,7 @@ describe("PlayerComments", () => {
     expect(
       screen.getByText((text) => text.includes(expectedTimestamp))
     ).toBeInTheDocument();
+    expect(notificationMocks.invalidateNotificationsCache).toHaveBeenCalled();
   });
 
   it("shows a helpful error message when posting fails", async () => {

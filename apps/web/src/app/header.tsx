@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { currentUsername, isAdmin, logout } from '../lib/api';
 import { ensureTrailingSlash } from '../lib/routes';
 import { rememberLoginRedirect } from '../lib/loginRedirect';
+import NotificationBell from '../components/NotificationBell';
 
 export default function Header() {
   const [open, setOpen] = useState(false);
@@ -159,6 +160,9 @@ export default function Header() {
                 >
                   Profile
                 </Link>
+              </li>
+              <li>
+                <NotificationBell />
               </li>
               <li className="user-status">Logged in as {user}</li>
               <li>

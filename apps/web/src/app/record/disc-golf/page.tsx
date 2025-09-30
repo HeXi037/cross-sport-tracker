@@ -11,6 +11,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl } from "../../../lib/api";
 import { invalidateMatchesCache } from "../../../lib/useApiSWR";
+import { invalidateNotificationsCache } from "../../../lib/useNotifications";
 
 type MatchSummary = {
   id: string;
@@ -529,6 +530,11 @@ function DiscGolfForm() {
         await invalidateMatchesCache();
       } catch (cacheErr) {
         console.error("Failed to invalidate match caches", cacheErr);
+      }
+      try {
+        await invalidateNotificationsCache();
+      } catch (notificationErr) {
+        console.error("Failed to refresh notifications", notificationErr);
       }
       navigateToMatch(data.id);
     } catch (err) {

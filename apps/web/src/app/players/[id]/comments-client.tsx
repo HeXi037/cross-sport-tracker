@@ -9,6 +9,7 @@ import {
   isLoggedIn,
   type ApiError,
 } from "../../../lib/api";
+import { invalidateNotificationsCache } from "../../../lib/useNotifications";
 import { useApiSWR } from "../../../lib/useApiSWR";
 import { useLocale, useTimeZone } from "../../../lib/LocaleContext";
 import { formatDateTime } from "../../../lib/i18n";
@@ -154,6 +155,11 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
       } catch (refreshErr) {
         console.error("Failed to update comments cache", refreshErr);
       }
+      try {
+        await invalidateNotificationsCache();
+      } catch (notificationErr) {
+        console.error("Failed to refresh notifications", notificationErr);
+      }
     } catch (err) {
       const apiError = err as ApiError;
       const message =
@@ -194,6 +200,11 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
         await mutate(undefined, { revalidate: true });
       } catch (refreshErr) {
         console.error("Failed to refresh comments", refreshErr);
+      }
+      try {
+        await invalidateNotificationsCache();
+      } catch (notificationErr) {
+        console.error("Failed to refresh notifications", notificationErr);
       }
     } catch (err) {
       const apiError = err as ApiError;

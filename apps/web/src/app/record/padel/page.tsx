@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
 import { invalidateMatchesCache } from "../../../lib/useApiSWR";
+import { invalidateNotificationsCache } from "../../../lib/useNotifications";
 import { ensureTrailingSlash } from "../../../lib/routes";
 import { useLocale } from "../../../lib/LocaleContext";
 import {
@@ -96,17 +97,15 @@ function analysePadelSets(sets: SetScore[], rawBestOf: number): PadelSetAnalysis
       !isValidPadelSetScore(aNum, bNum) ||
       !isValidPadelSetScore(bNum, aNum)
     ) {
-      errors[idx] =
-        "Scores must be whole numbers between 0 and 6, unless 7 is used to win a tie-break.";
+      errors[idx] = `Scores in ${setLabel} must be whole numbers between 0 and 6.`;
       if (!summaryError) {
-        summaryError =
-          `Scores in ${setLabel} must be whole numbers between 0 and 6, unless 7 is used to win a tie-break.`;
+        summaryError = `Scores in ${setLabel} must be whole numbers between 0 and 6.`;
       }
       return;
     }
 
     if (aNum === bNum) {
-      errors[idx] = "Set scores must have a winner.";
+      errors[idx] = `Set ${idx + 1} must have a winner.`;
       if (!summaryError) {
         summaryError = `Set ${idx + 1} must have a winner.`;
       }
@@ -441,6 +440,11 @@ export default function RecordPadelPage() {
         await invalidateMatchesCache();
       } catch (cacheErr) {
         console.error("Failed to invalidate match caches", cacheErr);
+      }
+      try {
+        await invalidateNotificationsCache();
+      } catch (notificationErr) {
+        console.error("Failed to refresh notifications", notificationErr);
       }
       router.push(`/matches`);
     } catch (err) {

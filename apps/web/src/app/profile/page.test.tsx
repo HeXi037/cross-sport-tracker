@@ -263,6 +263,22 @@ describe("ProfilePage", () => {
     });
   });
 
+  it("describes how notifications are delivered", async () => {
+    await act(async () => {
+      renderWithProviders(<ProfilePage />);
+    });
+
+    expect(
+      await screen.findByText(/Notifications appear in the bell icon/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Send bell, email, and push notifications when someone comments/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Send bell, email, and push notifications when a match involving you is recorded/i),
+    ).toBeInTheDocument();
+  });
+
   it("submits updated country and favorite club when saving", async () => {
     apiMocks.fetchMe.mockResolvedValue({
       id: "user-existing",

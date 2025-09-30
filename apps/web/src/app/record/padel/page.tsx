@@ -232,11 +232,14 @@ export default function RecordPadelPage() {
     [locale],
   );
   const timeExample = useMemo(() => getTimeExample(locale), [locale]);
+  const dateLocaleHintId = useMemo(() => 'padel-date-locale-note', []);
   const timeHintId = useMemo(() => 'padel-time-hint', []);
-  const timeHintText = useMemo(
-    () => `Example: ${timeExample}.`,
-    [timeExample],
-  );
+  const timeHintText = useMemo(() => {
+    const exampleSuffix = uses24HourTime
+      ? `Example: ${timeExample}.`
+      : `Example: ${timeExample} (include AM or PM).`;
+    return exampleSuffix;
+  }, [timeExample, uses24HourTime]);
 
   const validateSets = () => {
     const errors = sets.map(() => "");
@@ -399,10 +402,13 @@ export default function RecordPadelPage() {
                 onChange={(e) => setDate(e.target.value)}
                 lang={locale}
                 placeholder={datePlaceholder}
-                aria-describedby="padel-date-format"
+                aria-describedby={`padel-date-format ${dateLocaleHintId}`}
               />
               <span id="padel-date-format" className="form-hint">
-                e.g., {dateExample}
+                Example: {dateExample}
+              </span>
+              <span id={dateLocaleHintId} className="form-hint">
+                Date format follows your profile preferences.
               </span>
             </label>
             <label className="form-field" htmlFor="padel-time">

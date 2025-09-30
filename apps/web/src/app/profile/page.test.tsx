@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
+import * as LocaleContext from "../../lib/LocaleContext";
 
 const pushMock = vi.hoisted(() => vi.fn());
 const apiMocks = vi.hoisted(() => ({
@@ -544,5 +545,24 @@ describe("ProfilePage", () => {
     expect(parsed.preferredLocale).toBe("fr-FR");
 
     await screen.findByText("Preferences updated.");
+  });
+
+  it("pre-populates the preferred locale input when settings are empty", async () => {
+    const localeSpy = vi
+      .spyOn(LocaleContext, "useLocale")
+      .mockReturnValue("en-AU");
+
+    try {
+      await act(async () => {
+        render(<ProfilePage />);
+      });
+
+      const localeInput = (await screen.findByLabelText(
+        "Preferred locale",
+      )) as HTMLInputElement;
+      expect(localeInput.value).toBe("en-AU");
+    } finally {
+      localeSpy.mockRestore();
+    }
   });
 });

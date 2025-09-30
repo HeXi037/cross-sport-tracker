@@ -67,26 +67,46 @@ function resolveLocaleCandidates(
   return Array.from(new Set(candidates));
 }
 
+interface LocaleCandidateOptions {
+  preferredLocale?: string | null;
+  storedLocale?: string | null;
+}
+
 function pickLocaleCandidate(
   candidates: string[],
   fallback: string,
+  options: LocaleCandidateOptions = {},
 ): string {
   const normalizedFallback = normalizeLocale(fallback, NEUTRAL_FALLBACK_LOCALE);
 
-  for (const candidate of candidates) {
-    const normalized = normalizeLocale(candidate, '');
-    if (!normalized) {
-      continue;
-    }
+  const normalizedCandidates = candidates
+    .map((candidate) => normalizeLocale(candidate, ''))
+    .filter(
+      (candidate): candidate is string =>
+        Boolean(candidate) && candidate !== normalizedFallback,
+    );
 
-    if (normalized === normalizedFallback) {
-      continue;
-    }
-
-    return normalized;
+  const normalizedPreferred = normalizeLocale(options.preferredLocale, '');
+  if (
+    normalizedPreferred &&
+    normalizedCandidates.includes(normalizedPreferred)
+  ) {
+    return normalizedPreferred;
   }
 
-  return normalizedFallback;
+  const normalizedStored = normalizeLocale(options.storedLocale, '');
+  if (normalizedStored && normalizedCandidates.includes(normalizedStored)) {
+    return normalizedStored;
+  }
+
+  const australianCandidate = normalizedCandidates.find((candidate) =>
+    candidate.toLowerCase().startsWith('en-au'),
+  );
+  if (australianCandidate) {
+    return australianCandidate;
+  }
+
+  return normalizedCandidates[0] ?? normalizedFallback;
 }
 
 interface ProviderProps {
@@ -145,7 +165,10 @@ export function LocaleProvider({
         storedLocale,
         preferredSettingsLocale,
       );
-      const nextLocale = pickLocaleCandidate(candidates, fallbackLocale);
+      const nextLocale = pickLocaleCandidate(candidates, fallbackLocale, {
+        preferredLocale: preferredSettingsLocale,
+        storedLocale,
+      });
       setCurrentLocale((prev) => (prev === nextLocale ? prev : nextLocale));
       storeLocalePreference(nextLocale);
 

@@ -420,6 +420,10 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     () => getSportCopy(sport, locale),
     [locale, sport],
   );
+  const dateLocaleHintId = useMemo(
+    () => `${sport || "record"}-date-locale-note`,
+    [sport],
+  );
   const timeHintId = useMemo(
     () => `${sport || "record"}-time-hint`,
     [sport],
@@ -430,13 +434,16 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   );
   const timeHintText = useMemo(() => {
     const base = sportCopy.timeHint?.trim() ?? "";
-    const example = `Example: ${timeExample}`;
+    const exampleSuffix = uses24HourTime
+      ? `Example: ${timeExample}.`
+      : `Example: ${timeExample} (include AM or PM).`;
     if (!base) {
-      return `${example}.`;
+      return exampleSuffix;
     }
     const needsPeriod = !/[.!?]$/.test(base);
-    return `${base}${needsPeriod ? '.' : ''} ${example}.`;
-  }, [sportCopy.timeHint, timeExample]);
+    const decoratedBase = needsPeriod ? `${base}.` : base;
+    return `${decoratedBase} ${exampleSuffix}`;
+  }, [sportCopy.timeHint, timeExample, uses24HourTime]);
 
   const setBowlingFieldError = useCallback(
     (entryIndex: number, frameIndex: number | null, rollIndex: number | null) => {
@@ -990,10 +997,13 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                 onChange={(e) => setDate(e.target.value)}
                 lang={locale}
                 placeholder={datePlaceholder}
-                aria-describedby="record-date-format"
+                aria-describedby={`record-date-format ${dateLocaleHintId}`}
               />
               <span id="record-date-format" className="form-hint">
                 Example: {dateExample}
+              </span>
+              <span id={dateLocaleHintId} className="form-hint">
+                Date format follows your profile preferences.
               </span>
             </label>
             <label className="form-field" htmlFor="record-time">

@@ -33,6 +33,13 @@ export const dynamic = "force-dynamic";
 
 type ID = string;
 
+type CachedRequestInit = RequestInit & { next?: { revalidate?: number } };
+
+const MATCH_REVALIDATE_SECONDS = 30;
+const PLAYER_LOOKUP_REVALIDATE_SECONDS = 300;
+const SPORTS_REVALIDATE_SECONDS = 3600;
+const RULESETS_REVALIDATE_SECONDS = 900;
+
 // "side" can be any identifier (A, B, C, ...), so keep it loose
 type Participant = { side: string; playerIds: string[] };
 
@@ -419,16 +426,25 @@ function resolveBestOf(match: MatchDetail): number | undefined {
   return undefined;
 }
 
+const MATCH_FETCH_OPTIONS: CachedRequestInit = {
+  next: { revalidate: MATCH_REVALIDATE_SECONDS },
+};
+
 async function fetchMatch(mid: string): Promise<MatchDetail> {
-  const res = (await apiFetch(`/v0/matches/${encodeURIComponent(mid)}`, {
-    cache: "no-store",
-  } as RequestInit)) as Response;
+  const res = (await apiFetch(
+    `/v0/matches/${encodeURIComponent(mid)}`,
+    MATCH_FETCH_OPTIONS
+  )) as Response;
   if (res.status === 404) {
     notFound();
   }
   if (!res.ok) throw new Error(`match ${mid}`);
   return (await res.json()) as MatchDetail;
 }
+
+const PLAYER_LOOKUP_FETCH_OPTIONS: CachedRequestInit = {
+  next: { revalidate: PLAYER_LOOKUP_REVALIDATE_SECONDS },
+};
 
 async function fetchPlayers(ids: string[]): Promise<{
   map: Map<string, PlayerInfo>;
@@ -442,7 +458,7 @@ async function fetchPlayers(ids: string[]): Promise<{
   try {
     const res = (await apiFetch(
       `/v0/players/by-ids?ids=${ids.join(",")}`,
-      { cache: "no-store" }
+      PLAYER_LOOKUP_FETCH_OPTIONS
     )) as Response;
     if (!res.ok) {
       ids.forEach((id) => map.set(id, { id, name: "Unknown" }));
@@ -484,11 +500,16 @@ async function fetchPlayers(ids: string[]): Promise<{
   }
 }
 
+const SPORTS_FETCH_OPTIONS: CachedRequestInit = {
+  next: { revalidate: SPORTS_REVALIDATE_SECONDS },
+};
+
 async function fetchSports(): Promise<Sport[]> {
   try {
-    const res = (await apiFetch(`/v0/sports`, {
-      cache: "no-store",
-    } as RequestInit)) as Response;
+    const res = (await apiFetch(
+      `/v0/sports`,
+      SPORTS_FETCH_OPTIONS
+    )) as Response;
     if (!res.ok) {
       return [];
     }
@@ -499,12 +520,16 @@ async function fetchSports(): Promise<Sport[]> {
   }
 }
 
+const RULESETS_FETCH_OPTIONS: CachedRequestInit = {
+  next: { revalidate: RULESETS_REVALIDATE_SECONDS },
+};
+
 async function fetchRulesets(sportId?: string | null): Promise<Ruleset[]> {
   if (!sportId) return [];
   try {
     const res = (await apiFetch(
       `/v0/rulesets?sport=${encodeURIComponent(sportId)}`,
-      { cache: "no-store" } as RequestInit
+      RULESETS_FETCH_OPTIONS
     )) as Response;
     if (!res.ok) {
       return [];

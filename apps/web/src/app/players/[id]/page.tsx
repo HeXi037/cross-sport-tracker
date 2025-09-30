@@ -34,6 +34,14 @@ interface Player extends PlayerInfo {
   social_links?: PlayerSocialLink[];
 }
 
+type CachedRequestInit = RequestInit & { next?: { revalidate?: number } };
+
+const PLAYER_REVALIDATE_SECONDS = 120;
+const PLAYER_MATCH_LIST_REVALIDATE_SECONDS = 60;
+const PLAYER_MATCH_DETAIL_REVALIDATE_SECONDS = 120;
+const PLAYER_LOOKUP_REVALIDATE_SECONDS = 300;
+const PLAYER_STATS_REVALIDATE_SECONDS = 300;
+
 interface Badge {
   id: string;
   name: string;
@@ -91,10 +99,15 @@ interface PlayerStats {
   withRecords?: VersusRecord[];
 }
 
+const PLAYER_FETCH_OPTIONS: CachedRequestInit = {
+  next: { revalidate: PLAYER_REVALIDATE_SECONDS },
+};
+
 async function getPlayer(id: string): Promise<Player> {
-  const res = await apiFetch(`/v0/players/${encodeURIComponent(id)}`, {
-    cache: "no-store",
-  } as RequestInit);
+  const res = await apiFetch(
+    `/v0/players/${encodeURIComponent(id)}`,
+    PLAYER_FETCH_OPTIONS
+  );
   const data = (await res.json()) as Player;
   return withAbsolutePhotoUrl(data);
 }
@@ -139,6 +152,22 @@ function renderPlayerError(
   );
 }
 
+const PLAYER_MATCH_LIST_FETCH_OPTIONS: CachedRequestInit = {
+  next: { revalidate: PLAYER_MATCH_LIST_REVALIDATE_SECONDS },
+};
+
+const PLAYER_MATCH_DETAIL_FETCH_OPTIONS: CachedRequestInit = {
+  next: { revalidate: PLAYER_MATCH_DETAIL_REVALIDATE_SECONDS },
+};
+
+const PLAYER_LOOKUP_FETCH_OPTIONS: CachedRequestInit = {
+  next: { revalidate: PLAYER_LOOKUP_REVALIDATE_SECONDS },
+};
+
+const PLAYER_STATS_FETCH_OPTIONS: CachedRequestInit = {
+  next: { revalidate: PLAYER_STATS_REVALIDATE_SECONDS },
+};
+
 async function getMatches(
   playerId: string,
   upcoming = false
@@ -147,16 +176,17 @@ async function getMatches(
     `/v0/matches?playerId=${encodeURIComponent(playerId)}${
       upcoming ? "&upcoming=true" : ""
     }`,
-    { cache: "no-store" } as RequestInit
+    PLAYER_MATCH_LIST_FETCH_OPTIONS
   );
   if (!r.ok) return [];
   const rows = ((await r.json()) as MatchRow[]).slice(0, 5);
 
   const detailResults = await Promise.allSettled(
     rows.map(async (m) => {
-      const resp = await apiFetch(`/v0/matches/${encodeURIComponent(m.id)}`, {
-        cache: "no-store",
-      } as RequestInit);
+      const resp = await apiFetch(
+        `/v0/matches/${encodeURIComponent(m.id)}`,
+        PLAYER_MATCH_DETAIL_FETCH_OPTIONS
+      );
       if (!resp.ok) throw new Error(`match ${m.id}`);
       return { row: m, detail: (await resp.json()) as MatchDetail };
     })
@@ -195,9 +225,10 @@ async function getMatches(
   const idList = Array.from(ids);
   const idToPlayer = new Map<string, PlayerInfo>();
   if (idList.length) {
-    const resp = await apiFetch(`/v0/players/by-ids?ids=${idList.join(",")}`, {
-      cache: "no-store",
-    } as RequestInit);
+    const resp = await apiFetch(
+      `/v0/players/by-ids?ids=${idList.join(",")}`,
+      PLAYER_LOOKUP_FETCH_OPTIONS
+    );
     if (resp.ok) {
       const players = (await resp.json()) as PlayerInfo[];
       const remaining = new Set(idList);
@@ -274,7 +305,7 @@ async function getStats(playerId: string): Promise<PlayerStatsResult> {
   try {
     const response = await apiFetch(
       `/v0/players/${encodeURIComponent(playerId)}/stats`,
-      { cache: "no-store" } as RequestInit,
+      PLAYER_STATS_FETCH_OPTIONS,
     );
 
     if (!response.ok) {

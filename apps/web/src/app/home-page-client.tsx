@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '../lib/api';
 import {
@@ -219,6 +219,7 @@ export default function HomePageClient({
   initialPageSize,
 }: Props): ReactElement {
   const [matches, setMatches] = useState(initialMatches);
+  const matchesRef = useRef(initialMatches);
   const [sportError, setSportError] = useState(initialSportError);
   const [matchError, setMatchError] = useState(initialMatchError);
   const [hasMore, setHasMore] = useState(initialHasMore);
@@ -331,28 +332,31 @@ export default function HomePageClient({
   useEffect(() => {
     if (!matchPage) return;
 
-    setMatches((previousMatches) => {
-      const { matches: nextMatches, hasAdditionalMatches } = mergeMatchPageWithPrevious(
-        previousMatches,
-        matchPage.enriched,
+    const previousMatches = matchesRef.current;
+    const { matches: nextMatches, hasAdditionalMatches } = mergeMatchPageWithPrevious(
+      previousMatches,
+      matchPage.enriched,
+    );
+
+    matchesRef.current = nextMatches;
+
+    if (previousMatches !== nextMatches) {
+      setMatches(nextMatches);
+    }
+
+    setNextOffset((currentNextOffset) =>
+      resolveNextOffset(currentNextOffset, matchPage.nextOffset, hasAdditionalMatches),
+    );
+
+    if (typeof matchPage.limit === 'number') {
+      setPageSize((currentPageSize) =>
+        matchPage.limit !== currentPageSize ? matchPage.limit : currentPageSize,
       );
+    }
 
-      setNextOffset((currentNextOffset) =>
-        resolveNextOffset(currentNextOffset, matchPage.nextOffset, hasAdditionalMatches),
-      );
+    setHasMore(matchPage.hasMore);
 
-      if (typeof matchPage.limit === 'number') {
-        setPageSize((currentPageSize) =>
-          matchPage.limit !== currentPageSize ? matchPage.limit : currentPageSize,
-        );
-      }
-
-      setHasMore(matchPage.hasMore);
-
-      setMatchError(false);
-
-      return nextMatches;
-    });
+    setMatchError(false);
   }, [matchPage]);
 
   const matchesLoading =
@@ -404,6 +408,8 @@ export default function HomePageClient({
         requestAnimationFrame(() => {
           window.scrollTo({ top: previousScrollPosition, behavior: 'auto' });
         });
+
+        matchesRef.current = mergedMatches;
 
         return mergedMatches;
       });

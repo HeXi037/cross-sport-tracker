@@ -58,6 +58,22 @@ function getBowlingInputKey(
   return `${entryIndex}-${frameIndex}-${rollIndex}`;
 }
 
+function getBowlingRollPlaceholder(
+  isFinalFrame: boolean,
+  rollIndex: number,
+): string {
+  if (rollIndex === 0) {
+    return "0-10 or X";
+  }
+  if (rollIndex === 1) {
+    return isFinalFrame ? "0-10 or /" : "0-10 or /";
+  }
+  if (isFinalFrame) {
+    return "0-10 or X";
+  }
+  return "0-10";
+}
+
 function isBowlingRollEnabled(
   frames: BowlingFrames,
   frameIndex: number,
@@ -389,6 +405,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const [bowlingValidationErrors, setBowlingValidationErrors] = useState<
     (string | null)[]
   >([null]);
+  const [bowlingInvalidRolls, setBowlingInvalidRolls] = useState<
+    Record<string, boolean>
+  >({});
   const bowlingInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const pendingBowlingFocusRef = useRef<string | null>(null);
   const [scoreA, setScoreA] = useState("0");
@@ -503,6 +522,24 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     });
   };
 
+  const updateBowlingRollValidity = useCallback((key: string, invalid: boolean) => {
+    setBowlingInvalidRolls((prev) => {
+      const exists = Boolean(prev[key]);
+      if (invalid) {
+        if (exists) {
+          return prev;
+        }
+        return { ...prev, [key]: true };
+      }
+      if (!exists) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
   const handleBowlingRollChange = (
     entryIndex: number,
     frameIndex: number,
@@ -518,6 +555,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     const frames = entry.frames.map((frame) => frame.slice());
     const frame = frames[frameIndex] ?? [];
     const isTenthFrame = frameIndex === BOWLING_FRAME_COUNT - 1;
+    const inputKey = getBowlingInputKey(entryIndex, frameIndex, rollIndex);
 
     const trimmedInput = rawValue.trim();
     let sanitized = sanitizeBowlingRollInput(rawValue);
@@ -533,6 +571,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     }
 
     if (sanitized === null) {
+      updateBowlingRollValidity(inputKey, true);
       setBowlingValidationErrors((prev) => {
         const next = prev.slice();
         next[entryIndex] = invalidRollMessage(playerLabel, frameIndex, rollIndex);
@@ -544,6 +583,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     if (!isTenthFrame && rollIndex === 1) {
       const firstValue = frame[0]?.trim() ?? "";
       if (firstValue === "10" && sanitized !== "") {
+        updateBowlingRollValidity(inputKey, true);
         setBowlingValidationErrors((prev) => {
           const next = prev.slice();
           next[entryIndex] = `${playerLabel} – Frame ${frameIndex + 1}: leave roll 2 empty after a strike.`;
@@ -556,6 +596,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     if (isTenthFrame && rollIndex === 2 && sanitized !== "") {
       const secondValue = frame[1]?.trim() ?? "";
       if (!secondValue) {
+        updateBowlingRollValidity(inputKey, true);
         setBowlingValidationErrors((prev) => {
           const next = prev.slice();
           next[entryIndex] = `${playerLabel} – Frame ${BOWLING_FRAME_COUNT}: enter roll 2 before roll 3.`;
@@ -571,16 +612,32 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       if (!sanitized) {
         for (let i = 1; i < frame.length; i += 1) {
           frame[i] = "";
+          updateBowlingRollValidity(
+            getBowlingInputKey(entryIndex, frameIndex, i),
+            false,
+          );
         }
       } else if (!isTenthFrame && sanitized === "10") {
         frame[1] = "";
+        updateBowlingRollValidity(
+          getBowlingInputKey(entryIndex, frameIndex, 1),
+          false,
+        );
       } else if (isTenthFrame && sanitized !== "10") {
         frame[2] = "";
+        updateBowlingRollValidity(
+          getBowlingInputKey(entryIndex, frameIndex, 2),
+          false,
+        );
       }
     }
 
     if (isTenthFrame && rollIndex === 1 && !sanitized) {
       frame[2] = "";
+      updateBowlingRollValidity(
+        getBowlingInputKey(entryIndex, frameIndex, 2),
+        false,
+      );
     }
 
     if (isTenthFrame) {
@@ -589,6 +646,14 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       if (!firstValue) {
         frame[1] = "";
         frame[2] = "";
+        updateBowlingRollValidity(
+          getBowlingInputKey(entryIndex, frameIndex, 1),
+          false,
+        );
+        updateBowlingRollValidity(
+          getBowlingInputKey(entryIndex, frameIndex, 2),
+          false,
+        );
       } else {
         const firstPins = Number(firstValue);
         const secondPins = secondValue ? Number(secondValue) : null;
@@ -597,6 +662,10 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
           (secondPins !== null && firstPins + secondPins === 10);
         if (!earnedThird) {
           frame[2] = "";
+          updateBowlingRollValidity(
+            getBowlingInputKey(entryIndex, frameIndex, 2),
+            false,
+          );
         }
       }
     }
@@ -609,6 +678,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       playerLabel,
     );
     if (validationError) {
+      updateBowlingRollValidity(inputKey, true);
       setBowlingValidationErrors((prev) => {
         const next = prev.slice();
         next[entryIndex] = validationError;
@@ -616,6 +686,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       });
       return;
     }
+
+    updateBowlingRollValidity(inputKey, false);
 
     const nextEntries = bowlingEntries.map((item, idx) =>
       idx === entryIndex ? { ...item, frames } : item,
@@ -683,6 +755,21 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const handleRemoveBowlingPlayer = (index: number) => {
     setBowlingEntries((prev) => prev.filter((_, i) => i !== index));
     setBowlingValidationErrors((prev) => prev.filter((_, i) => i !== index));
+    setBowlingInvalidRolls((prev) => {
+      const next: Record<string, boolean> = {};
+      for (const [key, value] of Object.entries(prev)) {
+        if (!key.startsWith(`${index}-`)) {
+          const keyEntryIndex = Number(key.split("-", 1)[0]);
+          if (Number.isNaN(keyEntryIndex) || keyEntryIndex < index) {
+            next[key] = value;
+          } else if (keyEntryIndex > index) {
+            const [, ...rest] = key.split("-");
+            next[`${keyEntryIndex - 1}-${rest.join("-")}`] = value;
+          }
+        }
+      }
+      return next;
+    });
   };
 
   const handleAddBowlingPlayer = () => {
@@ -1007,6 +1094,20 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
             {sportCopy.scoringHint && (
               <p className="form-hint">{sportCopy.scoringHint}</p>
             )}
+            <div
+              className="bowling-scoring-help"
+              role="note"
+              aria-label="Bowling scoring help"
+              title="Enter the pins knocked down for each roll. Use X for strikes, / for spares, and - for gutters."
+            >
+              <span className="bowling-info-icon" aria-hidden="true">
+                i
+              </span>
+              <p>
+                Enter pins per roll. Use <strong>X</strong> for strikes, <strong>/</strong> for
+                spares, and <strong>-</strong> for gutters.
+              </p>
+            </div>
             <div className="form-stack">
               {bowlingEntries.map((entry, idx) => {
                 const playerLabel = getBowlingPlayerLabel(entry, idx, players);
@@ -1085,6 +1186,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                   frameIdx,
                                   rollIdx,
                                 );
+                                const isRollInvalid = Boolean(
+                                  bowlingInvalidRolls[inputKey],
+                                );
                                 const firstValue = frame[0]?.trim() ?? "";
                                 const secondValue = frame[1]?.trim() ?? "";
                                 const canSetStrike =
@@ -1106,6 +1210,10 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                   ? String(10 - Number(firstValue))
                                   : null;
                                 const canSetGutter = isRollEnabled;
+                                const placeholder = getBowlingRollPlaceholder(
+                                  isFinalFrame,
+                                  rollIdx,
+                                );
                                 return (
                                   <div key={rollIdx} className="bowling-roll-field">
                                     <label
@@ -1117,13 +1225,18 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                     <input
                                       id={inputId}
                                       ref={registerBowlingInput(inputKey)}
-                                      className="bowling-roll-input"
+                                      className={`bowling-roll-input${
+                                        isRollInvalid
+                                          ? " bowling-roll-input--invalid"
+                                          : ""
+                                      }`}
                                       type="text"
                                       inputMode="numeric"
                                       pattern="[0-9]*"
                                       maxLength={2}
                                       value={roll}
                                       disabled={!isRollEnabled}
+                                      placeholder={placeholder}
                                       onChange={(e) =>
                                         handleBowlingRollChange(
                                           idx,
@@ -1143,6 +1256,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                       aria-label={`${playerLabel} frame ${
                                         frameIdx + 1
                                       } roll ${rollIdx + 1}`}
+                                      aria-invalid={
+                                        isRollInvalid ? "true" : undefined
+                                      }
                                     />
                                     <div
                                       className="bowling-roll-actions"

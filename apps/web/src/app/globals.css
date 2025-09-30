@@ -1067,6 +1067,19 @@ textarea {
   text-align: center;
 }
 
+.bowling-roll-input::placeholder {
+  color: rgba(10, 31, 68, 0.45);
+}
+
+.bowling-roll-input--invalid {
+  border-color: var(--color-accent-red);
+  box-shadow: 0 0 0 1px rgba(186, 12, 47, 0.25);
+}
+
+.bowling-roll-input--invalid:focus {
+  outline-color: var(--color-accent-red);
+}
+
 .bowling-roll-actions {
   display: flex;
   gap: 0.35rem;
@@ -1094,6 +1107,33 @@ textarea {
 .bowling-roll-action:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.bowling-scoring-help {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: rgba(10, 31, 68, 0.75);
+}
+
+.bowling-scoring-help p {
+  margin: 0;
+}
+
+.bowling-info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: rgba(10, 31, 68, 0.08);
+  color: var(--color-accent-blue);
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
 }
 
 .bowling-frame-cell {

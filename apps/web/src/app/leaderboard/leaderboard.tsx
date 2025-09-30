@@ -64,6 +64,7 @@ const normalizeClubId = (value?: string | null) =>
   value ? value.trim() : "";
 
 const RESULTS_TABLE_ID = "leaderboard-results";
+const RESULTS_TABLE_CAPTION_ID = `${RESULTS_TABLE_ID}-caption`;
 const LEADERBOARD_TIMEOUT_MS = 15000;
 const PAGE_SIZE = 50;
 
@@ -108,8 +109,8 @@ const EmptyState = ({ icon, title, description, cta }: EmptyStateContent) => (
       marginTop: "2rem",
       padding: "2rem 1.5rem",
       borderRadius: "12px",
-      border: "1px solid #e0e0e0",
-      background: "#fafafa",
+      border: "1px solid var(--color-border-subtle)",
+      background: "var(--color-surface-elevated)",
       textAlign: "center",
     }}
   >
@@ -117,7 +118,13 @@ const EmptyState = ({ icon, title, description, cta }: EmptyStateContent) => (
       {icon}
     </div>
     <h2 style={{ margin: "0 0 0.5rem", fontSize: "1.25rem" }}>{title}</h2>
-    <p style={{ margin: "0 0 1.25rem", color: "#555", fontSize: "0.95rem" }}>
+    <p
+      style={{
+        margin: "0 0 1.25rem",
+        color: "var(--color-text-muted)",
+        fontSize: "0.95rem",
+      }}
+    >
       {description}
     </p>
     {cta ? (
@@ -129,9 +136,9 @@ const EmptyState = ({ icon, title, description, cta }: EmptyStateContent) => (
           justifyContent: "center",
           padding: "0.5rem 1.25rem",
           borderRadius: "999px",
-          border: "1px solid #222",
-          background: "#222",
-          color: "#fff",
+          border: "1px solid var(--color-button-strong-border)",
+          background: "var(--color-button-strong-bg)",
+          color: "var(--color-button-strong-text)",
           fontWeight: 600,
           textDecoration: "none",
         }}
@@ -661,6 +668,54 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     const region = parts.length > 0 ? parts.join(" · ") : "Global";
     return sport === ALL_SPORTS ? `All sports combined · ${region}` : region;
   }, [sport, appliedCountry, appliedClubId]);
+
+  const regionFiltersCaption = useMemo(() => {
+    if (sport === MASTER_SPORT) {
+      return "Global master leaderboard coverage.";
+    }
+    const filters: string[] = [];
+    if (appliedCountry) {
+      filters.push(`country ${appliedCountry}`);
+    }
+    if (appliedClubId) {
+      const clubName = clubNameById.get(appliedClubId);
+      filters.push(
+        clubName ? `club ${clubName} (${appliedClubId})` : `club ${appliedClubId}`,
+      );
+    }
+    if (filters.length === 0) {
+      return "Global results with no region filters.";
+    }
+    if (filters.length === 1) {
+      return `Filtered by ${filters[0]}.`;
+    }
+    const lastFilter = filters[filters.length - 1];
+    const initialFilters = filters.slice(0, -1).join(", ");
+    return `Filtered by ${initialFilters} and ${lastFilter}.`;
+  }, [appliedClubId, appliedCountry, clubNameById, sport]);
+
+  const tableCaption = useMemo(() => {
+    const base =
+      sport === ALL_SPORTS
+        ? "Leaderboard results across all sports."
+        : sport === MASTER_SPORT
+          ? "Master leaderboard results."
+          : `${sportDisplayName} leaderboard results.`;
+    return `${base} ${regionFiltersCaption}`;
+  }, [regionFiltersCaption, sport, sportDisplayName]);
+
+  const columnDescription = useMemo(
+    () =>
+      sport === ALL_SPORTS
+        ? "Columns display rank, player, sport, rating, wins, losses, matches, and win percentage."
+        : "Columns display rank, player, rating, wins, losses, matches, and win percentage.",
+    [sport],
+  );
+
+  const captionText = useMemo(
+    () => `${tableCaption} ${columnDescription}`,
+    [columnDescription, tableCaption],
+  );
 
   const normalizedDraftCountry = normalizeCountry(draftCountry);
   const normalizedDraftClubId = normalizeClubId(draftClubId);
@@ -1216,7 +1271,11 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           <h1 className="heading" style={{ marginBottom: "0.25rem" }}>
             {`${sportDisplayName} Leaderboard`}
           </h1>
-          <p style={{ fontSize: "0.85rem", color: "#555" }}>{regionDescription}</p>
+          <p
+            style={{ fontSize: "0.85rem", color: "var(--color-text-muted)" }}
+          >
+            {regionDescription}
+          </p>
         </div>
         <section
           aria-label="Leaderboard controls"
@@ -1300,7 +1359,12 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
               value={draftCountry}
               onChange={(next) => setDraftCountry(normalizeCountry(next))}
               placeholder="Select a country"
-              style={{ padding: "0.35rem", border: "1px solid #ccc", borderRadius: "4px" }}
+              style={{
+                padding: "0.35rem",
+                border: "1px solid var(--color-border-subtle)",
+                borderRadius: "4px",
+                background: "var(--color-surface)",
+              }}
               aria-invalid={filterErrors.country ? true : undefined}
               aria-describedby={countryErrorId}
             />
@@ -1311,7 +1375,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                 style={{
                   marginTop: "0.35rem",
                   fontSize: "0.8rem",
-                  color: "#b91c1c",
+                  color: "var(--color-text-danger-strong)",
                 }}
               >
                 {filterErrors.country}
@@ -1340,7 +1404,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                 style={{
                   marginTop: "0.35rem",
                   fontSize: "0.8rem",
-                  color: "#b91c1c",
+                  color: "var(--color-text-danger-strong)",
                 }}
               >
                 {filterErrors.clubId}
@@ -1354,9 +1418,15 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
               style={{
                 padding: "0.4rem 0.9rem",
                 borderRadius: "4px",
-                border: "1px solid #222",
-                background: canApply ? "#222" : "#ccc",
-                color: "#fff",
+                border: canApply
+                  ? "1px solid var(--color-button-primary-border)"
+                  : "1px solid var(--color-button-disabled-border)",
+                background: canApply
+                  ? "var(--color-button-primary-bg)"
+                  : "var(--color-button-disabled-bg)",
+                color: canApply
+                  ? "var(--color-button-primary-text)"
+                  : "var(--color-button-disabled-text)",
                 cursor: canApply ? "pointer" : "not-allowed",
                 opacity: canApply ? 1 : 0.7,
               }}
@@ -1371,8 +1441,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
               style={{
                 padding: "0.4rem 0.9rem",
                 borderRadius: "4px",
-                border: "1px solid #ccc",
+                border: "1px solid var(--color-border-subtle)",
                 background: "transparent",
+                color: "var(--color-text)",
                 cursor: canClear ? "pointer" : "not-allowed",
                 opacity: canClear ? 1 : 0.7,
               }}
@@ -1391,7 +1462,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             gap: "0.5rem",
           }}
         >
-          <p style={{ fontSize: "0.8rem", color: "#777", margin: 0 }}>
+          <p
+            style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", margin: 0 }}
+          >
             Regional filters apply to individual sport leaderboards.
           </p>
           {hasAppliedFilters && (
@@ -1402,8 +1475,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                 style={{
                   padding: "0.4rem 0.9rem",
                   borderRadius: "4px",
-                  border: "1px solid #ccc",
+                  border: "1px solid var(--color-border-subtle)",
                   background: "transparent",
+                  color: "var(--color-text)",
                   cursor: "pointer",
                 }}
               >
@@ -1416,11 +1490,22 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
 
       {loading ? (
         <div className="leaderboard-table-wrapper">
-          <table id={RESULTS_TABLE_ID} className="leaderboard-table" style={tableStyle}>
+          <table
+            id={RESULTS_TABLE_ID}
+            className="leaderboard-table"
+            style={tableStyle}
+            aria-labelledby={RESULTS_TABLE_CAPTION_ID}
+          >
+            <caption id={RESULTS_TABLE_CAPTION_ID} className="sr-only">
+              {captionText}
+            </caption>
             <TableHeader />
             <tbody>
               {Array.from({ length: 5 }).map((_, i) => (
-                <tr key={`skeleton-${i}`} style={{ borderTop: "1px solid #ccc" }}>
+                <tr
+                  key={`skeleton-${i}`}
+                  style={{ borderTop: "1px solid var(--color-border-subtle)" }}
+                >
                   <td style={cellStyle}>
                     <div className="skeleton" style={{ width: "12px", height: "1em" }} />
                   </td>
@@ -1460,9 +1545,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
               marginTop: "1.5rem",
               padding: "1rem",
               borderRadius: "8px",
-              border: "1px solid #f3c5c5",
-              background: "#fff5f5",
-              color: "#8a1c1c",
+              border: "1px solid var(--color-feedback-error-border)",
+              background: "var(--color-feedback-error-bg)",
+              color: "var(--color-feedback-error-text)",
             }}
           >
             {error}
@@ -1472,7 +1557,15 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         )
       ) : (
         <div className="leaderboard-table-wrapper">
-          <table id={RESULTS_TABLE_ID} className="leaderboard-table" style={tableStyle}>
+          <table
+            id={RESULTS_TABLE_ID}
+            className="leaderboard-table"
+            style={tableStyle}
+            aria-labelledby={RESULTS_TABLE_CAPTION_ID}
+          >
+            <caption id={RESULTS_TABLE_CAPTION_ID} className="sr-only">
+              {captionText}
+            </caption>
             <TableHeader />
             <tbody>
               {leaders.map((row) => {
@@ -1484,7 +1577,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                 return (
                   <tr
                     key={`${row.rank}-${row.playerId}-${row.sport ?? ""}`}
-                    style={{ borderTop: "1px solid #ccc" }}
+                    style={{ borderTop: "1px solid var(--color-border-subtle)" }}
                   >
                     <td style={cellStyle}>{row.rank}</td>
                     <td style={cellStyle}>{row.playerName}</td>
@@ -1515,7 +1608,11 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       {isLoadingMore ? (
         <p
           aria-live="polite"
-          style={{ marginTop: "0.75rem", fontSize: "0.85rem", color: "#555" }}
+          style={{
+            marginTop: "0.75rem",
+            fontSize: "0.85rem",
+            color: "var(--color-text-muted)",
+          }}
         >
           Loading more results…
         </p>

@@ -20,6 +20,58 @@
   --color-nav-bg: #0a1f44;
   --color-nav-text: #ffffff;
   --leaderboard-table-header-bg: var(--color-surface);
+  --color-surface-elevated: #ffffff;
+  --color-text-muted: #3f4f67;
+  --color-border-subtle: #c5cfdd;
+  --color-border-strong: #0f203f;
+  --color-button-primary-bg: #0a1f44;
+  --color-button-primary-border: #071327;
+  --color-button-primary-text: #ffffff;
+  --color-button-disabled-bg: #d8dee9;
+  --color-button-disabled-border: #b4bed0;
+  --color-button-disabled-text: #2f3b55;
+  --color-button-strong-bg: var(--color-button-primary-bg);
+  --color-button-strong-border: var(--color-button-primary-border);
+  --color-button-strong-text: var(--color-button-primary-text);
+  --color-feedback-error-border: #f3c5c5;
+  --color-feedback-error-bg: #fff5f5;
+  --color-feedback-error-text: #8a1c1c;
+  --color-text-danger-strong: #b91c1c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-bg: #0b1120;
+    --color-surface: #111c2f;
+    --color-text: #e2e8f0;
+    --color-success: #34d399;
+    --color-warning: #fbbf24;
+    --color-accent-red: #f87171;
+    --color-accent-red-hover: #dc2626;
+    --color-heading: #fca5a5;
+    --color-accent-blue: #60a5fa;
+    --color-nav-bg: #0f172a;
+    --color-nav-text: #f8fafc;
+    --leaderboard-table-header-bg: var(--color-surface-elevated);
+    --color-surface-elevated: #16213f;
+    --color-text-muted: #cbd5f5;
+    --color-border-subtle: #334155;
+    --color-border-strong: #475569;
+    --color-button-primary-bg: #2563eb;
+    --color-button-primary-border: #1d4ed8;
+    --color-button-primary-text: #f8fafc;
+    --color-button-disabled-bg: #1f2937;
+    --color-button-disabled-border: #334155;
+    --color-button-disabled-text: #cbd5f5;
+    --color-button-strong-bg: var(--color-button-primary-bg);
+    --color-button-strong-border: var(--color-button-primary-border);
+    --color-button-strong-text: var(--color-button-primary-text);
+    --color-feedback-error-border: #7f1d1d;
+    --color-feedback-error-bg: #3f1d1d;
+    --color-feedback-error-text: #fecaca;
+    --color-text-danger-strong: #f87171;
+  }
 }
 
 *,
@@ -1694,9 +1746,9 @@ textarea {
 }
 
 .leaderboard-tab--active {
-  border-color: #222;
-  background: #222;
-  color: #fff;
+  border-color: var(--color-button-primary-border);
+  background: var(--color-button-primary-bg);
+  color: var(--color-button-primary-text);
   font-weight: 600;
 }
 

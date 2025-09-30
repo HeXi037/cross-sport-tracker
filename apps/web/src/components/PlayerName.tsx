@@ -17,12 +17,10 @@ export default function PlayerName({ player }: { player: PlayerInfo }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={photoUrl}
-          alt=""
+          alt={`${player.name} avatar`}
           width={24}
           height={24}
           className="player-name__avatar"
-          aria-hidden="true"
-          role="presentation"
         />
       )}
       {player.name}

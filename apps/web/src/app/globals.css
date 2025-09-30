@@ -13,6 +13,7 @@
   /* Accents */
   --color-accent-red: #ba0c2f;
   --color-accent-red-hover: #8e0a23;
+  --color-heading: #8e0a23;
   --color-accent-blue: #1a73e8;
 
   /* Navigation */
@@ -93,7 +94,7 @@ img {
 
 .heading {
   margin-top: 0;
-  color: var(--color-accent-red);
+  color: var(--color-heading);
 }
 
 .form-stack {

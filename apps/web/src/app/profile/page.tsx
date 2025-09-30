@@ -48,6 +48,7 @@ import {
   type UserSettings,
 } from "../user-settings";
 import {
+  normalizeLocale,
   normalizeTimeZone,
   DEFAULT_TIME_ZONE,
   detectTimeZone,
@@ -334,11 +335,19 @@ export default function ProfilePage() {
   }, [applyPlayerDetails, router]);
 
   useEffect(() => {
+    if (preferencesLoaded) {
+      return;
+    }
     const stored = loadUserSettings();
-    setPreferences(stored);
-    setInitialPreferences(stored);
+    const normalizedLocale = normalizeLocale(currentLocale, "");
+    const hydrated =
+      !stored.preferredLocale && normalizedLocale
+        ? { ...stored, preferredLocale: normalizedLocale }
+        : stored;
+    setPreferences(hydrated);
+    setInitialPreferences(hydrated);
     setPreferencesLoaded(true);
-  }, []);
+  }, [currentLocale, preferencesLoaded]);
 
   useEffect(() => {
     if (loading) return;

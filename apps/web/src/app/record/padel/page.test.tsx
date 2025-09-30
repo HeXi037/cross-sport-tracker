@@ -2,7 +2,11 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import RecordPadelPage from "./page";
 import * as LocaleContext from "../../../lib/LocaleContext";
-import { getDateExample, getTimeExample } from "../../../lib/i18n";
+import {
+  getDateExample,
+  getTimeExample,
+  usesTwentyFourHourClock,
+} from "../../../lib/i18n";
 
 const router = { push: vi.fn() };
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -128,6 +132,9 @@ describe("RecordPadelPage", () => {
           /example|e\.g\./i.test(content)
         )
       ).toBeInTheDocument();
+      expect(
+        screen.getByText("Date format follows your profile preferences.")
+      ).toBeInTheDocument();
 
       const expectedTimeExample = getTimeExample("en-AU");
       expect(
@@ -135,6 +142,11 @@ describe("RecordPadelPage", () => {
           content.includes(`Example: ${expectedTimeExample}`)
         )
       ).toBeInTheDocument();
+      if (!usesTwentyFourHourClock("en-AU")) {
+        expect(
+          screen.getByText((content) => content.includes("include AM or PM"))
+        ).toBeInTheDocument();
+      }
     } finally {
       localeSpy.mockRestore();
     }
@@ -162,6 +174,9 @@ describe("RecordPadelPage", () => {
           /example|e\.g\./i.test(content)
         )
       ).toBeInTheDocument();
+      expect(
+        screen.getByText("Date format follows your profile preferences.")
+      ).toBeInTheDocument();
 
       const timeInput = await screen.findByLabelText(/start time/i);
       expect(timeInput).not.toHaveAttribute("placeholder");
@@ -177,6 +192,14 @@ describe("RecordPadelPage", () => {
           content.includes(`Example: ${expectedTimeExample}`)
         )
       ).toBeInTheDocument();
+      if (usesTwentyFourHourClock("fr-FR")) {
+        expect(
+          screen.getByText((content) =>
+            content.includes(`Example: ${expectedTimeExample}`) &&
+            !content.includes("include AM or PM")
+          )
+        ).toBeInTheDocument();
+      }
     } finally {
       localeSpy.mockRestore();
     }

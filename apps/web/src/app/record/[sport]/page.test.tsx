@@ -2,7 +2,11 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import * as bowlingSummary from "../../../lib/bowlingSummary";
 import * as LocaleContext from "../../../lib/LocaleContext";
-import { getDateExample, getTimeExample } from "../../../lib/i18n";
+import {
+  getDateExample,
+  getTimeExample,
+  usesTwentyFourHourClock,
+} from "../../../lib/i18n";
 import RecordSportForm from "./RecordSportForm";
 import { resolveRecordSportRoute } from "./resolveRecordSportRoute";
 
@@ -159,6 +163,9 @@ describe("RecordSportForm", () => {
       expect(
         screen.getByText(`Example: ${expectedDateExample}`)
       ).toBeInTheDocument();
+      expect(
+        screen.getByText("Date format follows your profile preferences.")
+      ).toBeInTheDocument();
 
       const expectedTimeExample = getTimeExample("en-AU");
       expect(
@@ -166,6 +173,11 @@ describe("RecordSportForm", () => {
           content.includes(`Example: ${expectedTimeExample}`)
         )
       ).toBeInTheDocument();
+      if (!usesTwentyFourHourClock("en-AU")) {
+        expect(
+          screen.getByText((content) => content.includes("include AM or PM"))
+        ).toBeInTheDocument();
+      }
     } finally {
       localeSpy.mockRestore();
     }
@@ -190,6 +202,9 @@ describe("RecordSportForm", () => {
       expect(
         screen.getByText(`Example: ${expectedDateExample}`)
       ).toBeInTheDocument();
+      expect(
+        screen.getByText("Date format follows your profile preferences.")
+      ).toBeInTheDocument();
 
       const timeInput = await screen.findByLabelText(/start time/i);
       expect(timeInput).not.toHaveAttribute("placeholder");
@@ -205,6 +220,14 @@ describe("RecordSportForm", () => {
           content.includes(`Example: ${expectedTimeExample}`)
         )
       ).toBeInTheDocument();
+      if (usesTwentyFourHourClock("de-DE")) {
+        expect(
+          screen.getByText((content) =>
+            content.includes(`Example: ${expectedTimeExample}`) &&
+            !content.includes("include AM or PM")
+          )
+        ).toBeInTheDocument();
+      }
     } finally {
       localeSpy.mockRestore();
     }

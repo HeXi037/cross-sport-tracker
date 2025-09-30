@@ -14,6 +14,10 @@ import { useLocale, useTimeZone } from '../lib/LocaleContext';
 import { ensureTrailingSlash, recordPathForSport } from '../lib/routes';
 import { formatDateTime, NEUTRAL_FALLBACK_LOCALE } from '../lib/i18n';
 import { useApiSWR } from '../lib/useApiSWR';
+import {
+  canonicalizeSportId,
+  createSportDisplayNameLookup,
+} from '../lib/sports';
 
 interface Sport {
   id: string;
@@ -120,6 +124,10 @@ const sportIcons: Record<string, { glyph: string; label: string }> = {
   table_tennis: {
     glyph: '🏓',
     label: 'Table tennis paddles icon',
+  },
+  disc_golf: {
+    glyph: '🥏',
+    label: 'Disc golf flying disc icon',
   },
 };
 
@@ -253,11 +261,23 @@ export default function HomePageClient({
     }
   }, [sportsError, sportsData]);
 
-  const sports = sportsData ?? [];
+  const sports = useMemo(() => {
+    if (sportsData) {
+      return sportsData;
+    }
+    if (!initialSportError) {
+      return initialSports;
+    }
+    return [];
+  }, [sportsData, initialSportError, initialSports]);
   const sportsLoading =
     !sportError && sports.length === 0 && sportsIsLoading;
   const sportsRevalidating = sports.length > 0 && sportsIsValidating;
   const sportsStatusVisible = sportsLoading || sportsRevalidating;
+  const getSportName = useMemo(
+    () => createSportDisplayNameLookup(sports),
+    [sports],
+  );
 
   const parseMatchesResponse = async (
     response: Response,
@@ -457,8 +477,10 @@ export default function HomePageClient({
         ) : (
           <ul className="sport-list" role="list">
             {sports.map((s) => {
-              const icon = sportIcons[s.id];
+              const icon =
+                sportIcons[s.id] ?? sportIcons[canonicalizeSportId(s.id)];
               const href = recordPathForSport(s.id);
+              const displayName = getSportName(s.id);
               return (
                 <li key={s.id} className="sport-item">
                   <Link href={href} className="sport-link">
@@ -467,7 +489,7 @@ export default function HomePageClient({
                         {icon.glyph}
                       </span>
                     ) : null}
-                    <span className="sport-name">{s.name}</span>
+                    <span className="sport-name">{displayName}</span>
                   </Link>
                 </li>
               );
@@ -519,7 +541,7 @@ export default function HomePageClient({
               const matchWithRuleset = m as MatchWithOptionalRuleset;
               const rulesetLabel = resolveRulesetLabel(matchWithRuleset);
               const metadataText = formatMatchMetadata([
-                matchWithRuleset.sport,
+                getSportName(matchWithRuleset.sport),
                 matchWithRuleset.bestOf != null
                   ? `Best of ${matchWithRuleset.bestOf}`
                   : null,

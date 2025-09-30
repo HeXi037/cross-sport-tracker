@@ -33,40 +33,114 @@ function titleizeFallback(id: string): string {
   return normalized.replace(/\b([a-z])/gi, (match) => match.toUpperCase());
 }
 
+function normalizeDisplayName(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+const SPORT_DISPLAY_NAME_OVERRIDES: Record<string, string> = {
+  badminton: "Badminton",
+  bowling: "Bowling",
+  disc_golf: "Disc Golf",
+  padel: "Padel",
+  padel_americano: "Padel Americano",
+  pickleball: "Pickleball",
+  table_tennis: "Table Tennis",
+  tennis: "Tennis",
+};
+
+function gatherSportIdAliases(id: string): string[] {
+  const trimmed = id.trim();
+  if (!trimmed) {
+    return [];
+  }
+  const canonical = canonicalizeSportId(trimmed);
+  const hyphenated = canonical.replace(/_/g, "-");
+  const lower = trimmed.toLowerCase();
+  return Array.from(new Set([trimmed, lower, canonical, hyphenated])).filter(
+    (alias): alias is string => Boolean(alias)
+  );
+}
+
+export function canonicalizeSportId(id: string | null | undefined): string {
+  if (!id) {
+    return "";
+  }
+  return id.trim().toLowerCase().replace(/[-\s]+/g, "_");
+}
+
+export function formatSportName(
+  sportId: string | null | undefined,
+  options?: { sportName?: string | null | undefined }
+): string {
+  const preferred = normalizeDisplayName(options?.sportName);
+  if (preferred) {
+    return preferred;
+  }
+
+  const canonical = canonicalizeSportId(sportId ?? "");
+  if (!canonical) {
+    return "—";
+  }
+
+  const override = SPORT_DISPLAY_NAME_OVERRIDES[canonical];
+  if (override) {
+    return override;
+  }
+
+  const meta = getRecordSportMetaById(canonical);
+  if (meta) {
+    return getRecordSportDisplayName(meta);
+  }
+
+  const raw = normalizeDisplayName(sportId);
+  if (raw) {
+    return titleizeFallback(raw);
+  }
+
+  return "—";
+}
+
 export function createSportDisplayNameLookup(sports: Sport[]): (
   sportId: string | null | undefined,
 ) => string {
   const map = new Map<string, string>();
+
   sports.forEach((sport) => {
     if (!sport || typeof sport.id !== "string") {
       return;
     }
-    const id = sport.id.trim();
-    if (!id) {
+    const aliases = gatherSportIdAliases(sport.id);
+    if (!aliases.length) {
       return;
     }
-    const name = typeof sport.name === "string" && sport.name.trim();
-    if (name) {
-      map.set(id, name);
+    const preferred = normalizeDisplayName(sport.name);
+    const resolved = preferred ?? formatSportName(sport.id);
+    if (!resolved) {
+      return;
     }
+    aliases.forEach((alias) => {
+      map.set(alias, resolved);
+    });
   });
 
   return (sportId) => {
-    if (!sportId) {
+    const raw = normalizeDisplayName(sportId);
+    if (!raw) {
       return "—";
     }
-    const normalized = sportId.trim();
-    if (!normalized) {
-      return "—";
+
+    const aliases = gatherSportIdAliases(raw);
+    for (const alias of aliases) {
+      const direct = map.get(alias);
+      if (direct) {
+        return direct;
+      }
     }
-    const direct = map.get(normalized);
-    if (direct) {
-      return direct;
-    }
-    const meta = getRecordSportMetaById(normalized);
-    if (meta) {
-      return getRecordSportDisplayName(meta);
-    }
-    return titleizeFallback(normalized);
+
+    return formatSportName(raw);
   };
 }

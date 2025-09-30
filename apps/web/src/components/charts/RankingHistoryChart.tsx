@@ -50,9 +50,44 @@ export function RankingHistoryChart({ data }: { data: RankingPoint[] }) {
       },
     },
   };
+  const ranks = data.map((d) => d.rank);
+  const minRank = ranks.length ? Math.min(...ranks) : null;
+  const maxRank = ranks.length ? Math.max(...ranks) : null;
+  const firstDate = data[0]?.date;
+  const lastDate = data[data.length - 1]?.date;
+  const summary =
+    ranks.length > 0
+      ? `Line chart showing the player's ranking history from ${firstDate} to ${lastDate}. Rankings range between ${minRank} and ${maxRank}, with lower numbers indicating a better rank.`
+      : 'Line chart showing the player\'s ranking history. No ranking data is available.';
   return (
     <div style={{ position: 'relative', width: '100%', height: '300px' }}>
-      <Line data={chartData} options={options} />
+      <Line
+        role="img"
+        aria-label={summary}
+        data={chartData}
+        options={options}
+      />
+      {data.length > 0 ? (
+        <table className="sr-only">
+          <caption>Ranking by match date</caption>
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">Rank</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((point, index) => (
+              <tr key={`${point.date}-${index}`}>
+                <td>{point.date}</td>
+                <td>{point.rank}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="sr-only">No ranking data is available.</p>
+      )}
     </div>
   );
 }

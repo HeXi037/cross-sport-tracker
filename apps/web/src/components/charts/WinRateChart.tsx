@@ -54,9 +54,45 @@ export function WinRateChart({ data }: { data: WinRatePoint[] }) {
     },
   };
 
+  const winRates = data.map((d) => Math.round(d.winRate * 100));
+  const minRate = winRates.length ? Math.min(...winRates) : null;
+  const maxRate = winRates.length ? Math.max(...winRates) : null;
+  const firstDate = data[0]?.date;
+  const lastDate = data[data.length - 1]?.date;
+  const summary =
+    winRates.length > 0
+      ? `Line chart showing the player's win rate percentage over time from ${firstDate} to ${lastDate}. The win rate ranges from ${minRate}% to ${maxRate}%.`
+      : 'Line chart showing the player\'s win rate percentage over time. No win rate data is available.';
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '300px' }}>
-      <Line data={chartData} options={options} />
+      <Line
+        role="img"
+        aria-label={summary}
+        data={chartData}
+        options={options}
+      />
+      {data.length > 0 ? (
+        <table className="sr-only">
+          <caption>Win rate by match date</caption>
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">Win rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((point, index) => (
+              <tr key={`${point.date}-${index}`}>
+                <td>{point.date}</td>
+                <td>{Math.round(point.winRate * 100)}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p className="sr-only">No win rate data is available.</p>
+      )}
     </div>
   );
 }

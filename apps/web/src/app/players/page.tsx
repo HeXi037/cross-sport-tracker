@@ -395,6 +395,7 @@ export default function PlayersPage() {
               id="player-search"
               type="search"
               className="input"
+              aria-label="Search players"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search players"

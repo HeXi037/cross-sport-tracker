@@ -1,4 +1,5 @@
 import os, sys, asyncio
+from datetime import datetime
 from typing import Tuple
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -11,7 +12,15 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from backend.app.db import get_session
-from backend.app.models import Player, Match, MatchParticipant, Sport
+from backend.app.models import (
+    Player,
+    Match,
+    MatchParticipant,
+    Sport,
+    ScoreEvent,
+    Rating,
+    GlickoRating,
+)
 from backend.app.routers import players
 from sqlalchemy.dialects.sqlite import JSON as SQLiteJSON
 
@@ -36,6 +45,9 @@ def client_and_session():
             await conn.run_sync(Player.__table__.create)
             await conn.run_sync(Match.__table__.create)
             await conn.run_sync(MatchParticipant.__table__.create)
+            await conn.run_sync(ScoreEvent.__table__.create)
+            await conn.run_sync(Rating.__table__.create)
+            await conn.run_sync(GlickoRating.__table__.create)
 
     asyncio.run(init_models())
 
@@ -394,3 +406,72 @@ def test_player_stats_cache_invalidation(client_and_session, monkeypatch):
     assert resp.status_code == 200
     assert call_count == 2
     assert resp.json()["rollingWinPct"] == [0.0, 0.0]
+
+
+def test_player_stats_rating_timestamps_include_timezone(client_and_session):
+    client, session_maker = client_and_session
+    seed(session_maker)
+
+    naive_event_ts = datetime(2024, 1, 5, 12, 30, 0)
+    naive_rating_ts = datetime(2024, 1, 6, 8, 15, 0)
+
+    async def add_rating_data():
+        async with session_maker() as session:
+            session.add(
+                ScoreEvent(
+                    id="se1",
+                    match_id="m1",
+                    type="RATING",
+                    created_at=naive_event_ts,
+                    payload={
+                        "playerId": "p1",
+                        "systems": {
+                            "elo": {"rating": 1010.0},
+                            "glicko": {"rating": 1520.0, "rd": 110.0},
+                        },
+                    },
+                )
+            )
+            session.add(
+                Rating(
+                    id="r1",
+                    player_id="p1",
+                    sport_id="padel",
+                    value=1010.0,
+                )
+            )
+            session.add(
+                GlickoRating(
+                    id="g1",
+                    player_id="p1",
+                    sport_id="padel",
+                    rating=1520.0,
+                    rd=110.0,
+                    last_updated=naive_rating_ts,
+                )
+            )
+            await session.commit()
+
+    asyncio.run(add_rating_data())
+
+    resp = client.get("/players/p1/stats")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ratings"], "Expected ratings data in stats response"
+    padel_rating = next((entry for entry in data["ratings"] if entry["sport"] == "padel"), None)
+    assert padel_rating is not None
+
+    def _has_timezone(value: str | None) -> bool:
+        if not value:
+            return False
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        return parsed.tzinfo is not None and parsed.utcoffset() is not None
+
+    elo_snapshot = padel_rating.get("elo") or {}
+    assert _has_timezone(elo_snapshot.get("lastUpdated"))
+
+    glicko_snapshot = padel_rating.get("glicko") or {}
+    assert _has_timezone(glicko_snapshot.get("lastUpdated"))

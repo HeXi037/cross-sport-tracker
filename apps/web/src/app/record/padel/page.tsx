@@ -32,6 +32,109 @@ interface SetScore {
   B: string;
 }
 
+const VALID_BEST_OF = new Set([1, 3, 5]);
+const MIN_SET_SCORE = 0;
+const MAX_SET_SCORE = 6;
+
+interface PadelSetAnalysis {
+  errors: string[];
+  completed: number;
+  winsA: number;
+  winsB: number;
+  summaryMessage: string;
+  summaryError: string | null;
+  isValid: boolean;
+}
+
+function analysePadelSets(sets: SetScore[], rawBestOf: number): PadelSetAnalysis {
+  const bestOf = VALID_BEST_OF.has(rawBestOf) ? rawBestOf : 3;
+  const neededWins = Math.floor(bestOf / 2) + 1;
+  const errors = sets.map(() => "");
+  let completed = 0;
+  let winsA = 0;
+  let winsB = 0;
+  let summaryError: string | null = null;
+
+  sets.forEach((set, idx) => {
+    const setLabel = `set ${idx + 1}`;
+    const a = set.A.trim();
+    const b = set.B.trim();
+
+    if (!a && !b) {
+      return;
+    }
+
+    if (!a || !b) {
+      errors[idx] = "Enter a score for both teams.";
+      if (!summaryError) {
+        summaryError = `Enter a score for both teams in ${setLabel}.`;
+      }
+      return;
+    }
+
+    const aNum = Number(a);
+    const bNum = Number(b);
+
+    if (
+      !Number.isInteger(aNum) ||
+      !Number.isInteger(bNum) ||
+      aNum < MIN_SET_SCORE ||
+      bNum < MIN_SET_SCORE ||
+      aNum > MAX_SET_SCORE ||
+      bNum > MAX_SET_SCORE
+    ) {
+      errors[idx] = "Scores must be whole numbers between 0 and 6.";
+      if (!summaryError) {
+        summaryError = `Scores in ${setLabel} must be whole numbers between 0 and 6.`;
+      }
+      return;
+    }
+
+    if (aNum === bNum) {
+      errors[idx] = "Set scores must have a winner.";
+      if (!summaryError) {
+        summaryError = `Set ${idx + 1} must have a winner.`;
+      }
+      return;
+    }
+
+    completed += 1;
+    if (aNum > bNum) {
+      winsA += 1;
+    } else {
+      winsB += 1;
+    }
+  });
+
+  if (!summaryError) {
+    if (completed === 0) {
+      summaryError = "Add scores for at least one completed set.";
+    } else if (completed > bestOf) {
+      summaryError = `Best of ${bestOf} allows at most ${bestOf} completed sets.`;
+    } else if (winsA > neededWins || winsB > neededWins) {
+      summaryError = `Best of ${bestOf} ends when a side wins ${neededWins} sets. Remove extra set scores.`;
+    } else if (winsA < neededWins && winsB < neededWins) {
+      summaryError = `Best of ${bestOf} requires ${neededWins} set wins for a team.`;
+    } else if (winsA === winsB) {
+      summaryError = "Sets must produce a winner.";
+    }
+  }
+
+  const summaryMessage = summaryError
+    ? summaryError
+    : `Completed sets ready to save: ${completed}.`;
+
+  return {
+    errors,
+    completed,
+    winsA,
+    winsB,
+    summaryMessage,
+    summaryError,
+    isValid: !summaryError && errors.every((error) => !error),
+  };
+}
+
 interface CreateMatchPayload {
   sport: string;
   participants: { side: string; playerIds: string[] }[];
@@ -107,52 +210,15 @@ export default function RecordPadelPage() {
     [playerNameById, sideBSelected],
   );
 
-  const setStatus = useMemo(() => {
-    let completed = 0;
-    let message: string | null = null;
+  const bestOfNumber = useMemo(() => {
+    const parsed = Number(bestOf);
+    return VALID_BEST_OF.has(parsed) ? parsed : 3;
+  }, [bestOf]);
 
-    sets.forEach((set, idx) => {
-      const a = set.A.trim();
-      const b = set.B.trim();
-
-      if (!a && !b) {
-        return;
-      }
-
-      if (!a || !b) {
-        if (!message) {
-          message = `Enter a score for both teams in set ${idx + 1}.`;
-        }
-        return;
-      }
-
-      const aNum = Number(a);
-      const bNum = Number(b);
-
-      if (
-        !Number.isInteger(aNum) ||
-        aNum < 0 ||
-        !Number.isInteger(bNum) ||
-        bNum < 0
-      ) {
-        if (!message) {
-          message = `Scores in set ${idx + 1} must be whole numbers of zero or more.`;
-        }
-        return;
-      }
-
-      completed += 1;
-    });
-
-    if (!message && completed === 0) {
-      message = "Add scores for at least one completed set.";
-    }
-
-    return {
-      completed,
-      message,
-    };
-  }, [sets]);
+  const setAnalysis = useMemo(
+    () => analysePadelSets(sets, bestOfNumber),
+    [sets, bestOfNumber],
+  );
 
   const hasSideAPlayers = sideASelected.length > 0;
   const hasSideBPlayers = sideBSelected.length > 0;
@@ -161,8 +227,7 @@ export default function RecordPadelPage() {
     !saving &&
     hasSideAPlayers &&
     hasSideBPlayers &&
-    setStatus.completed > 0 &&
-    !setStatus.message &&
+    setAnalysis.isValid &&
     duplicatePlayerIds.length === 0;
 
   const buttonCursor = saving
@@ -184,9 +249,8 @@ export default function RecordPadelPage() {
   const duplicatePlayersMessage = duplicatePlayerNames.length
     ? `Players cannot appear on both sides: ${duplicatePlayerNames.join(", ")}.`
     : null;
-  const completedSetsMessage = setStatus.message
-    ? setStatus.message
-    : `Completed sets ready to save: ${setStatus.completed}.`;
+  const completedSetsMessage = setAnalysis.summaryMessage;
+  const hasSetSummaryError = Boolean(setAnalysis.summaryError);
 
   useEffect(() => {
     async function loadPlayers() {
@@ -247,44 +311,27 @@ export default function RecordPadelPage() {
   }, [timeExample, uses24HourTime]);
 
   const validateSets = () => {
-    const errors = sets.map(() => "");
-    let hasErrors = false;
-
-    sets.forEach((set, idx) => {
-      const a = set.A.trim();
-      const b = set.B.trim();
-
-      if (!a && !b) {
-        return;
-      }
-
-      if ((a && !b) || (!a && b)) {
-        errors[idx] = "Enter a score for both teams.";
-        hasErrors = true;
-        return;
-      }
-
-      const aNum = Number(a);
-      const bNum = Number(b);
-      if (!Number.isInteger(aNum) || aNum < 0 || !Number.isInteger(bNum) || bNum < 0) {
-        errors[idx] = "Scores must be whole numbers of zero or more.";
-        hasErrors = true;
-      }
-    });
-
-    setSetErrors(errors);
-    return !hasErrors;
+    const analysis = analysePadelSets(sets, bestOfNumber);
+    setSetErrors(analysis.errors);
+    return analysis.isValid;
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setShowSummaryValidation(true);
-    if (saving || !canSave) {
+    setSuccess(false);
+
+    const setsValid = validateSets();
+
+    if (!setsValid) {
+      setGlobalError("Please fix the highlighted set scores before saving.");
+    } else {
+      setGlobalError(null);
+    }
+
+    if (saving) {
       return;
     }
-    setGlobalError(null);
-    setSuccess(false);
-    setSaving(true);
 
     const newPlayerErrors: Record<keyof IdMap, string> = {
       a1: "",
@@ -326,17 +373,13 @@ export default function RecordPadelPage() {
     }
 
     setPlayerErrors(newPlayerErrors);
-    if (hasPlayerErrors) {
+    if (hasPlayerErrors || !setsValid || !canSave) {
       setSaving(false);
       setSuccess(false);
       return;
     }
 
-    if (!validateSets()) {
-      setGlobalError("Please fix the highlighted set scores before saving.");
-      setSaving(false);
-      return;
-    }
+    setSaving(true);
 
     const participants = [
       { side: "A", playerIds: sideA },
@@ -605,6 +648,7 @@ export default function RecordPadelPage() {
                     id={`padel-set-${idx + 1}-a`}
                     type="number"
                     min="0"
+                    max={MAX_SET_SCORE}
                     step="1"
                     placeholder={`Set ${idx + 1} A`}
                     value={s.A}
@@ -620,6 +664,7 @@ export default function RecordPadelPage() {
                     id={`padel-set-${idx + 1}-b`}
                     type="number"
                     min="0"
+                    max={MAX_SET_SCORE}
                     step="1"
                     placeholder={`Set ${idx + 1} B`}
                     value={s.B}
@@ -692,10 +737,10 @@ export default function RecordPadelPage() {
           )}
           <p
             className={
-              setStatus.message && showSummaryValidation ? "error" : "form-hint"
+              hasSetSummaryError && showSummaryValidation ? "error" : "form-hint"
             }
             role={
-              setStatus.message && showSummaryValidation ? "alert" : undefined
+              hasSetSummaryError && showSummaryValidation ? "alert" : undefined
             }
           >
             {completedSetsMessage}

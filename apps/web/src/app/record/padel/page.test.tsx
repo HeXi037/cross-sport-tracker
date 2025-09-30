@@ -340,6 +340,217 @@ describe("RecordPadelPage", () => {
     );
   });
 
+  it("enforces the best-of selection when validating sets", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          players: [
+            { id: "p1", name: "A" },
+            { id: "p2", name: "B" },
+            { id: "p3", name: "C" },
+            { id: "p4", name: "D" },
+          ],
+        }),
+      });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordPadelPage />);
+
+    await waitFor(() => screen.getByLabelText("Player A 1"));
+
+    fireEvent.change(screen.getByLabelText("Player A 1"), {
+      target: { value: "p1" },
+    });
+    fireEvent.change(screen.getByLabelText("Player B 1"), {
+      target: { value: "p2" },
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("Set 1 A"), {
+      target: { value: "6" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Set 1 B"), {
+      target: { value: "4" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByRole("alert")
+          .some((alert) =>
+            alert.textContent?.includes(
+              "Best of 3 requires 2 set wins for a team.",
+            ),
+          ),
+      ).toBe(true),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /add set/i }));
+    fireEvent.change(screen.getByPlaceholderText("Set 2 A"), {
+      target: { value: "4" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Set 2 B"), {
+      target: { value: "6" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByRole("alert")
+          .some((alert) =>
+            alert.textContent?.includes(
+              "Best of 3 requires 2 set wins for a team.",
+            ),
+          ),
+      ).toBe(true),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /add set/i }));
+    fireEvent.change(screen.getByPlaceholderText("Set 3 A"), {
+      target: { value: "6" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Set 3 B"), {
+      target: { value: "2" },
+    });
+
+    expect(
+      screen.getByRole("button", { name: /save/i }),
+    ).toHaveAttribute("aria-disabled", "false");
+    expect(
+      screen.getByText("Completed sets ready to save: 3."),
+    ).toBeInTheDocument();
+  });
+
+  it("rejects set scores outside the allowed range", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          players: [
+            { id: "p1", name: "A" },
+            { id: "p2", name: "B" },
+          ],
+        }),
+      });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordPadelPage />);
+
+    await waitFor(() => screen.getByLabelText("Player A 1"));
+
+    fireEvent.change(screen.getByLabelText("Player A 1"), {
+      target: { value: "p1" },
+    });
+    fireEvent.change(screen.getByLabelText("Player B 1"), {
+      target: { value: "p2" },
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("Set 1 A"), {
+      target: { value: "7" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Set 1 B"), {
+      target: { value: "5" },
+    });
+
+    const saveButton = screen.getByRole("button", { name: /save/i });
+    const form = saveButton.closest("form");
+    expect(form).not.toBeNull();
+    if (form) {
+      fireEvent.submit(form);
+    }
+
+    const alertMessage = await screen.findByText(
+      /Please fix the highlighted set scores before saving./i,
+    );
+    expect(alertMessage).toHaveAttribute("role", "alert");
+    expect(
+      screen.getByText("Scores in set 1 must be whole numbers between 0 and 6."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /save/i }),
+    ).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("prevents recording extra sets once the winner is decided", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          players: [
+            { id: "p1", name: "A" },
+            { id: "p2", name: "B" },
+            { id: "p3", name: "C" },
+            { id: "p4", name: "D" },
+          ],
+        }),
+      });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordPadelPage />);
+
+    await waitFor(() => screen.getByLabelText("Player A 1"));
+
+    fireEvent.change(screen.getByLabelText("Player A 1"), {
+      target: { value: "p1" },
+    });
+    fireEvent.change(screen.getByLabelText("Player A 2"), {
+      target: { value: "p2" },
+    });
+    fireEvent.change(screen.getByLabelText("Player B 1"), {
+      target: { value: "p3" },
+    });
+    fireEvent.change(screen.getByLabelText("Player B 2"), {
+      target: { value: "p4" },
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("Set 1 A"), {
+      target: { value: "6" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Set 1 B"), {
+      target: { value: "1" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /add set/i }));
+    fireEvent.change(screen.getByPlaceholderText("Set 2 A"), {
+      target: { value: "6" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Set 2 B"), {
+      target: { value: "2" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /add set/i }));
+    fireEvent.change(screen.getByPlaceholderText("Set 3 A"), {
+      target: { value: "6" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Set 3 B"), {
+      target: { value: "4" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByRole("alert")
+          .some((alert) =>
+            alert.textContent?.includes(
+              "Best of 3 ends when a side wins 2 sets. Remove extra set scores.",
+            ),
+          ),
+      ).toBe(true),
+    );
+    expect(
+      screen.getByRole("button", { name: /save/i }),
+    ).toHaveAttribute("aria-disabled", "true");
+  });
+
   it("shows an error when saving the match fails", async () => {
     const fetchMock = vi
       .fn()
@@ -371,6 +582,14 @@ describe("RecordPadelPage", () => {
     });
     fireEvent.change(screen.getByPlaceholderText("Set 1 B"), {
       target: { value: "4" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /add set/i }));
+    fireEvent.change(screen.getByPlaceholderText("Set 2 A"), {
+      target: { value: "6" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Set 2 B"), {
+      target: { value: "3" },
     });
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
@@ -423,6 +642,14 @@ describe("RecordPadelPage", () => {
     });
     fireEvent.change(screen.getByPlaceholderText("Set 1 B"), {
       target: { value: "4" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /add set/i }));
+    fireEvent.change(screen.getByPlaceholderText("Set 2 A"), {
+      target: { value: "6" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Set 2 B"), {
+      target: { value: "1" },
     });
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));

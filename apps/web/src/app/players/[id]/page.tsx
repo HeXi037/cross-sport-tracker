@@ -10,11 +10,7 @@ import PlayerDetailErrorBoundary, {
 import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
 import MatchParticipants from "../../../components/MatchParticipants";
 import PhotoUpload from "./PhotoUpload";
-import {
-  formatDate,
-  resolveTimeZone,
-  TIME_ZONE_COOKIE_KEY,
-} from "../../../lib/i18n";
+import { formatDate } from "../../../lib/i18n";
 import { resolveServerLocale } from "../../../lib/server-locale";
 import {
   formatMatchRecord,
@@ -443,9 +439,7 @@ export default async function PlayerPage({
   searchParams: { view?: string };
 }) {
   const cookieStore = cookies();
-  const { locale } = resolveServerLocale({ cookieStore });
-  const timeZoneCookie = cookieStore.get(TIME_ZONE_COOKIE_KEY)?.value ?? null;
-  const timeZone = resolveTimeZone(timeZoneCookie, locale);
+  const { locale, timeZone } = resolveServerLocale({ cookieStore });
   let player: Player;
   try {
     player = await getPlayer(params.id);

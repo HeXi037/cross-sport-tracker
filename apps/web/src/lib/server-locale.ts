@@ -1,8 +1,10 @@
 import { cookies, headers } from 'next/headers';
 import {
   LOCALE_COOKIE_KEY,
+  TIME_ZONE_COOKIE_KEY,
   normalizeLocale,
   parseAcceptLanguage,
+  resolveTimeZone,
 } from './i18n';
 
 export type ResolveServerLocaleOptions = {
@@ -12,7 +14,12 @@ export type ResolveServerLocaleOptions = {
 
 export function resolveServerLocale(
   options: ResolveServerLocaleOptions = {},
-): { locale: string; acceptLanguage: string | null } {
+): {
+  locale: string;
+  acceptLanguage: string | null;
+  preferredTimeZone: string | null;
+  timeZone: string;
+} {
   const cookieStore = options.cookieStore ?? cookies();
   const acceptLanguage =
     options.acceptLanguage !== undefined
@@ -25,12 +32,17 @@ export function resolveServerLocale(
       : null;
 
   const cookieLocale = cookieStore.get(LOCALE_COOKIE_KEY)?.value ?? null;
+  const preferredTimeZone =
+    cookieStore.get(TIME_ZONE_COOKIE_KEY)?.value ?? null;
+  const locale = normalizeLocale(
+    cookieLocale,
+    parseAcceptLanguage(normalizedAcceptLanguage),
+  );
 
   return {
-    locale: normalizeLocale(
-      cookieLocale,
-      parseAcceptLanguage(normalizedAcceptLanguage),
-    ),
+    locale,
     acceptLanguage: normalizedAcceptLanguage,
+    preferredTimeZone,
+    timeZone: resolveTimeZone(preferredTimeZone, locale),
   };
 }

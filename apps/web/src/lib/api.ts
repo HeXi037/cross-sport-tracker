@@ -1,4 +1,5 @@
 // apps/web/src/lib/api.ts
+import { TIME_ZONE_COOKIE_KEY } from "./i18n";
 export function apiBase(): string {
   const server = typeof window === 'undefined';
   const base = server
@@ -285,6 +286,37 @@ async function executeFetch(
       token = readStoredAccessToken();
     }
     if (token) headers.set("Authorization", `Bearer ${token}`);
+  } else {
+    try {
+      const { cookies } = await import("next/headers");
+      const cookieStore = cookies();
+      const preferredTimeZone =
+        cookieStore.get(TIME_ZONE_COOKIE_KEY)?.value ?? null;
+      if (preferredTimeZone) {
+        const encoded = encodeURIComponent(preferredTimeZone);
+        const cookieHeader = headers.get("cookie");
+        const hasExistingTimeZone =
+          typeof cookieHeader === "string" &&
+          cookieHeader
+            .split(";")
+            .some((part) =>
+              part.trim().toLowerCase().startsWith(
+                `${TIME_ZONE_COOKIE_KEY.toLowerCase()}=`
+              ),
+            );
+        if (!hasExistingTimeZone) {
+          const timeZoneFragment = `${TIME_ZONE_COOKIE_KEY}=${encoded}`;
+          headers.set(
+            "cookie",
+            cookieHeader
+              ? `${cookieHeader}; ${timeZoneFragment}`
+              : timeZoneFragment,
+          );
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to forward preferred time zone cookie", err);
+    }
   }
 
   const res = await fetch(apiUrl(path), { ...init, headers });

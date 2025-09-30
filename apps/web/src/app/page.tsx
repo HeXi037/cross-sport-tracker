@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 
+import { cookies } from 'next/headers';
 import { apiFetch } from '../lib/api';
 import HomePageClient from './home-page-client';
 import {
@@ -20,7 +21,8 @@ export default async function HomePage() {
   let matchPageSize = 5;
   let sportError = false;
   let matchError = false;
-  const { locale } = resolveServerLocale();
+  const cookieStore = cookies();
+  const { locale, timeZone } = resolveServerLocale({ cookieStore });
 
   const MATCHES_LIMIT = 5;
 
@@ -65,6 +67,7 @@ export default async function HomePage() {
       sportError={sportError}
       matchError={matchError}
       initialLocale={locale}
+      initialTimeZone={timeZone}
     />
   );
 }

@@ -12,7 +12,11 @@ import {
 import MatchParticipants from '../components/MatchParticipants';
 import { useLocale, useTimeZone } from '../lib/LocaleContext';
 import { ensureTrailingSlash, recordPathForSport } from '../lib/routes';
-import { formatDateTime, NEUTRAL_FALLBACK_LOCALE } from '../lib/i18n';
+import {
+  DEFAULT_TIME_ZONE,
+  formatDateTime,
+  NEUTRAL_FALLBACK_LOCALE,
+} from '../lib/i18n';
 import { useApiSWR } from '../lib/useApiSWR';
 
 interface Sport {
@@ -133,6 +137,7 @@ interface Props {
   sportError: boolean;
   matchError: boolean;
   initialLocale?: string;
+  initialTimeZone?: string;
   initialHasMore: boolean;
   initialNextOffset: number | null;
   initialPageSize: number;
@@ -214,6 +219,7 @@ export default function HomePageClient({
   sportError: initialSportError,
   matchError: initialMatchError,
   initialLocale = NEUTRAL_FALLBACK_LOCALE,
+  initialTimeZone,
   initialHasMore,
   initialNextOffset,
   initialPageSize,
@@ -227,7 +233,8 @@ export default function HomePageClient({
   const [loadingMore, setLoadingMore] = useState(false);
   const [paginationError, setPaginationError] = useState(false);
   const localeFromContext = useLocale();
-  const timeZone = useTimeZone();
+  const contextTimeZone = useTimeZone();
+  const timeZone = contextTimeZone || initialTimeZone || DEFAULT_TIME_ZONE;
   const activeLocale =
     localeFromContext || initialLocale || NEUTRAL_FALLBACK_LOCALE;
   const formatMatchDate = useMemo(

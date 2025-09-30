@@ -43,7 +43,7 @@ export default function TournamentsClient({
 
   const emptyMessage = useMemo(() => {
     if (loadError) {
-      return "Unable to load tournaments.";
+      return "Unable to load tournaments. Please try again later.";
     }
     if (tournaments.length === 0) {
       return "No tournaments have been created yet.";

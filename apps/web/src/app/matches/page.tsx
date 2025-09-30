@@ -224,8 +224,14 @@ export default async function MatchesPage(
     );
   } catch (err) {
     const apiError = err as ApiError | null;
-    let message = "Failed to load matches.";
+    const fallbackMessage = "Failed to load matches. Try again later.";
+    let message = fallbackMessage;
     const code = typeof apiError?.code === "string" ? apiError.code : null;
+    const serverDetail =
+      typeof apiError?.parsedMessage === "string" &&
+      apiError.parsedMessage.trim().length > 0
+        ? apiError.parsedMessage.trim()
+        : null;
     if (code) {
       const mapped = MATCH_ERROR_COPY[code];
       if (mapped) {
@@ -237,8 +243,9 @@ export default async function MatchesPage(
           apiError?.parsedMessage ?? apiError?.message ?? null
         );
       }
-    } else if (apiError?.parsedMessage) {
-      console.error("Unhandled matches error message", apiError.parsedMessage);
+    } else if (serverDetail) {
+      message = `${fallbackMessage} (${serverDetail})`;
+      console.error("Unhandled matches error message", serverDetail);
     }
     return (
       <main className="container">

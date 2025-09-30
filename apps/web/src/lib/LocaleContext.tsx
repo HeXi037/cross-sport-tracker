@@ -81,10 +81,7 @@ function pickLocaleCandidate(
 
   const normalizedCandidates = candidates
     .map((candidate) => normalizeLocale(candidate, ''))
-    .filter(
-      (candidate): candidate is string =>
-        Boolean(candidate) && candidate !== normalizedFallback,
-    );
+    .filter((candidate): candidate is string => Boolean(candidate));
 
   const normalizedPreferred = normalizeLocale(options.preferredLocale, '');
   if (
@@ -95,7 +92,11 @@ function pickLocaleCandidate(
   }
 
   const normalizedStored = normalizeLocale(options.storedLocale, '');
-  if (normalizedStored && normalizedCandidates.includes(normalizedStored)) {
+  if (
+    normalizedStored &&
+    normalizedStored !== normalizedFallback &&
+    normalizedCandidates.includes(normalizedStored)
+  ) {
     return normalizedStored;
   }
 
@@ -122,11 +123,38 @@ export function LocaleProvider({
   timeZone,
   children,
 }: ProviderProps) {
-  const [currentLocale, setCurrentLocale] = useState(() =>
-    normalizeLocale(locale, NEUTRAL_FALLBACK_LOCALE),
-  );
+  const initialLocale = (() => {
+    const normalizedProvided = normalizeLocale(locale, NEUTRAL_FALLBACK_LOCALE);
+    const fallbackFromHeader = parseAcceptLanguage(
+      acceptLanguage,
+      normalizedProvided,
+    );
+    const storedLocale = getStoredLocale();
+    const preferredSettingsLocale = (() => {
+      try {
+        const settings = loadUserSettings();
+        return normalizeLocale(settings.preferredLocale, '');
+      } catch {
+        return '';
+      }
+    })();
+
+    const candidates = resolveLocaleCandidates(
+      fallbackFromHeader,
+      acceptLanguage,
+      storedLocale,
+      preferredSettingsLocale,
+    );
+
+    return pickLocaleCandidate(candidates, fallbackFromHeader, {
+      preferredLocale: preferredSettingsLocale,
+      storedLocale,
+    });
+  })();
+
+  const [currentLocale, setCurrentLocale] = useState(initialLocale);
   const [currentTimeZone, setCurrentTimeZone] = useState(() =>
-    resolveTimeZone(timeZone, locale),
+    resolveTimeZone(timeZone, initialLocale),
   );
 
   useEffect(() => {
@@ -138,15 +166,12 @@ export function LocaleProvider({
   }, [currentLocale]);
 
   useEffect(() => {
-    setCurrentLocale((prev) => {
-      const normalized = normalizeLocale(locale, NEUTRAL_FALLBACK_LOCALE);
-      return prev === normalized ? prev : normalized;
-    });
-  }, [locale]);
-
-  useEffect(() => {
     const applyResolvedPreferences = () => {
-      const fallbackLocale = normalizeLocale(locale, NEUTRAL_FALLBACK_LOCALE);
+      const normalizedProvided = normalizeLocale(locale, NEUTRAL_FALLBACK_LOCALE);
+      const fallbackLocale = parseAcceptLanguage(
+        acceptLanguage,
+        normalizedProvided,
+      );
       const storedLocale = getStoredLocale();
       const preferredSettings = (() => {
         try {
@@ -170,7 +195,16 @@ export function LocaleProvider({
         storedLocale,
       });
       setCurrentLocale((prev) => (prev === nextLocale ? prev : nextLocale));
-      storeLocalePreference(nextLocale);
+
+      const shouldPersistLocale = Boolean(
+        storedLocale ||
+          preferredSettingsLocale ||
+          acceptLanguage ||
+          nextLocale !== normalizedProvided,
+      );
+      if (shouldPersistLocale) {
+        storeLocalePreference(nextLocale);
+      }
 
       const cookieTimeZone = normalizeTimeZone(timeZone, '');
       const preferredSettingsTimeZone = normalizeTimeZone(

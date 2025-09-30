@@ -52,6 +52,7 @@ import {
   normalizeTimeZone,
   DEFAULT_TIME_ZONE,
   detectTimeZone,
+  storeLocalePreference,
 } from "../../lib/i18n";
 import { useLocale } from "../../lib/LocaleContext";
 import {
@@ -344,6 +345,9 @@ export default function ProfilePage() {
       !stored.preferredLocale && normalizedLocale
         ? { ...stored, preferredLocale: normalizedLocale }
         : stored;
+    if (!stored.preferredLocale && normalizedLocale) {
+      storeLocalePreference(normalizedLocale);
+    }
     setPreferences(hydrated);
     setInitialPreferences(hydrated);
     setPreferencesLoaded(true);
@@ -1077,6 +1081,7 @@ export default function ProfilePage() {
           />
         </label>
         <span id={PREFERENCES_LOCALE_HINT_ID} className="form-hint">
+          Current locale: {normalizeLocale(currentLocale, "") || "Not detected"}.
           Used to format dates, times, and placeholder values across the app.
         </span>
         <datalist id="preferences-locale-options">

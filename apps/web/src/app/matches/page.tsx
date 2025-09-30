@@ -12,12 +12,7 @@ import {
 import { hasTimeComponent } from "../../lib/datetime";
 import { ensureTrailingSlash } from "../../lib/routes";
 import { resolveServerLocale } from "../../lib/server-locale";
-import {
-  enrichMatches,
-  type EnrichedMatch,
-  type MatchRow,
-  type MatchSummaryData,
-} from "../../lib/matches";
+import { enrichMatches, type MatchRow, type MatchSummaryData } from "../../lib/matches";
 
 export const dynamic = "force-dynamic";
 

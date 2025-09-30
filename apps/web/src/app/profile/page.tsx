@@ -46,11 +46,7 @@ import {
   saveUserSettings,
   type UserSettings,
 } from "../user-settings";
-import {
-  normalizeTimeZone,
-  resolveTimeZone,
-  DEFAULT_TIME_ZONE,
-} from "../../lib/i18n";
+import { normalizeTimeZone, DEFAULT_TIME_ZONE } from "../../lib/i18n";
 import {
   ALL_SPORTS,
   MASTER_SPORT,

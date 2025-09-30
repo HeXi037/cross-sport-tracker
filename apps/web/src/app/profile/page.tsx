@@ -33,6 +33,7 @@ import {
 } from "../../lib/api";
 import { ensureTrailingSlash } from "../../lib/routes";
 import type { PlayerLocationPayload } from "../../lib/api";
+import { rememberLoginRedirect } from "../../lib/loginRedirect";
 import ClubSelect from "../../components/ClubSelect";
 import {
   COUNTRY_OPTIONS,
@@ -272,6 +273,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!isLoggedIn()) {
+      rememberLoginRedirect();
       router.push(ensureTrailingSlash("/login"));
       return;
     }
@@ -295,6 +297,7 @@ export default function ProfilePage() {
           if (!active) return;
           const status = (playerErr as Error & { status?: number }).status;
           if (status === 401) {
+            rememberLoginRedirect();
             router.push(ensureTrailingSlash("/login"));
             return;
           }
@@ -310,6 +313,7 @@ export default function ProfilePage() {
         }
       } catch {
         if (!active) return;
+        rememberLoginRedirect();
         router.push(ensureTrailingSlash("/login"));
         return;
       } finally {

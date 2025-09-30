@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { currentUsername, isAdmin, logout } from '../lib/api';
 import { ensureTrailingSlash } from '../lib/routes';
+import { rememberLoginRedirect } from '../lib/loginRedirect';
 
 export default function Header() {
   const [open, setOpen] = useState(false);
@@ -170,7 +171,10 @@ export default function Header() {
                 href={ensureTrailingSlash('/login')}
                 className={linkClassName('/login')}
                 aria-current={linkAriaCurrent('/login')}
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  rememberLoginRedirect();
+                  setOpen(false);
+                }}
               >
                 Login
               </Link>

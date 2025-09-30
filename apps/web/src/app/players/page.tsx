@@ -17,6 +17,7 @@ import {
   type NormalizedMatchSummary,
 } from "../../lib/player-stats";
 import { useDebounce } from "../../lib/useDebounce";
+import { rememberLoginRedirect } from "../../lib/loginRedirect";
 
 const NAME_REGEX = /^[A-Za-z0-9 '-]{1,50}$/;
 
@@ -542,7 +543,11 @@ export default function PlayersPage() {
       ) : (
         <div className="player-list__admin-note">
           <p>Sign in as an admin to add players.</p>
-          <Link className="button-secondary inline-block mt-2" href="/login">
+          <Link
+            className="button-secondary inline-block mt-2"
+            href="/login"
+            onClick={() => rememberLoginRedirect()}
+          >
             Login
           </Link>
         </div>

@@ -9,6 +9,7 @@ import MatchParticipants from "../../../components/MatchParticipants";
 import { useLocale, useTimeZone } from "../../../lib/LocaleContext";
 import { formatDate } from "../../../lib/i18n";
 import { resolveParticipantGroups } from "../../../lib/participants";
+import { rememberLoginRedirect } from "../../../lib/loginRedirect";
 
 type MatchRow = {
   id: string;
@@ -151,6 +152,7 @@ export default function AdminMatchesPage() {
 
   useEffect(() => {
     if (!isAdmin()) {
+      rememberLoginRedirect();
       window.location.href = ensureTrailingSlash("/login");
       return;
     }

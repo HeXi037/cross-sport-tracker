@@ -13,6 +13,7 @@ import {
   usesTwentyFourHourClock,
 } from "../../../lib/i18n";
 import { buildPlayedAtISOString } from "../../../lib/datetime";
+import { rememberLoginRedirect } from "../../../lib/loginRedirect";
 
 interface Player {
   id: string;
@@ -192,6 +193,7 @@ export default function RecordPadelPage() {
         setGlobalError("Failed to load players");
         const status = (err as { status?: number }).status;
         if (status === 401) {
+          rememberLoginRedirect();
           router.push(ensureTrailingSlash("/login"));
         }
       }

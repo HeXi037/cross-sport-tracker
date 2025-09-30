@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useId, type FormEvent } from "react";
+import { useEffect, useMemo, useState, useId, type FormEvent } from "react";
 import { zxcvbn } from "@zxcvbn-ts/core";
 import { useRouter } from "next/navigation";
 import {
@@ -13,6 +13,12 @@ import {
 import { useToast } from "../../components/ToastProvider";
 import { useLocale } from "../../lib/LocaleContext";
 import { getAuthCopy } from "../../lib/authCopy";
+import {
+  consumeLoginRedirect,
+  peekLoginRedirect,
+  rememberLoginRedirect,
+  rememberLoginReferrer,
+} from "../../lib/loginRedirect";
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -331,6 +337,21 @@ export default function LoginPage() {
     [newPass]
   );
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const redirectParam = params.get("redirect");
+    if (redirectParam) {
+      rememberLoginRedirect(redirectParam);
+      return;
+    }
+    if (!peekLoginRedirect()) {
+      rememberLoginReferrer();
+    }
+  }, []);
+
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setLoginErrors([]);
@@ -343,7 +364,8 @@ export default function LoginPage() {
       if (res.ok) {
         const data = await res.json();
         persistSession(data);
-        router.push("/");
+        const redirectTarget = consumeLoginRedirect();
+        router.push(redirectTarget ?? "/");
       } else {
         const message = await extractLoginError(res);
         setLoginErrors([message]);
@@ -406,7 +428,8 @@ export default function LoginPage() {
         setConfirmPass("");
         setUsername("");
         setPassword("");
-        router.push("/");
+        const redirectTarget = consumeLoginRedirect();
+        router.push(redirectTarget ?? "/");
       } else {
         const messages = await extractSignupErrors(res);
         setSignupErrors(messages);

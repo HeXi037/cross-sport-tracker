@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import MatchesPage from '../matches/page';
 import { apiFetch, type ApiError } from '../../lib/api';
+import enMessages from '../../messages/en.json';
 
 vi.mock('../../lib/api', async () => {
   const actual = await vi.importActual<typeof import('../../lib/api')>(
@@ -62,7 +63,7 @@ describe('MatchesPage error handling', () => {
     render(ui);
 
     expect(
-      screen.getByText(/You do not have permission to view these matches\./i)
+      screen.getByText(enMessages.matchesPage.errors.match_forbidden),
     ).toBeInTheDocument();
 
     expect(consoleErrorSpy).not.toHaveBeenCalledWith(

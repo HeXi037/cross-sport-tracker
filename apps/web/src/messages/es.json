@@ -1,0 +1,104 @@
+{
+  "app": {
+    "title": "cross-sport-tracker",
+    "description": "Proyecto autoalojado en curso",
+    "skipToContent": "Saltar al contenido principal"
+  },
+  "common": {
+    "retry": "Reintentar",
+    "loading": "Cargando…",
+    "loadingMore": "Cargando más partidos…",
+    "metadataFallback": "—"
+  },
+  "header": {
+    "toggleNavigation": "Mostrar u ocultar navegación",
+    "home": "Inicio",
+    "players": "Jugadores",
+    "matches": "Partidos",
+    "record": "Registro",
+    "leaderboards": "Clasificaciones",
+    "tournaments": "Torneos",
+    "adminMatches": "Partidos de administración",
+    "adminBadges": "Insignias de administración",
+    "profile": "Perfil",
+    "loggedInAs": "Conectado como {name}",
+    "logout": "Cerrar sesión",
+    "login": "Iniciar sesión"
+  },
+  "home": {
+    "hero": {
+      "title": "cross-sport-tracker",
+      "tagline": "Proyecto autoalojado en curso"
+    },
+    "sections": {
+      "sports": "Deportes",
+      "recentMatches": "Partidos recientes"
+    },
+    "sports": {
+      "status": {
+        "updating": "Actualizando deportes…",
+        "loading": "Cargando deportes…"
+      },
+      "error": {
+        "message": "No se pudieron cargar los deportes. Comprueba la conexión."
+      },
+      "empty": "No se encontraron deportes."
+    },
+    "sportIcons": {
+      "padel": "Icono de pelota de pádel",
+      "padel_americano": "Icono de ábaco de Pádel Americano",
+      "bowling": "Icono de bola y bolos",
+      "tennis": "Icono de raqueta y pelota de tenis",
+      "pickleball": "Icono de pepinillo de pickleball",
+      "badminton": "Icono de volante de bádminton",
+      "table_tennis": "Icono de palas de tenis de mesa",
+      "disc_golf": "Icono de disco volador de disc golf"
+    },
+    "matches": {
+      "status": {
+        "updating": "Actualizando partidos…",
+        "loading": "Cargando partidos recientes…"
+      },
+      "error": {
+        "message": "No se pudieron cargar los partidos. Comprueba la conexión."
+      },
+      "empty": "Todavía no hay partidos registrados.",
+      "actions": {
+        "viewAll": "Ver todos los partidos",
+        "details": "Detalles del partido",
+        "loadMore": "Cargar más partidos",
+        "loadMoreError": "No se pudieron cargar más partidos. Inténtalo de nuevo."
+      }
+    },
+    "metadata": {
+      "bestOf": "Mejor de {count}"
+    }
+  },
+  "matchesPage": {
+    "heading": "Partidos",
+    "summary": {
+      "sets": "Sets {scores}",
+      "games": "Juegos {scores}",
+      "points": "Puntos {scores}"
+    },
+    "metadata": {
+      "friendly": "Amistoso",
+      "bestOf": "Mejor de {count}"
+    },
+    "empty": {
+      "paginated": "No hay partidos en esta página.",
+      "initial": "Todavía no hay partidos."
+    },
+    "actions": {
+      "details": "Más información"
+    },
+    "errors": {
+      "fallback": "No se pudieron cargar los partidos. Inténtalo más tarde.",
+      "match_forbidden": "No tienes permiso para ver estos partidos.",
+      "match_not_found": "No pudimos encontrar ese partido.",
+      "auth_token_expired": "Tu sesión ha expirado. Actualiza e inténtalo de nuevo.",
+      "auth_missing_token": "Tu sesión ha expirado. Actualiza e inténtalo de nuevo.",
+      "auth_invalid_token": "Tu sesión ha expirado. Actualiza e inténtalo de nuevo."
+    }
+  }
+}

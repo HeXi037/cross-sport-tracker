@@ -1,0 +1,104 @@
+{
+  "app": {
+    "title": "cross-sport-tracker",
+    "description": "Ongoing self-hosted project",
+    "skipToContent": "Skip to main content"
+  },
+  "common": {
+    "retry": "Retry",
+    "loading": "Loading…",
+    "loadingMore": "Loading more matches…",
+    "metadataFallback": "—"
+  },
+  "header": {
+    "toggleNavigation": "Toggle navigation",
+    "home": "Home",
+    "players": "Players",
+    "matches": "Matches",
+    "record": "Record",
+    "leaderboards": "Leaderboards",
+    "tournaments": "Tournaments",
+    "adminMatches": "Admin Matches",
+    "adminBadges": "Admin Badges",
+    "profile": "Profile",
+    "loggedInAs": "Logged in as {name}",
+    "logout": "Logout",
+    "login": "Login"
+  },
+  "home": {
+    "hero": {
+      "title": "cross-sport-tracker",
+      "tagline": "Ongoing self-hosted project"
+    },
+    "sections": {
+      "sports": "Sports",
+      "recentMatches": "Recent Matches"
+    },
+    "sports": {
+      "status": {
+        "updating": "Updating sports…",
+        "loading": "Loading sports…"
+      },
+      "error": {
+        "message": "Unable to load sports. Check connection."
+      },
+      "empty": "No sports found."
+    },
+    "sportIcons": {
+      "padel": "Padel tennis ball icon",
+      "padel_americano": "Padel Americano abacus icon",
+      "bowling": "Bowling ball and pins icon",
+      "tennis": "Tennis racket and ball icon",
+      "pickleball": "Pickleball cucumber icon",
+      "badminton": "Badminton shuttlecock icon",
+      "table_tennis": "Table tennis paddles icon",
+      "disc_golf": "Disc golf flying disc icon"
+    },
+    "matches": {
+      "status": {
+        "updating": "Updating matches…",
+        "loading": "Loading recent matches…"
+      },
+      "error": {
+        "message": "Unable to load matches. Check connection."
+      },
+      "empty": "No matches recorded yet.",
+      "actions": {
+        "viewAll": "View all matches",
+        "details": "Match details",
+        "loadMore": "Load more matches",
+        "loadMoreError": "Unable to load more matches. Please try again."
+      }
+    },
+    "metadata": {
+      "bestOf": "Best of {count}"
+    }
+  },
+  "matchesPage": {
+    "heading": "Matches",
+    "summary": {
+      "sets": "Sets {scores}",
+      "games": "Games {scores}",
+      "points": "Points {scores}"
+    },
+    "metadata": {
+      "friendly": "Friendly",
+      "bestOf": "Best of {count}"
+    },
+    "empty": {
+      "paginated": "No matches on this page.",
+      "initial": "No matches yet."
+    },
+    "actions": {
+      "details": "More info"
+    },
+    "errors": {
+      "fallback": "Failed to load matches. Try again later.",
+      "match_forbidden": "You do not have permission to view these matches.",
+      "match_not_found": "We couldn't find that match.",
+      "auth_token_expired": "Your session expired. Please refresh and try again.",
+      "auth_missing_token": "Your session expired. Please refresh and try again.",
+      "auth_invalid_token": "Your session expired. Please refresh and try again."
+    }
+  }
+}

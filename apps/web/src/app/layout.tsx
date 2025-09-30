@@ -4,8 +4,11 @@ import Header from './header';
 import ChunkErrorReload from '../components/ChunkErrorReload';
 import ToastProvider from '../components/ToastProvider';
 import SessionBanner from '../components/SessionBanner';
+import SkipLink from './SkipLink';
 import { cookies } from 'next/headers';
 import { LocaleProvider } from '../lib/LocaleContext';
+import TranslationProvider from '../lib/TranslationProvider';
+import { getAllMessages } from '../lib/messages';
 import { resolveServerLocale } from '../lib/server-locale';
 
 export const metadata = {
@@ -22,26 +25,30 @@ export default function RootLayout({
   const { locale, acceptLanguage, preferredTimeZone } = resolveServerLocale({
     cookieStore,
   });
+  const messagesByLocale = getAllMessages();
 
   return (
     <html lang={locale}>
       <body>
-        <a className="skip-link" href="#main-content">
-          Skip to main content
-        </a>
         <LocaleProvider
           locale={locale}
           acceptLanguage={acceptLanguage}
           timeZone={preferredTimeZone}
         >
-          <ToastProvider>
-            <ChunkErrorReload />
-            <Header />
-            <SessionBanner />
-            <div id="main-content" tabIndex={-1} className="skip-target">
-              {children}
-            </div>
-          </ToastProvider>
+          <TranslationProvider
+            initialLocale={locale}
+            messagesByLocale={messagesByLocale}
+          >
+            <SkipLink />
+            <ToastProvider>
+              <ChunkErrorReload />
+              <Header />
+              <SessionBanner />
+              <div id="main-content" tabIndex={-1} className="skip-target">
+                {children}
+              </div>
+            </ToastProvider>
+          </TranslationProvider>
         </LocaleProvider>
       </body>
     </html>

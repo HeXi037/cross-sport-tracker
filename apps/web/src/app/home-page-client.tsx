@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { apiFetch } from '../lib/api';
 import {
   enrichMatches,
@@ -28,6 +29,7 @@ const PLACEHOLDER_META_VALUES = new Set([
   'n/a',
   'na',
   'best of —',
+  'mejor de —',
 ]);
 
 function normalizeMetadataSegment(value: unknown): string | undefined {
@@ -92,38 +94,38 @@ function resolveRulesetLabel(match: MatchWithOptionalRuleset): string | undefine
   return undefined;
 }
 
-const sportIcons: Record<string, { glyph: string; label: string }> = {
+const sportIcons: Record<string, { glyph: string; labelKey: `sportIcons.${string}` }> = {
   padel: {
     glyph: '\uD83C\uDFBE',
-    label: 'Padel tennis ball icon',
+    labelKey: 'sportIcons.padel',
   },
   padel_americano: {
     glyph: '🧮',
-    label: 'Padel Americano abacus icon',
+    labelKey: 'sportIcons.padel_americano',
   },
   bowling: {
     glyph: '🎳',
-    label: 'Bowling ball and pins icon',
+    labelKey: 'sportIcons.bowling',
   },
   tennis: {
     glyph: '🎾',
-    label: 'Tennis racket and ball icon',
+    labelKey: 'sportIcons.tennis',
   },
   pickleball: {
     glyph: '🥒',
-    label: 'Pickleball cucumber icon',
+    labelKey: 'sportIcons.pickleball',
   },
   badminton: {
     glyph: '🏸',
-    label: 'Badminton shuttlecock icon',
+    labelKey: 'sportIcons.badminton',
   },
   table_tennis: {
     glyph: '🏓',
-    label: 'Table tennis paddles icon',
+    labelKey: 'sportIcons.table_tennis',
   },
   disc_golf: {
     glyph: '🥏',
-    label: 'Disc golf flying disc icon',
+    labelKey: 'sportIcons.disc_golf',
   },
 };
 
@@ -218,6 +220,8 @@ export default function HomePageClient({
   initialNextOffset,
   initialPageSize,
 }: Props): ReactElement {
+  const tHome = useTranslations('home');
+  const tCommon = useTranslations('common');
   const [matches, setMatches] = useState(initialMatches);
   const [sportError, setSportError] = useState(initialSportError);
   const [matchError, setMatchError] = useState(initialMatchError);
@@ -421,20 +425,20 @@ export default function HomePageClient({
   return (
     <main className="container">
       <section className="card">
-        <h1 className="heading">cross-sport-tracker</h1>
-        <p>Ongoing self-hosted project</p>
+        <h1 className="heading">{tHome('hero.title')}</h1>
+        <p>{tHome('hero.tagline')}</p>
       </section>
 
       <section className="section">
-        <h2 className="heading">Sports</h2>
+        <h2 className="heading">{tHome('sections.sports')}</h2>
         {sportsStatusVisible ? (
           <p className="sr-only" role="status" aria-live="polite">
-            Updating sports…
+            {tHome('sports.status.updating')}
           </p>
         ) : null}
         {sportsLoading && sports.length === 0 ? (
           <div role="status" aria-live="polite">
-            <p className="sr-only">Loading sports…</p>
+            <p className="sr-only">{tHome('sports.status.loading')}</p>
             <ul className="sport-list">
               {Array.from({ length: 3 }).map((_, i) => (
                 <li key={`sport-skeleton-${i}`} className="sport-item">
@@ -446,28 +450,29 @@ export default function HomePageClient({
         ) : sports.length === 0 ? (
           sportError ? (
             <p role="alert">
-              Unable to load sports. Check connection.{' '}
+              {tHome('sports.error.message')}{' '}
               <button
                 type="button"
                 onClick={retrySports}
                 className="link-button"
               >
-                Retry
+                {tCommon('retry')}
               </button>
             </p>
           ) : (
-            <p>No sports found.</p>
+            <p>{tHome('sports.empty')}</p>
           )
         ) : (
           <ul className="sport-list" role="list">
             {sports.map((s) => {
               const icon = sportIcons[s.id];
               const href = recordPathForSport(s.id);
+              const ariaLabel = icon ? tHome(icon.labelKey) : undefined;
               return (
                 <li key={s.id} className="sport-item">
                   <Link href={href} className="sport-link">
                     {icon ? (
-                      <span className="sport-icon" role="img" aria-label={icon.label}>
+                      <span className="sport-icon" role="img" aria-label={ariaLabel}>
                         {icon.glyph}
                       </span>
                     ) : null}
@@ -481,15 +486,15 @@ export default function HomePageClient({
       </section>
 
       <section className="section">
-        <h2 className="heading">Recent Matches</h2>
+        <h2 className="heading">{tHome('sections.recentMatches')}</h2>
         {matchesStatusVisible ? (
           <p className="sr-only" role="status" aria-live="polite">
-            Updating matches…
+            {tHome('matches.status.updating')}
           </p>
         ) : null}
         {matchesLoading && matches.length === 0 ? (
           <div role="status" aria-live="polite">
-            <p className="sr-only">Loading recent matches…</p>
+            <p className="sr-only">{tHome('matches.status.loading')}</p>
             <ul className="match-list">
               {Array.from({ length: 3 }).map((_, i) => (
                 <li key={`match-skeleton-${i}`} className="card match-item">
@@ -505,17 +510,17 @@ export default function HomePageClient({
         ) : matches.length === 0 ? (
           matchError ? (
             <p role="alert">
-              Unable to load matches. Check connection.{' '}
+              {tHome('matches.error.message')}{' '}
               <button
                 type="button"
                 onClick={retryMatches}
                 className="link-button"
               >
-                Retry
+                {tCommon('retry')}
               </button>
             </p>
           ) : (
-            <p>No matches recorded yet.</p>
+            <p>{tHome('matches.empty')}</p>
           )
         ) : (
           <ul className="match-list" role="list">
@@ -525,7 +530,7 @@ export default function HomePageClient({
               const metadataText = formatMatchMetadata([
                 matchWithRuleset.sport,
                 matchWithRuleset.bestOf != null
-                  ? `Best of ${matchWithRuleset.bestOf}`
+                  ? tHome('metadata.bestOf', { count: matchWithRuleset.bestOf })
                   : null,
                 rulesetLabel,
                 formatMatchDate(matchWithRuleset.playedAt),
@@ -538,10 +543,12 @@ export default function HomePageClient({
                     sides={Object.values(m.players)}
                     style={{ fontWeight: 500 }}
                   />
-                  <div className="match-meta">{metadataText || '—'}</div>
+                  <div className="match-meta">
+                    {metadataText || tCommon('metadataFallback')}
+                  </div>
                   <div>
                     <Link href={ensureTrailingSlash(`/matches/${m.id}`)}>
-                      Match details
+                      {tHome('matches.actions.details')}
                     </Link>
                   </div>
                 </li>
@@ -561,22 +568,24 @@ export default function HomePageClient({
                   className="button"
                   disabled={loadingMore}
                 >
-                  {loadingMore ? 'Loading…' : 'Load more matches'}
+                  {loadingMore
+                    ? tCommon('loading')
+                    : tHome('matches.actions.loadMore')}
                 </button>
                 {loadingMore ? (
                   <p className="sr-only" aria-live="polite">
-                    Loading more matches…
+                    {tCommon('loadingMore')}
                   </p>
                 ) : null}
                 {paginationError ? (
                   <p role="alert" className="error-text">
-                    Unable to load more matches. Please try again.
+                    {tHome('matches.actions.loadMoreError')}
                   </p>
                 ) : null}
               </>
             ) : (
               <Link href="/matches" className="view-all-link">
-                View all matches
+                {tHome('matches.actions.viewAll')}
               </Link>
             )}
           </div>

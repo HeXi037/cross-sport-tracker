@@ -4,6 +4,11 @@ const nextConfig = {
   // Generate routes with a trailing slash so static hosts can resolve nested
   // paths like `/players/` without relying on custom rewrites.
   trailingSlash: true,
+  i18n: {
+    locales: ["en-GB", "es-ES"],
+    defaultLocale: "en-GB",
+    localeDetection: false,
+  },
   async redirects() {
     return [
       {

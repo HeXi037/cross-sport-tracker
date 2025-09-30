@@ -1,4 +1,5 @@
 // apps/web/src/lib/api.ts
+import { TIME_ZONE_COOKIE_KEY } from "./i18n";
 export function apiBase(): string {
   const server = typeof window === 'undefined';
   const base = server
@@ -277,6 +278,37 @@ async function executeFetch(
   attempt: number
 ): Promise<Response> {
   const headers = new Headers(init?.headers);
+  if (typeof window === "undefined") {
+    const { cookies } = await import("next/headers");
+    const cookieStore = cookies();
+    const rawTimeZone = cookieStore.get(TIME_ZONE_COOKIE_KEY)?.value ?? null;
+    const preferredTimeZone =
+      typeof rawTimeZone === "string" && rawTimeZone.trim().length > 0
+        ? rawTimeZone.trim()
+        : null;
+
+    if (preferredTimeZone) {
+      const serialized = `${TIME_ZONE_COOKIE_KEY}=${encodeURIComponent(
+        preferredTimeZone,
+      )}`;
+      const existingCookieHeader = headers.get("cookie");
+      if (existingCookieHeader) {
+        const hasTimeZoneCookie = existingCookieHeader
+          .split(";")
+          .some((part) =>
+            part.trim().toLowerCase().startsWith(
+              `${TIME_ZONE_COOKIE_KEY.toLowerCase()}=`,
+            ),
+          );
+        if (!hasTimeZoneCookie) {
+          headers.set("cookie", `${existingCookieHeader}; ${serialized}`);
+        }
+      } else {
+        headers.set("cookie", serialized);
+      }
+    }
+  }
+
   if (typeof window !== "undefined") {
     let token: string | null = null;
     try {

@@ -3,12 +3,7 @@ import { cookies } from "next/headers";
 import { apiFetch, type ApiError } from "../../lib/api";
 import Pager from "./pager";
 import MatchParticipants from "../../components/MatchParticipants";
-import {
-  formatDate,
-  formatDateTime,
-  resolveTimeZone,
-  TIME_ZONE_COOKIE_KEY,
-} from "../../lib/i18n";
+import { formatDate, formatDateTime, resolveTimeZone } from "../../lib/i18n";
 import { hasTimeComponent } from "../../lib/datetime";
 import { ensureTrailingSlash } from "../../lib/routes";
 import { resolveServerLocale } from "../../lib/server-locale";
@@ -131,9 +126,8 @@ export default async function MatchesPage(
   const limit = Number(searchParams.limit) || 25;
   const offset = Number(searchParams.offset) || 0;
   const cookieStore = cookies();
-  const { locale } = resolveServerLocale({ cookieStore });
-  const timeZoneCookie = cookieStore.get(TIME_ZONE_COOKIE_KEY)?.value ?? null;
-  const timeZone = resolveTimeZone(timeZoneCookie, locale);
+  const { locale, preferredTimeZone } = resolveServerLocale({ cookieStore });
+  const timeZone = resolveTimeZone(preferredTimeZone, locale);
 
   try {
     const { rows, hasMore, nextOffset, totalCount } = await getMatches(

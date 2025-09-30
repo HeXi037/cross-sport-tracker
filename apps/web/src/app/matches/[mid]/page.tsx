@@ -6,12 +6,7 @@ import { apiFetch, withAbsolutePhotoUrl } from "../../../lib/api";
 import LiveSummary from "./live-summary";
 import MatchParticipants from "../../../components/MatchParticipants";
 import { PlayerInfo } from "../../../components/PlayerName";
-import {
-  formatDate,
-  formatDateTime,
-  resolveTimeZone,
-  TIME_ZONE_COOKIE_KEY,
-} from "../../../lib/i18n";
+import { formatDate, formatDateTime, resolveTimeZone } from "../../../lib/i18n";
 import { hasTimeComponent } from "../../../lib/datetime";
 import { ensureTrailingSlash, recordPathForSport } from "../../../lib/routes";
 import {
@@ -568,9 +563,8 @@ export default async function MatchDetailPage({
     );
   }
   const cookieStore = cookies();
-  const { locale } = resolveServerLocale({ cookieStore });
-  const timeZoneCookie = cookieStore.get(TIME_ZONE_COOKIE_KEY)?.value ?? null;
-  const timeZone = resolveTimeZone(timeZoneCookie, locale);
+  const { locale, preferredTimeZone } = resolveServerLocale({ cookieStore });
+  const timeZone = resolveTimeZone(preferredTimeZone, locale);
 
   const parts = match.participants ?? [];
   const uniqueIds = Array.from(

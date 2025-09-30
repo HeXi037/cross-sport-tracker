@@ -138,10 +138,11 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
             const filteredItems = base.items.filter(
               (existing) => existing.id !== newComment.id,
             );
+            const isExistingComment = filteredItems.length !== base.items.length;
             return {
               ...base,
               items: [newComment, ...filteredItems],
-              total: filteredItems.length + 1,
+              total: base.total + (isExistingComment ? 0 : 1),
             };
           },
           { populateCache: true, revalidate: false },

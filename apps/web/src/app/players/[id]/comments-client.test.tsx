@@ -160,6 +160,32 @@ describe("PlayerComments", () => {
     );
   });
 
+  it("validates overly long comments", async () => {
+    apiMocks.isLoggedIn.mockReturnValue(true);
+    apiMocks.currentUserId.mockReturnValue("user-1");
+
+    await renderComponent();
+
+    const textarea = await screen.findByLabelText("Add a comment");
+    const longComment = "a".repeat(501);
+    fireEvent.change(textarea, { target: { value: longComment } });
+
+    const submitButton = screen.getByRole("button", { name: "Add Comment" });
+    await act(async () => {
+      fireEvent.click(submitButton);
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("Comment cannot exceed 500 characters.")
+      ).toBeInTheDocument()
+    );
+    expect(apiMocks.apiFetch).not.toHaveBeenCalledWith(
+      "/v0/players/player-1/comments",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
   it("prompts the user to refresh the page when CSRF validation fails", async () => {
     apiMocks.isLoggedIn.mockReturnValue(true);
     apiMocks.currentUserId.mockReturnValue("user-1");

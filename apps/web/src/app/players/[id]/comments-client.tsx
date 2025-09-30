@@ -27,6 +27,8 @@ interface PaginatedComments {
   offset: number;
 }
 
+const MAX_COMMENT_LENGTH = 500;
+
 export default function PlayerComments({ playerId }: { playerId: string }) {
   const [content, setContent] = useState("");
   const [feedback, setFeedback] = useState<
@@ -96,25 +98,56 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
       });
       return;
     }
+    if (trimmed.length > MAX_COMMENT_LENGTH) {
+      setFeedback({
+        type: "error",
+        message: `Comment cannot exceed ${MAX_COMMENT_LENGTH} characters.`,
+      });
+      return;
+    }
     setSubmitting(true);
     setFeedback(null);
     try {
-      await apiFetch(`/v0/players/${playerId}/comments`, {
+      const response = await apiFetch(`/v0/players/${playerId}/comments`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ content: trimmed }),
       });
+      const newComment = (await response.json()) as Comment;
       setContent("");
       setFeedback({
         type: "success",
         message: "Comment posted successfully.",
       });
       try {
-        await mutate(undefined, { revalidate: true });
+        await mutate(
+          (current) => {
+            const base: PaginatedComments = current
+              ? {
+                  ...current,
+                  items: [...current.items],
+                }
+              : {
+                  items: [],
+                  total: 0,
+                  limit: data?.limit ?? 50,
+                  offset: data?.offset ?? 0,
+                };
+            const filteredItems = base.items.filter(
+              (existing) => existing.id !== newComment.id,
+            );
+            return {
+              ...base,
+              items: [newComment, ...filteredItems],
+              total: filteredItems.length + 1,
+            };
+          },
+          { populateCache: true, revalidate: false },
+        );
       } catch (refreshErr) {
-        console.error("Failed to refresh comments", refreshErr);
+        console.error("Failed to update comments cache", refreshErr);
       }
     } catch (err) {
       const apiError = err as ApiError;
@@ -229,6 +262,7 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
             onChange={(e) => setContent(e.target.value)}
             className="border p-2 w-full"
             disabled={submitting}
+            maxLength={MAX_COMMENT_LENGTH}
           />
           <button type="submit" className="btn mt-2" disabled={submitting}>
             {submitting ? "Posting…" : "Add Comment"}

@@ -714,22 +714,24 @@ export default async function PlayerPage({
               </section>
             )}
 
-            <h2 className="heading mt-4">Recent Opponents</h2>
             {recentOpponents.length ? (
-              <ul>
-                {recentOpponents.map((o) => (
-                  <li key={o.id} className="mb-2">
-                    <div>
-                      <MatchParticipants as="span" sides={[o.opponents]} />
-                    </div>
-                    <div className="text-sm text-gray-700">
-                      {o.date} · {o.result}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <h2 className="heading mt-4">Recent Opponents</h2>
+                <ul>
+                  {recentOpponents.map((o) => (
+                    <li key={o.id} className="mb-2">
+                      <div>
+                        <MatchParticipants as="span" sides={[o.opponents]} />
+                      </div>
+                      <div className="text-sm text-gray-700">
+                        {o.date} · {o.result}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </>
             ) : (
-              <p>No recent opponents found.</p>
+              <p className="mt-4 text-sm text-gray-600">No recent opponents found.</p>
             )}
 
             {teammateRecords.length ? (
@@ -743,7 +745,9 @@ export default async function PlayerPage({
                   ))}
                 </ul>
               </>
-            ) : null}
+            ) : (
+              <p className="mt-4 text-sm text-gray-600">No teammate records.</p>
+            )}
 
             <PlayerCharts matches={matches} />
 
@@ -754,36 +758,40 @@ export default async function PlayerPage({
             </Link>
           </section>
         <aside className="md:w-1/3 md:pl-4 mt-8 md:mt-0">
-          <h2 className="heading">Upcoming Matches</h2>
           {upcoming.length ? (
-            <ul>
-              {upcoming.map((m) => (
-                <li key={m.id} className="mb-2">
-                  <Link href={`/matches/${m.id}`}>
-                    <MatchParticipants
-                      as="span"
-                      sides={Object.values(m.players)}
-                    />
-                  </Link>
-                  <div className="text-sm text-gray-700">
-                    {formatDate(m.playedAt, locale, undefined, timeZone)} ·{' '}
-                    {m.location ?? "—"}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <>
+              <h2 className="heading">Upcoming Matches</h2>
+              <ul>
+                {upcoming.map((m) => (
+                  <li key={m.id} className="mb-2">
+                    <Link href={`/matches/${m.id}`}>
+                      <MatchParticipants
+                        as="span"
+                        sides={Object.values(m.players)}
+                      />
+                    </Link>
+                    <div className="text-sm text-gray-700">
+                      {formatDate(m.playedAt, locale, undefined, timeZone)} ·{' '}
+                      {m.location ?? "—"}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
           ) : (
-            <p>No upcoming matches.</p>
+            <p className="text-sm text-gray-600">No upcoming matches.</p>
           )}
-          <h2 className="heading mt-4">Badges</h2>
           {player.badges.length ? (
-            <ul>
-              {player.badges.map((b) => (
-                <li key={b.id}>{b.name}</li>
-              ))}
-            </ul>
+            <>
+              <h2 className="heading mt-4">Badges</h2>
+              <ul>
+                {player.badges.map((b) => (
+                  <li key={b.id}>{b.name}</li>
+                ))}
+              </ul>
+            </>
           ) : (
-            <p>No badges.</p>
+            <p className="mt-4 text-sm text-gray-600">No badges.</p>
           )}
         </aside>
       </main>

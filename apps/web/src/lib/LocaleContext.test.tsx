@@ -49,7 +49,9 @@ describe('LocaleProvider', () => {
     );
 
     const localeDisplay = await screen.findByTestId('locale-value');
-    expect(localeDisplay).toHaveTextContent('en-AU');
+    await waitFor(() => {
+      expect(localeDisplay).toHaveTextContent('en-AU');
+    });
   });
 
   it('uses the accept-language header when provided', async () => {
@@ -63,7 +65,9 @@ describe('LocaleProvider', () => {
     );
 
     const localeDisplay = await screen.findByTestId('locale-value');
-    expect(localeDisplay).toHaveTextContent('en-AU');
+    await waitFor(() => {
+      expect(localeDisplay).toHaveTextContent('en-AU');
+    });
   });
 
   it('prefers a stored locale before falling back', async () => {

@@ -515,6 +515,49 @@ export type PlayerSocialLinkCreatePayload = {
 
 export type PlayerSocialLinkUpdatePayload = Partial<PlayerSocialLinkCreatePayload>;
 
+export interface PushSubscriptionKeysPayload {
+  p256dh: string;
+  auth: string;
+}
+
+export interface PushSubscriptionSummary {
+  id: string;
+  endpoint: string;
+  createdAt: string;
+}
+
+export interface NotificationPreferences {
+  notifyOnProfileComments: boolean;
+  notifyOnMatchResults: boolean;
+  pushEnabled: boolean;
+  subscriptions: PushSubscriptionSummary[];
+}
+
+export type NotificationPreferenceUpdatePayload = Partial<{
+  notifyOnProfileComments: boolean;
+  notifyOnMatchResults: boolean;
+  pushEnabled: boolean;
+}>;
+
+export interface PushSubscriptionPayload {
+  endpoint: string;
+  keys: PushSubscriptionKeysPayload;
+  contentEncoding?: string;
+}
+
+export interface NotificationRecord {
+  id: string;
+  type: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+  readAt?: string | null;
+}
+
+export interface NotificationListResponse {
+  items: NotificationRecord[];
+  unreadCount: number;
+}
+
 export async function fetchMyPlayer(): Promise<PlayerMe> {
   const res = await apiFetch("/v0/players/me");
   const data = (await res.json()) as PlayerMe;
@@ -575,6 +618,57 @@ export async function deleteMySocialLink(linkId: string): Promise<void> {
   await apiFetch(`/v0/players/me/social-links/${linkId}`, {
     method: "DELETE",
   });
+}
+
+export async function fetchNotificationPreferences(): Promise<NotificationPreferences> {
+  const res = await apiFetch("/v0/notifications/preferences");
+  return res.json();
+}
+
+export async function updateNotificationPreferences(
+  data: NotificationPreferenceUpdatePayload
+): Promise<NotificationPreferences> {
+  const res = await apiFetch("/v0/notifications/preferences", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+export async function registerPushSubscription(
+  payload: PushSubscriptionPayload
+): Promise<PushSubscriptionSummary> {
+  const res = await apiFetch("/v0/notifications/subscriptions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      endpoint: payload.endpoint,
+      keys: payload.keys,
+      contentEncoding: payload.contentEncoding,
+    }),
+  });
+  return res.json();
+}
+
+export async function deletePushSubscriptions(): Promise<void> {
+  await apiFetch("/v0/notifications/subscriptions", { method: "DELETE" });
+}
+
+export async function listNotifications(
+  limit = 50,
+  offset = 0
+): Promise<NotificationListResponse> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  const res = await apiFetch(`/v0/notifications?${params.toString()}`);
+  return res.json();
+}
+
+export async function markNotificationRead(notificationId: string): Promise<void> {
+  await apiFetch(`/v0/notifications/${notificationId}/read`, { method: "POST" });
 }
 
 export async function updatePlayerLocation(

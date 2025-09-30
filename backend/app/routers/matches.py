@@ -42,6 +42,7 @@ from ..services import (
     update_player_metrics,
     recompute_stage_standings,
 )
+from ..services.notifications import notify_match_recorded
 from ..exceptions import http_problem
 from .auth import get_current_user
 from ..time_utils import coerce_utc
@@ -399,6 +400,7 @@ async def create_match(
         await player_stats_cache.invalidate_players(all_player_ids)
     if summary is not None:
         await broadcast(mid, {"summary": match.details})
+    await notify_match_recorded(session, match, side_players, actor=user)
     return MatchIdOut(id=mid)
 
 

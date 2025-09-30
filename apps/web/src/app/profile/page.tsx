@@ -24,6 +24,12 @@ import {
   type UserMe,
   ensureAbsoluteApiUrl,
   persistSession,
+  fetchNotificationPreferences,
+  updateNotificationPreferences,
+  registerPushSubscription,
+  deletePushSubscriptions,
+  type NotificationPreferences,
+  type NotificationPreferenceUpdatePayload,
 } from "../../lib/api";
 import { ensureTrailingSlash } from "../../lib/routes";
 import type { PlayerLocationPayload } from "../../lib/api";
@@ -102,6 +108,31 @@ const SUPPORTED_TIME_ZONES = (() => {
   }
   return COMMON_TIME_ZONES;
 })();
+
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
+
+function isPushSupported(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    "serviceWorker" in navigator &&
+    typeof window.Notification !== "undefined"
+  );
+}
+
+function base64ToUint8Array(value: string): Uint8Array {
+  const padding = "=".repeat((4 - (value.length % 4)) % 4);
+  const normalized = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = typeof window === "undefined" ? Buffer.from(normalized, "base64") : atob(normalized);
+  const output = new Uint8Array(raw.length ?? 0);
+  if (typeof raw === "string") {
+    for (let i = 0; i < raw.length; i += 1) {
+      output[i] = raw.charCodeAt(i);
+    }
+  } else {
+    output.set(raw);
+  }
+  return output;
+}
 
 function isValidHttpUrl(value: string): boolean {
   if (!value) {
@@ -200,12 +231,24 @@ export default function ProfilePage() {
   const [preferencesFeedback, setPreferencesFeedback] =
     useState<SaveFeedback>(null);
   const [creatingPlayer, setCreatingPlayer] = useState(false);
+  const [notificationPrefs, setNotificationPrefs] =
+    useState<NotificationPreferences | null>(null);
+  const [notificationPrefsLoaded, setNotificationPrefsLoaded] =
+    useState(false);
+  const [notificationPrefsSaving, setNotificationPrefsSaving] =
+    useState(false);
+  const [notificationFeedback, setNotificationFeedback] =
+    useState<SaveFeedback>(null);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
 
   const clearFeedback = () => {
     setError(null);
     setMessage(null);
     setSaveFeedback(null);
     setPreferencesFeedback(null);
+    setNotificationFeedback(null);
+    setPushError(null);
   };
 
   const resetSocialLinkState = useCallback((links: PlayerSocialLink[]) => {
@@ -290,6 +333,36 @@ export default function ProfilePage() {
     setInitialPreferences(stored);
     setPreferencesLoaded(true);
   }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!isLoggedIn()) {
+      setNotificationPrefsLoaded(true);
+      return;
+    }
+    let active = true;
+    (async () => {
+      try {
+        const prefs = await fetchNotificationPreferences();
+        if (!active) return;
+        setNotificationPrefs(prefs);
+      } catch (err) {
+        if (!active) return;
+        console.error("Failed to load notification preferences", err);
+        setNotificationFeedback({
+          type: "error",
+          message: "Failed to load notification settings.",
+        });
+      } finally {
+        if (active) {
+          setNotificationPrefsLoaded(true);
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [loading]);
 
   const handlePhotoChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const input = e.currentTarget;
@@ -539,6 +612,122 @@ export default function ProfilePage() {
       });
     } finally {
       setPreferencesSaving(false);
+    }
+  };
+
+  const handleNotificationPreferenceChange = async (
+    field: keyof NotificationPreferenceUpdatePayload,
+    value: boolean,
+  ) => {
+    if (!notificationPrefsLoaded) {
+      return;
+    }
+    clearFeedback();
+    setNotificationPrefsSaving(true);
+    try {
+      const payload: NotificationPreferenceUpdatePayload = { [field]: value };
+      const updated = await updateNotificationPreferences(payload);
+      setNotificationPrefs(updated);
+      setNotificationFeedback({
+        type: "success",
+        message: "Notification preferences updated.",
+      });
+    } catch (err) {
+      const message = extractErrorMessage(err);
+      setNotificationFeedback({
+        type: "error",
+        message: message ?? "Failed to update notification settings.",
+      });
+    } finally {
+      setNotificationPrefsSaving(false);
+    }
+  };
+
+  const handleEnablePush = async () => {
+    if (!isPushSupported()) {
+      setPushError("Push notifications are not supported in this browser.");
+      return;
+    }
+    if (!VAPID_PUBLIC_KEY) {
+      setPushError("Push notifications are not configured by the server.");
+      return;
+    }
+    clearFeedback();
+    setPushBusy(true);
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setPushError(
+          "Permission denied. Enable notifications in your browser settings.",
+        );
+        return;
+      }
+      const registration =
+        (await navigator.serviceWorker.getRegistration()) ??
+        (await navigator.serviceWorker.register("/service-worker.js"));
+      const existing = await registration.pushManager.getSubscription();
+      const subscription =
+        existing ||
+        (await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: base64ToUint8Array(VAPID_PUBLIC_KEY),
+        }));
+      const json = subscription.toJSON() as {
+        endpoint?: string;
+        keys?: { p256dh?: string; auth?: string };
+        contentEncoding?: string;
+      };
+      if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
+        throw new Error("Browser returned an incomplete push subscription.");
+      }
+      await registerPushSubscription({
+        endpoint: json.endpoint,
+        keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
+        contentEncoding: json.contentEncoding,
+      });
+      const updated = await updateNotificationPreferences({ pushEnabled: true });
+      setNotificationPrefs(updated);
+      setNotificationFeedback({
+        type: "success",
+        message: "Push notifications enabled.",
+      });
+      setPushError(null);
+    } catch (err) {
+      const message = extractErrorMessage(err);
+      setPushError(message ?? "Failed to enable push notifications.");
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  const handleDisablePush = async () => {
+    if (!isPushSupported()) {
+      setPushError("Push notifications are not supported in this browser.");
+      return;
+    }
+    clearFeedback();
+    setPushBusy(true);
+    try {
+      const registration =
+        (await navigator.serviceWorker.getRegistration()) ??
+        (await navigator.serviceWorker.ready);
+      const subscription = await registration?.pushManager.getSubscription();
+      if (subscription) {
+        await subscription.unsubscribe();
+      }
+      await deletePushSubscriptions();
+      const updated = await updateNotificationPreferences({ pushEnabled: false });
+      setNotificationPrefs(updated);
+      setNotificationFeedback({
+        type: "success",
+        message: "Push notifications disabled.",
+      });
+      setPushError(null);
+    } catch (err) {
+      const message = extractErrorMessage(err);
+      setPushError(message ?? "Failed to disable push notifications.");
+    } finally {
+      setPushBusy(false);
     }
   };
 
@@ -986,19 +1175,149 @@ export default function ProfilePage() {
               Saving your preferences…
             </p>
           ) : null}
-          {preferencesFeedback ? (
+      {preferencesFeedback ? (
+        <p
+          role={preferencesFeedback.type === "error" ? "alert" : "status"}
+          className={
+            preferencesFeedback.type === "error" ? "error" : "success"
+          }
+          style={{ marginTop: "0.5rem" }}
+        >
+          {preferencesFeedback.message}
+        </p>
+      ) : null}
+    </div>
+  </form>
+      <section
+        className="auth-form"
+        aria-labelledby="notifications-heading"
+        style={{ gap: "0.75rem" }}
+      >
+        <h2
+          id="notifications-heading"
+          className="heading"
+          style={{ fontSize: "1.25rem" }}
+        >
+          Notifications
+        </h2>
+        {notificationPrefsLoaded ? (
+          <>
+            <label
+              className="form-field"
+              htmlFor="notify-profile-comments"
+              style={{ alignItems: "flex-start" }}
+            >
+              <span className="form-label">Profile comments</span>
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
+                <input
+                  id="notify-profile-comments"
+                  type="checkbox"
+                  checked={Boolean(notificationPrefs?.notifyOnProfileComments)}
+                  onChange={(event) =>
+                    handleNotificationPreferenceChange(
+                      "notifyOnProfileComments",
+                      event.target.checked,
+                    )
+                  }
+                  disabled={notificationPrefsSaving}
+                />
+                <span style={{ fontSize: "0.95rem", color: "#374151" }}>
+                  Receive notifications when someone comments on your player
+                  profile.
+                </span>
+              </div>
+            </label>
+            <label
+              className="form-field"
+              htmlFor="notify-match-results"
+              style={{ alignItems: "flex-start" }}
+            >
+              <span className="form-label">Match results</span>
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
+                <input
+                  id="notify-match-results"
+                  type="checkbox"
+                  checked={Boolean(notificationPrefs?.notifyOnMatchResults)}
+                  onChange={(event) =>
+                    handleNotificationPreferenceChange(
+                      "notifyOnMatchResults",
+                      event.target.checked,
+                    )
+                  }
+                  disabled={notificationPrefsSaving}
+                />
+                <span style={{ fontSize: "0.95rem", color: "#374151" }}>
+                  Alerts when matches involving you are recorded, including the
+                  final score.
+                </span>
+              </div>
+            </label>
+            <div className="form-field" style={{ gap: "0.5rem" }}>
+              <span className="form-label">Push notifications</span>
+              <p style={{ margin: 0, color: "#555" }}>
+                Push notifications let you receive updates even when the site is
+                closed.
+              </p>
+              {isPushSupported() && VAPID_PUBLIC_KEY ? (
+                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                  {notificationPrefs?.pushEnabled ? (
+                    <button
+                      type="button"
+                      onClick={handleDisablePush}
+                      disabled={pushBusy}
+                    >
+                      {pushBusy ? "Disabling…" : "Disable push notifications"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleEnablePush}
+                      disabled={pushBusy}
+                    >
+                      {pushBusy ? "Enabling…" : "Enable push notifications"}
+                    </button>
+                  )}
+                  {notificationPrefs?.subscriptions.length ? (
+                    <span style={{ fontSize: "0.85rem", color: "#555" }}>
+                      Active devices: {notificationPrefs.subscriptions.length}
+                    </span>
+                  ) : null}
+                </div>
+              ) : (
+                <p style={{ margin: 0, color: "#555" }}>
+                  Push notifications are unavailable in this browser or not yet
+                  configured.
+                </p>
+              )}
+            </div>
+          </>
+        ) : (
+          <p style={{ color: "#555" }}>Loading notification settings…</p>
+        )}
+        <div aria-live="polite">
+          {notificationPrefsSaving ? (
+            <p style={{ fontSize: "0.9rem", color: "#555" }}>
+              Updating notification settings…
+            </p>
+          ) : null}
+          {notificationFeedback ? (
             <p
-              role={preferencesFeedback.type === "error" ? "alert" : "status"}
+              role={notificationFeedback.type === "error" ? "alert" : "status"}
               className={
-                preferencesFeedback.type === "error" ? "error" : "success"
+                notificationFeedback.type === "error" ? "error" : "success"
               }
               style={{ marginTop: "0.5rem" }}
             >
-              {preferencesFeedback.message}
+              {notificationFeedback.message}
+            </p>
+          ) : null}
+          {pushError ? (
+            <p role="alert" className="error" style={{ marginTop: "0.5rem" }}>
+              {pushError}
             </p>
           ) : null}
         </div>
-      </form>
+      </section>
       <section className="auth-form" aria-labelledby="social-links-heading">
         <h2 id="social-links-heading" className="heading" style={{ fontSize: "1.25rem" }}>
           Social links
@@ -1277,6 +1596,19 @@ function ProfileSkeleton() {
               <span
                 className="skeleton"
                 style={{ width: "45%", maxWidth: 200, height: "0.85rem" }}
+              />
+              <span className="skeleton" style={{ width: "100%", height: 36 }} />
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="form-fieldset" aria-hidden>
+        <div className="form-grid">
+          {Array.from({ length: 2 }).map((_, index) => (
+            <div key={`profile-skeleton-notification-${index}`} className="form-field">
+              <span
+                className="skeleton"
+                style={{ width: "50%", maxWidth: 220, height: "0.85rem" }}
               />
               <span className="skeleton" style={{ width: "100%", height: 36 }} />
             </div>

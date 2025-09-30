@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from datetime import datetime
 import re
 from urllib.parse import urlparse
-from pydantic import BaseModel, Field, model_validator, field_validator
+from pydantic import BaseModel, Field, model_validator, field_validator, ConfigDict
 
 from .location_utils import normalize_location_fields, continent_for_country
 from .time_utils import require_utc
@@ -497,6 +497,57 @@ class CommentListOut(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class PushSubscriptionKeys(BaseModel):
+    p256dh: str
+    auth: str
+
+
+class PushSubscriptionCreate(BaseModel):
+    endpoint: str
+    keys: PushSubscriptionKeys
+    content_encoding: str | None = Field(default=None, alias="contentEncoding")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class PushSubscriptionOut(BaseModel):
+    id: str
+    endpoint: str
+    createdAt: datetime
+
+
+class NotificationPreferenceOut(BaseModel):
+    notifyOnProfileComments: bool
+    notifyOnMatchResults: bool
+    pushEnabled: bool
+    subscriptions: List[PushSubscriptionOut] = Field(default_factory=list)
+
+
+class NotificationPreferenceUpdate(BaseModel):
+    notify_on_profile_comments: bool | None = Field(
+        default=None, alias="notifyOnProfileComments"
+    )
+    notify_on_match_results: bool | None = Field(
+        default=None, alias="notifyOnMatchResults"
+    )
+    push_enabled: bool | None = Field(default=None, alias="pushEnabled")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class NotificationOut(BaseModel):
+    id: str
+    type: str
+    payload: Dict[str, Any]
+    createdAt: datetime
+    readAt: Optional[datetime] = None
+
+
+class NotificationListOut(BaseModel):
+    items: List[NotificationOut]
+    unreadCount: int
 
 class VersusRecord(BaseModel):
     """Win/loss record versus or with another player."""

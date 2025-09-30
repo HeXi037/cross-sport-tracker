@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 const pushMock = vi.hoisted(() => vi.fn());
@@ -14,6 +14,10 @@ const apiMocks = vi.hoisted(() => ({
   createMySocialLink: vi.fn(),
   updateMySocialLink: vi.fn(),
   deleteMySocialLink: vi.fn(),
+  fetchNotificationPreferences: vi.fn(),
+  updateNotificationPreferences: vi.fn(),
+  registerPushSubscription: vi.fn(),
+  deletePushSubscriptions: vi.fn(),
 }));
 
 const routerMock = vi.hoisted(() => ({ push: pushMock }));
@@ -39,6 +43,10 @@ vi.mock("../../lib/api", async () => {
     createMySocialLink: apiMocks.createMySocialLink,
     updateMySocialLink: apiMocks.updateMySocialLink,
     deleteMySocialLink: apiMocks.deleteMySocialLink,
+    fetchNotificationPreferences: apiMocks.fetchNotificationPreferences,
+    updateNotificationPreferences: apiMocks.updateNotificationPreferences,
+    registerPushSubscription: apiMocks.registerPushSubscription,
+    deletePushSubscriptions: apiMocks.deletePushSubscriptions,
   };
 });
 
@@ -59,6 +67,10 @@ describe("ProfilePage", () => {
     apiMocks.createMySocialLink.mockReset();
     apiMocks.updateMySocialLink.mockReset();
     apiMocks.deleteMySocialLink.mockReset();
+    apiMocks.fetchNotificationPreferences.mockReset();
+    apiMocks.updateNotificationPreferences.mockReset();
+    apiMocks.registerPushSubscription.mockReset();
+    apiMocks.deletePushSubscriptions.mockReset();
     apiMocks.isLoggedIn.mockReturnValue(true);
     apiMocks.fetchMe.mockResolvedValue({
       id: "user-default",
@@ -80,6 +92,18 @@ describe("ProfilePage", () => {
       { id: "club-old", name: "Club Old" },
       { id: "club-new", name: "Club New" },
     ]);
+    apiMocks.fetchNotificationPreferences.mockResolvedValue({
+      notifyOnProfileComments: false,
+      notifyOnMatchResults: false,
+      pushEnabled: false,
+      subscriptions: [],
+    });
+    apiMocks.updateNotificationPreferences.mockResolvedValue({
+      notifyOnProfileComments: false,
+      notifyOnMatchResults: false,
+      pushEnabled: false,
+      subscriptions: [],
+    });
     window.localStorage.clear();
   });
 
@@ -204,6 +228,32 @@ describe("ProfilePage", () => {
     expect(
       await screen.findByText("Profile photo removed")
     ).toBeInTheDocument();
+  });
+
+  it("updates notification preferences when toggles change", async () => {
+    await act(async () => {
+      render(<ProfilePage />);
+    });
+
+    await waitFor(() => {
+      expect(apiMocks.fetchNotificationPreferences).toHaveBeenCalled();
+    });
+
+    const toggle = await screen.findByLabelText(/profile comments/i);
+    apiMocks.updateNotificationPreferences.mockResolvedValueOnce({
+      notifyOnProfileComments: true,
+      notifyOnMatchResults: false,
+      pushEnabled: false,
+      subscriptions: [],
+    });
+
+    await act(async () => {
+      fireEvent.click(toggle);
+    });
+
+    expect(apiMocks.updateNotificationPreferences).toHaveBeenCalledWith({
+      notifyOnProfileComments: true,
+    });
   });
 
   it("submits updated country and favorite club when saving", async () => {

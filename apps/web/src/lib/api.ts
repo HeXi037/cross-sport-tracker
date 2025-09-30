@@ -536,7 +536,7 @@ export interface ClubSummary {
 }
 
 export async function fetchClubs(
-  init?: RequestInit
+  init?: ApiRequestInit
 ): Promise<ClubSummary[]> {
   const res = await apiFetch("/v0/clubs", init);
   return res.json();
@@ -818,8 +818,8 @@ export type StageStandings = {
   standings: StageStanding[];
 };
 
-function withNoStore<T extends ApiRequestInit | undefined>(
-  init?: T
+function withNoStore(
+  init?: ApiRequestInit
 ): ApiRequestInit | undefined {
   if (!init) {
     return { cache: "no-store" };
@@ -831,7 +831,7 @@ function withNoStore<T extends ApiRequestInit | undefined>(
 }
 
 export async function listTournaments(
-  init?: RequestInit
+  init?: ApiRequestInit
 ): Promise<TournamentSummary[]> {
   const res = await apiFetch("/v0/tournaments", withNoStore(init));
   return res.json();
@@ -883,7 +883,7 @@ export async function scheduleAmericanoStage(
 export async function fetchStageStandings(
   tournamentId: string,
   stageId: string,
-  init?: RequestInit
+  init?: ApiRequestInit
 ): Promise<StageStandings> {
   const res = await apiFetch(
     `/v0/tournaments/${tournamentId}/stages/${stageId}/standings`,
@@ -895,7 +895,7 @@ export async function fetchStageStandings(
 export async function listStageMatches(
   tournamentId: string,
   stageId: string,
-  init?: RequestInit
+  init?: ApiRequestInit
 ): Promise<StageScheduleMatch[]> {
   const res = await apiFetch(
     `/v0/tournaments/${tournamentId}/stages/${stageId}/matches`,

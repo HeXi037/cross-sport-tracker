@@ -820,7 +820,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             setLoading(true);
           }
 
-          await Promise.all(
+          const results = await Promise.allSettled(
             missingSports.map(async (s) => {
               const res = await fetch(buildUrl(s), {
                 signal: controller.signal,
@@ -835,9 +835,25 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             }),
           );
 
-          if (!cancelled) {
-            refreshLeadersFromCache(ALL_SPORTS);
-            setLoading(false);
+          if (cancelled) {
+            return;
+          }
+
+          refreshLeadersFromCache(ALL_SPORTS);
+          setLoading(false);
+
+          const rejected = results.filter(
+            (result): result is PromiseRejectedResult => result.status === "rejected",
+          );
+
+          if (rejected.length > 0) {
+            if (rejected.length === 1) {
+              throw rejected[0].reason;
+            }
+            throw new AggregateError(
+              rejected.map((result) => result.reason),
+              "Failed to load one or more sports",
+            );
           }
         } else if (sport === MASTER_SPORT) {
           const cached = getCachedLeaders(MASTER_SPORT);
@@ -949,7 +965,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           setIsLoadingMore(false);
           return;
         }
-        await Promise.all(
+        const results = await Promise.allSettled(
           sportsToFetch.map(async (id) => {
             const cached = getCachedLeaders(id);
             const offset = cached?.nextOffset ?? 0;
@@ -967,8 +983,23 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             storeCachedLeaders(id, page);
           }),
         );
-        if (!controller.signal.aborted) {
-          refreshLeadersFromCache(ALL_SPORTS);
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        refreshLeadersFromCache(ALL_SPORTS);
+
+        const rejected = results.filter(
+          (result): result is PromiseRejectedResult => result.status === "rejected",
+        );
+        if (rejected.length > 0) {
+          if (rejected.length === 1) {
+            throw rejected[0].reason;
+          }
+          throw new AggregateError(
+            rejected.map((result) => result.reason),
+            "Failed to load one or more sports",
+          );
         }
       } else if (sport === MASTER_SPORT) {
         const cached = getCachedLeaders(MASTER_SPORT);

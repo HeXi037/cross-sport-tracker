@@ -5,7 +5,7 @@ import useSWR, {
   type SWRConfiguration,
   type SWRResponse,
 } from 'swr';
-import { apiFetch, type ApiError } from './api';
+import { apiFetch, type ApiError, type ApiRequestInit } from './api';
 
 const API_CACHE_KEY_PREFIX = 'api:';
 const DEFAULT_DEDUPING_INTERVAL = 60_000;
@@ -55,7 +55,7 @@ function stableStringify(value: unknown): string {
     .join(',')}}`;
 }
 
-function normalizeInit(init?: RequestInit): Record<string, unknown> | undefined {
+function normalizeInit(init?: ApiRequestInit): Record<string, unknown> | undefined {
   if (!init) return undefined;
   const { method, cache, credentials, mode, redirect, referrer, referrerPolicy, next } = init;
   const headers = headersToObject(init.headers);
@@ -73,7 +73,7 @@ function normalizeInit(init?: RequestInit): Record<string, unknown> | undefined 
   return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
-export function getApiCacheKey(path: string, init?: RequestInit): string {
+export function getApiCacheKey(path: string, init?: ApiRequestInit): string {
   const normalizedInit = normalizeInit(init);
   if (!normalizedInit) {
     return `${API_CACHE_KEY_PREFIX}${path}`;
@@ -92,7 +92,7 @@ async function defaultParse<T>(response: Response): Promise<T> {
 type Matcher = string | RegExp | ((key: string) => boolean);
 
 type UseApiSWRConfig<T> = {
-  init?: RequestInit;
+  init?: ApiRequestInit;
   parse?: (response: Response) => Promise<T>;
   swr?: SWRConfiguration<T, ApiError>;
 };

@@ -74,6 +74,9 @@ function renderRacketSummary(
 
   return (
     <table className="scoreboard-table" aria-label="Racket scoreboard">
+      <caption className="sr-only">
+        Set, game, and point totals for each side
+      </caption>
       <thead>
         <tr>
           <th scope="col">Side</th>
@@ -130,6 +133,7 @@ function renderDiscGolfSummary(summary: SummaryData) {
 
   return (
     <table className="scoreboard-table" aria-label="Disc golf scoreboard">
+      <caption className="sr-only">Hole-by-hole disc golf scores by side</caption>
       <thead>
         <tr>
           <th scope="col">Side</th>
@@ -203,6 +207,7 @@ function renderBowlingSummary(summary: SummaryData) {
 
     return (
       <table className="scoreboard-table" aria-label="Bowling scoreboard">
+        <caption className="sr-only">Frame scores for each bowler</caption>
         <thead>
           <tr>
             <th scope="col">Player</th>
@@ -258,6 +263,7 @@ function renderBowlingSummary(summary: SummaryData) {
 
   return (
     <table className="scoreboard-table" aria-label="Bowling scoreboard">
+      <caption className="sr-only">Frame-by-frame bowling summary</caption>
       <thead>
         <tr>
           <th scope="col">Frame</th>

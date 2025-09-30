@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from collections import defaultdict
 
@@ -1216,7 +1216,7 @@ async def _compute_player_stats(
     binary_results = [r is True for r in results]
     rolling = rolling_win_percentage(binary_results, span) if binary_results else []
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     def downsample(values: list[float], max_points: int = 20) -> list[float]:
         if not values:
@@ -1230,12 +1230,19 @@ async def _compute_player_stats(
         history: list[tuple[datetime | None, float]],
         current_value: float | None,
     ) -> tuple[float | None, float, list[float], datetime | None]:
+        epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+        def normalize(ts: datetime | None) -> datetime | None:
+            if isinstance(ts, datetime):
+                return coerce_utc(ts)
+            return None
+
         ordered = [
-            (ts if isinstance(ts, datetime) else None, val)
+            (normalize(ts), val)
             for ts, val in history
             if val is not None
         ]
-        ordered.sort(key=lambda item: item[0] or datetime.min)
+        ordered.sort(key=lambda item: item[0] or epoch)
         value = current_value if current_value is not None else (
             ordered[-1][1] if ordered else None
         )
@@ -1287,6 +1294,7 @@ async def _compute_player_stats(
         if not sport:
             continue
         ts = event.created_at
+        timestamp = coerce_utc(ts) if isinstance(ts, datetime) else None
         systems = payload.get("systems") if isinstance(payload, dict) else None
         rating_val = payload.get("rating") if isinstance(payload, dict) else None
         if rating_val is None and isinstance(systems, dict):
@@ -1294,7 +1302,7 @@ async def _compute_player_stats(
             if isinstance(elo_info, dict):
                 rating_val = elo_info.get("rating")
         if rating_val is not None:
-            rating_history[sport].append((ts, float(rating_val)))
+            rating_history[sport].append((timestamp, float(rating_val)))
         glicko_info = None
         if isinstance(systems, dict):
             glicko_info = systems.get("glicko")
@@ -1305,7 +1313,11 @@ async def _compute_player_stats(
             g_rd = glicko_info.get("rd")
             if g_rating is not None:
                 glicko_history[sport].append(
-                    (ts, float(g_rating), float(g_rd) if g_rd is not None else None)
+                    (
+                        timestamp,
+                        float(g_rating),
+                        float(g_rd) if g_rd is not None else None,
+                    )
                 )
 
     rating_current: dict[str, float] = {}
@@ -1338,7 +1350,11 @@ async def _compute_player_stats(
                 )
             ).scalars().all()
             glicko_current = {
-                row.sport_id: (row.rating, row.rd, row.last_updated)
+                row.sport_id: (
+                    row.rating,
+                    row.rd,
+                    coerce_utc(row.last_updated) if row.last_updated else None,
+                )
                 for row in glicko_rows
             }
         except SQLAlchemyError as exc:  # pragma: no cover - optional table

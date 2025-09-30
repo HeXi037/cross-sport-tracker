@@ -332,12 +332,14 @@ export default function HomePageClient({
   useEffect(() => {
     if (!matchPage) return;
 
-    const { matches: nextMatches, hasAdditionalMatches } = mergeMatchPageWithPrevious(
+    const mergedMatches = mergeMatchPageWithPrevious(
       matchesRef.current,
       matchPage.enriched,
     );
 
-    setMatches(nextMatches);
+    const { matches: nextMatches, hasAdditionalMatches } = mergedMatches;
+
+    setMatches(() => nextMatches);
     matchesRef.current = nextMatches;
 
     setNextOffset((currentNextOffset) =>

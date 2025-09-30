@@ -7,6 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -14,8 +15,8 @@ from sqlalchemy import select
 from sqlalchemy.dialects.sqlite import JSON
 
 from backend.app.db import Base, get_session
-from backend.app.models import Match, Sport, ScoreEvent, MatchParticipant, User
-from backend.app.routers import matches
+from backend.app.models import Match, Sport, ScoreEvent, MatchParticipant, Player, User
+from backend.app.routers import matches, auth
 from backend.app.scoring import disc_golf
 from backend.app.routers.auth import get_current_user
 
@@ -39,6 +40,7 @@ def client_and_session():
             # MatchParticipant uses ARRAY which SQLite doesn't support; patch to JSON
             MatchParticipant.__table__.columns["player_ids"].type = JSON()
             await conn.run_sync(MatchParticipant.__table__.create)
+            await conn.run_sync(Player.__table__.create)
 
     asyncio.run(init_models())
 
@@ -56,6 +58,8 @@ def client_and_session():
         return User(id="u1", username="admin", password_hash="", is_admin=True)
 
     app = FastAPI()
+    app.state.limiter = auth.limiter
+    app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
     app.include_router(matches.router)
     app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_current_user] = admin_user
@@ -68,6 +72,12 @@ def test_create_and_append_event_hole(client_and_session):
     async def seed_sport():
         async with session_maker() as session:
             session.add(Sport(id="disc_golf", name="Disc Golf"))
+            session.add_all(
+                [
+                    Player(id="p1", name="Player A"),
+                    Player(id="p2", name="Player B"),
+                ]
+            )
             await session.commit()
 
     asyncio.run(seed_sport())

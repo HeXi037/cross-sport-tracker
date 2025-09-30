@@ -103,62 +103,51 @@ export default function RankingsPage() {
           Results
         </h2>
         {loading ? (
-          <table
-            style={{
-              marginTop: "0.5rem",
-              borderCollapse: "collapse",
-              width: "100%",
-            }}
-            aria-busy="true"
-            aria-describedby={resultsHeadingId}
-          >
-            <thead>
-              <tr>
-                <th
-                  style={{
-                    border: "1px solid #ccc",
-                    padding: "0.5rem",
-                    textAlign: "left",
-                  }}
-                >
-                  #
-                </th>
-                <th
-                  style={{
-                    border: "1px solid #ccc",
-                    padding: "0.5rem",
-                    textAlign: "left",
-                  }}
-                >
-                  Player
-                </th>
-                <th
-                  style={{
-                    border: "1px solid #ccc",
-                    padding: "0.5rem",
-                    textAlign: "left",
-                  }}
-                >
-                  Rating
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <tr key={`skeleton-${i}`}>
-                  <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>
-                    <div className="skeleton" style={{ width: "12px", height: "1em" }} />
-                  </td>
-                  <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>
-                    <div className="skeleton" style={{ width: "120px", height: "1em" }} />
-                  </td>
-                  <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>
-                    <div className="skeleton" style={{ width: "40px", height: "1em" }} />
-                  </td>
+          <div className="table-scroll-container" style={{ marginTop: "0.5rem" }}>
+            <table
+              className="scoreboard-table leaderboard-table"
+              aria-busy="true"
+              aria-describedby={resultsHeadingId}
+            >
+              <thead>
+                <tr>
+                  <th
+                    scope="col"
+                    className="table-header--sticky leaderboard-col-rank"
+                  >
+                    #
+                  </th>
+                  <th
+                    scope="col"
+                    className="table-header--sticky leaderboard-col-player"
+                  >
+                    Player
+                  </th>
+                  <th
+                    scope="col"
+                    className="table-header--sticky leaderboard-col-rating"
+                  >
+                    Rating
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={`skeleton-${i}`}>
+                    <td className="leaderboard-col-rank">
+                      <div className="skeleton" style={{ width: "12px", height: "1em" }} />
+                    </td>
+                    <td className="leaderboard-col-player">
+                      <div className="skeleton" style={{ width: "120px", height: "1em" }} />
+                    </td>
+                    <td className="leaderboard-col-rating">
+                      <div className="skeleton" style={{ width: "40px", height: "1em" }} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : error ? (
           <div
             role="alert"
@@ -177,55 +166,44 @@ export default function RankingsPage() {
         ) : leaders.length === 0 ? (
           <p>No rankings available for this sport.</p>
         ) : (
-          <table
-            style={{
-              marginTop: "0.5rem",
-              borderCollapse: "collapse",
-              width: "100%",
-            }}
-            aria-describedby={resultsHeadingId}
-          >
-            <thead>
-              <tr>
-                <th
-                  style={{
-                    border: "1px solid #ccc",
-                    padding: "0.5rem",
-                    textAlign: "left",
-                  }}
-                >
-                  #
-                </th>
-                <th
-                  style={{
-                    border: "1px solid #ccc",
-                    padding: "0.5rem",
-                    textAlign: "left",
-                  }}
-                >
-                  Player
-                </th>
-                <th
-                  style={{
-                    border: "1px solid #ccc",
-                    padding: "0.5rem",
-                    textAlign: "left",
-                  }}
-                >
-                  Rating
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {leaders.map((l, i) => (
-                <tr key={l.playerId}>
-                  <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{i + 1}</td>
-                  <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{l.playerName}</td>
-                  <td style={{ border: "1px solid #ccc", padding: "0.5rem" }}>{Math.round(l.rating)}</td>
+          <div className="table-scroll-container" style={{ marginTop: "0.5rem" }}>
+            <table
+              className="scoreboard-table leaderboard-table"
+              aria-describedby={resultsHeadingId}
+            >
+              <thead>
+                <tr>
+                  <th
+                    scope="col"
+                    className="table-header--sticky leaderboard-col-rank"
+                  >
+                    #
+                  </th>
+                  <th
+                    scope="col"
+                    className="table-header--sticky leaderboard-col-player"
+                  >
+                    Player
+                  </th>
+                  <th
+                    scope="col"
+                    className="table-header--sticky leaderboard-col-rating"
+                  >
+                    Rating
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {leaders.map((l, i) => (
+                  <tr key={l.playerId}>
+                    <td className="leaderboard-col-rank">{i + 1}</td>
+                    <td className="leaderboard-col-player">{l.playerName}</td>
+                    <td className="leaderboard-col-rating">{Math.round(l.rating)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </main>

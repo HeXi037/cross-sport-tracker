@@ -1082,8 +1082,18 @@ textarea {
   font-size: 1rem;
 }
 
-.scoreboard-wrapper {
+.table-scroll-container {
+  position: relative;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+
+.scoreboard-wrapper {
+  position: relative;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
 }
 
 .scoreboard-table {
@@ -1098,9 +1108,32 @@ textarea {
   border-bottom: 1px solid rgba(10, 31, 68, 0.08);
 }
 
+.table-header--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.97),
+    rgba(240, 242, 245, 0.94)
+  );
+  backdrop-filter: blur(4px);
+  box-shadow: inset 0 -1px 0 rgba(10, 31, 68, 0.08);
+  background-clip: padding-box;
+}
+
 .scoreboard-table thead th {
   font-weight: 600;
-  background: rgba(10, 31, 68, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.96),
+    rgba(10, 31, 68, 0.08)
+  );
+  box-shadow: inset 0 -1px 0 rgba(10, 31, 68, 0.12);
+  background-clip: padding-box;
 }
 
 .scoreboard-table th:first-child,
@@ -1111,6 +1144,27 @@ textarea {
 .scoreboard-table th:not(:first-child),
 .scoreboard-table td:not(:first-child) {
   text-align: center;
+}
+
+.leaderboard-table {
+  min-width: 360px;
+}
+
+.scoreboard-table .leaderboard-col-rank {
+  width: 56px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.scoreboard-table .leaderboard-col-player {
+  text-align: left;
+  min-width: 160px;
+}
+
+.scoreboard-table .leaderboard-col-rating {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .scoreboard-table tbody tr:nth-child(even) th,

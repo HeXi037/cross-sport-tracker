@@ -311,11 +311,13 @@ export default function LoginPage() {
   const [confirmPass, setConfirmPass] = useState("");
   const [loginErrors, setLoginErrors] = useState<string[]>([]);
   const [signupErrors, setSignupErrors] = useState<string[]>([]);
+  const [showSignup, setShowSignup] = useState(false);
   const passwordStrengthLabelId = useId();
   const passwordStrengthHelperId = useId();
   const errorSummaryTitleId = useId();
   const loginErrorTitleId = useId();
   const signupErrorTitleId = useId();
+  const signupFormId = useId();
   const { usernameCharacterRule, usernameEmailOption } = useMemo(
     () => getAuthCopy(locale),
     [locale]
@@ -503,8 +505,26 @@ export default function LoginPage() {
         <button type="submit">Login</button>
       </form>
 
-      <h2 className="heading">Sign Up</h2>
-      <form onSubmit={handleSignup} className="auth-form">
+      <section className="auth-signup">
+        <div className="auth-signup__header">
+          <h2 className="heading">Need an account?</h2>
+          <button
+            type="button"
+            className="auth-signup__toggle"
+            onClick={() => setShowSignup((prev) => !prev)}
+            aria-expanded={showSignup}
+            aria-controls={signupFormId}
+          >
+            {showSignup ? "Hide sign up form" : "Create an account"}
+          </button>
+        </div>
+        {showSignup && (
+          <form
+            id={signupFormId}
+            onSubmit={handleSignup}
+            className="auth-form auth-signup__form"
+            data-testid="signup-form"
+          >
         <div className="form-field">
           <label htmlFor="signup-username" className="form-label">
             Username
@@ -606,7 +626,9 @@ export default function LoginPage() {
           </div>
         )}
         <button type="submit">Sign Up</button>
-      </form>
+          </form>
+        )}
+      </section>
     </main>
   );
 }

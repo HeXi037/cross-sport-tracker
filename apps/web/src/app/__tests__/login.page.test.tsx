@@ -89,15 +89,18 @@ describe('LoginPage signup feedback', () => {
 
     renderWithToast(<LoginPage />);
 
-    const [, signupUsername] = screen.getAllByLabelText('Username');
-    const signupPassword = screen.getAllByLabelText('Password')[1];
-    const confirmPassword = screen.getByLabelText('Confirm Password');
+    fireEvent.click(screen.getByRole('button', { name: /create an account/i }));
+
+    const signupForm = screen.getByTestId('signup-form');
+    const signupUsername = within(signupForm).getByLabelText('Username');
+    const signupPassword = within(signupForm).getByLabelText('Password');
+    const confirmPassword = within(signupForm).getByLabelText('Confirm Password');
 
     fireEvent.change(signupUsername, { target: { value: 'NewUser' } });
     fireEvent.change(signupPassword, { target: { value: 'Str0ng!Pass!' } });
     fireEvent.change(confirmPassword, { target: { value: 'Str0ng!Pass!' } });
 
-    fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
+    fireEvent.click(within(signupForm).getByRole('button', { name: /sign up/i }));
 
     await waitFor(() => {
       expect(mockedApiFetch).toHaveBeenCalledWith(
@@ -126,15 +129,18 @@ describe('LoginPage signup feedback', () => {
 
     renderWithToast(<LoginPage />);
 
-    const [, signupUsername] = screen.getAllByLabelText('Username');
-    const signupPassword = screen.getAllByLabelText('Password')[1];
-    const confirmPassword = screen.getByLabelText('Confirm Password');
+    fireEvent.click(screen.getByRole('button', { name: /create an account/i }));
+
+    const signupForm = screen.getByTestId('signup-form');
+    const signupUsername = within(signupForm).getByLabelText('Username');
+    const signupPassword = within(signupForm).getByLabelText('Password');
+    const confirmPassword = within(signupForm).getByLabelText('Confirm Password');
 
     fireEvent.change(signupUsername, { target: { value: 'Existing' } });
     fireEvent.change(signupPassword, { target: { value: 'Str0ng!Pass!' } });
     fireEvent.change(confirmPassword, { target: { value: 'Str0ng!Pass!' } });
 
-    fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
+    fireEvent.click(within(signupForm).getByRole('button', { name: /sign up/i }));
 
     const alert = await screen.findByRole('alert');
     expect(
@@ -147,15 +153,18 @@ describe('LoginPage signup feedback', () => {
   it('shows username format guidance when validation fails', async () => {
     renderWithToast(<LoginPage />);
 
-    const [, signupUsername] = screen.getAllByLabelText('Username');
-    const signupPassword = screen.getAllByLabelText('Password')[1];
-    const confirmPassword = screen.getByLabelText('Confirm Password');
+    fireEvent.click(screen.getByRole('button', { name: /create an account/i }));
+
+    const signupForm = screen.getByTestId('signup-form');
+    const signupUsername = within(signupForm).getByLabelText('Username');
+    const signupPassword = within(signupForm).getByLabelText('Password');
+    const confirmPassword = within(signupForm).getByLabelText('Confirm Password');
 
     fireEvent.change(signupUsername, { target: { value: 'Invalid Name' } });
     fireEvent.change(signupPassword, { target: { value: 'Str0ng!Pass!' } });
     fireEvent.change(confirmPassword, { target: { value: 'Str0ng!Pass!' } });
 
-    fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
+    fireEvent.click(within(signupForm).getByRole('button', { name: /sign up/i }));
 
     const alert = await screen.findByRole('alert');
     expect(

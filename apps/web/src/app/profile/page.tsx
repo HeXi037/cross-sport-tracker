@@ -47,7 +47,12 @@ import {
   saveUserSettings,
   type UserSettings,
 } from "../user-settings";
-import { normalizeTimeZone, DEFAULT_TIME_ZONE } from "../../lib/i18n";
+import {
+  normalizeTimeZone,
+  DEFAULT_TIME_ZONE,
+  detectTimeZone,
+} from "../../lib/i18n";
+import { useLocale } from "../../lib/LocaleContext";
 import {
   ALL_SPORTS,
   MASTER_SPORT,
@@ -191,6 +196,7 @@ function formatSportOption(id: string): string {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const currentLocale = useLocale();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -1101,13 +1107,9 @@ export default function ProfilePage() {
                 setPreferencesFeedback(null);
                 setMessage(null);
                 setError(null);
-                let detected: string | null = null;
-                try {
-                  detected =
-                    Intl.DateTimeFormat().resolvedOptions().timeZone ?? null;
-                } catch {
-                  detected = null;
-                }
+                const detected = detectTimeZone(
+                  preferences.preferredLocale || currentLocale,
+                );
                 const normalized = normalizeTimeZone(
                   detected ?? DEFAULT_TIME_ZONE,
                   DEFAULT_TIME_ZONE,

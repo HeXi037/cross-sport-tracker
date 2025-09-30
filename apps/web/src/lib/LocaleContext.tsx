@@ -106,7 +106,7 @@ export function LocaleProvider({
     normalizeLocale(locale, NEUTRAL_FALLBACK_LOCALE),
   );
   const [currentTimeZone, setCurrentTimeZone] = useState(() =>
-    resolveTimeZone(timeZone),
+    resolveTimeZone(timeZone, locale),
   );
 
   useEffect(() => {
@@ -156,6 +156,7 @@ export function LocaleProvider({
       );
       const nextTimeZone = resolveTimeZone(
         preferredSettingsTimeZone || cookieTimeZone || null,
+        nextLocale,
       );
       setCurrentTimeZone((prev) => (prev === nextTimeZone ? prev : nextTimeZone));
       storeTimeZonePreference(nextTimeZone);

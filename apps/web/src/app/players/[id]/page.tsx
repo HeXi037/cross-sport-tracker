@@ -445,7 +445,7 @@ export default async function PlayerPage({
   const cookieStore = cookies();
   const { locale } = resolveServerLocale({ cookieStore });
   const timeZoneCookie = cookieStore.get(TIME_ZONE_COOKIE_KEY)?.value ?? null;
-  const timeZone = resolveTimeZone(timeZoneCookie);
+  const timeZone = resolveTimeZone(timeZoneCookie, locale);
   let player: Player;
   try {
     player = await getPlayer(params.id);

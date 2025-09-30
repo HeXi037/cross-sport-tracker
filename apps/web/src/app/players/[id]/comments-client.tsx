@@ -1,7 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { apiFetch } from "../../../lib/api";
+import {
+  SESSION_ENDED_EVENT,
+  apiFetch,
+  currentUserId,
+  isAdmin,
+  isLoggedIn,
+  type ApiError,
+} from "../../../lib/api";
 
 interface Comment {
   id: string;
@@ -22,14 +29,34 @@ interface PaginatedComments {
 export default function PlayerComments({ playerId }: { playerId: string }) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [content, setContent] = useState("");
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<
+    | { type: "success" | "error"; message: string }
+    | null
+  >(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [session, setSession] = useState(() => ({
+    loggedIn: isLoggedIn(),
+    userId: currentUserId(),
+    admin: isAdmin(),
+  }));
 
   const load = useCallback(async () => {
-    const resp = await apiFetch(`/v0/players/${playerId}/comments`);
-    if (resp.ok) {
+    setLoading(true);
+    try {
+      const resp = await apiFetch(`/v0/players/${playerId}/comments`, {
+        cache: "no-store",
+      });
       const data = (await resp.json()) as PaginatedComments;
       setComments(data.items ?? []);
+      setLoadError(null);
+    } catch (err) {
+      console.error("Failed to load comments", err);
+      setComments([]);
+      setLoadError("We couldn't load comments. Please try again.");
+    } finally {
+      setLoading(false);
     }
   }, [playerId]);
 
@@ -37,47 +64,119 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const updateSession = () =>
+      setSession({
+        loggedIn: isLoggedIn(),
+        userId: currentUserId(),
+        admin: isAdmin(),
+      });
+    const handleSessionEnded = () => updateSession();
+    window.addEventListener("storage", updateSession);
+    window.addEventListener(SESSION_ENDED_EVENT, handleSessionEnded);
+    return () => {
+      window.removeEventListener("storage", updateSession);
+      window.removeEventListener(SESSION_ENDED_EVENT, handleSessionEnded);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!session.loggedIn) {
+      setContent("");
+    }
+  }, [session.loggedIn]);
+
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!token) return;
-    const resp = await apiFetch(`/v0/players/${playerId}/comments`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ content }),
-    });
-    if (resp.ok) {
+    if (!session.loggedIn) {
+      setFeedback({ type: "error", message: "Log in to add a comment." });
+      return;
+    }
+    const trimmed = content.trim();
+    if (!trimmed) {
+      setFeedback({
+        type: "error",
+        message: "Comment cannot be empty.",
+      });
+      return;
+    }
+    setSubmitting(true);
+    setFeedback(null);
+    try {
+      await apiFetch(`/v0/players/${playerId}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ content: trimmed }),
+      });
       setContent("");
+      setFeedback({
+        type: "success",
+        message: "Comment posted successfully.",
+      });
       await load();
+    } catch (err) {
+      const apiError = err as ApiError;
+      const message =
+        apiError?.parsedMessage ||
+        apiError?.message ||
+        "We couldn't post your comment. Please try again.";
+      setFeedback({ type: "error", message });
+    } finally {
+      setSubmitting(false);
     }
   }
 
-  async function remove(id: string) {
-    if (!token) return;
-    const resp = await apiFetch(`/v0/players/${playerId}/comments/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (resp.ok) {
+  async function remove(id: string, ownerId: string) {
+    if (!session.loggedIn) {
+      setFeedback({ type: "error", message: "Log in to manage comments." });
+      return;
+    }
+    const isAuthor = Boolean(session.userId) && session.userId === ownerId;
+    if (!session.admin && !isAuthor) {
+      setFeedback({
+        type: "error",
+        message: "You can only delete your own comments.",
+      });
+      return;
+    }
+    try {
+      await apiFetch(`/v0/players/${playerId}/comments/${id}`, {
+        method: "DELETE",
+      });
+      setFeedback({
+        type: "success",
+        message: "Comment deleted.",
+      });
       await load();
+    } catch (err) {
+      const apiError = err as ApiError;
+      const message =
+        apiError?.parsedMessage ||
+        apiError?.message ||
+        "We couldn't delete the comment. Please try again.";
+      setFeedback({ type: "error", message });
     }
   }
 
   return (
     <section className="mt-4">
       <h2 className="heading">Comments</h2>
-      {comments.length ? (
+      {loading ? (
+        <p>Loading comments…</p>
+      ) : comments.length ? (
         <ul>
           {comments.map((c) => (
             <li key={c.id} className="mb-2">
               <div>{c.content}</div>
               <div className="text-sm text-gray-700">
                 {c.username} · {new Date(c.createdAt).toLocaleString()}
-                {token && (
-                  <button
-                    onClick={() => remove(c.id)}
+                {session.loggedIn &&
+                  (session.admin || session.userId === c.userId) && (
+                    <button
+                    onClick={() => remove(c.id, c.userId)}
                     className="ml-2 text-red-600"
                   >
                     Delete
@@ -90,7 +189,22 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
       ) : (
         <p>No comments.</p>
       )}
-      {token && (
+      {loadError && (
+        <p className="mt-2 text-sm text-red-600" role="alert">
+          {loadError}
+        </p>
+      )}
+      {feedback && (
+        <p
+          className={`mt-2 text-sm ${
+            feedback.type === "error" ? "text-red-600" : "text-green-600"
+          }`}
+          role={feedback.type === "error" ? "alert" : "status"}
+        >
+          {feedback.message}
+        </p>
+      )}
+      {session.loggedIn ? (
         <form onSubmit={submit} className="mt-2">
           <label className="sr-only" htmlFor="player-comment-input">
             Add a comment
@@ -100,11 +214,16 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
             value={content}
             onChange={(e) => setContent(e.target.value)}
             className="border p-2 w-full"
+            disabled={submitting}
           />
-          <button type="submit" className="btn mt-2">
-            Add Comment
+          <button type="submit" className="btn mt-2" disabled={submitting}>
+            {submitting ? "Posting…" : "Add Comment"}
           </button>
         </form>
+      ) : (
+        <p className="mt-2 text-sm text-gray-700">
+          Log in to add a comment.
+        </p>
       )}
     </section>
   );

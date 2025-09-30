@@ -507,9 +507,19 @@ async def create_match_by_name(
     session: AsyncSession,
     user: User,
 ) -> MatchIdOut:
+    def _normalize_lookup_name(name: str) -> str:
+        """Normalize a player name for lookup in the database."""
+
+        stripped = name.strip()
+        if not stripped:
+            return ""
+        collapsed = " ".join(stripped.split())
+        return collapsed.lower()
+
     name_to_id: dict[str, str] = {}
     original_names = [n for part in body.participants for n in part.playerNames]
-    lookup_names = [n.lower() for n in original_names]
+    normalized_names = [_normalize_lookup_name(n) for n in original_names]
+    lookup_names = [n for n in normalized_names if n]
     if lookup_names:
         rows = (
             await session.execute(
@@ -520,7 +530,11 @@ async def create_match_by_name(
         ).scalars().all()
         # Player names are stored normalized (lowercase)
         name_to_id = {p.name: p.id for p in rows}
-    missing = [n for n in original_names if n.lower() not in name_to_id]
+    missing = [
+        original_names[idx]
+        for idx, normalized in enumerate(normalized_names)
+        if normalized not in name_to_id
+    ]
     if missing:
         raise http_problem(
             status_code=400,
@@ -530,7 +544,11 @@ async def create_match_by_name(
     id_to_name = {pid: name for name, pid in name_to_id.items()}
     dup_ids = [
         pid
-        for pid, cnt in Counter(name_to_id[n.lower()] for n in original_names).items()
+        for pid, cnt in Counter(
+            name_to_id[normalized]
+            for normalized in normalized_names
+            if normalized in name_to_id
+        ).items()
         if cnt > 1
     ]
     if dup_ids:
@@ -542,7 +560,7 @@ async def create_match_by_name(
         )
     parts = []
     for part in body.participants:
-        ids = [name_to_id[n.lower()] for n in part.playerNames]
+        ids = [name_to_id[_normalize_lookup_name(n)] for n in part.playerNames]
         parts.append(Participant(side=part.side, playerIds=ids))
     sets = None
     if body.sets:

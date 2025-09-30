@@ -284,6 +284,53 @@ async def test_create_match_by_name_is_case_insensitive(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_create_match_by_name_trims_whitespace(tmp_path):
+  from app import db
+  from app.models import Player, Sport, Match, MatchParticipant, User
+  from app.schemas import MatchCreateByName, ParticipantByName
+  from app.routers.matches import create_match_by_name
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+      db.Base.metadata.create_all,
+      tables=[
+        Player.__table__,
+        Sport.__table__,
+        Stage.__table__,
+        Match.__table__,
+        MatchParticipant.__table__,
+      ],
+    )
+
+  async with db.AsyncSessionLocal() as session:
+    session.add_all([
+      Player(id="p1", name="alice"),
+      Player(id="p2", name="bob"),
+      Sport(id="padel", name="Padel"),
+    ])
+    await session.commit()
+    body = MatchCreateByName(
+      sport="padel",
+      participants=[
+        ParticipantByName(side="A", playerNames=["  Alice  "]),
+        ParticipantByName(side="B", playerNames=["Bob   "]),
+      ],
+    )
+    admin = User(id="u1", username="admin", password_hash="", is_admin=True)
+    resp = await create_match_by_name(body, session, user=admin)
+    assert resp.id
+    participants = (
+      await session.execute(
+        select(MatchParticipant).where(MatchParticipant.match_id == resp.id)
+      )
+    ).scalars().all()
+    assert sorted(part.player_ids for part in participants) == [["p1"], ["p2"]]
+
+
+@pytest.mark.anyio
 async def test_create_match_with_sets(tmp_path):
   from app import db
   from app.models import Match, MatchParticipant, Player, Sport, User

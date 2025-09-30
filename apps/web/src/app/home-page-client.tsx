@@ -263,14 +263,12 @@ export default function HomePageClient({
   useEffect(() => {
     if (!matchPage) return;
 
+    const previousMatches = matches;
+    const nextPageMatches = matchPage.enriched;
     let hasAdditionalMatches = false;
+    let nextMatches: EnrichedMatch[] = nextPageMatches;
 
-    setMatches((previousMatches) => {
-      const nextPageMatches = matchPage.enriched;
-      if (!previousMatches.length) {
-        return nextPageMatches;
-      }
-
+    if (previousMatches.length) {
       const nextIds = new Set(nextPageMatches.map((match) => match.id));
       const preservedMatches: EnrichedMatch[] = [];
 
@@ -291,16 +289,20 @@ export default function HomePageClient({
         }
 
         if (isSameOrder) {
-          return previousMatches;
+          nextMatches = previousMatches;
         }
       }
 
-      if (!preservedMatches.length && previousMatches.length === nextPageMatches.length) {
-        return nextPageMatches;
+      if (nextMatches === nextPageMatches) {
+        if (!preservedMatches.length && previousMatches.length === nextPageMatches.length) {
+          nextMatches = nextPageMatches;
+        } else {
+          nextMatches = [...nextPageMatches, ...preservedMatches];
+        }
       }
+    }
 
-      return [...nextPageMatches, ...preservedMatches];
-    });
+    setMatches(nextMatches);
 
     if (typeof matchPage.limit === 'number') {
       setPageSize((currentPageSize) =>

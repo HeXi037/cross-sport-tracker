@@ -64,7 +64,7 @@ export default function RankingsPage() {
           style={{
             fontSize: "1.25rem",
             margin: "0 0 0.75rem",
-            color: "var(--color-accent-red)",
+            color: "var(--color-heading)",
           }}
         >
           Filters
@@ -97,7 +97,7 @@ export default function RankingsPage() {
           style={{
             fontSize: "1.25rem",
             margin: "0 0 0.75rem",
-            color: "var(--color-accent-red)",
+            color: "var(--color-heading)",
           }}
         >
           Results

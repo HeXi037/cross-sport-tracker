@@ -1,0 +1,90 @@
+{
+  "Common": {
+    "appName": "cross-sport-tracker",
+    "appTagline": "Proyecto autoalojado en curso",
+    "actions": {
+      "retry": "Reintentar",
+      "login": "Iniciar sesión",
+      "logout": "Cerrar sesión",
+      "loadMoreMatches": "Cargar más partidos",
+      "viewAllMatches": "Ver todos los partidos",
+      "moreInfo": "Más información"
+    },
+    "status": {
+      "loading": "Cargando…",
+      "loadingMoreMatches": "Cargando más partidos…",
+      "updatingSports": "Actualizando deportes…",
+      "loadingSports": "Cargando deportes…",
+      "updatingMatches": "Actualizando partidos…",
+      "loadingRecentMatches": "Cargando partidos recientes…"
+    },
+    "errors": {
+      "loadMoreMatches": "No se pueden cargar más partidos. Inténtalo de nuevo."
+    },
+    "nav": {
+      "skipToContent": "Saltar al contenido principal",
+      "toggle": "Mostrar u ocultar la navegación",
+      "loggedInAs": "Sesión iniciada como {username}"
+    },
+    "match": {
+      "friendly": "Amistoso",
+      "bestOf": "Mejor de {count}",
+      "details": "Detalles del partido"
+    }
+  },
+  "Home": {
+    "sportsHeading": "Deportes",
+    "matchesHeading": "Partidos recientes",
+    "sportsError": "No se pueden cargar los deportes. Comprueba la conexión.",
+    "noSports": "No se encontraron deportes.",
+    "matchesError": "No se pueden cargar los partidos. Comprueba la conexión.",
+    "noMatches": "Todavía no hay partidos registrados.",
+    "icons": {
+      "padel": "Icono de pelota de pádel",
+      "padel_americano": "Icono de ábaco de Pádel Americano",
+      "bowling": "Icono de bola y bolos",
+      "tennis": "Icono de raqueta y pelota de tenis",
+      "pickleball": "Icono de pepino de pickleball",
+      "badminton": "Icono de volante de bádminton",
+      "table_tennis": "Icono de palas de tenis de mesa",
+      "disc_golf": "Icono de disco volador de disc golf"
+    }
+  },
+  "Matches": {
+    "title": "Partidos",
+    "emptyInitial": "Todavía no hay partidos.",
+    "emptyPage": "No hay partidos en esta página.",
+    "errors": {
+      "load": "Error al cargar los partidos. Inténtalo de nuevo más tarde.",
+      "forbidden": "No tienes permiso para ver estos partidos.",
+      "notFound": "No pudimos encontrar ese partido.",
+      "sessionExpired": "Tu sesión ha expirado. Actualiza la página e inténtalo de nuevo."
+    },
+    "summary": {
+      "sets": "Sets",
+      "games": "Juegos",
+      "points": "Puntos"
+    }
+  },
+  "Header": {
+    "links": {
+      "home": "Inicio",
+      "players": "Jugadores",
+      "matches": "Partidos",
+      "record": "Registro",
+      "tournaments": "Torneos",
+      "leaderboards": "Clasificaciones",
+      "adminMatches": "Partidos de administrador",
+      "adminBadges": "Insignias de administrador",
+      "profile": "Perfil",
+      "login": "Iniciar sesión"
+    },
+    "actions": {
+      "logout": "Cerrar sesión"
+    }
+  },
+  "NotFound": {
+    "title": "Página no encontrada",
+    "returnHome": "Volver al inicio"
+  }
+}

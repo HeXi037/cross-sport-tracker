@@ -1,0 +1,90 @@
+{
+  "Common": {
+    "appName": "cross-sport-tracker",
+    "appTagline": "Ongoing self-hosted project",
+    "actions": {
+      "retry": "Retry",
+      "login": "Login",
+      "logout": "Logout",
+      "loadMoreMatches": "Load more matches",
+      "viewAllMatches": "View all matches",
+      "moreInfo": "More info"
+    },
+    "status": {
+      "loading": "Loading…",
+      "loadingMoreMatches": "Loading more matches…",
+      "updatingSports": "Updating sports…",
+      "loadingSports": "Loading sports…",
+      "updatingMatches": "Updating matches…",
+      "loadingRecentMatches": "Loading recent matches…"
+    },
+    "errors": {
+      "loadMoreMatches": "Unable to load more matches. Please try again."
+    },
+    "nav": {
+      "skipToContent": "Skip to main content",
+      "toggle": "Toggle navigation",
+      "loggedInAs": "Logged in as {username}"
+    },
+    "match": {
+      "friendly": "Friendly",
+      "bestOf": "Best of {count}",
+      "details": "Match details"
+    }
+  },
+  "Home": {
+    "sportsHeading": "Sports",
+    "matchesHeading": "Recent Matches",
+    "sportsError": "Unable to load sports. Check connection.",
+    "noSports": "No sports found.",
+    "matchesError": "Unable to load matches. Check connection.",
+    "noMatches": "No matches recorded yet.",
+    "icons": {
+      "padel": "Padel tennis ball icon",
+      "padel_americano": "Padel Americano abacus icon",
+      "bowling": "Bowling ball and pins icon",
+      "tennis": "Tennis racket and ball icon",
+      "pickleball": "Pickleball cucumber icon",
+      "badminton": "Badminton shuttlecock icon",
+      "table_tennis": "Table tennis paddles icon",
+      "disc_golf": "Disc golf flying disc icon"
+    }
+  },
+  "Matches": {
+    "title": "Matches",
+    "emptyInitial": "No matches yet.",
+    "emptyPage": "No matches on this page.",
+    "errors": {
+      "load": "Failed to load matches. Try again later.",
+      "forbidden": "You do not have permission to view these matches.",
+      "notFound": "We couldn't find that match.",
+      "sessionExpired": "Your session expired. Please refresh and try again."
+    },
+    "summary": {
+      "sets": "Sets",
+      "games": "Games",
+      "points": "Points"
+    }
+  },
+  "Header": {
+    "links": {
+      "home": "Home",
+      "players": "Players",
+      "matches": "Matches",
+      "record": "Record",
+      "tournaments": "Tournaments",
+      "leaderboards": "Leaderboards",
+      "adminMatches": "Admin Matches",
+      "adminBadges": "Admin Badges",
+      "profile": "Profile",
+      "login": "Login"
+    },
+    "actions": {
+      "logout": "Logout"
+    }
+  },
+  "NotFound": {
+    "title": "Page not found",
+    "returnHome": "Return home"
+  }
+}

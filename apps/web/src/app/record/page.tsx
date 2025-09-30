@@ -8,14 +8,16 @@ import {
   getRecordSportMetaBySlug,
 } from "../../lib/recording";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 type Sport = { id: string; name: string };
 
 export default async function RecordPage() {
   let sports: Sport[] = [];
   try {
-    const res = await apiFetch("/v0/sports", { cache: "no-store" });
+    const res = await apiFetch("/v0/sports", {
+      next: { revalidate: 60 },
+    });
     if (res.ok) {
       sports = (await res.json()) as Sport[];
     }

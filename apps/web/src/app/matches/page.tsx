@@ -21,6 +21,8 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const MATCHES_REVALIDATE_SECONDS = 60;
+
 const MATCH_ERROR_MESSAGE_KEYS: Record<string, string> = {
   match_forbidden: "errors.forbidden",
   match_not_found: "errors.notFound",
@@ -45,7 +47,7 @@ function parseIntHeader(value: string | null): number | null {
 async function getMatches(limit: number, offset: number): Promise<MatchPage> {
   const r = await apiFetch(
     `/v0/matches?limit=${limit}&offset=${offset}`,
-    { cache: "no-store" }
+    { next: { revalidate: MATCHES_REVALIDATE_SECONDS } }
   );
   if (!r.ok) throw new Error(`Failed to load matches: ${r.status}`);
 

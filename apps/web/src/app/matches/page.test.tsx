@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import MatchesPage from "./page";
+import enMessages from "../../messages/en-GB.json";
 
 type MockMatch = {
   id: string;
@@ -56,6 +57,8 @@ const defaultSportsCatalog = [
   { id: "tennis", name: "Tennis" },
 ];
 
+const pushMock = vi.fn();
+
 function setupFetchMock(
   matches: MockMatch[],
   options: {
@@ -99,13 +102,38 @@ vi.mock("next/link", () => ({
   ),
 }));
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: pushMock }),
 }));
 vi.mock("next/headers", () => ({
   headers: () => ({
     get: () => undefined,
   }),
   cookies: () => ({ get: () => undefined }),
+}));
+vi.mock("next-intl/server", () => ({
+  getTranslations: vi.fn(async (namespaceOrOptions?: unknown) => {
+    const namespace =
+      typeof namespaceOrOptions === "string"
+        ? namespaceOrOptions
+        : typeof namespaceOrOptions === "object" && namespaceOrOptions && "namespace" in namespaceOrOptions
+          ? (namespaceOrOptions as { namespace?: string }).namespace ?? ""
+          : "";
+    return (key: string, values?: Record<string, unknown>) => {
+      const fullKey = [namespace, key].filter(Boolean).join(".");
+      const template = fullKey
+        .split(".")
+        .reduce<unknown>((acc, segment) => (acc as Record<string, unknown>)?.[segment], enMessages);
+      if (typeof template !== "string") {
+        throw new Error(`Missing translation for ${fullKey}`);
+      }
+      return template.replace(/\{(\w+)\}/g, (_, token) => {
+        if (values && token in values) {
+          return String(values[token]);
+        }
+        return `{${token}}`;
+      });
+    };
+  }),
 }));
 
 const originalFetch = global.fetch;
@@ -114,6 +142,7 @@ describe("MatchesPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     global.fetch = originalFetch;
+    pushMock.mockReset();
   });
 
   it("renders player names and summary from the list response", async () => {
@@ -143,7 +172,9 @@ describe("MatchesPage", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/v0/matches?limit=25&offset=0"),
-      expect.objectContaining({ cache: "no-store" })
+      expect.objectContaining({
+        next: expect.objectContaining({ revalidate: 60 }),
+      })
     );
   });
 
@@ -230,5 +261,34 @@ describe("MatchesPage", () => {
     const next = screen.getByText("Next") as HTMLButtonElement;
     expect(next).toBeDisabled();
     expect(screen.getByText("Page 1 · Showing matches 1-2")).toBeInTheDocument();
+  });
+
+  it("enables the next button and uses header offsets when more results are reported", async () => {
+    const matches = [createMatch({ id: "m1" })];
+
+    const fetchMock = setupFetchMock(matches, {
+      headers: {
+        "X-Has-More": "true",
+        "X-Next-Offset": "10",
+      },
+    });
+
+    const page = await MatchesPage({ searchParams: { limit: "2", offset: "0" } });
+    render(page);
+
+    const next = screen.getByText("Next") as HTMLButtonElement;
+    expect(next).not.toBeDisabled();
+
+    fireEvent.click(next);
+
+    expect(pushMock).toHaveBeenCalledWith(
+      expect.stringContaining("limit=2&offset=10")
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/v0/sports"),
+      expect.objectContaining({
+        next: expect.objectContaining({ revalidate: 300 }),
+      })
+    );
   });
 });

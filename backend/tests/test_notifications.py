@@ -7,6 +7,7 @@ import jwt
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from slowapi.errors import RateLimitExceeded
 
 from app import db
 from app.models import Sport
@@ -66,6 +67,8 @@ def seed_sports():
 
 def test_comment_and_match_notifications_flow():
     app = FastAPI()
+    app.state.limiter = auth.limiter
+    app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
     app.include_router(auth.router)
     app.include_router(players.router)
     app.include_router(matches.router)

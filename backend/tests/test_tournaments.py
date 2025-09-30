@@ -7,6 +7,9 @@ from types import SimpleNamespace
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from slowapi.errors import RateLimitExceeded
+
+from app.routers import auth
 
 from app.schemas import ParticipantOut
 
@@ -17,6 +20,13 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 @pytest.fixture
 def anyio_backend():
     return "asyncio"
+
+def _configured_app() -> FastAPI:
+    app = FastAPI()
+    app.state.limiter = auth.limiter
+    app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
+    return app
+
 
 @pytest.mark.anyio
 async def test_tournament_crud(tmp_path):
@@ -51,7 +61,7 @@ async def test_tournament_crud(tmp_path):
         )
         await session.commit()
 
-    app = FastAPI()
+    app = _configured_app()
     app.include_router(tournaments.router)
     admin_user = SimpleNamespace(id="admin", is_admin=True)
 
@@ -111,7 +121,7 @@ async def test_stage_crud(tmp_path):
         )
         await session.commit()
 
-    app = FastAPI()
+    app = _configured_app()
     app.include_router(tournaments.router)
     admin_user = SimpleNamespace(id="admin", is_admin=True)
 
@@ -170,7 +180,7 @@ async def test_normal_user_can_create_americano_stage():
         )
         await session.commit()
 
-    app = FastAPI()
+    app = _configured_app()
     app.include_router(tournaments.router)
 
     owner = SimpleNamespace(id="player1", is_admin=False)
@@ -223,7 +233,7 @@ async def test_normal_user_cannot_create_non_americano_stage():
         )
         await session.commit()
 
-    app = FastAPI()
+    app = _configured_app()
     app.include_router(tournaments.router)
 
     owner = SimpleNamespace(id="player1", is_admin=False)
@@ -281,7 +291,7 @@ async def test_normal_user_cannot_create_stage_for_other_user():
         )
         await session.commit()
 
-    app = FastAPI()
+    app = _configured_app()
     app.include_router(tournaments.router)
 
     owner = SimpleNamespace(id="owner", is_admin=False)
@@ -353,7 +363,7 @@ async def test_normal_user_can_delete_own_americano():
         )
         await session.commit()
 
-    app = FastAPI()
+    app = _configured_app()
     app.include_router(tournaments.router)
     owner = SimpleNamespace(id="player1", is_admin=False)
 
@@ -479,7 +489,7 @@ async def test_normal_user_cannot_delete_other_users_tournament():
         )
         await session.commit()
 
-    app = FastAPI()
+    app = _configured_app()
     app.include_router(tournaments.router)
 
     owner = SimpleNamespace(id="owner", is_admin=False)
@@ -563,7 +573,7 @@ async def test_admin_can_delete_user_tournament():
         )
         await session.commit()
 
-    app = FastAPI()
+    app = _configured_app()
     app.include_router(tournaments.router)
 
     owner = SimpleNamespace(id="owner", is_admin=False)
@@ -649,7 +659,7 @@ async def test_owner_can_schedule_their_americano_stage(monkeypatch):
         )
         await session.commit()
 
-    app = FastAPI()
+    app = _configured_app()
     app.include_router(tournaments.router)
 
     owner = SimpleNamespace(id="owner", is_admin=False)
@@ -746,7 +756,7 @@ async def test_stage_schedule_rejects_invalid_type(monkeypatch):
         )
         await session.commit()
 
-    app = FastAPI()
+    app = _configured_app()
     app.include_router(tournaments.router)
     app.include_router(matches.router)
 
@@ -849,7 +859,7 @@ async def test_stage_schedule_and_standings_flow(monkeypatch):
         )
         await session.commit()
 
-    app = FastAPI()
+    app = _configured_app()
     app.include_router(tournaments.router)
     app.include_router(matches.router)
 
@@ -997,7 +1007,7 @@ async def test_americano_match_events_trigger_rating(monkeypatch):
         )
         await session.commit()
 
-    app = FastAPI()
+    app = _configured_app()
     app.include_router(tournaments.router)
     app.include_router(matches.router)
     app.include_router(leaderboards.router)
@@ -1249,7 +1259,7 @@ async def test_list_stage_matches_filters_and_includes_stage_id():
 
         await session.commit()
 
-    app = FastAPI()
+    app = _configured_app()
     app.include_router(tournaments.router)
     app.include_router(matches.router)
 

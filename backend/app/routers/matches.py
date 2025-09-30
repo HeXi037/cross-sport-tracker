@@ -5,7 +5,7 @@ from collections import Counter
 from datetime import datetime
 from typing import Any, Sequence
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query, Response, Request
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,7 +36,12 @@ from ..schemas import (
 )
 from .streams import broadcast
 from ..scoring import padel as padel_engine, tennis as tennis_engine
-from ..services.validation import validate_set_scores, ValidationError
+from ..services.validation import (
+    validate_set_scores,
+    ValidationError,
+    validate_participants_for_sport,
+    validate_score_totals,
+)
 from ..services import (
     update_ratings,
     update_player_metrics,
@@ -44,11 +49,46 @@ from ..services import (
 )
 from ..services.notifications import notify_match_recorded
 from ..exceptions import http_problem
-from .auth import get_current_user
+from .auth import get_current_user, limiter
 from ..time_utils import coerce_utc
 
 # Resource-only prefix; versioning is added in main.py
 router = APIRouter(prefix="/matches", tags=["matches"])
+
+DEFAULT_SCORE_LIMIT = 1000
+SPORT_SCORE_LIMITS = {
+    "bowling": 300,
+    "disc_golf": 400,
+    "padel": 99,
+    "padel_americano": 99,
+    "tennis": 99,
+    "pickleball": 99,
+}
+
+
+def _client_ip(request: Request) -> str:
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        parts = [ip.strip() for ip in forwarded.split(",") if ip.strip()]
+        if parts:
+            return parts[-1]
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip
+    if request.client and request.client.host:
+        return request.client.host
+    return "anonymous"
+
+
+def _rate_limit_key(request: Request) -> str:
+    return _client_ip(request)
+
+
+def _rate_limit_cost(request: Request) -> int:
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.strip():
+        return 0
+    return 1
 
 
 def _coerce_utc(value: datetime | None) -> datetime | None:
@@ -177,12 +217,11 @@ async def list_matches(
     ]
 
 # POST /api/v0/matches
-@router.post("", response_model=MatchIdOut)
 async def create_match(
     body: MatchCreate,
-    session: AsyncSession = Depends(get_session),
-    user: User = Depends(get_current_user),
-):
+    session: AsyncSession,
+    user: User,
+) -> MatchIdOut:
     mid = uuid.uuid4().hex
     match = Match(
         id=mid,
@@ -210,6 +249,32 @@ async def create_match(
             player_sides[pid] = part.side
             all_player_ids.append(pid)
             side_players.setdefault(part.side, []).append(pid)
+
+    try:
+        validate_participants_for_sport(body.sport, side_players)
+    except ValidationError as exc:
+        raise http_problem(
+            status_code=422,
+            detail=str(exc),
+            code="match_invalid_participants",
+        )
+
+    unique_player_ids = {pid for pid in all_player_ids}
+    if unique_player_ids:
+        existing_players = (
+            await session.execute(
+                select(Player.id)
+                .where(Player.id.in_(unique_player_ids))
+                .where(Player.deleted_at.is_(None))
+            )
+        ).scalars().all()
+        missing_players = sorted(unique_player_ids - set(existing_players))
+        if missing_players:
+            raise http_problem(
+                status_code=400,
+                detail="unknown players: " + ", ".join(missing_players),
+                code="match_unknown_players",
+            )
 
     if not user.is_admin:
         player_ids = (
@@ -254,6 +319,8 @@ async def create_match(
     set_pairs: list[tuple[int, int]] = []
     score_events: list[dict[str, Any]] = []
 
+    normalized_score_values: list[int] | None = None
+
     if body.sets:
         normalized_sets: list[dict[str, int]] = []
         try:
@@ -278,6 +345,7 @@ async def create_match(
                 normalized_sets,
                 max_sets=max_sets,
                 allow_ties=not is_racket_sport,
+                max_points_per_side=DEFAULT_SCORE_LIMIT,
             )
         except ValidationError as e:
             raise http_problem(
@@ -328,8 +396,27 @@ async def create_match(
 
     if summary is not None:
         details_payload.update(summary)
-    elif body.score:
-        score_detail = {"score": {chr(65 + i): s for i, s in enumerate(body.score)}}
+    elif body.score is not None:
+        max_score = SPORT_SCORE_LIMITS.get(match.sport_id, DEFAULT_SCORE_LIMIT)
+        try:
+            normalized_score_values = validate_score_totals(
+                body.score, max_value=max_score
+            )
+        except ValidationError as exc:
+            raise http_problem(
+                status_code=422,
+                detail=str(exc),
+                code="match_invalid_score",
+            )
+        if len(normalized_score_values) != len(body.participants):
+            raise http_problem(
+                status_code=422,
+                detail="score entries must match the number of participants",
+                code="match_invalid_score",
+            )
+        score_detail = {
+            "score": {chr(65 + i): s for i, s in enumerate(normalized_score_values)}
+        }
         details_payload.update(score_detail)
 
     if details_payload:
@@ -404,12 +491,22 @@ async def create_match(
     return MatchIdOut(id=mid)
 
 
-@router.post("/by-name", response_model=MatchIdOut)
-async def create_match_by_name(
-    body: MatchCreateByName,
+@router.post("", response_model=MatchIdOut)
+@limiter.limit("30/minute", key_func=_rate_limit_key, cost=_rate_limit_cost)
+async def create_match_route(
+    request: Request,
+    body: MatchCreate,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(get_current_user),
-):
+) -> MatchIdOut:
+    return await create_match(body, session, user)
+
+
+async def create_match_by_name(
+    body: MatchCreateByName,
+    session: AsyncSession,
+    user: User,
+) -> MatchIdOut:
     name_to_id: dict[str, str] = {}
     original_names = [n for part in body.participants for n in part.playerNames]
     lookup_names = [n.lower() for n in original_names]
@@ -461,6 +558,17 @@ async def create_match_by_name(
         isFriendly=body.isFriendly,
     )
     return await create_match(mc, session, user)
+
+
+@router.post("/by-name", response_model=MatchIdOut)
+@limiter.limit("30/minute", key_func=_rate_limit_key, cost=_rate_limit_cost)
+async def create_match_by_name_route(
+    request: Request,
+    body: MatchCreateByName,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+) -> MatchIdOut:
+    return await create_match_by_name(body, session, user)
 
 # GET /api/v0/matches/{mid}
 @router.get("/{mid}", response_model=MatchOut)
@@ -625,12 +733,11 @@ async def delete_match(
     return Response(status_code=204)
 
 # POST /api/v0/matches/{mid}/events
-@router.post("/{mid}/events")
 async def append_event(
     mid: str,
     ev: EventIn,
-    session: AsyncSession = Depends(get_session),
-    user: User = Depends(get_current_user),
+    session: AsyncSession,
+    user: User,
 ):
     m = (await session.execute(select(Match).where(Match.id == mid))).scalar_one_or_none()
     if not m:
@@ -779,12 +886,23 @@ async def append_event(
     return {"ok": True, "eventId": e.id}
 
 
-@router.post("/{mid}/sets")
+@router.post("/{mid}/events")
+@limiter.limit("60/minute", key_func=_rate_limit_key, cost=_rate_limit_cost)
+async def append_event_route(
+    request: Request,
+    mid: str,
+    ev: EventIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    return await append_event(mid, ev, session, user)
+
+
 async def record_sets_endpoint(
     mid: str,
     body: SetsIn,
-    session: AsyncSession = Depends(get_session),
-    user: User = Depends(get_current_user),
+    session: AsyncSession,
+    user: User,
 ):
     m = (await session.execute(select(Match).where(Match.id == mid))).scalar_one_or_none()
     if not m:
@@ -897,7 +1015,6 @@ async def record_sets_endpoint(
             await update_player_metrics(
                 session, rating_sport_id, winners, losers
             )
-
     stage_id = m.stage_id
     await session.flush()
     if stage_id:
@@ -906,3 +1023,15 @@ async def record_sets_endpoint(
     await player_stats_cache.invalidate_players(players_a + players_b)
     await broadcast(mid, {"summary": m.details})
     return {"ok": True, "added": len(new_events)}
+
+
+@router.post("/{mid}/sets")
+@limiter.limit("30/minute", key_func=_rate_limit_key, cost=_rate_limit_cost)
+async def record_sets_route(
+    request: Request,
+    mid: str,
+    body: SetsIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    return await record_sets_endpoint(mid, body, session, user)

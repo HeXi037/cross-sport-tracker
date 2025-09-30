@@ -137,7 +137,7 @@ async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
 @pytest.mark.anyio
 async def test_create_match_rejects_duplicate_players(tmp_path):
   from app import db
-  from app.models import Match, MatchParticipant, Sport, User
+  from app.models import Match, MatchParticipant, Player, Sport, User
   from app.schemas import MatchCreate, Participant
   from app.routers.matches import create_match
 
@@ -286,7 +286,7 @@ async def test_create_match_by_name_is_case_insensitive(tmp_path):
 @pytest.mark.anyio
 async def test_create_match_with_sets(tmp_path):
   from app import db
-  from app.models import Match, MatchParticipant, Sport, User
+  from app.models import Match, MatchParticipant, Player, Sport, User
   from app.schemas import MatchCreate, Participant
   from app.routers.matches import create_match
 
@@ -298,6 +298,7 @@ async def test_create_match_with_sets(tmp_path):
       db.Base.metadata.create_all,
       tables=[
         Sport.__table__,
+        Player.__table__,
         Stage.__table__,
         Match.__table__,
         MatchParticipant.__table__,
@@ -305,6 +306,13 @@ async def test_create_match_with_sets(tmp_path):
     )
 
   async with db.AsyncSessionLocal() as session:
+    session.add_all(
+      [
+        Player(id="p1", name="alice"),
+        Player(id="p2", name="bob"),
+      ]
+    )
+    await session.commit()
     body = MatchCreate(
         sport="bowling",
         participants=[
@@ -325,7 +333,7 @@ async def test_create_match_with_sets(tmp_path):
 @pytest.mark.anyio
 async def test_create_match_with_details(tmp_path):
   from app import db
-  from app.models import Match, MatchParticipant, Sport, User
+  from app.models import Match, MatchParticipant, Player, Sport, User
   from app.schemas import MatchCreate, Participant
   from app.routers.matches import create_match
 
@@ -337,6 +345,7 @@ async def test_create_match_with_details(tmp_path):
       db.Base.metadata.create_all,
       tables=[
         Sport.__table__,
+        Player.__table__,
         Stage.__table__,
         Match.__table__,
         MatchParticipant.__table__,
@@ -344,6 +353,8 @@ async def test_create_match_with_details(tmp_path):
     )
 
   async with db.AsyncSessionLocal() as session:
+    session.add(Player(id="p1", name="alice"))
+    await session.commit()
     body = MatchCreate(
         sport="bowling",
         participants=[Participant(side="A", playerIds=["p1"])],
@@ -409,9 +420,10 @@ async def test_create_match_by_name_with_sets(tmp_path):
 async def test_create_match_normalizes_timezone(tmp_path):
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
+  from slowapi.errors import RateLimitExceeded
   from app import db
-  from app.models import Match, MatchParticipant, Sport, User
-  from app.routers import matches
+  from app.models import Match, MatchParticipant, Player, Sport, User
+  from app.routers import matches, auth
   from app.routers.auth import get_current_user
 
   db.engine = None
@@ -422,6 +434,7 @@ async def test_create_match_normalizes_timezone(tmp_path):
       db.Base.metadata.create_all,
       tables=[
         Sport.__table__,
+        Player.__table__,
         Stage.__table__,
         Match.__table__,
         MatchParticipant.__table__,
@@ -430,9 +443,12 @@ async def test_create_match_normalizes_timezone(tmp_path):
 
   async with db.AsyncSessionLocal() as session:
     session.add(Sport(id="padel", name="Padel"))
+    session.add_all([Player(id="p1", name="alice"), Player(id="p2", name="bob")])
     await session.commit()
 
   app = FastAPI()
+  app.state.limiter = auth.limiter
+  app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
   app.include_router(matches.router)
   app.dependency_overrides[get_current_user] = lambda: User(
       id="u1", username="admin", password_hash="", is_admin=True
@@ -463,9 +479,10 @@ async def test_create_match_normalizes_timezone(tmp_path):
 async def test_list_matches_returns_most_recent_first(tmp_path):
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
+  from slowapi.errors import RateLimitExceeded
   from app import db
   from app.models import Sport, Match, MatchParticipant, Player, Stage, User
-  from app.routers import matches
+  from app.routers import matches, auth
   from app.routers.auth import get_current_user
 
   db.engine = None
@@ -502,6 +519,8 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
     await session.commit()
 
   app = FastAPI()
+  app.state.limiter = auth.limiter
+  app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
   app.include_router(matches.router)
   app.dependency_overrides[get_current_user] = lambda: User(
       id="u1", username="admin", password_hash="", is_admin=True
@@ -537,9 +556,10 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
 async def test_list_matches_upcoming_filter(tmp_path):
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
+  from slowapi.errors import RateLimitExceeded
   from app import db
   from app.models import Sport, Match, MatchParticipant, Player, User
-  from app.routers import matches
+  from app.routers import matches, auth
   from app.routers.auth import get_current_user
 
   db.engine = None
@@ -570,6 +590,8 @@ async def test_list_matches_upcoming_filter(tmp_path):
     await session.commit()
 
   app = FastAPI()
+  app.state.limiter = auth.limiter
+  app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
   app.include_router(matches.router)
   app.dependency_overrides[get_current_user] = lambda: User(
       id="u1", username="admin", password_hash="", is_admin=True
@@ -589,9 +611,10 @@ async def test_list_matches_omits_soft_deleted_player_details(tmp_path):
   from datetime import datetime, timezone
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
+  from slowapi.errors import RateLimitExceeded
   from app import db
   from app.models import Sport, Match, MatchParticipant, Player, User
-  from app.routers import matches
+  from app.routers import matches, auth
   from app.routers.auth import get_current_user
 
   db.engine = None
@@ -646,6 +669,8 @@ async def test_list_matches_omits_soft_deleted_player_details(tmp_path):
     await session.commit()
 
   app = FastAPI()
+  app.state.limiter = auth.limiter
+  app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
   app.include_router(matches.router)
   app.dependency_overrides[get_current_user] = lambda: User(
       id="u1", username="admin", password_hash="", is_admin=True
@@ -674,9 +699,10 @@ async def test_list_matches_omits_soft_deleted_player_details(tmp_path):
 def test_list_matches_filters_by_player(tmp_path):
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
+  from slowapi.errors import RateLimitExceeded
   from app import db
   from app.models import Player, Match, MatchParticipant, Sport
-  from app.routers import matches, players
+  from app.routers import matches, players, auth
 
   db.engine = None
   db.AsyncSessionLocal = None
@@ -705,6 +731,8 @@ def test_list_matches_filters_by_player(tmp_path):
   asyncio.run(seed_sport())
 
   app = FastAPI()
+  app.state.limiter = auth.limiter
+  app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
   app.include_router(players.router)
   app.include_router(matches.router)
 
@@ -746,6 +774,7 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
   os.environ["ADMIN_SECRET"] = "admintest"
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
+  from slowapi.errors import RateLimitExceeded
   from app import db
   from app.models import Match, ScoreEvent, User, Player, RefreshToken
   from app.routers import matches, auth
@@ -784,6 +813,8 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
     await session.commit()
 
   app = FastAPI()
+  app.state.limiter = auth.limiter
+  app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
   app.include_router(auth.router)
   app.include_router(matches.router)
   client = TestClient(app)
@@ -826,6 +857,7 @@ async def test_delete_match_missing_returns_404(tmp_path):
   os.environ["ADMIN_SECRET"] = "admintest"
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
+  from slowapi.errors import RateLimitExceeded
   from app import db
   from app.models import Match, User, Player, RefreshToken
   from app.routers import matches, auth
@@ -841,6 +873,8 @@ async def test_delete_match_missing_returns_404(tmp_path):
     await conn.run_sync(RefreshToken.__table__.create)
 
   app = FastAPI()
+  app.state.limiter = auth.limiter
+  app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
   app.include_router(auth.router)
   app.include_router(matches.router)
   with TestClient(app) as client:
@@ -973,9 +1007,10 @@ async def test_delete_match_updates_ratings_and_leaderboard(tmp_path):
 async def test_create_match_rejects_naive_date(tmp_path):
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
+  from slowapi.errors import RateLimitExceeded
   from app import db
   from app.models import Sport, Match, User
-  from app.routers import matches
+  from app.routers import matches, auth
   from app.routers.auth import get_current_user
 
   db.engine = None
@@ -996,6 +1031,8 @@ async def test_create_match_rejects_naive_date(tmp_path):
     await session.commit()
 
   app = FastAPI()
+  app.state.limiter = auth.limiter
+  app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
   app.include_router(matches.router)
   app.dependency_overrides[get_current_user] = lambda: User(
       id="u1", username="admin", password_hash="", is_admin=True

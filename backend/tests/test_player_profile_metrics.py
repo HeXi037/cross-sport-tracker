@@ -7,6 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -22,7 +23,7 @@ from backend.app.models import (
     ScoreEvent,
     User,
 )
-from backend.app.routers import players, matches
+from backend.app.routers import players, matches, auth
 from backend.app.routers.admin import require_admin
 from backend.app.routers.auth import get_current_user
 
@@ -61,6 +62,8 @@ def client_and_session():
     matches.broadcast = dummy_broadcast
 
     app = FastAPI()
+    app.state.limiter = auth.limiter
+    app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
     app.include_router(players.router)
     app.include_router(matches.router)
     app.dependency_overrides[get_session] = override_get_session

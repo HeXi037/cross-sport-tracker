@@ -18,6 +18,7 @@ import {
   canonicalizeSportId,
   createSportDisplayNameLookup,
 } from '../lib/sports';
+import { useTranslations } from 'next-intl';
 
 interface Sport {
   id: string;
@@ -96,40 +97,40 @@ function resolveRulesetLabel(match: MatchWithOptionalRuleset): string | undefine
   return undefined;
 }
 
-const sportIcons: Record<string, { glyph: string; label: string }> = {
+const sportIcons = {
   padel: {
     glyph: '\uD83C\uDFBE',
-    label: 'Padel tennis ball icon',
+    labelKey: 'icons.padel',
   },
   padel_americano: {
     glyph: '🧮',
-    label: 'Padel Americano abacus icon',
+    labelKey: 'icons.padel_americano',
   },
   bowling: {
     glyph: '🎳',
-    label: 'Bowling ball and pins icon',
+    labelKey: 'icons.bowling',
   },
   tennis: {
     glyph: '🎾',
-    label: 'Tennis racket and ball icon',
+    labelKey: 'icons.tennis',
   },
   pickleball: {
     glyph: '🥒',
-    label: 'Pickleball cucumber icon',
+    labelKey: 'icons.pickleball',
   },
   badminton: {
     glyph: '🏸',
-    label: 'Badminton shuttlecock icon',
+    labelKey: 'icons.badminton',
   },
   table_tennis: {
     glyph: '🏓',
-    label: 'Table tennis paddles icon',
+    labelKey: 'icons.table_tennis',
   },
   disc_golf: {
     glyph: '🥏',
-    label: 'Disc golf flying disc icon',
+    labelKey: 'icons.disc_golf',
   },
-};
+} as const satisfies Record<string, { glyph: string; labelKey: string }>;
 
 interface Props {
   sports: Sport[];
@@ -234,6 +235,8 @@ export default function HomePageClient({
   const timeZone = useTimeZone();
   const activeLocale =
     localeFromContext || initialLocale || NEUTRAL_FALLBACK_LOCALE;
+  const commonT = useTranslations('Common');
+  const homeT = useTranslations('Home');
   const formatMatchDate = useMemo(
     () => (value: Date | string | number | null | undefined) =>
       formatDateTime(value, activeLocale, 'compact', timeZone),
@@ -437,20 +440,20 @@ export default function HomePageClient({
   return (
     <main className="container">
       <section className="card">
-        <h1 className="heading">cross-sport-tracker</h1>
-        <p>Ongoing self-hosted project</p>
+        <h1 className="heading">{commonT('appName')}</h1>
+        <p>{commonT('appTagline')}</p>
       </section>
 
       <section className="section">
-        <h2 className="heading">Sports</h2>
+        <h2 className="heading">{homeT('sportsHeading')}</h2>
         {sportsStatusVisible ? (
           <p className="sr-only" role="status" aria-live="polite">
-            Updating sports…
+            {commonT('status.updatingSports')}
           </p>
         ) : null}
         {sportsLoading && sports.length === 0 ? (
           <div role="status" aria-live="polite">
-            <p className="sr-only">Loading sports…</p>
+            <p className="sr-only">{commonT('status.loadingSports')}</p>
             <ul className="sport-list">
               {Array.from({ length: 3 }).map((_, i) => (
                 <li key={`sport-skeleton-${i}`} className="sport-item">
@@ -462,17 +465,17 @@ export default function HomePageClient({
         ) : sports.length === 0 ? (
           sportError ? (
             <p role="alert">
-              Unable to load sports. Check connection.{' '}
+              {homeT('sportsError')}{' '}
               <button
                 type="button"
                 onClick={retrySports}
                 className="link-button"
               >
-                Retry
+                {commonT('actions.retry')}
               </button>
             </p>
           ) : (
-            <p>No sports found.</p>
+            <p>{homeT('noSports')}</p>
           )
         ) : (
           <ul className="sport-list" role="list">
@@ -485,7 +488,11 @@ export default function HomePageClient({
                 <li key={s.id} className="sport-item">
                   <Link href={href} className="sport-link">
                     {icon ? (
-                      <span className="sport-icon" role="img" aria-label={icon.label}>
+                      <span
+                        className="sport-icon"
+                        role="img"
+                        aria-label={homeT(icon.labelKey)}
+                      >
                         {icon.glyph}
                       </span>
                     ) : null}
@@ -499,15 +506,15 @@ export default function HomePageClient({
       </section>
 
       <section className="section">
-        <h2 className="heading">Recent Matches</h2>
+        <h2 className="heading">{homeT('matchesHeading')}</h2>
         {matchesStatusVisible ? (
           <p className="sr-only" role="status" aria-live="polite">
-            Updating matches…
+            {commonT('status.updatingMatches')}
           </p>
         ) : null}
         {matchesLoading && matches.length === 0 ? (
           <div role="status" aria-live="polite">
-            <p className="sr-only">Loading recent matches…</p>
+            <p className="sr-only">{commonT('status.loadingRecentMatches')}</p>
             <ul className="match-list">
               {Array.from({ length: 3 }).map((_, i) => (
                 <li key={`match-skeleton-${i}`} className="card match-item">
@@ -523,17 +530,17 @@ export default function HomePageClient({
         ) : matches.length === 0 ? (
           matchError ? (
             <p role="alert">
-              Unable to load matches. Check connection.{' '}
+              {homeT('matchesError')}{' '}
               <button
                 type="button"
                 onClick={retryMatches}
                 className="link-button"
               >
-                Retry
+                {commonT('actions.retry')}
               </button>
             </p>
           ) : (
-            <p>No matches recorded yet.</p>
+            <p>{homeT('noMatches')}</p>
           )
         ) : (
           <ul className="match-list" role="list">
@@ -543,7 +550,7 @@ export default function HomePageClient({
               const metadataText = formatMatchMetadata([
                 getSportName(matchWithRuleset.sport),
                 matchWithRuleset.bestOf != null
-                  ? `Best of ${matchWithRuleset.bestOf}`
+                  ? commonT('match.bestOf', { count: matchWithRuleset.bestOf })
                   : null,
                 rulesetLabel,
                 formatMatchDate(matchWithRuleset.playedAt),
@@ -559,7 +566,7 @@ export default function HomePageClient({
                   <div className="match-meta">{metadataText || '—'}</div>
                   <div>
                     <Link href={ensureTrailingSlash(`/matches/${m.id}`)}>
-                      Match details
+                      {commonT('match.details')}
                     </Link>
                   </div>
                 </li>
@@ -579,22 +586,24 @@ export default function HomePageClient({
                   className="button"
                   disabled={loadingMore}
                 >
-                  {loadingMore ? 'Loading…' : 'Load more matches'}
+                  {loadingMore
+                    ? commonT('status.loading')
+                    : commonT('actions.loadMoreMatches')}
                 </button>
                 {loadingMore ? (
                   <p className="sr-only" aria-live="polite">
-                    Loading more matches…
+                    {commonT('status.loadingMoreMatches')}
                   </p>
                 ) : null}
                 {paginationError ? (
                   <p role="alert" className="error-text">
-                    Unable to load more matches. Please try again.
+                    {commonT('errors.loadMoreMatches')}
                   </p>
                 ) : null}
               </>
             ) : (
               <Link href="/matches" className="view-all-link">
-                View all matches
+                {commonT('actions.viewAllMatches')}
               </Link>
             )}
           </div>

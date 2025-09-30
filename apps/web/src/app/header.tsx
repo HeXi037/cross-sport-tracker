@@ -7,6 +7,7 @@ import { currentUsername, isAdmin, logout } from '../lib/api';
 import { ensureTrailingSlash } from '../lib/routes';
 import { rememberLoginRedirect } from '../lib/loginRedirect';
 import NotificationBell from '../components/NotificationBell';
+import { useTranslations } from 'next-intl';
 
 export default function Header() {
   const [open, setOpen] = useState(false);
@@ -14,6 +15,8 @@ export default function Header() {
   const [admin, setAdmin] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const commonT = useTranslations('Common');
+  const headerT = useTranslations('Header');
 
   const normalizedPathname = useMemo(
     () => ensureTrailingSlash(pathname ?? '/'),
@@ -56,7 +59,7 @@ export default function Header() {
     <header className="nav">
       <button
         className="hamburger"
-        aria-label="Toggle navigation"
+        aria-label={commonT('nav.toggle')}
         aria-expanded={open}
         aria-controls="nav-menu"
         onClick={() => setOpen((prev) => !prev)}
@@ -72,7 +75,7 @@ export default function Header() {
               aria-current={linkAriaCurrent('/')}
               onClick={() => setOpen(false)}
             >
-              Home
+              {headerT('links.home')}
             </Link>
           </li>
           <li>
@@ -82,7 +85,7 @@ export default function Header() {
               aria-current={linkAriaCurrent('/players')}
               onClick={() => setOpen(false)}
             >
-              Players
+              {headerT('links.players')}
             </Link>
           </li>
           <li>
@@ -92,7 +95,7 @@ export default function Header() {
               aria-current={linkAriaCurrent('/matches')}
               onClick={() => setOpen(false)}
             >
-              Matches
+              {headerT('links.matches')}
             </Link>
           </li>
           <li>
@@ -102,7 +105,7 @@ export default function Header() {
               aria-current={linkAriaCurrent('/record')}
               onClick={() => setOpen(false)}
             >
-              Record
+              {headerT('links.record')}
             </Link>
           </li>
           <li>
@@ -112,7 +115,7 @@ export default function Header() {
               aria-current={linkAriaCurrent('/tournaments')}
               onClick={() => setOpen(false)}
             >
-              Tournaments
+              {headerT('links.tournaments')}
             </Link>
           </li>
           <li>
@@ -122,7 +125,7 @@ export default function Header() {
               aria-current={linkAriaCurrent('/leaderboard')}
               onClick={() => setOpen(false)}
             >
-              Leaderboards
+              {headerT('links.leaderboards')}
             </Link>
           </li>
           {admin && (
@@ -134,7 +137,7 @@ export default function Header() {
                   aria-current={linkAriaCurrent('/admin/matches')}
                   onClick={() => setOpen(false)}
                 >
-                  Admin Matches
+                  {headerT('links.adminMatches')}
                 </Link>
               </li>
               <li>
@@ -144,7 +147,7 @@ export default function Header() {
                   aria-current={linkAriaCurrent('/admin/badges')}
                   onClick={() => setOpen(false)}
                 >
-                  Admin Badges
+                  {headerT('links.adminBadges')}
                 </Link>
               </li>
             </>
@@ -158,15 +161,17 @@ export default function Header() {
                   aria-current={linkAriaCurrent('/profile')}
                   onClick={() => setOpen(false)}
                 >
-                  Profile
+                  {headerT('links.profile')}
                 </Link>
               </li>
               <li>
                 <NotificationBell />
               </li>
-              <li className="user-status">Logged in as {user}</li>
+              <li className="user-status">
+                {commonT('nav.loggedInAs', { username: user })}
+              </li>
               <li>
-                <button onClick={handleLogout}>Logout</button>
+                <button onClick={handleLogout}>{headerT('actions.logout')}</button>
               </li>
             </>
           ) : (
@@ -180,7 +185,7 @@ export default function Header() {
                   setOpen(false);
                 }}
               >
-                Login
+                {headerT('links.login')}
               </Link>
             </li>
           )}

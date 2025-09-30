@@ -1,9 +1,20 @@
+import createNextIntlPlugin from 'next-intl/plugin';
+
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
+
+const supportedLocales = ['en-GB', 'es-ES'];
+const defaultLocale = supportedLocales[0];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   // Generate routes with a trailing slash so static hosts can resolve nested
   // paths like `/players/` without relying on custom rewrites.
   trailingSlash: true,
+  i18n: {
+    locales: supportedLocales,
+    defaultLocale,
+  },
   async redirects() {
     return [
       {
@@ -24,4 +35,4 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);

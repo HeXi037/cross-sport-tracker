@@ -6,6 +6,8 @@ import * as apiModule from '../../lib/api';
 import * as matchesModule from '../../lib/matches';
 import { SWRConfig } from 'swr';
 import { useLocale, useTimeZone } from '../../lib/LocaleContext';
+import { NextIntlClientProvider } from 'next-intl';
+import enMessages from '../../messages/en-GB.json';
 
 vi.mock('../../lib/LocaleContext', () => ({
   useLocale: vi.fn(() => 'en-GB'),
@@ -45,9 +47,11 @@ afterEach(() => {
 describe('HomePageClient error messages', () => {
   function renderComponent(props = defaultProps) {
     return render(
-      <SWRConfig value={{ provider: () => new Map() }}>
-        <HomePageClient {...props} />
-      </SWRConfig>,
+      <NextIntlClientProvider locale="en-GB" messages={enMessages}>
+        <SWRConfig value={{ provider: () => new Map() }}>
+          <HomePageClient {...props} />
+        </SWRConfig>
+      </NextIntlClientProvider>,
     );
   }
 

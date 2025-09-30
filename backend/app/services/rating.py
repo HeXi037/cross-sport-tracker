@@ -1,6 +1,6 @@
 import math
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Sequence
 
 from sqlalchemy import select
@@ -129,7 +129,7 @@ async def update_ratings(
                     sport_id=sport_id,
                     rating=GLICKO_DEFAULT_RATING,
                     rd=GLICKO_DEFAULT_RD,
-                    last_updated=datetime.utcnow(),
+                    last_updated=datetime.now(timezone.utc),
                 )
                 session.add(glicko)
                 glicko_map[pid] = glicko
@@ -218,7 +218,7 @@ async def update_ratings(
             new_rating, new_rd = _glicko_update(current.rating, current.rd, [(opp_rating, opp_rd, score_map[pid])])
             current.rating = new_rating
             current.rd = new_rd
-            current.last_updated = datetime.utcnow()
+            current.last_updated = datetime.now(timezone.utc)
             glicko_payload[pid] = (new_rating, new_rd)
 
         for pid in ids:

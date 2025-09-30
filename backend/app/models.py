@@ -182,7 +182,7 @@ class GlickoRating(Base):
     sport_id = Column(String, ForeignKey("sport.id"), nullable=False)
     rating = Column(Float, nullable=False, default=1500.0)
     rd = Column(Float, nullable=False, default=350.0)
-    last_updated = Column(DateTime, nullable=True, server_default=func.now())
+    last_updated = Column(DateTime(timezone=True), nullable=True, server_default=func.now())
 
     __table_args__ = (
         UniqueConstraint(
@@ -221,7 +221,7 @@ class RefreshToken(Base):
     __tablename__ = "refresh_token"
     token_hash = Column(String, primary_key=True)
     user_id = Column(String, ForeignKey("user.id"), nullable=False)
-    expires_at = Column(DateTime, nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
     revoked = Column(Boolean, nullable=False, default=False)
 
 

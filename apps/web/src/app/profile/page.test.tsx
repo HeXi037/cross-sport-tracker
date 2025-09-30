@@ -403,6 +403,29 @@ describe("ProfilePage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("hides player customization when access is denied", async () => {
+    const forbidden = Object.assign(new Error("HTTP 403: forbidden"), {
+      status: 403,
+    });
+    apiMocks.fetchMyPlayer.mockRejectedValueOnce(forbidden);
+
+    await act(async () => {
+      renderWithProviders(<ProfilePage />);
+    });
+
+    const restrictionMessage = await screen.findByText(
+      /player profile is managed by an administrator/i,
+    );
+    expect(restrictionMessage).toBeInTheDocument();
+    expect(screen.queryByLabelText("Country")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /create my player profile/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/social links are managed by an administrator/i)
+    ).toBeInTheDocument();
+  });
+
   it("creates a player record on demand", async () => {
     const notFound = Object.assign(new Error("HTTP 404: player not found"), {
       status: 404,

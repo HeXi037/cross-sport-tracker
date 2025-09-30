@@ -214,6 +214,10 @@ export default function ProfilePage() {
   const [clubId, setClubId] = useState("");
   const [bio, setBio] = useState("");
   const [hasPlayer, setHasPlayer] = useState(true);
+  const [canEditPlayerDetails, setCanEditPlayerDetails] = useState(true);
+  const [playerAccessMessage, setPlayerAccessMessage] = useState<string | null>(
+    null,
+  );
   const [initialCountryCode, setInitialCountryCode] = useState("");
   const [initialClubId, setInitialClubId] = useState("");
   const [initialBio, setInitialBio] = useState("");
@@ -303,6 +307,8 @@ export default function ProfilePage() {
           const player = await fetchMyPlayer();
           if (!active) return;
           setHasPlayer(true);
+          setCanEditPlayerDetails(true);
+          setPlayerAccessMessage(null);
           applyPlayerDetails(player);
         } catch (playerErr) {
           if (!active) return;
@@ -314,6 +320,15 @@ export default function ProfilePage() {
           }
           if (status === 404) {
             setHasPlayer(false);
+            setCanEditPlayerDetails(true);
+            setPlayerAccessMessage(null);
+            applyPlayerDetails(null);
+          } else if (status === 403) {
+            setHasPlayer(false);
+            setCanEditPlayerDetails(false);
+            setPlayerAccessMessage(
+              "Your player profile is managed by an administrator. Contact them to update your country, club, or bio.",
+            );
             applyPlayerDetails(null);
           } else {
             console.error("Failed to load player profile", playerErr);
@@ -599,6 +614,8 @@ export default function ProfilePage() {
     try {
       const created = await createMyPlayer();
       setHasPlayer(true);
+      setCanEditPlayerDetails(true);
+      setPlayerAccessMessage(null);
       applyPlayerDetails(created);
       setMessage(
         "Player profile created. You can now update your club, country, and bio."
@@ -757,7 +774,9 @@ export default function ProfilePage() {
     }
   };
 
-  const continentCode = hasPlayer ? getContinentForCountry(countryCode) : null;
+  const continentCode = hasPlayer
+    ? getContinentForCountry(countryCode)
+    : null;
   const continentLabel =
     hasPlayer && continentCode ? CONTINENT_LABELS[continentCode] : null;
   const newLinkLabelError =
@@ -851,26 +870,27 @@ export default function ProfilePage() {
             autoComplete="new-password"
           />
         </label>
-        {hasPlayer ? (
-          <>
-            <label className="form-field" htmlFor="profile-country">
-              <span className="form-label">Country</span>
-              <select
-                id="profile-country"
-                value={countryCode}
-                onChange={(e) => {
-                  setSaveFeedback(null);
-                  setCountryCode(e.target.value);
-                }}
-              >
-                <option value="">Select a country</option>
-                {COUNTRY_OPTIONS.map((option) => (
-                  <option key={option.code} value={option.code}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+        {canEditPlayerDetails ? (
+          hasPlayer ? (
+            <>
+              <label className="form-field" htmlFor="profile-country">
+                <span className="form-label">Country</span>
+                <select
+                  id="profile-country"
+                  value={countryCode}
+                  onChange={(e) => {
+                    setSaveFeedback(null);
+                    setCountryCode(e.target.value);
+                  }}
+                >
+                  <option value="">Select a country</option>
+                  {COUNTRY_OPTIONS.map((option) => (
+                    <option key={option.code} value={option.code}>
+                      {`${option.name} (${option.code})`}
+                    </option>
+                  ))}
+                </select>
+              </label>
             <p
               style={{
                 fontSize: "0.85rem",
@@ -950,7 +970,32 @@ export default function ProfilePage() {
                 }}
               />
             </label>
-          </>
+            </>
+          ) : (
+            <div
+              className="form-field"
+              style={{
+                display: "grid",
+                gap: "0.5rem",
+                border: "1px solid #d1d5db",
+                padding: "0.75rem",
+                borderRadius: "0.5rem",
+                background: "#f9fafb",
+              }}
+            >
+              <p style={{ margin: 0, color: "#374151", lineHeight: 1.4 }}>
+                You don’t have a player profile yet. Create one to set your
+                country, favorite club, bio, and social links.
+              </p>
+              <button
+                type="button"
+                onClick={handleCreatePlayer}
+                disabled={creatingPlayer}
+              >
+                {creatingPlayer ? "Creating player…" : "Create my player profile"}
+              </button>
+            </div>
+          )
         ) : (
           <div
             className="form-field"
@@ -964,16 +1009,9 @@ export default function ProfilePage() {
             }}
           >
             <p style={{ margin: 0, color: "#374151", lineHeight: 1.4 }}>
-              You don’t have a player profile yet. Create one to set your
-              country, favorite club, bio, and social links.
+              {playerAccessMessage ??
+                "Your player details are managed by an administrator."}
             </p>
-            <button
-              type="button"
-              onClick={handleCreatePlayer}
-              disabled={creatingPlayer}
-            >
-              {creatingPlayer ? "Creating player…" : "Create my player profile"}
-            </button>
           </div>
         )}
         <button type="submit" disabled={saving}>
@@ -1059,7 +1097,7 @@ export default function ProfilePage() {
             <option value="">No default country</option>
             {COUNTRY_OPTIONS.map((option) => (
               <option key={option.code} value={option.code}>
-                {option.name}
+                {`${option.name} (${option.code})`}
               </option>
             ))}
           </select>
@@ -1345,236 +1383,244 @@ export default function ProfilePage() {
         <h2 id="social-links-heading" className="heading" style={{ fontSize: "1.25rem" }}>
           Social links
         </h2>
-        {hasPlayer ? (
-          <>
-            {socialLinks.length ? (
-              socialLinks.map((link) => {
-            const draft = linkDrafts[link.id] ?? { label: "", url: "" };
-            const trimmedLabel = draft.label.trim();
-            const trimmedUrl = draft.url.trim();
-            const unchanged =
-              trimmedLabel === link.label && trimmedUrl === link.url;
-            const busy =
-              linkSavingId === link.id || linkDeletingId === link.id || linkSubmitting;
-            const labelInputId = `social-link-${link.id}-label`;
-            const urlInputId = `social-link-${link.id}-url`;
-            const labelHasError =
-              error === SOCIAL_LINK_LABEL_REQUIRED_MESSAGE && !trimmedLabel;
-            const urlHasError =
-              error === INVALID_SOCIAL_URL_MESSAGE && !isValidHttpUrl(trimmedUrl);
-                return (
-              <div
-                key={link.id}
-                style={{
-                  display: "grid",
-                  gap: "0.5rem",
-                  marginBottom: "1rem",
+        {canEditPlayerDetails ? (
+          hasPlayer ? (
+            <>
+              {socialLinks.length ? (
+                socialLinks.map((link) => {
+                  const draft = linkDrafts[link.id] ?? { label: "", url: "" };
+                  const trimmedLabel = draft.label.trim();
+                  const trimmedUrl = draft.url.trim();
+                  const unchanged =
+                    trimmedLabel === link.label && trimmedUrl === link.url;
+                  const busy =
+                    linkSavingId === link.id ||
+                    linkDeletingId === link.id ||
+                    linkSubmitting;
+                  const labelInputId = `social-link-${link.id}-label`;
+                  const urlInputId = `social-link-${link.id}-url`;
+                  const labelHasError =
+                    error === SOCIAL_LINK_LABEL_REQUIRED_MESSAGE && !trimmedLabel;
+                  const urlHasError =
+                    error === INVALID_SOCIAL_URL_MESSAGE && !isValidHttpUrl(trimmedUrl);
+                  return (
+                    <div
+                      key={link.id}
+                      style={{
+                        display: "grid",
+                        gap: "0.5rem",
+                        marginBottom: "1rem",
+                      }}
+                    >
+                      <label className="sr-only" htmlFor={labelInputId}>
+                        Social link label
+                      </label>
+                      <input
+                        id={labelInputId}
+                        type="text"
+                        value={draft.label}
+                        onChange={(e) =>
+                          setLinkDrafts((prev) => ({
+                            ...prev,
+                            [link.id]: { label: e.target.value, url: draft.url },
+                          }))
+                        }
+                        placeholder="Label"
+                        aria-invalid={labelHasError ? true : undefined}
+                      />
+                      <label className="sr-only" htmlFor={urlInputId}>
+                        Social link URL
+                      </label>
+                      <input
+                        id={urlInputId}
+                        type="url"
+                        value={draft.url}
+                        onChange={(e) =>
+                          setLinkDrafts((prev) => ({
+                            ...prev,
+                            [link.id]: { label: draft.label, url: e.target.value },
+                          }))
+                        }
+                        placeholder="https://example.com"
+                        aria-invalid={urlHasError ? true : undefined}
+                        aria-describedby="social-link-url-hint"
+                      />
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        <button
+                          type="button"
+                          disabled={busy || unchanged}
+                          onClick={async () => {
+                            const nextLabel = trimmedLabel;
+                            const nextUrl = trimmedUrl;
+                            if (!nextLabel) {
+                              setError(SOCIAL_LINK_LABEL_REQUIRED_MESSAGE);
+                              setMessage(null);
+                              setPreferencesFeedback(null);
+                              setSaveFeedback(null);
+                              return;
+                            }
+                            if (!isValidHttpUrl(nextUrl)) {
+                              setError(INVALID_SOCIAL_URL_MESSAGE);
+                              setMessage(null);
+                              setPreferencesFeedback(null);
+                              setSaveFeedback(null);
+                              return;
+                            }
+                            clearFeedback();
+                            setLinkSavingId(link.id);
+                            try {
+                              const updated = await updateMySocialLink(link.id, {
+                                label: nextLabel,
+                                url: nextUrl,
+                              });
+                              const nextLinks = socialLinks.map((existing) =>
+                                existing.id === link.id ? updated : existing
+                              );
+                              resetSocialLinkState(nextLinks);
+                              setMessage("Social link updated");
+                            } catch (err) {
+                              const message = extractErrorMessage(err);
+                              setError(message ?? "Failed to update social link");
+                              setPreferencesFeedback(null);
+                              setSaveFeedback(null);
+                            } finally {
+                              setLinkSavingId(null);
+                            }
+                          }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={async () => {
+                            clearFeedback();
+                            setLinkDeletingId(link.id);
+                            try {
+                              await deleteMySocialLink(link.id);
+                              const nextLinks = socialLinks.filter(
+                                (existing) => existing.id !== link.id
+                              );
+                              resetSocialLinkState(nextLinks);
+                              setMessage("Social link removed");
+                            } catch (err) {
+                              const message = extractErrorMessage(err);
+                              setError(message ?? "Failed to remove social link");
+                              setPreferencesFeedback(null);
+                              setSaveFeedback(null);
+                            } finally {
+                              setLinkDeletingId(null);
+                            }
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p style={{ marginBottom: "1rem" }}>No social links yet.</p>
+              )}
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  clearFeedback();
+                  const label = newLinkLabel.trim();
+                  const url = newLinkUrl.trim();
+                  if (!label) {
+                    setError(SOCIAL_LINK_LABEL_REQUIRED_MESSAGE);
+                    setPreferencesFeedback(null);
+                    setSaveFeedback(null);
+                    return;
+                  }
+                  if (!isValidHttpUrl(url)) {
+                    setError(INVALID_SOCIAL_URL_MESSAGE);
+                    setPreferencesFeedback(null);
+                    setSaveFeedback(null);
+                    return;
+                  }
+                  setLinkSubmitting(true);
+                  try {
+                    const created = await createMySocialLink({ label, url });
+                    const nextLinks = [...socialLinks, created];
+                    resetSocialLinkState(nextLinks);
+                    setNewLinkLabel("");
+                    setNewLinkUrl("");
+                    setMessage("Social link added");
+                    setSaveFeedback(null);
+                  } catch (err) {
+                    const message = extractErrorMessage(err);
+                    setError(message ?? "Failed to add social link");
+                    setPreferencesFeedback(null);
+                    setSaveFeedback(null);
+                  } finally {
+                    setLinkSubmitting(false);
+                  }
                 }}
+                style={{ display: "grid", gap: "0.5rem" }}
               >
-                <label className="sr-only" htmlFor={labelInputId}>
-                  Social link label
+                <label className="sr-only" htmlFor="social-link-new-label">
+                  New social link label
                 </label>
                 <input
-                  id={labelInputId}
+                  id="social-link-new-label"
                   type="text"
-                  value={draft.label}
-                  onChange={(e) =>
-                    setLinkDrafts((prev) => ({
-                      ...prev,
-                      [link.id]: { label: e.target.value, url: draft.url },
-                    }))
-                  }
+                  value={newLinkLabel}
+                  onChange={(e) => setNewLinkLabel(e.target.value)}
                   placeholder="Label"
-                  aria-invalid={labelHasError ? true : undefined}
+                  aria-invalid={newLinkLabelError ? true : undefined}
                 />
-                <label className="sr-only" htmlFor={urlInputId}>
-                  Social link URL
+                <label className="sr-only" htmlFor="social-link-new-url">
+                  New social link URL
                 </label>
                 <input
-                  id={urlInputId}
+                  id="social-link-new-url"
                   type="url"
-                  value={draft.url}
-                  onChange={(e) =>
-                    setLinkDrafts((prev) => ({
-                      ...prev,
-                      [link.id]: { label: draft.label, url: e.target.value },
-                    }))
-                  }
+                  value={newLinkUrl}
+                  onChange={(e) => setNewLinkUrl(e.target.value)}
                   placeholder="https://example.com"
-                  aria-invalid={urlHasError ? true : undefined}
+                  aria-invalid={newLinkUrlError ? true : undefined}
                   aria-describedby="social-link-url-hint"
                 />
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button
-                    type="button"
-                    disabled={busy || unchanged}
-                  onClick={async () => {
-                      const nextLabel = trimmedLabel;
-                      const nextUrl = trimmedUrl;
-                      if (!nextLabel) {
-                        setError(SOCIAL_LINK_LABEL_REQUIRED_MESSAGE);
-                        setMessage(null);
-                        setPreferencesFeedback(null);
-                        setSaveFeedback(null);
-                        return;
-                      }
-                      if (!isValidHttpUrl(nextUrl)) {
-                        setError(INVALID_SOCIAL_URL_MESSAGE);
-                        setMessage(null);
-                        setPreferencesFeedback(null);
-                        setSaveFeedback(null);
-                        return;
-                      }
-                      clearFeedback();
-                      setLinkSavingId(link.id);
-                      try {
-                        const updated = await updateMySocialLink(link.id, {
-                          label: nextLabel,
-                          url: nextUrl,
-                        });
-                        const nextLinks = socialLinks.map((existing) =>
-                          existing.id === link.id ? updated : existing
-                        );
-                        resetSocialLinkState(nextLinks);
-                        setMessage("Social link updated");
-                      } catch (err) {
-                        const message = extractErrorMessage(err);
-                        setError(message ?? "Failed to update social link");
-                        setPreferencesFeedback(null);
-                        setSaveFeedback(null);
-                      } finally {
-                        setLinkSavingId(null);
-                      }
-                    }}
-                  >
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={async () => {
-                      clearFeedback();
-                      setLinkDeletingId(link.id);
-                      try {
-                        await deleteMySocialLink(link.id);
-                        const nextLinks = socialLinks.filter(
-                          (existing) => existing.id !== link.id
-                        );
-                        resetSocialLinkState(nextLinks);
-                        setMessage("Social link removed");
-                      } catch (err) {
-                        const message = extractErrorMessage(err);
-                        setError(message ?? "Failed to remove social link");
-                        setPreferencesFeedback(null);
-                        setSaveFeedback(null);
-                      } finally {
-                        setLinkDeletingId(null);
-                      }
-                    }}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-                );
-              })
-            ) : (
-              <p style={{ marginBottom: "1rem" }}>No social links yet.</p>
-            )}
-            <form
-              onSubmit={async (e) => {
-            e.preventDefault();
-            clearFeedback();
-            const label = newLinkLabel.trim();
-            const url = newLinkUrl.trim();
-            if (!label) {
-              setError(SOCIAL_LINK_LABEL_REQUIRED_MESSAGE);
-              setPreferencesFeedback(null);
-              setSaveFeedback(null);
-              return;
-            }
-            if (!isValidHttpUrl(url)) {
-              setError(INVALID_SOCIAL_URL_MESSAGE);
-              setPreferencesFeedback(null);
-              setSaveFeedback(null);
-              return;
-            }
-                setLinkSubmitting(true);
-                try {
-                  const created = await createMySocialLink({ label, url });
-                  const nextLinks = [...socialLinks, created];
-                  resetSocialLinkState(nextLinks);
-                  setNewLinkLabel("");
-                  setNewLinkUrl("");
-                  setMessage("Social link added");
-                  setSaveFeedback(null);
-                } catch (err) {
-                  const message = extractErrorMessage(err);
-                  setError(message ?? "Failed to add social link");
-                  setPreferencesFeedback(null);
-                  setSaveFeedback(null);
-                } finally {
-                  setLinkSubmitting(false);
-                }
+                <button type="submit" disabled={linkSubmitting}>
+                  Add link
+                </button>
+              </form>
+              <p
+                id="social-link-url-hint"
+                style={{ fontSize: "0.85rem", color: "#555" }}
+              >
+                URLs must include http:// or https:// and a valid hostname.
+              </p>
+            </>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gap: "0.5rem",
+                border: "1px solid #d1d5db",
+                padding: "0.75rem",
+                borderRadius: "0.5rem",
+                background: "#f9fafb",
               }}
-              style={{ display: "grid", gap: "0.5rem" }}
             >
-              <label className="sr-only" htmlFor="social-link-new-label">
-                New social link label
-              </label>
-              <input
-                id="social-link-new-label"
-                type="text"
-                value={newLinkLabel}
-                onChange={(e) => setNewLinkLabel(e.target.value)}
-                placeholder="Label"
-                aria-invalid={newLinkLabelError ? true : undefined}
-              />
-              <label className="sr-only" htmlFor="social-link-new-url">
-                New social link URL
-              </label>
-              <input
-                id="social-link-new-url"
-                type="url"
-                value={newLinkUrl}
-                onChange={(e) => setNewLinkUrl(e.target.value)}
-                placeholder="https://example.com"
-                aria-invalid={newLinkUrlError ? true : undefined}
-                aria-describedby="social-link-url-hint"
-              />
-              <button type="submit" disabled={linkSubmitting}>
-                Add link
+              <p style={{ margin: 0, color: "#374151", lineHeight: 1.4 }}>
+                Create your player profile to share social links with other players.
+              </p>
+              <button
+                type="button"
+                onClick={handleCreatePlayer}
+                disabled={creatingPlayer}
+              >
+                {creatingPlayer ? "Creating player…" : "Create my player profile"}
               </button>
-            </form>
-            <p
-              id="social-link-url-hint"
-              style={{ fontSize: "0.85rem", color: "#555" }}
-            >
-              URLs must include http:// or https:// and a valid hostname.
-            </p>
-          </>
+            </div>
+          )
         ) : (
-          <div
-            style={{
-              display: "grid",
-              gap: "0.5rem",
-              border: "1px solid #d1d5db",
-              padding: "0.75rem",
-              borderRadius: "0.5rem",
-              background: "#f9fafb",
-            }}
-          >
-            <p style={{ margin: 0, color: "#374151", lineHeight: 1.4 }}>
-              Create your player profile to share social links with other players.
-            </p>
-            <button
-              type="button"
-              onClick={handleCreatePlayer}
-              disabled={creatingPlayer}
-            >
-              {creatingPlayer ? "Creating player…" : "Create my player profile"}
-            </button>
-          </div>
+          <p style={{ margin: 0, color: "#374151", lineHeight: 1.4 }}>
+            Social links are managed by an administrator for your account.
+          </p>
         )}
       </section>
     </main>

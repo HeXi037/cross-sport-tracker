@@ -23,6 +23,7 @@ interface StageScheduleTableProps {
   playerLookup: PlayerLookup;
   title?: string;
   emptyLabel?: string;
+  error?: string;
 }
 
 export default function StageScheduleTable({
@@ -30,7 +31,19 @@ export default function StageScheduleTable({
   playerLookup,
   title = "Stage schedule",
   emptyLabel = "No matches have been scheduled yet.",
+  error,
 }: StageScheduleTableProps) {
+  if (error) {
+    return (
+      <section className="card" style={{ padding: 16 }}>
+        <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>{title}</h3>
+        <p className="error" role="alert">
+          {error}
+        </p>
+      </section>
+    );
+  }
+
   if (!matches.length) {
     return <p className="form-hint">{emptyLabel}</p>;
   }

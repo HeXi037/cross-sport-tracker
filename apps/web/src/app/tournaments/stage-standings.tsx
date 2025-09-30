@@ -18,13 +18,26 @@ interface StageStandingsProps {
   standings: StageStanding[];
   playerLookup: PlayerLookup;
   title?: string;
+  error?: string;
 }
 
 export default function StageStandings({
   standings,
   playerLookup,
   title = "Stage standings",
+  error,
 }: StageStandingsProps) {
+  if (error) {
+    return (
+      <section className="card" style={{ padding: 16 }}>
+        <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>{title}</h3>
+        <p className="error" role="alert">
+          {error}
+        </p>
+      </section>
+    );
+  }
+
   if (!standings.length) {
     return (
       <p className="form-hint">

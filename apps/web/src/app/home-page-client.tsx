@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '../lib/api';
 import {
@@ -219,6 +219,7 @@ export default function HomePageClient({
   initialPageSize,
 }: Props): ReactElement {
   const [matches, setMatches] = useState(initialMatches);
+  const matchesRef = useRef(initialMatches);
   const [sportError, setSportError] = useState(initialSportError);
   const [matchError, setMatchError] = useState(initialMatchError);
   const [hasMore, setHasMore] = useState(initialHasMore);
@@ -331,18 +332,17 @@ export default function HomePageClient({
   useEffect(() => {
     if (!matchPage) return;
 
-    setMatches((previousMatches) => {
-      const { matches: nextMatches, hasAdditionalMatches } = mergeMatchPageWithPrevious(
-        previousMatches,
-        matchPage.enriched,
-      );
+    const { matches: nextMatches, hasAdditionalMatches } = mergeMatchPageWithPrevious(
+      matchesRef.current,
+      matchPage.enriched,
+    );
 
-      setNextOffset((currentNextOffset) =>
-        resolveNextOffset(currentNextOffset, matchPage.nextOffset, hasAdditionalMatches),
-      );
+    setMatches(nextMatches);
+    matchesRef.current = nextMatches;
 
-      return nextMatches;
-    });
+    setNextOffset((currentNextOffset) =>
+      resolveNextOffset(currentNextOffset, matchPage.nextOffset, hasAdditionalMatches),
+    );
 
     if (typeof matchPage.limit === 'number') {
       setPageSize((currentPageSize) =>
@@ -354,6 +354,10 @@ export default function HomePageClient({
 
     setMatchError(false);
   }, [matchPage]);
+
+  useEffect(() => {
+    matchesRef.current = matches;
+  }, [matches]);
 
   const matchesLoading =
     !matchError && matches.length === 0 && matchesIsLoading;

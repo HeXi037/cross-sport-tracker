@@ -1,15 +1,25 @@
 import TournamentsClient from "./tournaments-client";
-import { listTournaments, type TournamentSummary } from "../../lib/api";
+import {
+  listTournaments,
+  type ApiError,
+  type TournamentSummary,
+} from "../../lib/api";
 
 export default async function TournamentsPage() {
   let tournaments: TournamentSummary[] = [];
   let loadError = false;
+  let comingSoon = false;
 
   try {
     tournaments = await listTournaments({ cache: "no-store" });
   } catch (err) {
-    console.error("Failed to load tournaments", err);
-    loadError = true;
+    const apiError = err as ApiError | undefined;
+    if (apiError?.status === 404) {
+      comingSoon = true;
+    } else {
+      console.error("Failed to load tournaments", err);
+      loadError = true;
+    }
   }
 
   return (
@@ -21,6 +31,7 @@ export default async function TournamentsPage() {
       <TournamentsClient
         initialTournaments={tournaments}
         loadError={loadError}
+        comingSoon={comingSoon}
       />
     </main>
   );

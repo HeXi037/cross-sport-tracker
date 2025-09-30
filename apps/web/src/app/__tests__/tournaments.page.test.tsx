@@ -213,6 +213,21 @@ describe('Tournaments client view', () => {
     expect(screen.getByText('Billie')).toBeInTheDocument();
   });
 
+  it('shows a coming soon message when tournaments are unavailable', async () => {
+    render(
+      <TournamentsClient
+        initialTournaments={[]}
+        loadError={false}
+        comingSoon
+      />
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: /coming soon/i })
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/tournament name/i)).toBeNull();
+  });
+
   it('allows bulk selecting and clearing filtered players', async () => {
     const playerList = [
       { id: 'p1', name: 'Alex' },

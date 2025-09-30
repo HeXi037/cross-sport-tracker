@@ -172,6 +172,12 @@ export default function ClubSelect({
     onChange("");
   }, [disabled, onChange]);
 
+  const clearButtonAriaLabel = useMemo(
+    () =>
+      ariaLabel ? `Clear ${ariaLabel} selection` : "Clear club selection",
+    [ariaLabel]
+  );
+
   return (
     <div className={className} style={{ display: "grid", gap: "0.5rem" }}>
       <div style={{ display: "flex", gap: "0.5rem" }}>
@@ -195,6 +201,8 @@ export default function ClubSelect({
           type="button"
           onClick={clearSelection}
           disabled={disabled || (!value && !searchTerm)}
+          aria-label={clearButtonAriaLabel}
+          aria-describedby={ariaDescribedBy}
         >
           Clear
         </button>

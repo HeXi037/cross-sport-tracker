@@ -20,6 +20,10 @@ import {
   type NormalizedVersusRecord,
 } from "../../../lib/player-stats";
 import { sanitizePlayersBySide } from "../../../lib/participants";
+import {
+  createSportDisplayNameLookup,
+  fetchSportsCatalog,
+} from "../../../lib/sports";
 
 export const dynamic = "force-dynamic";
 
@@ -396,6 +400,13 @@ function formatSummary(s?: MatchDetail["summary"]): string {
   return "";
 }
 
+function joinMetadata(parts: Array<string | null | undefined>): string {
+  return parts
+    .map((part) => (typeof part === "string" ? part.trim() : ""))
+    .filter((part) => part.length > 0)
+    .join(" · ");
+}
+
 function winnerFromSummary(s?: MatchDetail["summary"]): string | null {
   if (!s) return null;
   const checks: (keyof NonNullable<typeof s>)[] = [
@@ -477,11 +488,12 @@ export default async function PlayerPage({
   }
 
   try {
-    const [matchesSettled, statsSettled, upcomingSettled] =
+    const [matchesSettled, statsSettled, upcomingSettled, sportsSettled] =
       await Promise.allSettled([
         getMatches(params.id),
         getStats(params.id),
         getUpcomingMatches(params.id),
+        fetchSportsCatalog(),
       ]);
 
     if (matchesSettled.status === "rejected") {
@@ -513,6 +525,16 @@ export default async function PlayerPage({
     }
     const upcoming =
       upcomingSettled.status === "fulfilled" ? upcomingSettled.value : [];
+
+    if (sportsSettled.status === "rejected") {
+      console.warn(
+        `Failed to load sports catalog for player ${params.id}`,
+        sportsSettled.reason
+      );
+    }
+    const getSportName = createSportDisplayNameLookup(
+      sportsSettled.status === "fulfilled" ? sportsSettled.value : []
+    );
 
     let clubName: string | null = null;
     if (player.club_id) {
@@ -645,25 +667,34 @@ export default async function PlayerPage({
               </div>
             ) : null}
 
-            <nav className="mt-4 mb-4 flex flex-wrap gap-4">
+            <nav
+              className="player-detail__view-nav"
+              aria-label="Player timeline navigation"
+            >
               <Link
                 href={`/players/${params.id}?view=timeline`}
-                className={view === "timeline" ? "font-bold" : ""}
+                className={`player-detail__view-link${
+                  view === "timeline" ? " is-active" : ""
+                }`}
+                aria-current={view === "timeline" ? "page" : undefined}
               >
                 Timeline
               </Link>
               <Link
                 href={`/players/${params.id}?view=summary`}
-                className={view === "summary" ? "font-bold" : ""}
+                className={`player-detail__view-link${
+                  view === "summary" ? " is-active" : ""
+                }`}
+                aria-current={view === "summary" ? "page" : undefined}
               >
                 Season Summary
               </Link>
             </nav>
 
             {view === "timeline" ? (
-              <section>
-                <h2 className="heading">Matches</h2>
-                {sortedMatches.length ? (
+              sortedMatches.length ? (
+                <section>
+                  <h2 className="heading">Matches</h2>
                   <ul>
                     {sortedMatches.map((m) => {
                       const winner = winnerFromSummary(m.summary);
@@ -672,7 +703,20 @@ export default async function PlayerPage({
                           ? winner === m.playerSide
                             ? "Win"
                             : "Loss"
-                          : "";
+                          : null;
+                      const summaryText = formatSummary(m.summary);
+                      const metadataText = joinMetadata([
+                        result,
+                        getSportName(m.sport),
+                        m.bestOf != null ? `Best of ${m.bestOf}` : null,
+                        formatDate(
+                          m.playedAt,
+                          locale,
+                          preferredDateOptions,
+                          timeZone,
+                        ),
+                        m.location ?? "—",
+                      ]);
                       return (
                         <li key={m.id} className="mb-2">
                           <div>
@@ -684,32 +728,22 @@ export default async function PlayerPage({
                             </Link>
                           </div>
                           <div className="text-sm text-gray-700">
-                            {formatSummary(m.summary)}
-                            {result ? ` · ${result}` : ""}
-                            {m.summary || result ? " · " : ""}
-                            {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
-                            {formatDate(
-                              m.playedAt,
-                              locale,
-                              preferredDateOptions,
-                              timeZone,
-                            )}
-                            {" · "}
-                            {m.location ?? "—"}
+                            {summaryText}
+                            {summaryText && metadataText ? " · " : ""}
+                            {metadataText}
                           </div>
                         </li>
                       );
                     })}
                   </ul>
-                ) : (
-                  <p>No matches found.</p>
-                )}
-              </section>
-            ) : (
+                </section>
+              ) : (
+                <p>No matches found.</p>
+              )
+            ) : seasons.length ? (
               <section>
                 <h2 className="heading">Season Summary</h2>
-                {seasons.length ? (
-                  <ul>
+                <ul>
                     {seasons.map((s) => (
                       <li key={s.season} className="mb-2">
                         <div className="font-semibold">{s.season}</div>
@@ -718,11 +752,10 @@ export default async function PlayerPage({
                         </div>
                       </li>
                     ))}
-                  </ul>
-                ) : (
-                  <p>No matches found.</p>
-                )}
+                </ul>
               </section>
+            ) : (
+              <p>No matches found.</p>
             )}
 
             {recentOpponents.length ? (

@@ -154,6 +154,11 @@ describe('PlayerPage server component', () => {
       if (path === '/v0/players/player-1/stats') {
         return makeResponse(null, { status: 204 });
       }
+      if (path === '/v0/sports') {
+        return makeResponse([
+          { id: 'tennis', name: 'Tennis' },
+        ]);
+      }
       throw new Error(`Unexpected apiFetch call: ${path}`);
     });
 
@@ -175,6 +180,9 @@ describe('PlayerPage server component', () => {
     mockedApiFetch.mockImplementation(async (path) => {
       if (path === '/v0/players/missing') {
         throw makeError(404, 'HTTP 404: Player not found');
+      }
+      if (path === '/v0/sports') {
+        return makeResponse([]);
       }
       throw new Error(`Unexpected apiFetch call: ${path}`);
     });

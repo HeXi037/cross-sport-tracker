@@ -13,6 +13,10 @@ import { hasTimeComponent } from "../../lib/datetime";
 import { ensureTrailingSlash } from "../../lib/routes";
 import { resolveServerLocale } from "../../lib/server-locale";
 import { enrichMatches, type MatchRow, type MatchSummaryData } from "../../lib/matches";
+import {
+  createSportDisplayNameLookup,
+  fetchSportsCatalog,
+} from "../../lib/sports";
 
 export const dynamic = "force-dynamic";
 
@@ -136,16 +140,18 @@ export default async function MatchesPage(
   const preferredDateOptions = getPreferredDateOptions(locale);
 
   try {
-    const { rows, hasMore, nextOffset, totalCount } = await getMatches(
-      limit,
-      offset
-    );
+    const [matchPage, sports] = await Promise.all([
+      getMatches(limit, offset),
+      fetchSportsCatalog(),
+    ]);
+    const { rows, hasMore, nextOffset, totalCount } = matchPage;
     rows.sort((a, b) => {
       if (!a.playedAt) return 1;
       if (!b.playedAt) return -1;
       return new Date(b.playedAt).getTime() - new Date(a.playedAt).getTime();
     });
     const matches = await enrichMatches(rows);
+    const getSportName = createSportDisplayNameLookup(sports);
     const prevOffset = Math.max(offset - limit, 0);
     const disablePrev = offset <= 0;
     const resolvedNextOffset =
@@ -177,7 +183,7 @@ export default async function MatchesPage(
                     );
               const metadataText = formatMatchMetadata([
                 m.isFriendly ? "Friendly" : null,
-                m.sport,
+                getSportName(m.sport),
                 m.bestOf != null ? `Best of ${m.bestOf}` : null,
                 playedAtText,
                 m.location,

@@ -80,6 +80,12 @@ describe('LoginPage signup feedback', () => {
     mockedPersistSession.mockReset();
     pushMock.mockReset();
     mockedCurrentUsername.mockReturnValue(null);
+    document.cookie = 'cst-login-redirect=; path=/; max-age=0';
+    Object.defineProperty(document, 'referrer', {
+      configurable: true,
+      value: '',
+    });
+    window.history.replaceState(null, '', '/login');
   });
 
   it('shows a success message when signup succeeds', async () => {
@@ -117,6 +123,39 @@ describe('LoginPage signup feedback', () => {
 
     const toast = await screen.findByTestId('toast');
     expect(toast).toHaveTextContent(/Account created successfully!/i);
+  });
+
+  it('redirects to the stored page after login', async () => {
+    mockedApiFetch.mockResolvedValueOnce(
+      makeResponse({ access_token: 'token', refresh_token: 'refresh' })
+    );
+
+    document.cookie = 'cst-login-redirect=%2Fprofile';
+
+    renderWithToast(<LoginPage />);
+
+    const [loginUsername] = screen.getAllByLabelText('Username');
+    const [loginPassword] = screen.getAllByLabelText('Password');
+
+    fireEvent.change(loginUsername, { target: { value: 'User' } });
+    fireEvent.change(loginPassword, { target: { value: 'CorrectHorse!1' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /login/i }));
+
+    await waitFor(() => {
+      expect(mockedApiFetch).toHaveBeenCalledWith(
+        '/v0/auth/login',
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+
+    expect(mockedPersistSession).toHaveBeenCalledWith({
+      access_token: 'token',
+      refresh_token: 'refresh',
+    });
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith('/profile');
+    });
   });
 
   it('surfaces signup failure reasons from the server', async () => {

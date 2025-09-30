@@ -33,6 +33,8 @@ describe('AdminBadgesPage', () => {
   beforeEach(() => {
     mockedApiFetch.mockReset();
     mockedIsAdmin.mockReset();
+    document.cookie = 'cst-login-redirect=; path=/; max-age=0';
+    window.history.replaceState(null, '', '/admin/badges');
   });
 
   afterEach(() => {
@@ -40,19 +42,41 @@ describe('AdminBadgesPage', () => {
   });
 
   it('redirects non-admins to login', async () => {
-    let href = 'http://localhost/';
+    let currentUrl = new URL('http://localhost/admin/badges');
     const locationMock = {
       assign: vi.fn((value: string) => {
-        href = value;
+        currentUrl = new URL(value, currentUrl.origin);
       }),
       replace: vi.fn(),
       reload: vi.fn(),
     } as Partial<Location>;
-    Object.defineProperty(locationMock, 'href', {
-      configurable: true,
-      get: () => href,
-      set: (value: string) => {
-        href = value;
+    Object.defineProperties(locationMock, {
+      href: {
+        configurable: true,
+        get: () => `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}` || '/',
+        set: (value: string) => {
+          currentUrl = new URL(value, currentUrl.origin);
+        },
+      },
+      pathname: {
+        configurable: true,
+        get: () => currentUrl.pathname,
+      },
+      search: {
+        configurable: true,
+        get: () => currentUrl.search,
+      },
+      hash: {
+        configurable: true,
+        get: () => currentUrl.hash,
+      },
+      origin: {
+        configurable: true,
+        get: () => currentUrl.origin,
+      },
+      protocol: {
+        configurable: true,
+        get: () => currentUrl.protocol,
       },
     });
     vi.stubGlobal('location', locationMock);
@@ -64,6 +88,7 @@ describe('AdminBadgesPage', () => {
     await waitFor(() => {
       expect(window.location.href).toBe('/login');
     });
+    expect(document.cookie).toContain('cst-login-redirect=%2Fadmin%2Fbadges');
     expect(mockedApiFetch).not.toHaveBeenCalled();
   });
 

@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { apiFetch, isAdmin } from '../../../lib/api';
+import { rememberLoginRedirect } from '../../../lib/loginRedirect';
 
 type BadgeApi = {
   id: string;
@@ -54,6 +55,7 @@ export default function AdminBadgesPage() {
 
   useEffect(() => {
     if (!isAdmin()) {
+      rememberLoginRedirect();
       window.location.href = '/login';
       return;
     }

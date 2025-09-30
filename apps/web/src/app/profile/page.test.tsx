@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import "@testing-library/jest-dom";
 import * as LocaleContext from "../../lib/LocaleContext";
 import ToastProvider from "../../components/ToastProvider";
+import * as i18n from "../../lib/i18n";
 
 function renderWithProviders(ui: JSX.Element) {
   return render(<ToastProvider>{ui}</ToastProvider>);
@@ -596,5 +597,131 @@ describe("ProfilePage", () => {
     } finally {
       localeSpy.mockRestore();
     }
+  });
+
+  it("seeds the preferred time zone from the current context when settings are empty", async () => {
+    const localeSpy = vi.spyOn(LocaleContext, "useLocale").mockReturnValue("en-GB");
+    const timeZoneSpy = vi
+      .spyOn(LocaleContext, "useTimeZone")
+      .mockReturnValue("Australia/Sydney");
+
+    try {
+      await act(async () => {
+        renderWithProviders(<ProfilePage />);
+      });
+
+      const timeZoneInput = (await screen.findByLabelText(
+        "Preferred time zone",
+      )) as HTMLInputElement;
+
+      await waitFor(() => {
+        expect(timeZoneInput.value).toBe("Australia/Sydney");
+      });
+      expect(window.localStorage.getItem(i18n.TIME_ZONE_STORAGE_KEY)).toBe(
+        "Australia/Sydney",
+      );
+    } finally {
+      localeSpy.mockRestore();
+      timeZoneSpy.mockRestore();
+    }
+  });
+
+  it("detects a preferred time zone when the context does not provide one", async () => {
+    const localeSpy = vi.spyOn(LocaleContext, "useLocale").mockReturnValue("en-US");
+    const timeZoneSpy = vi.spyOn(LocaleContext, "useTimeZone").mockReturnValue("");
+    const detectSpy = vi
+      .spyOn(i18n, "detectTimeZone")
+      .mockReturnValue("America/Los_Angeles");
+
+    try {
+      await act(async () => {
+        renderWithProviders(<ProfilePage />);
+      });
+
+      const timeZoneInput = (await screen.findByLabelText(
+        "Preferred time zone",
+      )) as HTMLInputElement;
+
+      await waitFor(() => {
+        expect(timeZoneInput.value).toBe("America/Los_Angeles");
+      });
+      expect(detectSpy).toHaveBeenCalled();
+      expect(window.localStorage.getItem(i18n.TIME_ZONE_STORAGE_KEY)).toBe(
+        "America/Los_Angeles",
+      );
+    } finally {
+      localeSpy.mockRestore();
+      timeZoneSpy.mockRestore();
+      detectSpy.mockRestore();
+    }
+  });
+
+  it("keeps the profile save success message visible after rerenders", async () => {
+    apiMocks.updateMe.mockResolvedValue({});
+
+    const view = render(
+      <ToastProvider>
+        <ProfilePage />
+      </ToastProvider>,
+    );
+
+    const saveButton = await screen.findByRole("button", { name: /^save$/i });
+
+    await act(async () => {
+      fireEvent.click(saveButton);
+    });
+
+    const statusMessage = await screen.findByText(/Profile saved successfully\./i, {
+      selector: "p",
+    });
+    expect(statusMessage).toBeInTheDocument();
+
+    await act(async () => {
+      view.rerender(
+        <ToastProvider>
+          <ProfilePage />
+        </ToastProvider>,
+      );
+    });
+
+    expect(
+      await screen.findByText(/Profile saved successfully\./i, {
+        selector: "p",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("displays the club loading status while options are fetched", async () => {
+    let resolveClubs: ((value: Array<{ id: string; name: string }>) => void) | null =
+      null;
+    apiMocks.fetchClubs.mockImplementation(() =>
+      new Promise((resolve) => {
+        resolveClubs = resolve;
+      }),
+    );
+
+    await act(async () => {
+      renderWithProviders(<ProfilePage />);
+    });
+
+    const favoriteClubSelect = await screen.findByLabelText("Favorite club", {
+      selector: "select",
+    });
+    expect(favoriteClubSelect).toBeInTheDocument();
+    const loadingOption = await screen.findByRole("option", {
+      name: "Loading clubs…",
+    });
+    expect(loadingOption).toBeInTheDocument();
+
+    await act(async () => {
+      resolveClubs?.([
+        { id: "club-a", name: "Club A" },
+        { id: "club-b", name: "Club B" },
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(apiMocks.fetchClubs).toHaveBeenCalledTimes(1);
+    });
   });
 });

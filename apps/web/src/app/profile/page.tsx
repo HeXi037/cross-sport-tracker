@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
   type FormEvent,
   type ChangeEvent,
@@ -54,8 +55,9 @@ import {
   DEFAULT_TIME_ZONE,
   detectTimeZone,
   storeLocalePreference,
+  storeTimeZonePreference,
 } from "../../lib/i18n";
-import { useLocale } from "../../lib/LocaleContext";
+import { useLocale, useTimeZone } from "../../lib/LocaleContext";
 import {
   ALL_SPORTS,
   MASTER_SPORT,
@@ -201,6 +203,7 @@ function formatSportOption(id: string): string {
 export default function ProfilePage() {
   const router = useRouter();
   const currentLocale = useLocale();
+  const currentTimeZone = useTimeZone();
   const { showToast } = useToast();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -253,6 +256,14 @@ export default function ProfilePage() {
     useState<SaveFeedback>(null);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushError, setPushError] = useState<string | null>(null);
+
+  const sortedCountryOptions = useMemo(
+    () =>
+      [...COUNTRY_OPTIONS].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+      ),
+    [],
+  );
 
   const clearFeedback = () => {
     setError(null);
@@ -359,17 +370,37 @@ export default function ProfilePage() {
     }
     const stored = loadUserSettings();
     const normalizedLocale = normalizeLocale(currentLocale, "");
-    const hydrated =
+    const localeHydrated =
       !stored.preferredLocale && normalizedLocale
         ? { ...stored, preferredLocale: normalizedLocale }
         : stored;
     if (!stored.preferredLocale && normalizedLocale) {
       storeLocalePreference(normalizedLocale);
     }
+    const storedTimeZone = normalizeTimeZone(
+      localeHydrated.preferredTimeZone,
+      "",
+    );
+    let hydrated = localeHydrated;
+    if (!storedTimeZone) {
+      const normalizedContextZone = normalizeTimeZone(currentTimeZone, "");
+      const detectedZone = normalizedContextZone
+        ? normalizedContextZone
+        : normalizeTimeZone(
+            detectTimeZone(
+              localeHydrated.preferredLocale || normalizedLocale || currentLocale,
+            ) ?? DEFAULT_TIME_ZONE,
+            DEFAULT_TIME_ZONE,
+          );
+      if (detectedZone) {
+        hydrated = { ...hydrated, preferredTimeZone: detectedZone };
+        storeTimeZonePreference(detectedZone);
+      }
+    }
     setPreferences(hydrated);
     setInitialPreferences(hydrated);
     setPreferencesLoaded(true);
-  }, [currentLocale, preferencesLoaded]);
+  }, [currentLocale, currentTimeZone, preferencesLoaded]);
 
   useEffect(() => {
     if (loading) return;
@@ -884,7 +915,7 @@ export default function ProfilePage() {
                   }}
                 >
                   <option value="">Select a country</option>
-                  {COUNTRY_OPTIONS.map((option) => (
+                  {sortedCountryOptions.map((option) => (
                     <option key={option.code} value={option.code}>
                       {`${option.name} (${option.code})`}
                     </option>
@@ -1095,7 +1126,7 @@ export default function ProfilePage() {
             disabled={preferencesInputsDisabled}
           >
             <option value="">No default country</option>
-            {COUNTRY_OPTIONS.map((option) => (
+            {sortedCountryOptions.map((option) => (
               <option key={option.code} value={option.code}>
                 {`${option.name} (${option.code})`}
               </option>

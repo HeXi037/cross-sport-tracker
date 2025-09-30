@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '../lib/api';
 import {
@@ -226,6 +226,7 @@ export default function HomePageClient({
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [loadingMore, setLoadingMore] = useState(false);
   const [paginationError, setPaginationError] = useState(false);
+  const previousMatchesRef = useRef(initialMatches);
   const localeFromContext = useLocale();
   const timeZone = useTimeZone();
   const activeLocale =
@@ -296,6 +297,10 @@ export default function HomePageClient({
     await mutateSports(undefined, { revalidate: true });
   };
 
+  useEffect(() => {
+    previousMatchesRef.current = matches;
+  }, [matches]);
+
   const {
     data: matchPage,
     error: matchesError,
@@ -331,18 +336,18 @@ export default function HomePageClient({
   useEffect(() => {
     if (!matchPage) return;
 
-    setMatches((previousMatches) => {
-      const { matches: nextMatches, hasAdditionalMatches } = mergeMatchPageWithPrevious(
-        previousMatches,
-        matchPage.enriched,
-      );
+    const previousMatches = previousMatchesRef.current;
+    const { matches: nextMatches, hasAdditionalMatches } = mergeMatchPageWithPrevious(
+      previousMatches,
+      matchPage.enriched,
+    );
 
-      setNextOffset((currentNextOffset) =>
-        resolveNextOffset(currentNextOffset, matchPage.nextOffset, hasAdditionalMatches),
-      );
+    setMatches(nextMatches);
+    previousMatchesRef.current = nextMatches;
 
-      return nextMatches;
-    });
+    setNextOffset((currentNextOffset) =>
+      resolveNextOffset(currentNextOffset, matchPage.nextOffset, hasAdditionalMatches),
+    );
 
     if (typeof matchPage.limit === 'number') {
       setPageSize((currentPageSize) =>

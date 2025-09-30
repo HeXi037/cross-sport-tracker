@@ -12,8 +12,6 @@ import {
   createStage,
   createTournament,
   scheduleAmericanoStage,
-  isAdmin,
-  isLoggedIn,
   type ApiError,
   type StageScheduleMatch,
   type TournamentSummary,
@@ -21,6 +19,7 @@ import {
 import type { PlayerInfo } from "../../components/PlayerName";
 import MultiSelect from "../../components/MultiSelect";
 import StageScheduleTable from "./stage-schedule";
+import { useSessionSnapshot } from "../../lib/useSessionSnapshot";
 
 interface SportOption {
   id: string;
@@ -44,11 +43,15 @@ interface CreateTournamentFormProps {
 const MIN_AMERICANO_PLAYERS = 4;
 const COURT_OPTIONS = [1, 2, 3, 4, 5, 6];
 
+type LoadStatus = "idle" | "loading" | "success" | "error";
+
 export default function CreateTournamentForm({
   onCreated,
 }: CreateTournamentFormProps) {
-  const [admin, setAdmin] = useState(() => isAdmin());
-  const [loggedIn, setLoggedIn] = useState(() => isLoggedIn());
+  const session = useSessionSnapshot();
+  const admin = session.isAdmin;
+  const loggedIn = session.isLoggedIn;
+
   const [sports, setSports] = useState<SportOption[]>([]);
   const [players, setPlayers] = useState<PlayerOption[]>([]);
   const [rulesets, setRulesets] = useState<RulesetOption[]>([]);
@@ -58,99 +61,110 @@ export default function CreateTournamentForm({
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [playerSearch, setPlayerSearch] = useState("");
   const [courtCount, setCourtCount] = useState(1);
-  const [loadingSports, setLoadingSports] = useState(false);
-  const [loadingPlayers, setLoadingPlayers] = useState(false);
-  const [loadingRulesets, setLoadingRulesets] = useState(false);
+  const [sportsStatus, setSportsStatus] = useState<LoadStatus>("idle");
+  const [sportsError, setSportsError] = useState<string | null>(null);
+  const [playersStatus, setPlayersStatus] = useState<LoadStatus>("idle");
+  const [playersError, setPlayersError] = useState<string | null>(null);
+  const [rulesetsStatus, setRulesetsStatus] = useState<LoadStatus>("idle");
+  const [rulesetsError, setRulesetsError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [scheduledMatches, setScheduledMatches] = useState<StageScheduleMatch[]>([]);
 
-  useEffect(() => {
-    const update = () => {
-      setAdmin(isAdmin());
-      setLoggedIn(isLoggedIn());
-    };
-    window.addEventListener("storage", update);
-    return () => window.removeEventListener("storage", update);
+  const resetFeedback = useCallback(() => {
+    setError(null);
+    setSuccess(null);
+    setScheduledMatches([]);
   }, []);
 
   const loadSports = useCallback(async () => {
-    setLoadingSports(true);
+    if (!loggedIn) return;
+    setSportsStatus("loading");
+    setSportsError(null);
     try {
       const res = await apiFetch("/v0/sports", { cache: "no-store" });
       const data = (await res.json()) as SportOption[];
       setSports(data);
+      setSportsStatus("success");
       if (data.length === 0) {
         setSportId("");
-      } else if (!admin) {
+        return;
+      }
+      if (!admin) {
         const padel = data.find((sport) => sport.id === "padel");
         setSportId(padel?.id ?? data[0].id);
-      } else if (!sportId) {
-        setSportId(data[0].id);
-      } else if (!data.some((sport) => sport.id === sportId)) {
+      } else if (!sportId || !data.some((sport) => sport.id === sportId)) {
         setSportId(data[0].id);
       }
     } catch (err) {
       console.error("Failed to load sports", err);
       setSports([]);
-    } finally {
-      setLoadingSports(false);
+      setSportsStatus("error");
+      setSportsError("Unable to load sports. Try again.");
     }
-  }, [admin, sportId]);
+  }, [admin, loggedIn, sportId]);
 
   const loadPlayers = useCallback(async () => {
-    setLoadingPlayers(true);
+    if (!loggedIn) return;
+    setPlayersStatus("loading");
+    setPlayersError(null);
     try {
       const res = await apiFetch("/v0/players", { cache: "no-store" });
       const data = (await res.json()) as { players: PlayerOption[] };
       setPlayers(data.players || []);
+      setPlayersStatus("success");
     } catch (err) {
       console.error("Failed to load players", err);
       setPlayers([]);
-    } finally {
-      setLoadingPlayers(false);
+      setPlayersStatus("error");
+      setPlayersError("Unable to load players. Retry when you have a connection.");
     }
-  }, []);
+  }, [loggedIn]);
 
-  const loadRulesets = useCallback(async (sport: string) => {
-    if (!sport) {
-      setRulesets([]);
-      setRulesetId("");
-      return;
-    }
-    setLoadingRulesets(true);
-    try {
-      const res = await apiFetch(
-        `/v0/rulesets?sport=${encodeURIComponent(sport)}`,
-        { cache: "no-store" }
-      );
-      const data = (await res.json()) as RulesetOption[];
-      setRulesets(data);
-      if (data.length) {
-        setRulesetId(data[0].id);
-      } else {
+  const loadRulesets = useCallback(
+    async (sport: string) => {
+      if (!loggedIn || !sport) {
+        setRulesets([]);
+        setRulesetId("");
+        return;
+      }
+      setRulesetsStatus("loading");
+      setRulesetsError(null);
+      try {
+        const res = await apiFetch(
+          `/v0/rulesets?sport=${encodeURIComponent(sport)}`,
+          { cache: "no-store" }
+        );
+        const data = (await res.json()) as RulesetOption[];
+        setRulesets(data);
+        setRulesetsStatus("success");
+        if (data.length) {
+          setRulesetId((current) => (current && data.some((r) => r.id === current) ? current : data[0].id));
+        } else {
+          setRulesetId("");
+        }
+      } catch (err) {
+        console.error("Failed to load rulesets", err);
+        setRulesets([]);
+        setRulesetsStatus("error");
+        setRulesetsError("Unable to load rulesets. Try again or continue with defaults.");
         setRulesetId("");
       }
-    } catch (err) {
-      console.error("Failed to load rulesets", err);
-      setRulesets([]);
-      setRulesetId("");
-    } finally {
-      setLoadingRulesets(false);
-    }
-  }, []);
+    },
+    [loggedIn]
+  );
 
   useEffect(() => {
     if (!loggedIn) return;
     loadSports();
     loadPlayers();
-  }, [loggedIn, loadSports, loadPlayers]);
+  }, [loadPlayers, loadSports, loggedIn]);
 
   useEffect(() => {
     if (!loggedIn) return;
     loadRulesets(sportId);
-  }, [loggedIn, sportId, loadRulesets]);
+  }, [loadRulesets, loggedIn, sportId]);
 
   const playerLookup = useMemo(() => {
     const map = new Map<string, PlayerInfo>();
@@ -162,12 +176,10 @@ export default function CreateTournamentForm({
 
   const handlePlayerSelectionChange = useCallback(
     (playerIds: string[]) => {
-      setError(null);
-      setSuccess(null);
-      setScheduledMatches([]);
+      resetFeedback();
       setSelectedPlayers(playerIds);
     },
-    []
+    [resetFeedback]
   );
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -186,9 +198,7 @@ export default function CreateTournamentForm({
     }
 
     setCreating(true);
-    setError(null);
-    setSuccess(null);
-    setScheduledMatches([]);
+    resetFeedback();
 
     try {
       const tournament = await createTournament({ sport: sportId, name: trimmedName });
@@ -216,9 +226,7 @@ export default function CreateTournamentForm({
       console.error("Failed to create tournament", err);
       const apiError = err as ApiError | undefined;
       if (apiError?.status === 403) {
-        setError(
-          "Only padel Americano tournaments can be created without an admin account."
-        );
+        setError("Only padel Americano tournaments can be created without an admin account.");
       } else {
         setError("Unable to create tournament. Please try again.");
       }
@@ -264,10 +272,8 @@ export default function CreateTournamentForm({
       return;
     }
     setSelectedPlayers([...selectedPlayers, ...additions]);
-    setError(null);
-    setSuccess(null);
-    setScheduledMatches([]);
-  }, [filteredPlayerIds, selectedPlayerSet, selectedPlayers]);
+    resetFeedback();
+  }, [filteredPlayerIds, selectedPlayerSet, selectedPlayers, resetFeedback]);
 
   const handleClearFilteredPlayers = useCallback(() => {
     if (!filteredPlayerIds.length) {
@@ -279,10 +285,8 @@ export default function CreateTournamentForm({
       return;
     }
     setSelectedPlayers(nextSelected);
-    setError(null);
-    setSuccess(null);
-    setScheduledMatches([]);
-  }, [filteredPlayerIds, selectedPlayers]);
+    resetFeedback();
+  }, [filteredPlayerIds, selectedPlayers, resetFeedback]);
 
   const playerValidationMessage =
     selectedCount >= MIN_AMERICANO_PLAYERS
@@ -312,8 +316,7 @@ export default function CreateTournamentForm({
       <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>{title}</h2>
       {!admin && (
         <p className="form-hint" style={{ marginBottom: 12 }}>
-          Padel is currently the only sport supported for self-service Americano
-          tournaments.
+          Padel is currently the only sport supported for self-service Americano tournaments.
         </p>
       )}
       <form onSubmit={handleSubmit} aria-label="Create tournament">
@@ -328,9 +331,7 @@ export default function CreateTournamentForm({
               value={name}
               onChange={(event) => {
                 setName(event.target.value);
-                setError(null);
-                setSuccess(null);
-                setScheduledMatches([]);
+                resetFeedback();
               }}
               placeholder="Autumn Americano"
             />
@@ -344,11 +345,9 @@ export default function CreateTournamentForm({
               value={sportId}
               onChange={(event) => {
                 setSportId(event.target.value);
-                setError(null);
-                setSuccess(null);
-                setScheduledMatches([]);
+                resetFeedback();
               }}
-              disabled={loadingSports || !admin}
+              disabled={sportsStatus === "loading" || !admin}
             >
               {sports.map((sport) => (
                 <option key={sport.id} value={sport.id}>
@@ -356,7 +355,20 @@ export default function CreateTournamentForm({
                 </option>
               ))}
             </select>
-            {loadingSports && <p className="form-hint">Loading sports…</p>}
+            {sportsStatus === "loading" && <p className="form-hint">Loading sports…</p>}
+            {sportsStatus === "error" && (
+              <p className="error" role="alert">
+                {sportsError}
+                <button
+                  type="button"
+                  className="link-button"
+                  style={{ marginLeft: 8 }}
+                  onClick={loadSports}
+                >
+                  Retry
+                </button>
+              </p>
+            )}
             {!admin && sportId !== "padel" && (
               <p className="error" role="alert">
                 Padel must be selected for Americano tournaments.
@@ -371,7 +383,7 @@ export default function CreateTournamentForm({
               id="tournament-ruleset"
               value={rulesetId}
               onChange={(event) => setRulesetId(event.target.value)}
-              disabled={loadingRulesets || rulesets.length === 0}
+              disabled={rulesetsStatus === "loading" || rulesets.length === 0}
             >
               <option value="">Use sport default</option>
               {rulesets.map((ruleset) => (
@@ -380,7 +392,20 @@ export default function CreateTournamentForm({
                 </option>
               ))}
             </select>
-            {loadingRulesets && <p className="form-hint">Loading rulesets…</p>}
+            {rulesetsStatus === "loading" && <p className="form-hint">Loading rulesets…</p>}
+            {rulesetsStatus === "error" && rulesetsError && (
+              <p className="error" role="alert">
+                {rulesetsError}
+                <button
+                  type="button"
+                  className="link-button"
+                  style={{ marginLeft: 8 }}
+                  onClick={() => loadRulesets(sportId)}
+                >
+                  Retry
+                </button>
+              </p>
+            )}
           </div>
           <div className="form-field">
             <label className="form-label" htmlFor="tournament-courts">
@@ -392,9 +417,7 @@ export default function CreateTournamentForm({
               onChange={(event) => {
                 const value = Number(event.target.value);
                 setCourtCount(Number.isNaN(value) ? 1 : value);
-                setError(null);
-                setSuccess(null);
-                setScheduledMatches([]);
+                resetFeedback();
               }}
             >
               {COURT_OPTIONS.map((count) => (
@@ -416,7 +439,7 @@ export default function CreateTournamentForm({
             <MultiSelect
               ariaLabel="Available players"
               id="player"
-              loading={loadingPlayers}
+              loading={playersStatus === "loading"}
               noOptionsMessage="No players are available yet."
               noResultsMessage={(query) => `No players match "${query}".`}
               onSearchChange={(value) => {
@@ -425,12 +448,25 @@ export default function CreateTournamentForm({
               }}
               onSelectionChange={handlePlayerSelectionChange}
               options={players}
-              placeholder="Start typing a name…"
+              placeholder={playersStatus === "loading" ? "Loading players…" : "Start typing a name…"}
               searchLabel="Search players"
               searchValue={playerSearch}
               selectedIds={selectedPlayers}
               selectedSummaryLabel={`${selectedCount} player${selectedCount === 1 ? "" : "s"} selected`}
             />
+            {playersStatus === "error" && playersError && (
+              <p className="error" role="alert">
+                {playersError}
+                <button
+                  type="button"
+                  className="link-button"
+                  style={{ marginLeft: 8 }}
+                  onClick={loadPlayers}
+                >
+                  Retry
+                </button>
+              </p>
+            )}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
               <button
                 type="button"
@@ -456,11 +492,11 @@ export default function CreateTournamentForm({
               {error}
             </p>
           )}
-      {success && (
-        <p className="form-hint" role="status">
-          {success}
-        </p>
-      )}
+          {success && (
+            <p className="form-hint" role="status">
+              {success}
+            </p>
+          )}
           <button type="submit" disabled={creating}>
             {creating ? "Creating tournament…" : "Create and schedule"}
           </button>
@@ -478,3 +514,4 @@ export default function CreateTournamentForm({
     </section>
   );
 }
+

@@ -21,7 +21,27 @@ describe("RecordPage", () => {
     apiFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => [
-        { id: "disc-golf", name: "Disc Golf" },
+        { id: "padel", name: "Padel" },
+        { id: "table-tennis", name: "Table Tennis" },
+      ],
+    } as unknown as Response);
+
+    render(await RecordPage());
+
+    expect(
+      screen.getByRole("link", { name: "Padel" }),
+    ).toHaveAttribute("href", "/record/padel");
+    expect(
+      screen.getByRole("link", { name: "Table Tennis" }),
+    ).toHaveAttribute("href", "/record/table-tennis");
+  });
+
+  it("includes disc golf and omits unimplemented sports", async () => {
+    apiFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [
+        { id: "badminton", name: "Badminton" },
+        { id: "disc_golf", name: "Disc Golf" },
         { id: "padel", name: "Padel" },
       ],
     } as unknown as Response);
@@ -32,25 +52,9 @@ describe("RecordPage", () => {
       screen.getByRole("link", { name: "Disc Golf" }),
     ).toHaveAttribute("href", "/record/disc-golf");
     expect(
-      screen.getByRole("link", { name: "Padel" }),
-    ).toHaveAttribute("href", "/record/padel");
-  });
-
-  it("omits sports that are not implemented", async () => {
-    apiFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => [
-        { id: "badminton", name: "Badminton" },
-        { id: "disc_golf", name: "Disc Golf" },
-      ],
-    } as unknown as Response);
-
-    render(await RecordPage());
-
-    expect(screen.getByRole("link", { name: "Disc Golf" })).toBeInTheDocument();
-    expect(
       screen.queryByRole("link", { name: "Badminton" }),
     ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Padel" })).toBeInTheDocument();
   });
 
   it("falls back to known sports when the API omits them", async () => {

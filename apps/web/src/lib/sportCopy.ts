@@ -4,6 +4,9 @@ export interface SportCopy {
   playersHint?: string;
   scoringHint?: string;
   confirmationMessage?: string;
+  scorePlaceholderA?: string;
+  scorePlaceholderB?: string;
+  gameScorePlaceholder?: string;
 }
 
 const padelDefaultCopy: SportCopy = {
@@ -15,6 +18,8 @@ const padelDefaultCopy: SportCopy = {
   scoringHint:
     'Use the final set tally for each team (for example 6-3, 4-6, 6-4 → enter 2 and 1).',
   confirmationMessage: 'Save this padel match result?',
+  scorePlaceholderA: 'Sets won by Team A (e.g. 2)',
+  scorePlaceholderB: 'Sets won by Team B (e.g. 1)',
 };
 
 const padelEnAuCopy: SportCopy = {
@@ -33,6 +38,8 @@ const padelAmericanoDefaultCopy: SportCopy = {
   scoringHint:
     'Enter the total points each pair collected (for example 24-20 in a race to 32).',
   confirmationMessage: 'Save this padel Americano tie?',
+  scorePlaceholderA: 'Total points for Team A (e.g. 24)',
+  scorePlaceholderB: 'Total points for Team B (e.g. 20)',
 };
 
 const padelAmericanoEnAuCopy: SportCopy = {
@@ -77,6 +84,7 @@ const SPORT_COPY: Record<string, Record<string, SportCopy>> = {
       scoringHint:
         'Pickleball matches are best of three games. Enter the points for each game below (for example 11-6, 8-11, 11-9) and the app will calculate the 2-1 result.',
       confirmationMessage: 'Save this pickleball match?',
+      gameScorePlaceholder: 'Points to 11 for this game (e.g. 11)',
     },
     'en-au': {
       matchDetailsHint:
@@ -94,6 +102,7 @@ const SPORT_COPY: Record<string, Record<string, SportCopy>> = {
       scoringHint:
         'Enter the points for each game in order. Leave unused games blank—matches end when a side wins two games (best of three) or three games (best of five).',
       confirmationMessage: 'Save this table tennis result?',
+      gameScorePlaceholder: 'Points to 11 for this game (e.g. 11)',
     },
     'en-au': {
       matchDetailsHint:

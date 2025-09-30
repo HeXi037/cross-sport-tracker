@@ -230,7 +230,9 @@ export default async function TournamentDetailPage({
         </Link>
       </div>
       {stageData.length === 0 ? (
-        <p className="form-hint">No stages have been configured yet.</p>
+        <p className="form-hint" role="status">
+          No stages have been configured yet.
+        </p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           {stageData.map(
@@ -273,3 +275,4 @@ export default async function TournamentDetailPage({
     </main>
   );
 }
+

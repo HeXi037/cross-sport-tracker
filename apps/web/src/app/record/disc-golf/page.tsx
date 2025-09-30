@@ -9,9 +9,8 @@ import {
   type ChangeEvent,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { apiUrl } from "../../../lib/api";
 import { invalidateMatchesCache } from "../../../lib/useApiSWR";
-
-const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 
 type MatchSummary = {
   id: string;
@@ -200,7 +199,7 @@ function DiscGolfForm() {
     (async () => {
       try {
         const res = await fetch(
-          `${base}/v0/players?limit=${PLAYER_FETCH_LIMIT}&offset=0`,
+          apiUrl(`/v0/players?limit=${PLAYER_FETCH_LIMIT}&offset=0`),
           {
             method: "GET",
             signal: controller.signal,
@@ -243,7 +242,7 @@ function DiscGolfForm() {
     (async () => {
       try {
         const res = await fetch(
-          `${base}/v0/matches?limit=${MATCH_FETCH_LIMIT}&offset=0`,
+          apiUrl(`/v0/matches?limit=${MATCH_FETCH_LIMIT}&offset=0`),
           {
             method: "GET",
             signal: controller.signal,
@@ -298,7 +297,7 @@ function DiscGolfForm() {
     (async () => {
       try {
         const res = await fetch(
-          `${base}/v0/matches/${encodeURIComponent(currentMatchId)}`,
+          apiUrl(`/v0/matches/${encodeURIComponent(currentMatchId)}`),
           { signal: controller.signal },
         );
         if (!res.ok) {
@@ -506,7 +505,7 @@ function DiscGolfForm() {
     setMatchPickerError(null);
     setCreatingMatch(true);
     try {
-      const res = await fetch(`${base}/v0/matches`, {
+      const res = await fetch(apiUrl("/v0/matches"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -564,7 +563,7 @@ function DiscGolfForm() {
       ];
       for (const payload of payloads) {
         const res = await fetch(
-          `${base}/v0/matches/${encodeURIComponent(currentMatchId)}/events`,
+          apiUrl(`/v0/matches/${encodeURIComponent(currentMatchId)}/events`),
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },

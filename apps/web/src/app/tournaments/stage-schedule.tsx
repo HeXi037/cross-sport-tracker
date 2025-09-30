@@ -45,7 +45,11 @@ export default function StageScheduleTable({
   }
 
   if (!matches.length) {
-    return <p className="form-hint">{emptyLabel}</p>;
+    return (
+      <p className="form-hint" role="status">
+        {emptyLabel}
+      </p>
+    );
   }
 
   return (
@@ -92,3 +96,4 @@ export default function StageScheduleTable({
     </section>
   );
 }
+

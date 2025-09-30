@@ -1,6 +1,4 @@
 "use client";
-
-import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -58,6 +56,21 @@ type GameScore = {
 
 function createGameScoreRows(count: number): GameScore[] {
   return Array.from({ length: count }, () => ({ a: "", b: "" }));
+}
+
+function parseNonNegativeInteger(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) {
+    return null;
+  }
+  if (parsed < 0) {
+    return null;
+  }
+  return parsed;
 }
 
 type GameSeriesConfig = {
@@ -588,11 +601,13 @@ function validateBowlingFrameInput(
 export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const router = useRouter();
   const sport = sportId;
+  const isStandardPadel = sport === "padel";
   const isPadel = sport === "padel" || sport === "padel_americano";
   const isPadelAmericano = sport === "padel_americano";
   const isPickleball = sport === "pickleball";
   const isTableTennis = sport === "table_tennis";
-  const supportsSinglesOrDoubles = isPickleball || isTableTennis;
+  const supportsSinglesOrDoubles =
+    isStandardPadel || isPickleball || isTableTennis;
   const isBowling = sport === "bowling";
   const gameSeriesConfig = useMemo<GameSeriesConfig | null>(() => {
     if (isPickleball) {
@@ -630,6 +645,10 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   ] = useState<(null | { frameIndex: number; rollIndex: number | null })[]>([
     null,
   ]);
+  const [
+    bowlingTouchedEntries,
+    setBowlingTouchedEntries,
+  ] = useState<boolean[]>([false]);
   const bowlingMaxReached =
     bowlingEntries.length >= MAX_BOWLING_PLAYERS;
   const bowlingMaxHintId = useId();
@@ -644,6 +663,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const [isFriendly, setIsFriendly] = useState(false);
   const [doubles, setDoubles] = useState(isPadel);
   const [submitting, setSubmitting] = useState(false);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [gameScores, setGameScores] = useState<GameScore[]>(() =>
     createGameScoreRows(maxGames),
   );
@@ -659,6 +679,12 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     () => getSportCopy(sport, locale),
     [locale, sport],
   );
+  const scorePlaceholderA =
+    sportCopy.scorePlaceholderA ?? "Team A whole-number score (e.g. 0)";
+  const scorePlaceholderB =
+    sportCopy.scorePlaceholderB ?? "Team B whole-number score (e.g. 0)";
+  const gameScorePlaceholder =
+    sportCopy.gameScorePlaceholder ?? "Whole-number points (e.g. 11)";
   const dateLocaleHintId = useMemo(
     () => `${sport || "record"}-date-locale-note`,
     [sport],
@@ -729,6 +755,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
 
   const handleGameScoreChange = useCallback(
     (index: number, side: "A" | "B", value: string) => {
+      setError(null);
       setGameScores((prev) => {
         if (index < 0 || index >= prev.length) {
           return prev;
@@ -748,6 +775,16 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     [],
   );
 
+  const handleScoreAChange = useCallback((value: string) => {
+    setScoreA(value);
+    setError(null);
+  }, []);
+
+  const handleScoreBChange = useCallback((value: string) => {
+    setScoreB(value);
+    setError(null);
+  }, []);
+
   const setBowlingFieldError = useCallback(
     (entryIndex: number, frameIndex: number | null, rollIndex: number | null) => {
       setBowlingFieldErrors((prev) => {
@@ -763,6 +800,24 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       });
     },
     [],
+  );
+
+  const markBowlingEntryTouched = useCallback((entryIndex: number) => {
+    setBowlingTouchedEntries((prev) => {
+      const next = prev.slice();
+      if (entryIndex >= next.length) {
+        next.length = entryIndex + 1;
+      }
+      next[entryIndex] = true;
+      return next;
+    });
+  }, []);
+
+  const handleBowlingRollBlur = useCallback(
+    (entryIndex: number) => {
+      markBowlingEntryTouched(entryIndex);
+    },
+    [markBowlingEntryTouched],
   );
 
   const focusBowlingInput = useCallback((key: string | null) => {
@@ -820,6 +875,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
 
   const handleIdChange = (key: keyof IdMap, value: string) => {
     setIds((prev) => ({ ...prev, [key]: value }));
+    setError(null);
   };
 
   const handleBowlingPlayerChange = (index: number, value: string) => {
@@ -828,6 +884,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         i === index ? { ...entry, playerId: value } : entry,
       ),
     );
+    setError(null);
     setBowlingValidationErrors((prev) => {
       const next = prev.slice();
       if (index >= next.length) {
@@ -850,6 +907,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       return;
     }
 
+    setError(null);
     const playerLabel = getBowlingPlayerLabel(entry, entryIndex, players);
     const frames = entry.frames.map((frame) => frame.slice());
     const frame = frames[frameIndex] ?? [];
@@ -1077,6 +1135,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     setBowlingEntries((prev) => prev.filter((_, i) => i !== index));
     setBowlingValidationErrors((prev) => prev.filter((_, i) => i !== index));
     setBowlingFieldErrors((prev) => prev.filter((_, i) => i !== index));
+    setBowlingTouchedEntries((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleAddBowlingPlayer = () => {
@@ -1095,17 +1154,22 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     flushSync(() => {
       setBowlingFieldErrors((prev) => [...prev, null]);
     });
+    flushSync(() => {
+      setBowlingTouchedEntries((prev) => [...prev, false]);
+    });
   };
 
   const handleToggle = (next: boolean) => {
     if (!next) {
       setIds((prev) => ({ ...prev, a2: "", b2: "" }));
     }
+    setError(null);
     setDoubles(next);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setHasAttemptedSubmit(true);
     setError(null);
 
     if (!sport) {
@@ -1264,11 +1328,41 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         return;
       }
     } else {
-      const A = Number(scoreA);
-      const B = Number(scoreB);
-      if (Number.isFinite(A) && Number.isFinite(B)) {
-        sets = [[A, B]];
+      const parsedA = parseNonNegativeInteger(scoreA);
+      const parsedB = parseNonNegativeInteger(scoreB);
+      if (parsedA === null || parsedB === null) {
+        setError("Enter whole-number scores for both teams.");
+        return;
       }
+
+      if (isPadelAmericano) {
+        const total = parsedA + parsedB;
+        if (total === 0) {
+          setError(
+            "Padel Americano totals must add up to your tie target. Enter the points earned by each pair.",
+          );
+          return;
+        }
+      } else if (isStandardPadel) {
+        if (parsedA === parsedB) {
+          setError("Padel matches require a winner. Adjust the set totals.");
+          return;
+        }
+        const winner = Math.max(parsedA, parsedB);
+        const loser = Math.min(parsedA, parsedB);
+        if (winner !== 2) {
+          setError("Padel matches finish when a side wins two sets. Adjust the totals.");
+          return;
+        }
+        if (loser > 1) {
+          setError(
+            "Padel matches allow at most one set for the losing side. Adjust the totals.",
+          );
+          return;
+        }
+      }
+
+      sets = [[parsedA, parsedB]];
     }
 
     try {
@@ -1333,8 +1427,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
             </li>
           </ul>
           <p className="padel-americano-tips__footer">
-            <strong>Need fixtures?</strong> Generate a full Americano schedule from the{" "}
-            <Link href="/tournaments/">tournaments page</Link> before logging results here.
+            <strong>Need fixtures?</strong> Generate a full Americano schedule before logging
+            results here so you can follow the rotation without leaving this page.
           </p>
         </section>
       )}
@@ -1472,6 +1566,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                 const playerLabel = getBowlingPlayerLabel(entry, idx, players);
                 const entryError = bowlingValidationErrors[idx] ?? null;
                 const entryFieldError = bowlingFieldErrors[idx] ?? null;
+                const entryTouched = bowlingTouchedEntries[idx] ?? false;
+                const shouldShowEntryErrors = hasAttemptedSubmit || entryTouched;
+                const entryErrorMessage = shouldShowEntryErrors ? entryError : null;
                 const preview = previewBowlingInput(entry.frames);
                 const previewTotal = preview.total;
                 return (
@@ -1512,9 +1609,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                         )}
                       </div>
                     </div>
-                    {entryError && (
+                    {entryErrorMessage && (
                       <p className="error" role="alert">
-                        {entryError}
+                        {entryErrorMessage}
                       </p>
                     )}
                     <div className="bowling-frames-grid">
@@ -1525,6 +1622,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                         const displayTotal =
                           frameTotal ?? (hasAnyPins ? partialPins : null);
                         const isFrameInvalid =
+                          shouldShowEntryErrors &&
                           entryFieldError?.frameIndex === frameIdx;
                         return (
                           <div
@@ -1607,6 +1705,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                           e.target.value,
                                         )
                                       }
+                                      onBlur={() => handleBowlingRollBlur(idx)}
                                       onKeyDown={(event) =>
                                         handleBowlingInputKeyDown(
                                           event,
@@ -1838,7 +1937,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                               type="number"
                               min="0"
                               step="1"
-                              placeholder="0"
+                              placeholder={gameScorePlaceholder}
                               value={row.a}
                               onChange={(event) =>
                                 handleGameScoreChange(
@@ -1862,7 +1961,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                               type="number"
                               min="0"
                               step="1"
-                              placeholder="0"
+                              placeholder={gameScorePlaceholder}
                               value={row.b}
                               onChange={(event) =>
                                 handleGameScoreChange(
@@ -1888,9 +1987,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                       type="number"
                       min="0"
                       step="1"
-                      placeholder="A"
+                      placeholder={scorePlaceholderA}
                       value={scoreA}
-                      onChange={(e) => setScoreA(e.target.value)}
+                      onChange={(e) => handleScoreAChange(e.target.value)}
                       inputMode="numeric"
                     />
                   </label>
@@ -1901,9 +2000,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                       type="number"
                       min="0"
                       step="1"
-                      placeholder="B"
+                      placeholder={scorePlaceholderB}
                       value={scoreB}
-                      onChange={(e) => setScoreB(e.target.value)}
+                      onChange={(e) => handleScoreBChange(e.target.value)}
                       inputMode="numeric"
                     />
                   </label>

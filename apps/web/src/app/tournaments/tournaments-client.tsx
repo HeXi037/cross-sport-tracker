@@ -1,17 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ensureTrailingSlash } from "../../lib/routes";
 import {
-  currentUserId,
   deleteTournament,
-  isAdmin,
-  isLoggedIn,
   type ApiError,
   type TournamentSummary,
 } from "../../lib/api";
 import CreateTournamentForm from "./create-tournament-form";
+import { useSessionSnapshot } from "../../lib/useSessionSnapshot";
 
 interface TournamentsClientProps {
   initialTournaments: TournamentSummary[];
@@ -24,22 +22,12 @@ export default function TournamentsClient({
   loadError = false,
   comingSoon = false,
 }: TournamentsClientProps) {
+  const session = useSessionSnapshot();
+  const { isAdmin, isLoggedIn, userId } = session;
   const [tournaments, setTournaments] = useState(initialTournaments);
-  const [admin, setAdmin] = useState(() => isAdmin());
-  const [loggedIn, setLoggedIn] = useState(() => isLoggedIn());
-  const [userId, setUserId] = useState(() => currentUserId());
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const update = () => {
-      setAdmin(isAdmin());
-      setLoggedIn(isLoggedIn());
-      setUserId(currentUserId());
-    };
-    window.addEventListener("storage", update);
-    return () => window.removeEventListener("storage", update);
-  }, []);
+  const [status, setStatus] = useState<string | null>(null);
 
   const emptyMessage = useMemo(() => {
     if (loadError) {
@@ -53,6 +41,9 @@ export default function TournamentsClient({
 
   const handleTournamentCreated = (created: TournamentSummary) => {
     setError(null);
+    setStatus(
+      `Added ${created.name}. Use the links below to manage stages and matches.`
+    );
     setTournaments((prev) => {
       const next = [created, ...prev];
       next.sort((a, b) => a.name.localeCompare(b.name));
@@ -61,15 +52,15 @@ export default function TournamentsClient({
   };
 
   const canDelete = useMemo(() => {
-    if (admin) {
+    if (isAdmin) {
       return () => true;
     }
-    if (!loggedIn || !userId) {
+    if (!isLoggedIn || !userId) {
       return () => false;
     }
     return (tournament: TournamentSummary) =>
       tournament.createdByUserId === userId && tournament.sport === "padel";
-  }, [admin, loggedIn, userId]);
+  }, [isAdmin, isLoggedIn, userId]);
 
   const handleDelete = async (tournament: TournamentSummary) => {
     if (!canDelete(tournament)) {
@@ -85,9 +76,11 @@ export default function TournamentsClient({
     }
     setDeletingId(tournament.id);
     setError(null);
+    setStatus(null);
     try {
       await deleteTournament(tournament.id);
       setTournaments((prev) => prev.filter((t) => t.id !== tournament.id));
+      setStatus(`${tournament.name} was deleted.`);
     } catch (err) {
       console.error("Failed to delete tournament", err);
       const apiError = err as ApiError | undefined;
@@ -110,8 +103,8 @@ export default function TournamentsClient({
         <section className="card" style={{ padding: 16 }}>
           <h2 className="subheading">Coming soon</h2>
           <p className="form-hint" style={{ marginTop: 8 }}>
-            The Americano tournament scheduler is still being set up. Check
-            back soon to generate rotations and manage fixtures.
+            The Americano tournament scheduler is still being set up. Check back soon to generate
+            rotations and manage fixtures.
           </p>
         </section>
       ) : (
@@ -134,19 +127,20 @@ export default function TournamentsClient({
                 {error}
               </p>
             )}
+            {status && (
+              <p className="form-hint" role="status">
+                {status}
+              </p>
+            )}
             {emptyMessage ? (
               <p className={loadError ? "error" : "form-hint"}>{emptyMessage}</p>
             ) : (
               <ul style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {tournaments.map((tournament) => (
                   <li key={tournament.id} className="card" style={{ padding: 16 }}>
-                    <div
-                      style={{ display: "flex", flexDirection: "column", gap: 8 }}
-                    >
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <div>
-                        <h3 style={{ fontSize: 18, fontWeight: 600 }}>
-                          {tournament.name}
-                        </h3>
+                        <h3 style={{ fontSize: 18, fontWeight: 600 }}>{tournament.name}</h3>
                         <p className="form-hint">Sport: {tournament.sport}</p>
                         {tournament.clubId && (
                           <p className="form-hint">Club: {tournament.clubId}</p>
@@ -181,3 +175,4 @@ export default function TournamentsClient({
     </div>
   );
 }
+

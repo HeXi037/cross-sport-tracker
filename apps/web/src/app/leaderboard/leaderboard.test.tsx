@@ -456,7 +456,7 @@ describe("Leaderboard", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Record a Disc Golf match" }),
-    ).toHaveAttribute("href", expect.stringContaining("/record/disc-golf"));
+    ).toHaveAttribute("href", "/record/disc-golf");
   });
 
   it("mentions when no matches exist for the selected region", async () => {

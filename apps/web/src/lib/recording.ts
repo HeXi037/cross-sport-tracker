@@ -21,6 +21,12 @@ const RECORD_SPORTS: Record<string, RecordSportMeta> = {
     form: "dynamic",
     implemented: true,
   },
+  disc_golf: {
+    id: "disc_golf",
+    slug: "disc-golf",
+    form: "custom",
+    implemented: true,
+  },
   padel: {
     id: "padel",
     slug: "padel",
@@ -44,13 +50,6 @@ const RECORD_SPORTS: Record<string, RecordSportMeta> = {
     slug: "table-tennis",
     form: "dynamic",
     implemented: true,
-  },
-  disc_golf: {
-    id: "disc_golf",
-    slug: "disc-golf",
-    form: "custom",
-    implemented: true,
-    redirectPath: "/record/disc-golf/",
   },
 };
 

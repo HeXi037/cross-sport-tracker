@@ -389,6 +389,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const [bowlingValidationErrors, setBowlingValidationErrors] = useState<
     (string | null)[]
   >([null]);
+  const bowlingMaxReached =
+    bowlingEntries.length >= MAX_BOWLING_PLAYERS;
   const bowlingInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const pendingBowlingFocusRef = useRef<string | null>(null);
   const [scoreA, setScoreA] = useState("0");
@@ -686,6 +688,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   };
 
   const handleAddBowlingPlayer = () => {
+    if (bowlingMaxReached) {
+      return;
+    }
     flushSync(() => {
       setBowlingEntries((prev) => [
         ...prev,
@@ -1226,15 +1231,21 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                 );
               })}
             </div>
-            {bowlingEntries.length < MAX_BOWLING_PLAYERS && (
+            <div className="form-field">
               <button
                 type="button"
                 className="button-secondary"
                 onClick={handleAddBowlingPlayer}
+                disabled={bowlingMaxReached}
               >
                 Add player
               </button>
-            )}
+              {bowlingMaxReached && (
+                <p className="form-hint" role="status">
+                  Maximum {MAX_BOWLING_PLAYERS} players
+                </p>
+              )}
+            </div>
           </fieldset>
         ) : (
           <>

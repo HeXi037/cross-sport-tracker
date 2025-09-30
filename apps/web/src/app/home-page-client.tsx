@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '../lib/api';
 import {
@@ -226,6 +226,7 @@ export default function HomePageClient({
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [loadingMore, setLoadingMore] = useState(false);
   const [paginationError, setPaginationError] = useState(false);
+  const matchesRef = useRef(matches);
   const localeFromContext = useLocale();
   const timeZone = useTimeZone();
   const activeLocale =
@@ -329,30 +330,33 @@ export default function HomePageClient({
   }, [matchesError]);
 
   useEffect(() => {
+    matchesRef.current = matches;
+  }, [matches]);
+
+  useEffect(() => {
     if (!matchPage) return;
 
-    setMatches((previousMatches) => {
-      const { matches: nextMatches, hasAdditionalMatches } = mergeMatchPageWithPrevious(
-        previousMatches,
-        matchPage.enriched,
+    const { matches: nextMatches, hasAdditionalMatches } = mergeMatchPageWithPrevious(
+      matchesRef.current,
+      matchPage.enriched,
+    );
+
+    matchesRef.current = nextMatches;
+    setMatches(nextMatches);
+
+    setNextOffset((currentNextOffset) =>
+      resolveNextOffset(currentNextOffset, matchPage.nextOffset, hasAdditionalMatches),
+    );
+
+    if (typeof matchPage.limit === 'number') {
+      setPageSize((currentPageSize) =>
+        matchPage.limit !== currentPageSize ? matchPage.limit : currentPageSize,
       );
+    }
 
-      setNextOffset((currentNextOffset) =>
-        resolveNextOffset(currentNextOffset, matchPage.nextOffset, hasAdditionalMatches),
-      );
+    setHasMore(matchPage.hasMore);
 
-      if (typeof matchPage.limit === 'number') {
-        setPageSize((currentPageSize) =>
-          matchPage.limit !== currentPageSize ? matchPage.limit : currentPageSize,
-        );
-      }
-
-      setHasMore(matchPage.hasMore);
-
-      setMatchError(false);
-
-      return nextMatches;
-    });
+    setMatchError(false);
   }, [matchPage]);
 
   const matchesLoading =

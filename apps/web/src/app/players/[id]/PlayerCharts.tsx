@@ -62,20 +62,38 @@ export default function PlayerCharts({ matches }: { matches: EnrichedMatch[] }) 
     return { x, y, v };
   });
 
+  const hasMatches = winRateData.length > 0;
+  const hasRankingHistory = rankingData.length > 0;
+  const hasHeatmapEntries = heatmapData.length > 0;
+
   const xLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const yLabels = Array.from({ length: 24 }, (_, i) => `${i}:00`);
 
   return (
-    <section className="mt-8">
-      <h2 className="heading">Performance</h2>
-      <WinRateChart data={winRateData} />
-      <div className="mt-8">
-        <h3 className="heading">Ranking History</h3>
-        <RankingHistoryChart data={rankingData} />
+    <section className="mt-8 space-y-8">
+      <div>
+        <h2 className="heading">Performance</h2>
+        {hasMatches ? (
+          <WinRateChart data={winRateData} />
+        ) : (
+          <p className="text-sm text-gray-600">No matches found.</p>
+        )}
       </div>
-      <div className="mt-8">
+      <div>
+        <h3 className="heading">Ranking History</h3>
+        {hasRankingHistory ? (
+          <RankingHistoryChart data={rankingData} />
+        ) : (
+          <p className="text-sm text-gray-600">No ranking history.</p>
+        )}
+      </div>
+      <div>
         <h3 className="heading">Activity Heatmap</h3>
-        <MatchHeatmap data={heatmapData} xLabels={xLabels} yLabels={yLabels} />
+        {hasHeatmapEntries ? (
+          <MatchHeatmap data={heatmapData} xLabels={xLabels} yLabels={yLabels} />
+        ) : (
+          <p className="text-sm text-gray-600">No activity recorded.</p>
+        )}
       </div>
     </section>
   );

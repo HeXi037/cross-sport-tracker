@@ -35,6 +35,7 @@ import { ensureTrailingSlash } from "../../lib/routes";
 import type { PlayerLocationPayload } from "../../lib/api";
 import { rememberLoginRedirect } from "../../lib/loginRedirect";
 import ClubSelect from "../../components/ClubSelect";
+import { useToast } from "../../components/ToastProvider";
 import {
   COUNTRY_OPTIONS,
   getContinentForCountry,
@@ -64,6 +65,7 @@ const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
 const INVALID_SOCIAL_URL_MESSAGE =
   "Enter a valid URL that starts with http:// or https:// and includes a hostname.";
 const SOCIAL_LINK_LABEL_REQUIRED_MESSAGE = "Link label is required";
+const PROFILE_SAVE_SUCCESS_MESSAGE = "Profile saved successfully.";
 
 type SaveFeedback = { type: "success" | "error"; message: string } | null;
 
@@ -198,6 +200,7 @@ function formatSportOption(id: string): string {
 export default function ProfilePage() {
   const router = useRouter();
   const currentLocale = useLocale();
+  const { showToast } = useToast();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -573,9 +576,13 @@ export default function ProfilePage() {
 
       setPassword("");
       setConfirmPassword("");
+      showToast({
+        message: PROFILE_SAVE_SUCCESS_MESSAGE,
+        variant: "success",
+      });
       setSaveFeedback({
         type: "success",
-        message: "Profile saved successfully.",
+        message: PROFILE_SAVE_SUCCESS_MESSAGE,
       });
     } finally {
       setSaving(false);

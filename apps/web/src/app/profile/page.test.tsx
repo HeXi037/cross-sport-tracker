@@ -1,6 +1,11 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import * as LocaleContext from "../../lib/LocaleContext";
+import ToastProvider from "../../components/ToastProvider";
+
+function renderWithProviders(ui: JSX.Element) {
+  return render(<ToastProvider>{ui}</ToastProvider>);
+}
 
 const pushMock = vi.hoisted(() => vi.fn());
 const apiMocks = vi.hoisted(() => ({
@@ -129,7 +134,7 @@ describe("ProfilePage", () => {
     });
 
     await act(async () => {
-      render(<ProfilePage />);
+      renderWithProviders(<ProfilePage />);
     });
 
     expect(await screen.findByDisplayValue("existing")).toBeInTheDocument();
@@ -151,7 +156,7 @@ describe("ProfilePage", () => {
     });
 
     await act(async () => {
-      render(<ProfilePage />);
+      renderWithProviders(<ProfilePage />);
     });
 
     const img = await screen.findByAltText("relative-user profile photo");
@@ -171,7 +176,7 @@ describe("ProfilePage", () => {
     const dateSpy = vi.spyOn(Date, "now").mockReturnValue(123456789);
 
     await act(async () => {
-      render(<ProfilePage />);
+      renderWithProviders(<ProfilePage />);
     });
 
     const fileInput = await screen.findByLabelText("Profile photo");
@@ -211,7 +216,7 @@ describe("ProfilePage", () => {
     } as unknown as Response);
 
     await act(async () => {
-      render(<ProfilePage />);
+      renderWithProviders(<ProfilePage />);
     });
 
     const removeButton = await screen.findByRole("button", {
@@ -233,7 +238,7 @@ describe("ProfilePage", () => {
 
   it("updates notification preferences when toggles change", async () => {
     await act(async () => {
-      render(<ProfilePage />);
+      renderWithProviders(<ProfilePage />);
     });
 
     await waitFor(() => {
@@ -282,7 +287,7 @@ describe("ProfilePage", () => {
     apiMocks.updateMe.mockResolvedValue({ access_token: "new.token.value" });
 
     await act(async () => {
-      render(<ProfilePage />);
+      renderWithProviders(<ProfilePage />);
     });
 
     await screen.findByDisplayValue("existing");
@@ -307,7 +312,10 @@ describe("ProfilePage", () => {
       fireEvent.click(saveButton);
     });
 
-    const statusMessage = await screen.findByText(/Profile saved successfully\./i);
+    const statusMessage = await screen.findByText(/Profile saved successfully\./i, {
+      selector: "p",
+    });
+    const toast = await screen.findByTestId("toast");
 
     expect(apiMocks.updateMyPlayerLocation).toHaveBeenCalledWith({
       location: "SE",
@@ -317,6 +325,7 @@ describe("ProfilePage", () => {
     });
     expect(apiMocks.updateMe).toHaveBeenCalledWith({ username: "existing" });
     expect(statusMessage).toBeInTheDocument();
+    expect(toast).toHaveTextContent(/Profile saved successfully\./i);
     expect(window.localStorage.getItem("token")).toBe("new.token.value");
   });
 
@@ -345,7 +354,7 @@ describe("ProfilePage", () => {
     apiMocks.updateMe.mockResolvedValue({});
 
     await act(async () => {
-      render(<ProfilePage />);
+      renderWithProviders(<ProfilePage />);
     });
 
     await screen.findByDisplayValue("existing");
@@ -381,7 +390,7 @@ describe("ProfilePage", () => {
     apiMocks.fetchMyPlayer.mockRejectedValueOnce(notFound);
 
     await act(async () => {
-      render(<ProfilePage />);
+      renderWithProviders(<ProfilePage />);
     });
 
     const createButtons = await screen.findAllByRole("button", {
@@ -411,7 +420,7 @@ describe("ProfilePage", () => {
     });
 
     await act(async () => {
-      render(<ProfilePage />);
+      renderWithProviders(<ProfilePage />);
     });
 
     const createButtons = await screen.findAllByRole("button", {
@@ -433,7 +442,7 @@ describe("ProfilePage", () => {
     apiMocks.updateMe.mockResolvedValue({});
 
     await act(async () => {
-      render(<ProfilePage />);
+      renderWithProviders(<ProfilePage />);
     });
 
     const passwordInput = await screen.findByLabelText("New password");
@@ -466,7 +475,7 @@ describe("ProfilePage", () => {
     apiMocks.updateMe.mockResolvedValue({});
 
     await act(async () => {
-      render(<ProfilePage />);
+      renderWithProviders(<ProfilePage />);
     });
 
     const displayNameInput = await screen.findByLabelText("Display name");
@@ -494,7 +503,7 @@ describe("ProfilePage", () => {
     );
 
     await act(async () => {
-      render(<ProfilePage />);
+      renderWithProviders(<ProfilePage />);
     });
 
     const sportSelect = (await screen.findByLabelText(
@@ -554,7 +563,7 @@ describe("ProfilePage", () => {
 
     try {
       await act(async () => {
-        render(<ProfilePage />);
+        renderWithProviders(<ProfilePage />);
       });
 
       const localeInput = (await screen.findByLabelText(

@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   clearStoredTimeZone,
   DEFAULT_TIME_ZONE,
+  formatDateTime,
   getStoredTimeZone,
+  NEUTRAL_FALLBACK_LOCALE,
+  resolveFormatterLocale,
   resolveTimeZone,
   storeTimeZonePreference,
   TIME_ZONE_COOKIE_KEY,
@@ -43,5 +46,16 @@ describe('time zone resolution', () => {
     storeTimeZonePreference('Invalid/Zone');
     expect(getStoredTimeZone()).toBeNull();
     expect(resolveTimeZone(null)).toBe(DEFAULT_TIME_ZONE);
+  });
+});
+
+describe('formatter helpers', () => {
+  it('falls back to a neutral locale when no locale is provided', () => {
+    expect(resolveFormatterLocale(undefined)).toBe(NEUTRAL_FALLBACK_LOCALE);
+    expect(resolveFormatterLocale('')).toBe(NEUTRAL_FALLBACK_LOCALE);
+  });
+
+  it('formats dates with the neutral fallback when locale hints are missing', () => {
+    expect(formatDateTime('2001-11-21T09:30:00Z', '')).toBe('21 Nov 2001, 09:30');
   });
 });

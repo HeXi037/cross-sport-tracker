@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -397,6 +398,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   ]);
   const bowlingMaxReached =
     bowlingEntries.length >= MAX_BOWLING_PLAYERS;
+  const bowlingMaxHintId = useId();
   const bowlingInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const pendingBowlingFocusRef = useRef<string | null>(null);
   const [scoreA, setScoreA] = useState("0");
@@ -1315,11 +1317,19 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                 className="button-secondary"
                 onClick={handleAddBowlingPlayer}
                 disabled={bowlingMaxReached}
+                aria-describedby={
+                  bowlingMaxReached ? bowlingMaxHintId : undefined
+                }
               >
                 Add player
               </button>
               {bowlingMaxReached && (
-                <p className="form-hint" role="status">
+                <p
+                  className="form-hint"
+                  id={bowlingMaxHintId}
+                  role="status"
+                  aria-live="polite"
+                >
                   Maximum {MAX_BOWLING_PLAYERS} players
                 </p>
               )}

@@ -3,9 +3,58 @@ import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import Leaderboard from "./leaderboard";
-import { apiUrl } from "../../lib/api";
 import * as api from "../../lib/api";
 import { USER_SETTINGS_STORAGE_KEY } from "../user-settings";
+
+const mockIntersectionObservers: MockIntersectionObserver[] = [];
+
+class MockIntersectionObserver {
+  callback: IntersectionObserverCallback;
+  elements = new Set<Element>();
+  observe = vi.fn((element: Element) => {
+    this.elements.add(element);
+  });
+  unobserve = vi.fn((element: Element) => {
+    this.elements.delete(element);
+  });
+  disconnect = vi.fn(() => {
+    this.elements.clear();
+  });
+
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback;
+    mockIntersectionObservers.push(this);
+  }
+
+  trigger(isIntersecting = true) {
+    const entries = Array.from(this.elements).map((element) =>
+      ({
+        isIntersecting,
+        target: element,
+        intersectionRatio: isIntersecting ? 1 : 0,
+        time: 0,
+        boundingClientRect: element.getBoundingClientRect(),
+        intersectionRect: element.getBoundingClientRect(),
+        rootBounds: null,
+      }) as IntersectionObserverEntry,
+    );
+    if (entries.length === 0) {
+      const dummy = document.createElement("div");
+      entries.push(
+        ({
+          isIntersecting,
+          target: dummy,
+          intersectionRatio: isIntersecting ? 1 : 0,
+          time: 0,
+          boundingClientRect: dummy.getBoundingClientRect(),
+          intersectionRect: dummy.getBoundingClientRect(),
+          rootBounds: null,
+        }) as IntersectionObserverEntry,
+      );
+    }
+    this.callback(entries, this as unknown as IntersectionObserver);
+  }
+}
 
 const replaceMock = vi.fn();
 let mockPathname = "/leaderboard";
@@ -28,6 +77,9 @@ describe("Leaderboard", () => {
   let fetchClubsSpy: vi.SpiedFunction<typeof api.fetchClubs>;
 
   beforeEach(() => {
+    mockIntersectionObservers.length = 0;
+    // @ts-expect-error - assign test mock
+    global.IntersectionObserver = MockIntersectionObserver as unknown as typeof IntersectionObserver;
     updateMockLocation("/leaderboard");
     replaceMock.mockReset();
     replaceMock.mockImplementation((nextHref: string) => {
@@ -42,6 +94,9 @@ describe("Leaderboard", () => {
   });
 
   afterEach(() => {
+    // @ts-expect-error - cleanup IntersectionObserver mock
+    delete global.IntersectionObserver;
+    mockIntersectionObservers.length = 0;
     vi.clearAllMocks();
     vi.restoreAllMocks();
     // @ts-expect-error - cleanup mocked fetch between tests
@@ -65,8 +120,13 @@ describe("Leaderboard", () => {
     expect(screen.getByRole("tab", { name: "Disc Golf" })).toBeInTheDocument();
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
-    const urls = fetchMock.mock.calls.map((c) => c[0]);
-    expect(urls).toContain(apiUrl("/v0/leaderboards?sport=disc_golf"));
+    const urls = fetchMock.mock.calls.map((c) => c[0] as string);
+    const discGolfRequest = urls.find((url) => url.includes("sport=disc_golf"));
+    expect(discGolfRequest).toBeDefined();
+    const params = new URL(discGolfRequest as string, "https://example.test").searchParams;
+    expect(params.get("sport")).toBe("disc_golf");
+    expect(params.get("limit")).toBe("50");
+    expect(params.get("offset")).toBe("0");
   });
 
   it("keeps the tab navigation scrollable without a dropdown on wide viewports", async () => {
@@ -162,8 +222,13 @@ describe("Leaderboard", () => {
     render(<Leaderboard sport="padel" country="SE" />);
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    expect(fetchMock).toHaveBeenCalledWith(
-      apiUrl("/v0/leaderboards?sport=padel&country=SE"),
+    const [requestUrl, requestOptions] = fetchMock.mock.calls[0] ?? [];
+    const params = new URL(requestUrl as string, "https://example.test").searchParams;
+    expect(params.get("sport")).toBe("padel");
+    expect(params.get("country")).toBe("SE");
+    expect(params.get("limit")).toBe("50");
+    expect(params.get("offset")).toBe("0");
+    expect(requestOptions).toEqual(
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     );
   });
@@ -178,8 +243,13 @@ describe("Leaderboard", () => {
     render(<Leaderboard sport="padel" clubId="club-a" />);
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    expect(fetchMock).toHaveBeenCalledWith(
-      apiUrl("/v0/leaderboards?sport=padel&clubId=club-a"),
+    const [clubUrl, clubOptions] = fetchMock.mock.calls[0] ?? [];
+    const clubParams = new URL(clubUrl as string, "https://example.test").searchParams;
+    expect(clubParams.get("sport")).toBe("padel");
+    expect(clubParams.get("clubId")).toBe("club-a");
+    expect(clubParams.get("limit")).toBe("50");
+    expect(clubParams.get("offset")).toBe("0");
+    expect(clubOptions).toEqual(
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     );
   });
@@ -194,10 +264,74 @@ describe("Leaderboard", () => {
     render(<Leaderboard sport="all" country="SE" clubId="club-a" />);
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
-    const urls = fetchMock.mock.calls.map((c) => c[0]);
-    expect(urls).toContain(
-      apiUrl("/v0/leaderboards?sport=disc_golf&country=SE&clubId=club-a")
-    );
+    const combinedUrls = fetchMock.mock.calls.map((c) => c[0] as string);
+    const discGolfUrl = combinedUrls.find((url) => url.includes("sport=disc_golf"));
+    expect(discGolfUrl).toBeDefined();
+    const search = new URL(discGolfUrl as string, "https://example.test").searchParams;
+    expect(search.get("sport")).toBe("disc_golf");
+    expect(search.get("country")).toBe("SE");
+    expect(search.get("clubId")).toBe("club-a");
+    expect(search.get("limit")).toBe("50");
+    expect(search.get("offset")).toBe("0");
+  });
+
+  it("loads additional pages when the sentinel intersects", async () => {
+    const firstPage = {
+      leaders: [
+        {
+          rank: 1,
+          playerId: "p1",
+          playerName: "Alice",
+          rating: 1200,
+          setsWon: 10,
+          setsLost: 2,
+        },
+        {
+          rank: 2,
+          playerId: "p2",
+          playerName: "Bob",
+          rating: 1100,
+          setsWon: 8,
+          setsLost: 4,
+        },
+      ],
+      total: 3,
+      limit: 2,
+      offset: 0,
+    };
+    const secondPage = {
+      leaders: [
+        {
+          rank: 3,
+          playerId: "p3",
+          playerName: "Cara",
+          rating: 1000,
+          setsWon: 6,
+          setsLost: 6,
+        },
+      ],
+      total: 3,
+      limit: 2,
+      offset: 2,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => firstPage })
+      .mockResolvedValueOnce({ ok: true, json: async () => secondPage });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<Leaderboard sport="padel" />);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("Alice")).toBeInTheDocument();
+    expect(screen.queryByText("Cara")).not.toBeInTheDocument();
+
+    await act(async () => {
+      mockIntersectionObservers.forEach((observer) => observer.trigger());
+    });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(screen.getByText("Cara")).toBeInTheDocument();
   });
 
   it("lets users filter the combined leaderboard", async () => {

@@ -263,46 +263,48 @@ export default function HomePageClient({
   useEffect(() => {
     if (!matchPage) return;
 
-    const previousMatches = matches;
     const nextPageMatches = matchPage.enriched;
     let hasAdditionalMatches = false;
-    let nextMatches: EnrichedMatch[] = nextPageMatches;
 
-    if (previousMatches.length) {
-      const nextIds = new Set(nextPageMatches.map((match) => match.id));
-      const preservedMatches: EnrichedMatch[] = [];
+    setMatches((previousMatches) => {
+      let nextMatches: EnrichedMatch[] = nextPageMatches;
 
-      for (const match of previousMatches) {
-        if (!nextIds.has(match.id)) {
-          preservedMatches.push(match);
-          hasAdditionalMatches = true;
-        }
-      }
+      if (previousMatches.length) {
+        const nextIds = new Set(nextPageMatches.map((match) => match.id));
+        const preservedMatches: EnrichedMatch[] = [];
 
-      if (!hasAdditionalMatches && previousMatches.length === nextPageMatches.length) {
-        let isSameOrder = true;
-        for (let index = 0; index < previousMatches.length; index += 1) {
-          if (previousMatches[index]?.id !== nextPageMatches[index]?.id) {
-            isSameOrder = false;
-            break;
+        for (const match of previousMatches) {
+          if (!nextIds.has(match.id)) {
+            preservedMatches.push(match);
+            hasAdditionalMatches = true;
           }
         }
 
-        if (isSameOrder) {
-          nextMatches = previousMatches;
+        if (!hasAdditionalMatches && previousMatches.length === nextPageMatches.length) {
+          let isSameOrder = true;
+          for (let index = 0; index < previousMatches.length; index += 1) {
+            if (previousMatches[index]?.id !== nextPageMatches[index]?.id) {
+              isSameOrder = false;
+              break;
+            }
+          }
+
+          if (isSameOrder) {
+            nextMatches = previousMatches;
+          }
+        }
+
+        if (nextMatches === nextPageMatches) {
+          if (!preservedMatches.length && previousMatches.length === nextPageMatches.length) {
+            nextMatches = nextPageMatches;
+          } else {
+            nextMatches = [...nextPageMatches, ...preservedMatches];
+          }
         }
       }
 
-      if (nextMatches === nextPageMatches) {
-        if (!preservedMatches.length && previousMatches.length === nextPageMatches.length) {
-          nextMatches = nextPageMatches;
-        } else {
-          nextMatches = [...nextPageMatches, ...preservedMatches];
-        }
-      }
-    }
-
-    setMatches(nextMatches);
+      return nextMatches;
+    });
 
     if (typeof matchPage.limit === 'number') {
       setPageSize((currentPageSize) =>

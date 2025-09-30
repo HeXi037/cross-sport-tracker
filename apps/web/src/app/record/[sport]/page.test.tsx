@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import * as bowlingSummary from "../../../lib/bowlingSummary";
 import * as LocaleContext from "../../../lib/LocaleContext";
+import * as NotificationCache from "../../../lib/useNotifications";
 import {
   getDateExample,
   getTimeExample,
@@ -351,31 +352,39 @@ describe("RecordSportForm", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
     global.fetch = fetchMock as typeof fetch;
+    const invalidateSpy = vi
+      .spyOn(NotificationCache, "invalidateNotificationsCache")
+      .mockResolvedValue();
 
-    render(<RecordSportForm sportId="padel" />);
+    try {
+      render(<RecordSportForm sportId="padel" />);
 
-    await screen.findAllByText("Alice");
+      await screen.findAllByText("Alice");
 
-    const selects = screen.getAllByRole("combobox");
-    fireEvent.change(selects[0], { target: { value: "1" } });
-    fireEvent.change(selects[1], { target: { value: "2" } });
-    fireEvent.change(selects[2], { target: { value: "3" } });
-    fireEvent.change(selects[3], { target: { value: "4" } });
+      const selects = screen.getAllByRole("combobox");
+      fireEvent.change(selects[0], { target: { value: "1" } });
+      fireEvent.change(selects[1], { target: { value: "2" } });
+      fireEvent.change(selects[2], { target: { value: "3" } });
+      fireEvent.change(selects[3], { target: { value: "4" } });
 
-    fireEvent.change(screen.getByLabelText(/team a score/i), {
-      target: { value: "2" },
-    });
-    fireEvent.change(screen.getByLabelText(/team b score/i), {
-      target: { value: "1" },
-    });
+      fireEvent.change(screen.getByLabelText(/team a score/i), {
+        target: { value: "2" },
+      });
+      fireEvent.change(screen.getByLabelText(/team b score/i), {
+        target: { value: "1" },
+      });
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+      fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    const payload = JSON.parse(fetchMock.mock.calls[1][1].body);
-    expect(payload.sets).toEqual([[2, 1]]);
-    expect(typeof payload.sets[0][0]).toBe("number");
-    expect(typeof payload.sets[0][1]).toBe("number");
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+      const payload = JSON.parse(fetchMock.mock.calls[1][1].body);
+      expect(payload.sets).toEqual([[2, 1]]);
+      expect(typeof payload.sets[0][0]).toBe("number");
+      expect(typeof payload.sets[0][1]).toBe("number");
+      await waitFor(() => expect(invalidateSpy).toHaveBeenCalled());
+    } finally {
+      invalidateSpy.mockRestore();
+    }
   });
 
   it("sends the canonical sport id when the route uses a dashed slug", async () => {

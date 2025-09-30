@@ -1294,6 +1294,17 @@ export default function ProfilePage() {
         </h2>
         {notificationPrefsLoaded ? (
           <>
+            <p
+              style={{
+                margin: "0 0 0.75rem",
+                color: "#374151",
+                fontSize: "0.95rem",
+              }}
+            >
+              Notifications appear in the bell icon at the top of the site.
+              These switches also control whether we send email and push alerts
+              for each update type.
+            </p>
             <label
               className="form-field"
               htmlFor="notify-profile-comments"
@@ -1314,8 +1325,8 @@ export default function ProfilePage() {
                   disabled={notificationPrefsSaving}
                 />
                 <span style={{ fontSize: "0.95rem", color: "#374151" }}>
-                  Receive notifications when someone comments on your player
-                  profile.
+                  Send bell, email, and push notifications when someone
+                  comments on your player profile.
                 </span>
               </div>
             </label>
@@ -1339,8 +1350,8 @@ export default function ProfilePage() {
                   disabled={notificationPrefsSaving}
                 />
                 <span style={{ fontSize: "0.95rem", color: "#374151" }}>
-                  Alerts when matches involving you are recorded, including the
-                  final score.
+                  Send bell, email, and push notifications when a match
+                  involving you is recorded, including the final score.
                 </span>
               </div>
             </label>

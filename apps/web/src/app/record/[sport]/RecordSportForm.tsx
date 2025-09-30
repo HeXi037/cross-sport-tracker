@@ -14,6 +14,7 @@ import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "../../../lib/api";
 import { invalidateMatchesCache } from "../../../lib/useApiSWR";
+import { invalidateNotificationsCache } from "../../../lib/useNotifications";
 import { useLocale } from "../../../lib/LocaleContext";
 import {
   getDateExample,
@@ -1282,6 +1283,11 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         } catch (cacheErr) {
           console.error("Failed to invalidate match caches", cacheErr);
         }
+        try {
+          await invalidateNotificationsCache();
+        } catch (notificationErr) {
+          console.error("Failed to refresh notifications", notificationErr);
+        }
         router.push(`/matches`);
       } catch (err) {
         console.error(err);
@@ -1389,6 +1395,11 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         await invalidateMatchesCache();
       } catch (cacheErr) {
         console.error("Failed to invalidate match caches", cacheErr);
+      }
+      try {
+        await invalidateNotificationsCache();
+      } catch (notificationErr) {
+        console.error("Failed to refresh notifications", notificationErr);
       }
       router.push(`/matches`);
     } catch (err) {

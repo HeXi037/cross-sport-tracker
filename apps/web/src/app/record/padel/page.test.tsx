@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import RecordPadelPage from "./page";
 import * as LocaleContext from "../../../lib/LocaleContext";
+import * as NotificationCache from "../../../lib/useNotifications";
 import {
   getDateExample,
   getTimeExample,
@@ -43,9 +44,14 @@ describe("RecordPadelPage", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<RecordPadelPage />);
+    const invalidateSpy = vi
+      .spyOn(NotificationCache, "invalidateNotificationsCache")
+      .mockResolvedValue();
 
-    await waitFor(() => screen.getByLabelText("Player A 1"));
+    try {
+      render(<RecordPadelPage />);
+
+      await waitFor(() => screen.getByLabelText("Player A 1"));
 
     fireEvent.change(screen.getByPlaceholderText("Location"), {
       target: { value: "Center Court" },
@@ -86,28 +92,32 @@ describe("RecordPadelPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-    await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent(/match recorded/i),
-    );
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+      await waitFor(() =>
+        expect(screen.getByRole("status")).toHaveTextContent(/match recorded/i),
+      );
     const createPayload = JSON.parse(fetchMock.mock.calls[1][1].body);
     const setsPayload = JSON.parse(fetchMock.mock.calls[2][1].body);
 
-    expect(createPayload).toMatchObject({
-      sport: "padel",
-      bestOf: 3,
-      participants: [
-        { side: "A", playerIds: ["p1", "p2"] },
-        { side: "B", playerIds: ["p3", "p4"] },
-      ],
-      location: "Court 1",
-    });
-    expect(setsPayload).toEqual({
-      sets: [
-        { A: 6, B: 4 },
-        { A: 6, B: 2 },
-      ],
-    });
+      expect(createPayload).toMatchObject({
+        sport: "padel",
+        bestOf: 3,
+        participants: [
+          { side: "A", playerIds: ["p1", "p2"] },
+          { side: "B", playerIds: ["p3", "p4"] },
+        ],
+        location: "Court 1",
+      });
+      expect(setsPayload).toEqual({
+        sets: [
+          { A: 6, B: 4 },
+          { A: 6, B: 2 },
+        ],
+      });
+      await waitFor(() => expect(invalidateSpy).toHaveBeenCalled());
+    } finally {
+      invalidateSpy.mockRestore();
+    }
   });
 
   it("shows an Australian date format when the locale is en-AU", async () => {
@@ -452,10 +462,10 @@ describe("RecordPadelPage", () => {
     });
 
     fireEvent.change(screen.getByPlaceholderText("Set 1 A"), {
-      target: { value: "7" },
+      target: { value: "8" },
     });
     fireEvent.change(screen.getByPlaceholderText("Set 1 B"), {
-      target: { value: "5" },
+      target: { value: "6" },
     });
 
     const saveButton = screen.getByRole("button", { name: /save/i });
@@ -469,9 +479,10 @@ describe("RecordPadelPage", () => {
       /Please fix the highlighted set scores before saving./i,
     );
     expect(alertMessage).toHaveAttribute("role", "alert");
-    expect(
-      screen.getByText("Scores in set 1 must be whole numbers between 0 and 6."),
-    ).toBeInTheDocument();
+    const scoreErrors = await screen.findAllByText(
+      "Scores in set 1 must be whole numbers between 0 and 6.",
+    );
+    expect(scoreErrors.length).toBeGreaterThan(0);
     expect(
       screen.getByRole("button", { name: /save/i }),
     ).toHaveAttribute("aria-disabled", "true");

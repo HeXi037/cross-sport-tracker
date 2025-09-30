@@ -532,7 +532,7 @@ textarea {
 .sport-link:hover,
 .sport-link:focus-visible {
   background-color: rgba(26, 115, 232, 0.12);
-  color: var(--color-accent-blue);
+  color: var(--color-text);
   text-decoration-color: currentColor;
 }
 

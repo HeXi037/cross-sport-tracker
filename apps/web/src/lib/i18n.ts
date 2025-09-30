@@ -392,6 +392,18 @@ const DATE_TIME_PRESETS = {
 
 type DateTimePreset = keyof typeof DATE_TIME_PRESETS;
 
+export function resolveFormatterLocale(
+  locale: string | null | undefined,
+): string {
+  return normalizeLocale(locale, NEUTRAL_FALLBACK_LOCALE);
+}
+
+export function resolveFormatterTimeZone(
+  preferredTimeZone?: string | null,
+): string {
+  return resolveTimeZone(preferredTimeZone);
+}
+
 export function formatDate(
   value: Date | string | number | null | undefined,
   locale: string,
@@ -401,13 +413,13 @@ export function formatDate(
   if (!value) return '—';
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
-  const normalizedLocale = normalizeLocale(locale, '');
+  const normalizedLocale = resolveFormatterLocale(locale);
   const baseOptions = ensureOptions(options, { dateStyle: 'medium' });
   const formatterOptions: Intl.DateTimeFormatOptions = {
     ...baseOptions,
   };
   if (!formatterOptions.timeZone) {
-    formatterOptions.timeZone = resolveTimeZone(preferredTimeZone);
+    formatterOptions.timeZone = resolveFormatterTimeZone(preferredTimeZone);
   }
   const localeForFormatter = normalizedLocale || undefined;
 

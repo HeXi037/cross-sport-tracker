@@ -16,11 +16,13 @@ import CreateTournamentForm from "./create-tournament-form";
 interface TournamentsClientProps {
   initialTournaments: TournamentSummary[];
   loadError?: boolean;
+  comingSoon?: boolean;
 }
 
 export default function TournamentsClient({
   initialTournaments,
   loadError = false,
+  comingSoon = false,
 }: TournamentsClientProps) {
   const [tournaments, setTournaments] = useState(initialTournaments);
   const [admin, setAdmin] = useState(() => isAdmin());
@@ -104,66 +106,78 @@ export default function TournamentsClient({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <CreateTournamentForm onCreated={handleTournamentCreated} />
-      <section
-        aria-labelledby="tournament-list-heading"
-        style={{ display: "flex", flexDirection: "column", gap: 16 }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <h2 id="tournament-list-heading" className="subheading">
-            Existing tournaments
-          </h2>
-          <p className="form-hint">
-            Browse previously created tournaments and manage their stages.
+      {comingSoon ? (
+        <section className="card" style={{ padding: 16 }}>
+          <h2 className="subheading">Coming soon</h2>
+          <p className="form-hint" style={{ marginTop: 8 }}>
+            The Americano tournament scheduler is still being set up. Check
+            back soon to generate rotations and manage fixtures.
           </p>
-        </div>
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-        {emptyMessage ? (
-          <p className={loadError ? "error" : "form-hint"}>{emptyMessage}</p>
-        ) : (
-          <ul style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {tournaments.map((tournament) => (
-              <li key={tournament.id} className="card" style={{ padding: 16 }}>
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
-                >
-                  <div>
-                    <h3 style={{ fontSize: 18, fontWeight: 600 }}>
-                      {tournament.name}
-                    </h3>
-                    <p className="form-hint">Sport: {tournament.sport}</p>
-                    {tournament.clubId && (
-                      <p className="form-hint">Club: {tournament.clubId}</p>
-                    )}
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <Link
-                      href={ensureTrailingSlash(`/tournaments/${tournament.id}`)}
-                      className="link-button"
+        </section>
+      ) : (
+        <>
+          <CreateTournamentForm onCreated={handleTournamentCreated} />
+          <section
+            aria-labelledby="tournament-list-heading"
+            style={{ display: "flex", flexDirection: "column", gap: 16 }}
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <h2 id="tournament-list-heading" className="subheading">
+                Existing tournaments
+              </h2>
+              <p className="form-hint">
+                Browse previously created tournaments and manage their stages.
+              </p>
+            </div>
+            {error && (
+              <p className="error" role="alert">
+                {error}
+              </p>
+            )}
+            {emptyMessage ? (
+              <p className={loadError ? "error" : "form-hint"}>{emptyMessage}</p>
+            ) : (
+              <ul style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {tournaments.map((tournament) => (
+                  <li key={tournament.id} className="card" style={{ padding: 16 }}>
+                    <div
+                      style={{ display: "flex", flexDirection: "column", gap: 8 }}
                     >
-                      View tournament
-                    </Link>
-                    {canDelete(tournament) && (
-                      <button
-                        type="button"
-                        className="link-button"
-                        onClick={() => handleDelete(tournament)}
-                        disabled={deletingId === tournament.id}
-                      >
-                        {deletingId === tournament.id ? "Deleting…" : "Delete"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                      <div>
+                        <h3 style={{ fontSize: 18, fontWeight: 600 }}>
+                          {tournament.name}
+                        </h3>
+                        <p className="form-hint">Sport: {tournament.sport}</p>
+                        {tournament.clubId && (
+                          <p className="form-hint">Club: {tournament.clubId}</p>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <Link
+                          href={ensureTrailingSlash(`/tournaments/${tournament.id}`)}
+                          className="link-button"
+                        >
+                          View tournament
+                        </Link>
+                        {canDelete(tournament) && (
+                          <button
+                            type="button"
+                            className="link-button"
+                            onClick={() => handleDelete(tournament)}
+                            disabled={deletingId === tournament.id}
+                          >
+                            {deletingId === tournament.id ? "Deleting…" : "Delete"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }

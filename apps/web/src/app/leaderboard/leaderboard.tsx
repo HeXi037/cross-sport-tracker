@@ -18,6 +18,7 @@ import { apiUrl, fetchClubs, type ClubSummary } from "../../lib/api";
 import { COUNTRY_OPTIONS } from "../../lib/countries";
 import { ensureTrailingSlash, recordPathForSport } from "../../lib/routes";
 import { isSportIdImplementedForRecording } from "../../lib/recording";
+import { formatSportName } from "../../lib/sports";
 import { loadUserSettings } from "../user-settings";
 import {
   ALL_SPORTS,
@@ -62,13 +63,6 @@ const normalizeCountry = (value?: string | null) =>
 const normalizeClubId = (value?: string | null) =>
   value ? value.trim() : "";
 
-const formatSportLabel = (sportId: string) =>
-  sportId
-    .split(/[_-]/g)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-
 const RESULTS_TABLE_ID = "leaderboard-results";
 const LEADERBOARD_TIMEOUT_MS = 15000;
 const PAGE_SIZE = 50;
@@ -98,7 +92,7 @@ const getSportDisplayName = (sportId: LeaderboardSport) => {
   if (sportId === MASTER_SPORT) {
     return "Master";
   }
-  return formatSportLabel(sportId);
+  return formatSportName(sportId);
 };
 
 type EmptyStateContent = {
@@ -1486,6 +1480,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                 const lost = row.setsLost ?? 0;
                 const total = won + lost;
                 const winPct = total > 0 ? Math.round((won / total) * 100) : null;
+                const rowSportName = formatSportName(row.sport);
                 return (
                   <tr
                     key={`${row.rank}-${row.playerId}-${row.sport ?? ""}`}
@@ -1493,7 +1488,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                   >
                     <td style={cellStyle}>{row.rank}</td>
                     <td style={cellStyle}>{row.playerName}</td>
-                    {sport === ALL_SPORTS && <td style={cellStyle}>{row.sport}</td>}
+                    {sport === ALL_SPORTS && (
+                      <td style={cellStyle}>{rowSportName}</td>
+                    )}
                     <td style={cellStyle}>
                       {row.rating != null ? Math.round(row.rating) : "—"}
                     </td>

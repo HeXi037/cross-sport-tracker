@@ -27,15 +27,15 @@ interface Player extends PlayerInfo {
   club_id?: string | null;
   badges?: { id: string; name: string; icon?: string | null }[];
   hidden: boolean;
+  matchSummary?: NormalizedMatchSummary | null;
 }
 
-interface PlayerStats {
-  playerId: string;
-  matchSummary: NormalizedMatchSummary;
-}
+type ApiPlayer = Omit<Player, "hidden" | "matchSummary"> & {
+  hidden?: boolean;
+  match_summary?: unknown;
+  matchSummary?: unknown;
+};
 
-const STATS_ERROR_MESSAGE =
-  "Could not load stats – please try again later.";
 const LOAD_TIMEOUT_MS = 15000;
 const PLAYERS_ERROR_MESSAGE = "Failed to load players.";
 const PLAYERS_SERVER_ERROR_MESSAGE =
@@ -51,9 +51,6 @@ const PLAYER_ERROR_COPY: Record<string, string> = {
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
-  const [playerStats, setPlayerStats] = useState<
-    Record<string, PlayerStats | null>
-  >({});
   const [name, setName] = useState("");
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
@@ -65,9 +62,7 @@ export default function PlayersPage() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [updatingLocation, setUpdatingLocation] = useState<string | null>(null);
   const [updatingVisibility, setUpdatingVisibility] = useState<string | null>(null);
-  const [statsError, setStatsError] = useState(false);
   const [admin, setAdmin] = useState(() => isAdmin());
-  const statsToastShown = useRef(false);
   const loadRequestId = useRef(0);
   const activeLoadController = useRef<AbortController | null>(null);
   const activeLoadTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -129,13 +124,14 @@ export default function PlayersPage() {
         signal: controller.signal,
       });
       const data = await res.json();
-      const normalized = ((data.players ?? []) as Array<
-        Player & { hidden?: boolean }
-      >).map((p) =>
-        withAbsolutePhotoUrl<Player>({
-          ...p,
-          hidden: Boolean(p.hidden),
-        })
+      const normalized = ((data.players ?? []) as ApiPlayer[]).map(
+        ({ matchSummary, match_summary, hidden: maybeHidden, ...rest }) =>
+          withAbsolutePhotoUrl<Player>({
+            ...rest,
+            hidden: Boolean(maybeHidden),
+            matchSummary:
+              normalizeMatchSummary(matchSummary ?? match_summary) ?? null,
+          })
       );
       if (loadRequestId.current !== requestId) {
         return;
@@ -229,89 +225,6 @@ export default function PlayersPage() {
     if (!term) return players;
     return players.filter((p) => p.name.toLowerCase().includes(term));
   }, [players, debouncedSearch]);
-
-  useEffect(() => {
-    if (!players.length) {
-      setPlayerStats({});
-      setStatsError(false);
-      statsToastShown.current = false;
-      return;
-    }
-    let cancelled = false;
-    async function loadStats() {
-      setStatsError(false);
-      try {
-        const entries = await Promise.all(
-          players.map(async (p) => {
-            try {
-              const res = await apiFetch(
-                `/v0/players/${encodeURIComponent(p.id)}/stats`,
-                { cache: "no-store" }
-              );
-              let payload: unknown;
-              try {
-                payload = await res.json();
-              } catch (parseError) {
-                console.warn(
-                  `Failed to parse stats payload for player ${p.id}`,
-                  parseError
-                );
-                return [p.id, null] as const;
-              }
-              if (!payload || typeof payload !== "object") {
-                return [p.id, null] as const;
-              }
-              const statsPayload = payload as {
-                playerId?: unknown;
-                matchSummary?: unknown;
-              };
-              const summary = normalizeMatchSummary(statsPayload.matchSummary);
-              if (typeof statsPayload.playerId !== "string" || !summary) {
-                return [p.id, null] as const;
-              }
-              return [
-                p.id,
-                {
-                  playerId: statsPayload.playerId,
-                  matchSummary: summary,
-                },
-              ] as const;
-            } catch (err) {
-              console.warn(`Failed to load stats for player ${p.id}`, err);
-              return [p.id, null] as const;
-            }
-          })
-        );
-        if (!cancelled) {
-          setPlayerStats(Object.fromEntries(entries));
-          const hadError = entries.some(([, stats]) => stats === null);
-          setStatsError(hadError);
-          if (hadError && !statsToastShown.current) {
-            showToast({ message: STATS_ERROR_MESSAGE, variant: "error" });
-            statsToastShown.current = true;
-          } else if (!hadError) {
-            statsToastShown.current = false;
-          }
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error("Failed to load player stats list", err);
-          setPlayerStats(
-            Object.fromEntries(players.map((p) => [p.id, null] as const))
-          );
-          setStatsError(true);
-          if (!statsToastShown.current) {
-            showToast({ message: STATS_ERROR_MESSAGE, variant: "error" });
-            statsToastShown.current = true;
-          }
-        }
-      }
-    }
-    loadStats();
-    return () => {
-      cancelled = true;
-    };
-  }, [players, showToast]);
 
   async function create() {
     if (!admin) {
@@ -504,11 +417,6 @@ export default function PlayersPage() {
             </div>
           ) : (
             <>
-              {statsError && (
-                <p className="player-list__error" role="alert">
-                  {STATS_ERROR_MESSAGE}
-                </p>
-              )}
               <ul className="player-list">
                 {filteredPlayers.map((p) => (
                   <li key={p.id} className="player-list__item">
@@ -518,23 +426,11 @@ export default function PlayersPage() {
                       </Link>
                       <span className="player-list__stats">
                         {(() => {
-                          const stats = playerStats[p.id];
-                          if (stats === undefined)
-                            return (
-                              <span
-                                className="player-list__stats-loading"
-                                aria-live="polite"
-                              >
-                                <span className="sr-only">Loading stats…</span>
-                                <span
-                                  aria-hidden
-                                  className="skeleton player-list__stats-skeleton"
-                                />
-                              </span>
-                            );
-                          if (!stats || !stats.matchSummary)
-                            return "Stats unavailable";
-                          return formatMatchRecord(stats.matchSummary);
+                          const summary = p.matchSummary;
+                          if (!summary || summary.total <= 0) {
+                            return "No matches yet";
+                          }
+                          return formatMatchRecord(summary);
                         })()}
                       </span>
                       {p.hidden && (

@@ -229,6 +229,7 @@ class PlayerOut(BaseModel):
     milestones: Optional[Dict[str, List[str]]] = None
     badges: List[BadgeOut] = Field(default_factory=list)
     social_links: List[PlayerSocialLinkOut] = Field(default_factory=list)
+    match_summary: Optional["MatchSummary"] = None
 
     @model_validator(mode="after")
     def _sync_location_fields(cls, model: "PlayerOut") -> "PlayerOut":

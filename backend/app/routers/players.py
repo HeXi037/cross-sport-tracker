@@ -12,7 +12,7 @@ from fastapi import (
     Query,
     Header,
 )
-from sqlalchemy import select, func, case, literal, true, delete, Text
+from sqlalchemy import select, func, case, literal, true, delete, Text, inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError, InvalidRequestError
 from sqlalchemy.orm import aliased
@@ -170,8 +170,11 @@ async def list_players(
         stmt = stmt.where(Player.name.ilike(f"%{q}%"))
         count_stmt = count_stmt.where(Player.name.ilike(f"%{q}%"))
     total = (await session.execute(count_stmt)).scalar()
-    stmt = stmt.limit(limit).offset(offset)
+    stmt = stmt.order_by(Player.name.asc()).limit(limit).offset(offset)
     rows = (await session.execute(stmt)).scalars().all()
+    match_summaries = await _load_match_summaries_for_players(
+        session, [p.id for p in rows]
+    )
     players = [
         PlayerOut(
             id=p.id,
@@ -186,6 +189,7 @@ async def list_players(
             hidden=p.hidden,
             badges=[],
             social_links=[],
+            match_summary=match_summaries.get(p.id),
         )
         for p in rows
     ]
@@ -316,6 +320,82 @@ async def _rollback_if_active(session: AsyncSession) -> None:
         # If rollback itself fails we have nothing else to do; propagate the
         # original error instead.
         pass
+
+
+async def _load_match_summaries_for_players(
+    session: AsyncSession, player_ids: list[str]
+) -> dict[str, MatchSummary]:
+    if not player_ids:
+        return {}
+
+    is_sqlite = session.bind.dialect.name == "sqlite"
+    json_each = func.json_each if is_sqlite else func.jsonb_array_elements
+    mp = aliased(MatchParticipant)
+    player_values = json_each(mp.player_ids).table_valued("value").alias("player_values")
+    player_id_value = _json_text_value(player_values.c.value, is_sqlite=is_sqlite)
+
+    a_sets = Match.details["sets"]["A"].as_integer()
+    b_sets = Match.details["sets"]["B"].as_integer()
+    winner = case(
+        (a_sets > b_sets, literal("A")),
+        (b_sets > a_sets, literal("B")),
+        else_=literal(None),
+    )
+
+    wins_case = case((winner == mp.side, 1), else_=0)
+    losses_case = case((winner != mp.side, 1), else_=0)
+
+    def _tables_available(sync_session) -> bool:
+        engine = sync_session.get_bind()
+        inspector = inspect(engine)
+        return inspector.has_table(Match.__tablename__) and inspector.has_table(
+            MatchParticipant.__tablename__
+        )
+
+    tables_exist = await session.run_sync(_tables_available)  # type: ignore[arg-type]
+    if not tables_exist:
+        return {}
+
+    try:
+        rows = (
+            await session.execute(
+                select(
+                    player_id_value.label("player_id"),
+                    func.count().label("total"),
+                    func.sum(wins_case).label("wins"),
+                    func.sum(losses_case).label("losses"),
+                )
+                .select_from(mp)
+                .join(Match, Match.id == mp.match_id)
+                .join(player_values, true())
+                .where(player_id_value.in_(player_ids))
+                .where(Match.deleted_at.is_(None))
+                .where(winner.is_not(None))
+                .group_by(player_id_value)
+            )
+        ).all()
+    except SQLAlchemyError as exc:
+        await _rollback_if_active(session)
+        if is_missing_table_error(exc, MatchParticipant.__tablename__):
+            return {}
+        raise
+
+    summaries: dict[str, MatchSummary] = {}
+    for row in rows:
+        player_id = row.player_id
+        total = int(row.total or 0)
+        wins = int(row.wins or 0)
+        losses = int(row.losses or 0)
+        draws = max(total - wins - losses, 0)
+        win_pct = wins / total if total else 0.0
+        summaries[player_id] = MatchSummary(
+            total=total,
+            wins=wins,
+            losses=losses,
+            draws=draws,
+            winPct=win_pct,
+        )
+    return summaries
 
 
 def _json_text_value(column: ColumnElement, *, is_sqlite: bool) -> ColumnElement:

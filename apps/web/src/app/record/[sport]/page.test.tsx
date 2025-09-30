@@ -38,26 +38,22 @@ describe("resolveRecordSportRoute", () => {
 
   it("redirects to the canonical slug when underscores are used, preserving query params", () => {
     const result = resolveRecordSportRoute({
-      params: { sport: "disc_golf" },
+      params: { sport: "table_tennis" },
       searchParams: { mid: "123" },
     });
 
     expect(result).toEqual({
       type: "redirect",
-      destination: "/record/disc-golf/?mid=123",
+      destination: "/record/table-tennis/?mid=123",
     });
   });
 
-  it("redirects disc golf requests to the custom form", () => {
+  it("redirects disc golf requests to the canonical trailing slash path", () => {
     const result = resolveRecordSportRoute({
       params: { sport: "disc-golf" },
-      searchParams: { mid: "7" },
     });
 
-    expect(result).toEqual({
-      type: "redirect",
-      destination: "/record/disc-golf/?mid=7",
-    });
+    expect(result).toEqual({ type: "redirect", destination: "/record/disc-golf/" });
   });
 
   it("redirects padel Americano requests using underscores to the canonical slug", () => {
@@ -129,11 +125,11 @@ describe("RecordSportForm", () => {
     fireEvent.change(selects[2], { target: { value: "2" } });
     fireEvent.change(selects[3], { target: { value: "3" } });
 
-    fireEvent.change(screen.getByPlaceholderText("A"), {
-      target: { value: "6" },
+    fireEvent.change(screen.getByLabelText(/team a score/i), {
+      target: { value: "2" },
     });
-    fireEvent.change(screen.getByPlaceholderText("B"), {
-      target: { value: "4" },
+    fireEvent.change(screen.getByLabelText(/team b score/i), {
+      target: { value: "1" },
     });
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
@@ -260,11 +256,17 @@ describe("RecordSportForm", () => {
     fireEvent.change(selects[2], { target: { value: "3" } });
     fireEvent.change(selects[3], { target: { value: "1" } });
 
-    fireEvent.change(screen.getByPlaceholderText("A"), {
+    fireEvent.change(screen.getByLabelText(/game 1.*team a points/i), {
       target: { value: "11" },
     });
-    fireEvent.change(screen.getByPlaceholderText("B"), {
-      target: { value: "9" },
+    fireEvent.change(screen.getByLabelText(/game 1.*team b points/i), {
+      target: { value: "6" },
+    });
+    fireEvent.change(screen.getByLabelText(/game 2.*team a points/i), {
+      target: { value: "11" },
+    });
+    fireEvent.change(screen.getByLabelText(/game 2.*team b points/i), {
+      target: { value: "8" },
     });
 
     // switch back to singles
@@ -279,6 +281,61 @@ describe("RecordSportForm", () => {
     const payload = JSON.parse(fetchMock.mock.calls[1][1].body);
     expect(payload.teamA).toEqual(["Alice"]);
     expect(payload.teamB).toEqual(["Cara"]);
+  });
+
+  it("lets padel matches switch between singles and doubles", async () => {
+    const players = [
+      { id: "1", name: "Alice" },
+      { id: "2", name: "Bob" },
+      { id: "3", name: "Cara" },
+      { id: "4", name: "Dan" },
+    ];
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ players }) });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordSportForm sportId="padel" />);
+
+    await screen.findAllByText("Alice");
+
+    const singlesRadio = screen.getByLabelText(/singles/i);
+    const doublesRadio = screen.getByLabelText(/doubles/i);
+    expect(doublesRadio).toBeChecked();
+    expect(singlesRadio).not.toBeChecked();
+
+    fireEvent.click(singlesRadio);
+    await waitFor(() => expect(singlesRadio).toBeChecked());
+    expect(doublesRadio).not.toBeChecked();
+    expect(screen.queryByLabelText(/team a player 2/i)).not.toBeInTheDocument();
+
+    fireEvent.click(doublesRadio);
+    await waitFor(() => expect(doublesRadio).toBeChecked());
+    expect(screen.getByLabelText(/team a player 2/i)).toBeInTheDocument();
+  });
+
+  it("always records padel Americano ties as doubles", async () => {
+    const players = [
+      { id: "1", name: "Alice" },
+      { id: "2", name: "Bob" },
+      { id: "3", name: "Cara" },
+      { id: "4", name: "Dan" },
+    ];
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ players }) });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordSportForm sportId="padel_americano" />);
+
+    await screen.findAllByText("Alice");
+
+    expect(screen.queryByLabelText(/singles/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/doubles/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/team a player 2/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/team b player 2/i)).toBeInTheDocument();
   });
 
   it("submits numeric scores", async () => {
@@ -305,18 +362,18 @@ describe("RecordSportForm", () => {
     fireEvent.change(selects[2], { target: { value: "3" } });
     fireEvent.change(selects[3], { target: { value: "4" } });
 
-    fireEvent.change(screen.getByPlaceholderText("A"), {
-      target: { value: "5" },
+    fireEvent.change(screen.getByLabelText(/team a score/i), {
+      target: { value: "2" },
     });
-    fireEvent.change(screen.getByPlaceholderText("B"), {
-      target: { value: "7" },
+    fireEvent.change(screen.getByLabelText(/team b score/i), {
+      target: { value: "1" },
     });
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     const payload = JSON.parse(fetchMock.mock.calls[1][1].body);
-    expect(payload.sets).toEqual([[5, 7]]);
+    expect(payload.sets).toEqual([[2, 1]]);
     expect(typeof payload.sets[0][0]).toBe("number");
     expect(typeof payload.sets[0][1]).toBe("number");
   });
@@ -346,11 +403,23 @@ describe("RecordSportForm", () => {
       target: { value: "3" },
     });
 
-    fireEvent.change(screen.getByPlaceholderText("A"), {
+    fireEvent.change(screen.getByLabelText(/game 1.*team a points/i), {
+      target: { value: "11" },
+    });
+    fireEvent.change(screen.getByLabelText(/game 1.*team b points/i), {
       target: { value: "6" },
     });
-    fireEvent.change(screen.getByPlaceholderText("B"), {
-      target: { value: "8" },
+    fireEvent.change(screen.getByLabelText(/game 2.*team a points/i), {
+      target: { value: "9" },
+    });
+    fireEvent.change(screen.getByLabelText(/game 2.*team b points/i), {
+      target: { value: "11" },
+    });
+    fireEvent.change(screen.getByLabelText(/game 3.*team a points/i), {
+      target: { value: "11" },
+    });
+    fireEvent.change(screen.getByLabelText(/game 3.*team b points/i), {
+      target: { value: "7" },
     });
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
@@ -503,6 +572,7 @@ describe("RecordSportForm", () => {
     expect((secondRoll as HTMLInputElement).value).toBe("");
 
     fireEvent.change(secondRoll, { target: { value: "5" } });
+    fireEvent.blur(secondRoll);
 
     expect((secondRoll as HTMLInputElement).value).toBe("");
     expect(

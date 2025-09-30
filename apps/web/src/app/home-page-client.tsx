@@ -121,10 +121,6 @@ const sportIcons: Record<string, { glyph: string; label: string }> = {
     glyph: '🏓',
     label: 'Table tennis paddles icon',
   },
-  disc_golf: {
-    glyph: '🥏',
-    label: 'Disc golf flying disc icon',
-  },
 };
 
 interface Props {

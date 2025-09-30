@@ -40,7 +40,7 @@ export default function StageStandings({
 
   if (!standings.length) {
     return (
-      <p className="form-hint">
+      <p className="form-hint" role="status">
         Standings will appear after matches have been recorded.
       </p>
     );
@@ -80,3 +80,4 @@ export default function StageStandings({
     </section>
   );
 }
+

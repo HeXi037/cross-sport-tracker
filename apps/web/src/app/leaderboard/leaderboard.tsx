@@ -17,6 +17,7 @@ import ClubSelect from "../../components/ClubSelect";
 import { apiUrl, fetchClubs, type ClubSummary } from "../../lib/api";
 import { COUNTRY_OPTIONS } from "../../lib/countries";
 import { ensureTrailingSlash, recordPathForSport } from "../../lib/routes";
+import { isSportIdImplementedForRecording } from "../../lib/recording";
 import { loadUserSettings } from "../user-settings";
 import {
   ALL_SPORTS,
@@ -710,10 +711,18 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           label: "Record a match",
         };
       } else if (SPORTS.includes(sport as (typeof SPORTS)[number])) {
-        cta = {
-          href: recordPathForSport(sport),
-          label: `Record a ${sportDisplayName} match`,
-        };
+        const normalizedSportId = sport.replace(/-/g, "_");
+        if (isSportIdImplementedForRecording(normalizedSportId)) {
+          cta = {
+            href: recordPathForSport(normalizedSportId),
+            label: `Record a ${sportDisplayName} match`,
+          };
+        } else {
+          cta = {
+            href: "/record",
+            label: `Record a ${sportDisplayName} match`,
+          };
+        }
       }
       return { icon, title, description, cta };
     }
@@ -742,10 +751,18 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         label: "Record a match",
       };
     } else if (SPORTS.includes(sport as (typeof SPORTS)[number])) {
-      cta = {
-        href: recordPathForSport(sport),
-        label: `Record a ${sportDisplayName} match`,
-      };
+      const normalizedSportId = sport.replace(/-/g, "_");
+      if (isSportIdImplementedForRecording(normalizedSportId)) {
+        cta = {
+          href: recordPathForSport(normalizedSportId),
+          label: `Record a ${sportDisplayName} match`,
+        };
+      } else {
+        cta = {
+          href: "/record",
+          label: `Record a ${sportDisplayName} match`,
+        };
+      }
     }
 
     return { icon, title, description, cta };

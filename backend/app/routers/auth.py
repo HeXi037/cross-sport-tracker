@@ -5,7 +5,7 @@ import hashlib
 import string
 import random
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 from typing import Any, Tuple
 
@@ -124,6 +124,20 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
   return JSONResponse(status_code=429, content={"detail": "Too Many Requests"})
 
 
+def _utcnow() -> datetime:
+  """Return a timezone-aware UTC ``datetime``."""
+
+  return datetime.now(timezone.utc)
+
+
+def _as_utc(dt: datetime) -> datetime:
+  """Coerce a ``datetime`` into a UTC-aware value."""
+
+  if dt.tzinfo is None:
+    return dt.replace(tzinfo=timezone.utc)
+  return dt.astimezone(timezone.utc)
+
+
 def _generate_temporary_password(length: int = 16) -> str:
   if length < 12:
     raise ValueError("Temporary passwords must be at least 12 characters long")
@@ -155,7 +169,7 @@ async def create_token(user: User, session: AsyncSession) -> tuple[str, str, str
       "sub": user.id,
       "username": user.username,
       "is_admin": user.is_admin,
-      "exp": datetime.utcnow() + timedelta(seconds=JWT_EXPIRE_SECONDS),
+      "exp": _utcnow() + timedelta(seconds=JWT_EXPIRE_SECONDS),
       "csrf": csrf_token,
   }
   access_token = jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALG)
@@ -165,7 +179,7 @@ async def create_token(user: User, session: AsyncSession) -> tuple[str, str, str
       RefreshToken(
           token_hash=token_hash,
           user_id=user.id,
-          expires_at=datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+          expires_at=_utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
           revoked=False,
       )
   )
@@ -517,7 +531,7 @@ async def refresh_tokens(
   if (
       not token
       or token.revoked
-      or token.expires_at < datetime.utcnow()
+      or _as_utc(token.expires_at) < _utcnow()
   ):
     raise http_problem(
         status_code=401,

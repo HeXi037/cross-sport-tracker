@@ -190,6 +190,36 @@ const LOW_PRIORITY_TIME_ZONE_PREFIXES = [
   'UTC',
 ];
 
+const BROWSER_FALLBACK_TIME_ZONES = new Set([
+  'GMT',
+  'UTC',
+  'ETC/GMT',
+  'ETC/UTC',
+  'ETC/GMT+0',
+  'ETC/GMT-0',
+  'ETC/GMT0',
+]);
+
+const DAY_FIRST_REGIONS = new Set([
+  'AU',
+  'GB',
+  'IE',
+  'IN',
+  'NZ',
+  'SG',
+  'ZA',
+]);
+
+const DAY_FIRST_LOCALE_PREFIXES = ['en-au', 'en-gb', 'en-ie', 'en-nz'];
+
+function isBrowserFallbackTimeZone(zone: string): boolean {
+  const upper = zone.toUpperCase();
+  if (BROWSER_FALLBACK_TIME_ZONES.has(upper)) {
+    return true;
+  }
+  return upper.startsWith('GMT+') || upper.startsWith('GMT-');
+}
+
 function getLocaleTimeZoneInfo(
   localeHint: string | null | undefined,
 ): LocaleTimeZoneInfo | null {
@@ -251,8 +281,14 @@ export function detectTimeZone(
     try {
       const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const normalizedDetected = normalizeTimeZoneInternal(detected, '');
-      if (normalizedDetected) {
+      if (normalizedDetected && !isBrowserFallbackTimeZone(normalizedDetected)) {
         return normalizedDetected;
+      }
+      if (normalizedDetected) {
+        const localeFallback = pickLocaleDefaultTimeZone(localeInfo);
+        if (localeFallback) {
+          return localeFallback;
+        }
       }
     } catch {
       // Ignore detection failures and fall back to locale hints.
@@ -550,6 +586,37 @@ export function resolveFormatterTimeZone(
   return resolveTimeZone(preferredTimeZone);
 }
 
+function shouldUseDayFirst(locale: string | null | undefined): boolean {
+  const normalized = normalizeLocale(locale, '');
+  if (!normalized) {
+    return false;
+  }
+  const lower = normalized.toLowerCase();
+  if (DAY_FIRST_LOCALE_PREFIXES.some((prefix) => lower.startsWith(prefix))) {
+    return true;
+  }
+  try {
+    const intlLocale = new Intl.Locale(normalized);
+    const region = intlLocale.maximize().region ?? intlLocale.region;
+    if (region && DAY_FIRST_REGIONS.has(region.toUpperCase())) {
+      return true;
+    }
+  } catch {
+    // Ignore unsupported locale errors.
+  }
+  return false;
+}
+
+export function getPreferredDateOptions(
+  locale: string | null | undefined,
+  fallbackStyle: Intl.DateTimeFormatOptions['dateStyle'] = 'medium',
+): Intl.DateTimeFormatOptions {
+  if (shouldUseDayFirst(locale)) {
+    return { dateStyle: 'short' };
+  }
+  return { dateStyle: fallbackStyle };
+}
+
 export function formatDate(
   value: Date | string | number | null | undefined,
   locale: string,
@@ -560,7 +627,8 @@ export function formatDate(
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
   const normalizedLocale = resolveFormatterLocale(locale);
-  const baseOptions = ensureOptions(options, { dateStyle: 'medium' });
+  const fallbackOptions = getPreferredDateOptions(locale, 'medium');
+  const baseOptions = ensureOptions(options, fallbackOptions);
   const formatterOptions: Intl.DateTimeFormatOptions = {
     ...baseOptions,
   };
@@ -629,10 +697,18 @@ export function formatDateTime(
   options: Intl.DateTimeFormatOptions | DateTimePreset = 'default',
   preferredTimeZone?: string | null,
 ): string {
-  const resolvedOptions =
-    typeof options === 'string'
-      ? DATE_TIME_PRESETS[options]
-      : ensureOptions(options, DATE_TIME_PRESETS.default);
+  let resolvedOptions: Intl.DateTimeFormatOptions;
+  if (typeof options === 'string') {
+    const preset = DATE_TIME_PRESETS[options];
+    const preferredDate = getPreferredDateOptions(locale, preset.dateStyle);
+    resolvedOptions = { ...preset, ...preferredDate };
+  } else {
+    const fallback = {
+      ...getPreferredDateOptions(locale, DATE_TIME_PRESETS.default.dateStyle),
+      timeStyle: DATE_TIME_PRESETS.default.timeStyle,
+    } satisfies Intl.DateTimeFormatOptions;
+    resolvedOptions = ensureOptions(options, fallback);
+  }
   return formatDate(value, locale, resolvedOptions, preferredTimeZone);
 }
 
@@ -647,10 +723,11 @@ export function formatTime(
 }
 
 export function getDateExample(locale: string, preset: DateTimePreset = 'default'): string {
-  const options =
+  const fallbackStyle =
     preset === 'default'
-      ? { dateStyle: 'medium' as const }
-      : { dateStyle: 'short' as const };
+      ? DATE_TIME_PRESETS.default.dateStyle
+      : DATE_TIME_PRESETS.compact.dateStyle;
+  const options = getPreferredDateOptions(locale, fallbackStyle);
   return formatDate(SAMPLE_DISPLAY_MOMENT, locale, options);
 }
 

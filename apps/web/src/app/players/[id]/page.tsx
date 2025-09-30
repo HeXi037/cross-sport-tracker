@@ -10,7 +10,7 @@ import PlayerDetailErrorBoundary, {
 import PlayerName, { PlayerInfo } from "../../../components/PlayerName";
 import MatchParticipants from "../../../components/MatchParticipants";
 import PhotoUpload from "./PhotoUpload";
-import { formatDate, resolveTimeZone } from "../../../lib/i18n";
+import { formatDate, getPreferredDateOptions, resolveTimeZone } from "../../../lib/i18n";
 import { resolveServerLocale } from "../../../lib/server-locale";
 import {
   formatMatchRecord,
@@ -463,6 +463,7 @@ export default async function PlayerPage({
   const cookieStore = cookies();
   const { locale, preferredTimeZone } = resolveServerLocale({ cookieStore });
   const timeZone = resolveTimeZone(preferredTimeZone, locale);
+  const preferredDateOptions = getPreferredDateOptions(locale);
   let player: Player;
   try {
     player = await getPlayer(params.id);
@@ -548,7 +549,12 @@ export default async function PlayerPage({
           .flatMap(([, pl]) => pl);
         const winner = winnerFromSummary(m.summary);
         const result = winner ? (winner === mySide ? "Win" : "Loss") : "—";
-        const date = formatDate(m.playedAt, locale, undefined, timeZone);
+        const date = formatDate(
+          m.playedAt,
+          locale,
+          preferredDateOptions,
+          timeZone,
+        );
         return { id: m.id, opponents, date, result };
       })
       .filter(Boolean) as {
@@ -682,7 +688,12 @@ export default async function PlayerPage({
                             {result ? ` · ${result}` : ""}
                             {m.summary || result ? " · " : ""}
                             {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
-                            {formatDate(m.playedAt, locale, undefined, timeZone)}
+                            {formatDate(
+                              m.playedAt,
+                              locale,
+                              preferredDateOptions,
+                              timeZone,
+                            )}
                             {" · "}
                             {m.location ?? "—"}
                           </div>
@@ -771,7 +782,13 @@ export default async function PlayerPage({
                       />
                     </Link>
                     <div className="text-sm text-gray-700">
-                      {formatDate(m.playedAt, locale, undefined, timeZone)} ·{' '}
+                      {formatDate(
+                        m.playedAt,
+                        locale,
+                        preferredDateOptions,
+                        timeZone,
+                      )}{' '}
+                      ·{' '}
                       {m.location ?? "—"}
                     </div>
                   </li>

@@ -5,6 +5,12 @@ import HomePageClient from '../home-page-client';
 import * as apiModule from '../../lib/api';
 import * as matchesModule from '../../lib/matches';
 import { SWRConfig } from 'swr';
+import { useLocale, useTimeZone } from '../../lib/LocaleContext';
+
+vi.mock('../../lib/LocaleContext', () => ({
+  useLocale: vi.fn(() => 'en-GB'),
+  useTimeZone: vi.fn(() => 'UTC'),
+}));
 
 const defaultProps = {
   sports: [],
@@ -19,6 +25,9 @@ const defaultProps = {
 
 const scrollToMock = vi.fn();
 
+const useLocaleMock = vi.mocked(useLocale);
+const useTimeZoneMock = vi.mocked(useTimeZone);
+
 beforeAll(() => {
   Object.defineProperty(window, 'scrollTo', {
     writable: true,
@@ -29,6 +38,8 @@ beforeAll(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   scrollToMock.mockClear();
+  useLocaleMock.mockReturnValue('en-GB');
+  useTimeZoneMock.mockReturnValue('UTC');
 });
 
 describe('HomePageClient error messages', () => {
@@ -54,6 +65,37 @@ describe('HomePageClient error messages', () => {
     expect(
       screen.getByText(/Unable to load matches\. Check connection\./i)
     ).toBeInTheDocument();
+  });
+
+  it('renders playedAt metadata using day-first ordering when locale is Australian English', () => {
+    useLocaleMock.mockReturnValue('en-AU');
+    useTimeZoneMock.mockReturnValue('Australia/Melbourne');
+
+    renderComponent({
+      ...defaultProps,
+      matches: [
+        {
+          id: 'm1',
+          sport: 'padel',
+          bestOf: 3,
+          playedAt: '2024-02-03T00:00:00Z',
+          location: null,
+          isFriendly: false,
+          players: {
+            A: [
+              { id: 'a1', name: 'A1' },
+              { id: 'a2', name: 'A2' },
+            ],
+            B: [
+              { id: 'b1', name: 'B1' },
+              { id: 'b2', name: 'B2' },
+            ],
+          },
+        },
+      ],
+    });
+
+    expect(screen.getByText(/3\/2\/24/)).toBeInTheDocument();
   });
 
   it('renders player names and match details link', () => {

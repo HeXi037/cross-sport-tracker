@@ -133,7 +133,7 @@ export default async function MatchesPage(
   const cookieStore = cookies();
   const { locale } = resolveServerLocale({ cookieStore });
   const timeZoneCookie = cookieStore.get(TIME_ZONE_COOKIE_KEY)?.value ?? null;
-  const timeZone = resolveTimeZone(timeZoneCookie);
+  const timeZone = resolveTimeZone(timeZoneCookie, locale);
 
   try {
     const { rows, hasMore, nextOffset, totalCount } = await getMatches(

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   clearStoredTimeZone,
   DEFAULT_TIME_ZONE,
+  detectTimeZone,
   formatDateTime,
   getStoredTimeZone,
   NEUTRAL_FALLBACK_LOCALE,
@@ -40,6 +41,19 @@ describe('time zone resolution', () => {
     expect(resolveTimeZone('')).toBe(DEFAULT_TIME_ZONE);
 
     spy.mockRestore();
+  });
+
+  it('falls back to a locale-associated time zone when detection cannot run', () => {
+    const originalWindow = global.window;
+    // @ts-expect-error - simulate a non-browser environment where window is unavailable
+    delete (global as { window?: typeof window }).window;
+
+    try {
+      expect(detectTimeZone('en-AU')).toBe('Australia/Melbourne');
+      expect(resolveTimeZone(null, 'en-AU')).toBe('Australia/Melbourne');
+    } finally {
+      global.window = originalWindow;
+    }
   });
 
   it('ignores invalid stored values', () => {

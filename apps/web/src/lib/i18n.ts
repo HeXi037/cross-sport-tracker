@@ -112,6 +112,101 @@ export function normalizeTimeZone(
   return normalizeTimeZoneInternal(value, fallback);
 }
 
+type LocaleTimeZoneInfo = {
+  locale: Intl.Locale;
+  timeZones: string[];
+  region?: string;
+};
+
+const REGION_PRIMARY_TIME_ZONES: Record<string, string> = {
+  AU: 'Australia/Melbourne',
+  CA: 'America/Toronto',
+  GB: 'Europe/London',
+  IE: 'Europe/Dublin',
+  NZ: 'Pacific/Auckland',
+  US: 'America/New_York',
+};
+
+const LOW_PRIORITY_TIME_ZONE_PREFIXES = [
+  'Antarctica/',
+  'Arctic/',
+  'Etc/',
+  'GMT',
+  'UTC',
+];
+
+function getLocaleTimeZoneInfo(
+  localeHint: string | null | undefined,
+): LocaleTimeZoneInfo | null {
+  if (typeof localeHint !== 'string') {
+    return null;
+  }
+  const trimmed = localeHint.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    const locale = new Intl.Locale(trimmed);
+    const timeZones = Array.from(
+      new Set(
+        (locale.timeZones ?? [])
+          .map((zone) => normalizeTimeZoneInternal(zone, ''))
+          .filter((zone): zone is string => Boolean(zone)),
+      ),
+    );
+    const region = locale.maximize().region ?? locale.region ?? undefined;
+    return { locale, timeZones, region };
+  } catch {
+    return null;
+  }
+}
+
+function pickLocaleDefaultTimeZone(info: LocaleTimeZoneInfo | null): string | null {
+  if (!info || info.timeZones.length === 0) {
+    return null;
+  }
+
+  const { timeZones, region } = info;
+  const regionKey = region?.toUpperCase();
+  if (regionKey) {
+    const override = REGION_PRIMARY_TIME_ZONES[regionKey];
+    if (override && timeZones.includes(override)) {
+      return override;
+    }
+  }
+
+  const preferred = timeZones.filter(
+    (zone) => !LOW_PRIORITY_TIME_ZONE_PREFIXES.some((prefix) => zone.startsWith(prefix)),
+  );
+
+  return preferred[0] ?? timeZones[0] ?? null;
+}
+
+export function detectTimeZone(
+  localeHint?: string | null,
+): string | null {
+  const localeInfo = getLocaleTimeZoneInfo(localeHint);
+
+  if (
+    typeof window !== 'undefined' &&
+    typeof Intl !== 'undefined' &&
+    typeof Intl.DateTimeFormat === 'function'
+  ) {
+    try {
+      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const normalizedDetected = normalizeTimeZoneInternal(detected, '');
+      if (normalizedDetected) {
+        return normalizedDetected;
+      }
+    } catch {
+      // Ignore detection failures and fall back to locale hints.
+    }
+  }
+
+  return pickLocaleDefaultTimeZone(localeInfo);
+}
+
 export function getStoredTimeZone(): string | null {
   if (typeof window === 'undefined') {
     return null;
@@ -199,7 +294,10 @@ export function clearStoredTimeZone(): void {
   }
 }
 
-export function resolveTimeZone(preferred?: string | null): string {
+export function resolveTimeZone(
+  preferred?: string | null,
+  localeHint?: string | null,
+): string {
   const normalizedPreferred = normalizeTimeZoneInternal(preferred, '');
   if (normalizedPreferred) {
     return normalizedPreferred;
@@ -210,16 +308,9 @@ export function resolveTimeZone(preferred?: string | null): string {
     return stored;
   }
 
-  if (typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function') {
-    try {
-      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const normalizedDetected = normalizeTimeZoneInternal(detected, '');
-      if (normalizedDetected) {
-        return normalizedDetected;
-      }
-    } catch {
-      // Ignore detection failures and fall through to the default.
-    }
+  const detected = detectTimeZone(localeHint);
+  if (detected) {
+    return detected;
   }
 
   return DEFAULT_TIME_ZONE;

@@ -476,7 +476,7 @@ export default async function MatchDetailPage({
   const cookieStore = cookies();
   const { locale } = resolveServerLocale({ cookieStore });
   const timeZoneCookie = cookieStore.get(TIME_ZONE_COOKIE_KEY)?.value ?? null;
-  const timeZone = resolveTimeZone(timeZoneCookie);
+  const timeZone = resolveTimeZone(timeZoneCookie, locale);
 
   const parts = match.participants ?? [];
   const uniqueIds = Array.from(

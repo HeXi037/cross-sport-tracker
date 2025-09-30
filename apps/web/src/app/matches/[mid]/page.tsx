@@ -875,6 +875,7 @@ export default async function MatchDetailPage({
                 className="match-detail-summary-table"
                 aria-label="Score totals"
               >
+                <caption className="sr-only">Score totals by side</caption>
                 <thead>
                   <tr>
                     <th scope="col">Side</th>

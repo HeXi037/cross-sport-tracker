@@ -252,8 +252,8 @@ describe("RecordSportForm", () => {
     await screen.findAllByText("Alice");
 
     // enable doubles and select players
-    const toggle = screen.getByLabelText(/doubles/i);
-    fireEvent.click(toggle);
+    const doublesRadio = screen.getByLabelText(/doubles/i);
+    fireEvent.click(doublesRadio);
     const selects = screen.getAllByRole("combobox");
     fireEvent.change(selects[0], { target: { value: "1" } });
     fireEvent.change(selects[1], { target: { value: "2" } });
@@ -268,8 +268,10 @@ describe("RecordSportForm", () => {
     });
 
     // switch back to singles
-    fireEvent.click(toggle);
-    await waitFor(() => expect(toggle).not.toBeChecked());
+    const singlesRadio = screen.getByLabelText(/singles/i);
+    fireEvent.click(singlesRadio);
+    await waitFor(() => expect(singlesRadio).toBeChecked());
+    expect(doublesRadio).not.toBeChecked();
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
@@ -356,6 +358,35 @@ describe("RecordSportForm", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     const payload = JSON.parse(fetchMock.mock.calls[1][1].body);
     expect(payload.sport).toBe("table_tennis");
+  });
+
+  it("lets table tennis matches switch between singles and doubles", async () => {
+    const players = [
+      { id: "1", name: "Alice" },
+      { id: "2", name: "Bob" },
+      { id: "3", name: "Cara" },
+      { id: "4", name: "Dan" },
+    ];
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ players }) });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordSportForm sportId="table_tennis" />);
+
+    await screen.findAllByText("Alice");
+    expect(screen.queryByLabelText(/team a player 2/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(/doubles/i));
+    expect(
+      await screen.findByLabelText(/team a player 2/i),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(/singles/i));
+    await waitFor(() =>
+      expect(screen.queryByLabelText(/team a player 2/i)).not.toBeInTheDocument(),
+    );
   });
 
   it("allows recording multiple bowling players", async () => {

@@ -433,6 +433,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const isPadel = sport === "padel" || sport === "padel_americano";
   const isPadelAmericano = sport === "padel_americano";
   const isPickleball = sport === "pickleball";
+  const isTableTennis = sport === "table_tennis";
+  const supportsSinglesOrDoubles = isPickleball || isTableTennis;
   const isBowling = sport === "bowling";
 
   const [players, setPlayers] = useState<Player[]>([]);
@@ -499,6 +501,10 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     const decoratedBase = needsPeriod ? `${base}.` : base;
     return `${decoratedBase} ${exampleSuffix}`;
   }, [sportCopy.timeHint, timeExample, uses24HourTime]);
+  const matchTypeGroupName = useMemo(
+    () => `${sport || "record"}-match-type`,
+    [sport],
+  );
 
   const setBowlingFieldError = useCallback(
     (entryIndex: number, frameIndex: number | null, rollIndex: number | null) => {
@@ -1074,19 +1080,40 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         </section>
       )}
       <form onSubmit={handleSubmit} className="form-stack">
-        {isPickleball && (
-          <label
-            className="form-field form-field--checkbox"
-            htmlFor="record-doubles"
-          >
-            <input
-              id="record-doubles"
-              type="checkbox"
-              checked={doubles}
-              onChange={(e) => handleToggle(e.target.checked)}
-            />
-            Doubles
-          </label>
+        {supportsSinglesOrDoubles && (
+          <fieldset className="form-fieldset">
+            <legend className="form-legend">Match type</legend>
+            <div className="radio-group">
+              <label
+                className="radio-group__option"
+                htmlFor={`${matchTypeGroupName}-singles`}
+              >
+                <input
+                  id={`${matchTypeGroupName}-singles`}
+                  type="radio"
+                  name={matchTypeGroupName}
+                  value="singles"
+                  checked={!doubles}
+                  onChange={() => handleToggle(false)}
+                />
+                <span>Singles</span>
+              </label>
+              <label
+                className="radio-group__option"
+                htmlFor={`${matchTypeGroupName}-doubles`}
+              >
+                <input
+                  id={`${matchTypeGroupName}-doubles`}
+                  type="radio"
+                  name={matchTypeGroupName}
+                  value="doubles"
+                  checked={doubles}
+                  onChange={() => handleToggle(true)}
+                />
+                <span>Doubles</span>
+              </label>
+            </div>
+          </fieldset>
         )}
 
         <fieldset className="form-fieldset">

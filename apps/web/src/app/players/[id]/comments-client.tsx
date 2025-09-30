@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   SESSION_ENDED_EVENT,
   apiFetch,
@@ -9,6 +9,7 @@ import {
   isLoggedIn,
   type ApiError,
 } from "../../../lib/api";
+import { useApiSWR } from "../../../lib/useApiSWR";
 
 interface Comment {
   id: string;
@@ -27,10 +28,7 @@ interface PaginatedComments {
 }
 
 export default function PlayerComments({ playerId }: { playerId: string }) {
-  const [comments, setComments] = useState<Comment[]>([]);
   const [content, setContent] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<
     | { type: "success" | "error"; message: string }
     | null
@@ -42,27 +40,24 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
     admin: isAdmin(),
   }));
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const resp = await apiFetch(`/v0/players/${playerId}/comments`, {
-        cache: "no-store",
-      });
-      const data = (await resp.json()) as PaginatedComments;
-      setComments(data.items ?? []);
-      setLoadError(null);
-    } catch (err) {
-      console.error("Failed to load comments", err);
-      setComments([]);
-      setLoadError("We couldn't load comments. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, [playerId]);
+  const {
+    data,
+    error: commentsError,
+    isLoading,
+    isValidating,
+    mutate,
+  } = useApiSWR<PaginatedComments>(`/v0/players/${playerId}/comments`, {
+    swr: {
+      revalidateOnMount: true,
+    },
+  });
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const comments = data?.items ?? [];
+  const commentsLoading = !data && isLoading;
+  const commentsRevalidating = Boolean(data) && isValidating;
+  const loadError = commentsError
+    ? "We couldn't load comments. Please try again."
+    : null;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -116,7 +111,11 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
         type: "success",
         message: "Comment posted successfully.",
       });
-      await load();
+      try {
+        await mutate(undefined, { revalidate: true });
+      } catch (refreshErr) {
+        console.error("Failed to refresh comments", refreshErr);
+      }
     } catch (err) {
       const apiError = err as ApiError;
       const message =
@@ -150,7 +149,11 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
         type: "success",
         message: "Comment deleted.",
       });
-      await load();
+      try {
+        await mutate(undefined, { revalidate: true });
+      } catch (refreshErr) {
+        console.error("Failed to refresh comments", refreshErr);
+      }
     } catch (err) {
       const apiError = err as ApiError;
       const message =
@@ -164,7 +167,12 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
   return (
     <section className="mt-4">
       <h2 className="heading">Comments</h2>
-      {loading ? (
+      {commentsRevalidating ? (
+        <p className="sr-only" role="status" aria-live="polite">
+          Updating comments…
+        </p>
+      ) : null}
+      {commentsLoading ? (
         <p>Loading comments…</p>
       ) : comments.length ? (
         <ul>

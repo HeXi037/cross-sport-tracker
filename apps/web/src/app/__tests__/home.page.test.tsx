@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import HomePageClient from '../home-page-client';
 import * as apiModule from '../../lib/api';
 import * as matchesModule from '../../lib/matches';
+import { SWRConfig } from 'swr';
 
 const defaultProps = {
   sports: [],
@@ -16,51 +17,69 @@ const defaultProps = {
   initialPageSize: 5,
 };
 
+const scrollToMock = vi.fn();
+
+beforeAll(() => {
+  Object.defineProperty(window, 'scrollTo', {
+    writable: true,
+    value: scrollToMock,
+  });
+});
+
 afterEach(() => {
   vi.restoreAllMocks();
+  scrollToMock.mockClear();
 });
 
 describe('HomePageClient error messages', () => {
+  function renderComponent(props = defaultProps) {
+    return render(
+      <SWRConfig value={{ provider: () => new Map() }}>
+        <HomePageClient {...props} />
+      </SWRConfig>,
+    );
+  }
+
   it('shows sports error message', () => {
-    render(<HomePageClient {...defaultProps} sportError={true} />);
+    vi.spyOn(apiModule, 'apiFetch').mockRejectedValue(new Error('network'));
+    renderComponent({ ...defaultProps, sportError: true });
     expect(
       screen.getByText(/Unable to load sports\. Check connection\./i)
     ).toBeInTheDocument();
   });
 
   it('shows matches error message', () => {
-    render(<HomePageClient {...defaultProps} matchError={true} />);
+    vi.spyOn(apiModule, 'apiFetch').mockRejectedValue(new Error('network'));
+    renderComponent({ ...defaultProps, matchError: true });
     expect(
       screen.getByText(/Unable to load matches\. Check connection\./i)
     ).toBeInTheDocument();
   });
 
   it('renders player names and match details link', () => {
-    render(
-      <HomePageClient
-        {...defaultProps}
-        matches={[
-          {
-            id: 'm1',
-            sport: 'padel',
-            bestOf: 3,
-            playedAt: null,
-            location: null,
-            isFriendly: false,
-            players: {
-              A: [
-                { id: 'a1', name: 'A1' },
-                { id: 'a2', name: 'A2' },
-              ],
-              B: [
-                { id: 'b1', name: 'B1' },
-                { id: 'b2', name: 'B2' },
-              ],
-            },
+    renderComponent({
+      ...defaultProps,
+      matches: [
+        {
+          id: 'm1',
+          sport: 'padel',
+          bestOf: 3,
+          playedAt: null,
+          location: null,
+          isFriendly: false,
+          players: {
+            A: [
+              { id: 'a1', name: 'A1' },
+              { id: 'a2', name: 'A2' },
+            ],
+            B: [
+              { id: 'b1', name: 'B1' },
+              { id: 'b2', name: 'B2' },
+            ],
           },
-        ]}
-      />
-    );
+        },
+      ],
+    });
     expect(screen.getByText('A1')).toBeInTheDocument();
     expect(screen.getByText('A2')).toBeInTheDocument();
     expect(screen.getByText('B1')).toBeInTheDocument();
@@ -100,27 +119,25 @@ describe('HomePageClient error messages', () => {
       }))
     );
 
-    render(
-      <HomePageClient
-        {...defaultProps}
-        matches={[
-          {
-            id: 'm1',
-            sport: 'padel',
-            bestOf: 3,
-            playedAt: null,
-            location: null,
-            isFriendly: false,
-            players: {
-              A: [{ id: 'a1', name: 'A1' }],
-              B: [{ id: 'b1', name: 'B1' }],
-            },
+    renderComponent({
+      ...defaultProps,
+      matches: [
+        {
+          id: 'm1',
+          sport: 'padel',
+          bestOf: 3,
+          playedAt: null,
+          location: null,
+          isFriendly: false,
+          players: {
+            A: [{ id: 'a1', name: 'A1' }],
+            B: [{ id: 'b1', name: 'B1' }],
           },
-        ]}
-        initialHasMore={true}
-        initialNextOffset={5}
-      />
-    );
+        },
+      ],
+      initialHasMore: true,
+      initialNextOffset: 5,
+    });
 
     const button = screen.getByRole('button', { name: /load more matches/i });
     await userEvent.click(button);
@@ -144,27 +161,25 @@ describe('HomePageClient error messages', () => {
       json: async () => ({}),
     } as unknown as Response);
 
-    render(
-      <HomePageClient
-        {...defaultProps}
-        matches={[
-          {
-            id: 'm1',
-            sport: 'padel',
-            bestOf: 3,
-            playedAt: null,
-            location: null,
-            isFriendly: false,
-            players: {
-              A: [{ id: 'a1', name: 'A1' }],
-              B: [{ id: 'b1', name: 'B1' }],
-            },
+    renderComponent({
+      ...defaultProps,
+      matches: [
+        {
+          id: 'm1',
+          sport: 'padel',
+          bestOf: 3,
+          playedAt: null,
+          location: null,
+          isFriendly: false,
+          players: {
+            A: [{ id: 'a1', name: 'A1' }],
+            B: [{ id: 'b1', name: 'B1' }],
           },
-        ]}
-        initialHasMore={true}
-        initialNextOffset={5}
-      />
-    );
+        },
+      ],
+      initialHasMore: true,
+      initialNextOffset: 5,
+    });
 
     const button = screen.getByRole('button', { name: /load more matches/i });
     await userEvent.click(button);

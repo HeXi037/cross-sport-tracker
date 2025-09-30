@@ -60,8 +60,11 @@ vi.mock("../../../lib/api", async () => {
   };
 });
 
+const cookiesMock = vi.hoisted(() => vi.fn(() => ({ get: vi.fn(() => undefined) })));
+
 vi.mock("next/headers", () => ({
   headers: vi.fn(() => new Headers()),
+  cookies: cookiesMock,
 }));
 
 vi.mock("next/navigation", () => {

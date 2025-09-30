@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useState, type ReactElement } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '../lib/api';
 import {
@@ -13,6 +13,7 @@ import MatchParticipants from '../components/MatchParticipants';
 import { useLocale, useTimeZone } from '../lib/LocaleContext';
 import { ensureTrailingSlash, recordPathForSport } from '../lib/routes';
 import { formatDateTime, NEUTRAL_FALLBACK_LOCALE } from '../lib/i18n';
+import { useApiSWR } from '../lib/useApiSWR';
 
 interface Sport {
   id: string;
@@ -149,12 +150,9 @@ export default function HomePageClient({
   initialNextOffset,
   initialPageSize,
 }: Props): ReactElement {
-  const [sports, setSports] = useState(initialSports);
   const [matches, setMatches] = useState(initialMatches);
   const [sportError, setSportError] = useState(initialSportError);
   const [matchError, setMatchError] = useState(initialMatchError);
-  const [sportsLoading, setSportsLoading] = useState(false);
-  const [matchesLoading, setMatchesLoading] = useState(false);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [nextOffset, setNextOffset] = useState(initialNextOffset);
   const [pageSize, setPageSize] = useState(initialPageSize);
@@ -169,6 +167,33 @@ export default function HomePageClient({
       formatDateTime(value, activeLocale, 'compact', timeZone),
     [activeLocale, timeZone],
   );
+
+  const {
+    data: sportsData,
+    error: sportsError,
+    isLoading: sportsIsLoading,
+    isValidating: sportsIsValidating,
+    mutate: mutateSports,
+  } = useApiSWR<Sport[]>('/v0/sports', {
+    swr: {
+      fallbackData: initialSportError ? undefined : initialSports,
+      revalidateOnMount: initialSportError,
+    },
+  });
+
+  useEffect(() => {
+    if (sportsError) {
+      setSportError(true);
+    } else if (sportsData) {
+      setSportError(false);
+    }
+  }, [sportsError, sportsData]);
+
+  const sports = sportsData ?? [];
+  const sportsLoading =
+    !sportError && sports.length === 0 && sportsIsLoading;
+  const sportsRevalidating = sports.length > 0 && sportsIsValidating;
+  const sportsStatusVisible = sportsLoading || sportsRevalidating;
 
   const parseMatchesResponse = async (
     response: Response,
@@ -200,44 +225,60 @@ export default function HomePageClient({
   };
 
   const retrySports = async () => {
-    setSportsLoading(true);
-    try {
-      const r = await apiFetch('/v0/sports', { cache: 'no-store' });
-      if (r.ok) {
-        setSports((await r.json()) as Sport[]);
-        setSportError(false);
-      } else {
-        setSportError(true);
-      }
-    } catch {
-      setSportError(true);
-    } finally {
-      setSportsLoading(false);
-    }
+    await mutateSports(undefined, { revalidate: true });
   };
 
-  const retryMatches = async () => {
-    setMatchesLoading(true);
-    setPaginationError(false);
-    try {
-      const r = await apiFetch(`/v0/matches?limit=${pageSize}`, {
-        cache: 'no-store',
-      });
-      if (r.ok) {
-        const result = await parseMatchesResponse(r, pageSize);
-        setMatches(result.enriched);
-        setMatchError(false);
-        setHasMore(result.hasMore);
-        setNextOffset(result.nextOffset);
-        setPageSize(result.limit ?? pageSize);
-      } else {
-        setMatchError(true);
-      }
-    } catch {
+  const {
+    data: matchPage,
+    error: matchesError,
+    isLoading: matchesIsLoading,
+    isValidating: matchesIsValidating,
+    mutate: mutateMatches,
+  } = useApiSWR<{
+    enriched: EnrichedMatch[];
+    limit: number;
+    hasMore: boolean;
+    nextOffset: number | null;
+  }>(`/v0/matches?limit=${pageSize}`, {
+    parse: (response) => parseMatchesResponse(response, pageSize),
+    swr: {
+      fallbackData: initialMatchError
+        ? undefined
+        : {
+            enriched: initialMatches,
+            limit: initialPageSize,
+            hasMore: initialHasMore,
+            nextOffset: initialNextOffset,
+          },
+      revalidateOnMount: initialMatchError,
+    },
+  });
+
+  useEffect(() => {
+    if (matchesError) {
       setMatchError(true);
-    } finally {
-      setMatchesLoading(false);
     }
+  }, [matchesError]);
+
+  useEffect(() => {
+    if (!matchPage) return;
+    setMatches(matchPage.enriched);
+    setHasMore(matchPage.hasMore);
+    setNextOffset(matchPage.nextOffset);
+    if (typeof matchPage.limit === 'number' && matchPage.limit !== pageSize) {
+      setPageSize(matchPage.limit);
+    }
+    setMatchError(false);
+  }, [matchPage, pageSize]);
+
+  const matchesLoading =
+    !matchError && matches.length === 0 && matchesIsLoading;
+  const matchesRevalidating = matches.length > 0 && matchesIsValidating;
+  const matchesStatusVisible = matchesLoading || matchesRevalidating;
+
+  const retryMatches = async () => {
+    setPaginationError(false);
+    await mutateMatches(undefined, { revalidate: true });
   };
 
   const loadMoreMatches = async () => {
@@ -284,7 +325,7 @@ export default function HomePageClient({
 
       <section className="section">
         <h2 className="heading">Sports</h2>
-        {sportsLoading ? (
+        {sportsStatusVisible ? (
           <p className="sr-only" role="status" aria-live="polite">
             Updating sports…
           </p>
@@ -339,7 +380,7 @@ export default function HomePageClient({
 
       <section className="section">
         <h2 className="heading">Recent Matches</h2>
-        {matchesLoading ? (
+        {matchesStatusVisible ? (
           <p className="sr-only" role="status" aria-live="polite">
             Updating matches…
           </p>

@@ -20,6 +20,13 @@ vi.mock('../../lib/server-locale', () => ({
   }),
 }));
 
+const cookiesMock = vi.hoisted(() => vi.fn(() => ({ get: vi.fn(() => undefined) })));
+
+vi.mock('next/headers', () => ({
+  headers: vi.fn(() => new Headers()),
+  cookies: cookiesMock,
+}));
+
 const mockedApiFetch = vi.mocked(apiFetch);
 
 const makeApiError = (

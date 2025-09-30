@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { invalidateMatchesCache } from "../../../lib/useApiSWR";
 
 const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 
@@ -107,6 +108,11 @@ function DiscGolfForm() {
         throw new Error("Failed to create match");
       }
       const data = (await res.json()) as { id: string };
+      try {
+        await invalidateMatchesCache();
+      } catch (cacheErr) {
+        console.error("Failed to invalidate match caches", cacheErr);
+      }
       navigateToMatch(data.id);
     } catch {
       setMatchPickerError("Failed to start a new match.");

@@ -840,6 +840,11 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           }
 
           refreshLeadersFromCache(ALL_SPORTS);
+          hadCachedResultsForCurrentView =
+            hadCachedResultsForCurrentView ||
+            SPORTS.some(
+              (id) => (getCachedLeaders(id)?.leaders.length ?? 0) > 0,
+            );
           setLoading(false);
 
           const rejected = results.filter(

@@ -622,7 +622,7 @@ export default async function PlayerPage({
               </div>
             ) : null}
 
-            <nav className="mt-4 mb-4 space-x-4">
+            <nav className="mt-4 mb-4 flex flex-wrap gap-4">
               <Link
                 href={`/players/${params.id}?view=timeline`}
                 className={view === "timeline" ? "font-bold" : ""}

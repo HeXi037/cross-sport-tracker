@@ -97,7 +97,7 @@ function resolveRulesetLabel(match: MatchWithOptionalRuleset): string | undefine
   return undefined;
 }
 
-const sportIcons = {
+const sportIcons: Record<string, { glyph: string; labelKey: string }> = {
   padel: {
     glyph: '\uD83C\uDFBE',
     labelKey: 'icons.padel',
@@ -130,7 +130,7 @@ const sportIcons = {
     glyph: '🥏',
     labelKey: 'icons.disc_golf',
   },
-} as const satisfies Record<string, { glyph: string; labelKey: string }>;
+} as const;
 
 interface Props {
   sports: Sport[];
@@ -188,29 +188,26 @@ function mergeMatchPageWithPrevious(
 }
 
 function resolveNextOffset(
-  currentNextOffset: number | null | undefined,
+  currentNextOffset: number | null,
   matchPageNextOffset: number | null | undefined,
   hasAdditionalMatches: boolean,
-): number | null | undefined {
+): number | null {
+  const normalizedCurrent = currentNextOffset ?? null;
+  const normalizedNext = matchPageNextOffset ?? null;
+
   if (!hasAdditionalMatches) {
-    return matchPageNextOffset;
+    return normalizedNext;
   }
 
-  if (matchPageNextOffset === null || matchPageNextOffset === undefined) {
-    return currentNextOffset ?? null;
+  if (normalizedNext === null) {
+    return normalizedCurrent;
   }
 
-  if (currentNextOffset === null || currentNextOffset === undefined) {
-    return matchPageNextOffset;
+  if (normalizedCurrent === null) {
+    return normalizedNext;
   }
 
-  if (typeof currentNextOffset === 'number') {
-    return typeof matchPageNextOffset === 'number'
-      ? Math.max(currentNextOffset, matchPageNextOffset)
-      : currentNextOffset;
-  }
-
-  return currentNextOffset ?? null;
+  return Math.max(normalizedCurrent, normalizedNext);
 }
 
 export default function HomePageClient({

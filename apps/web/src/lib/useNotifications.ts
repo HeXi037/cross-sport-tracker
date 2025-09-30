@@ -1,8 +1,7 @@
 import { useCallback, useMemo } from "react";
 import useSWRInfinite, {
-  type BareFetcher,
-  type KeyedMutator,
   type SWRInfiniteKeyLoader,
+  type SWRInfiniteKeyedMutator,
 } from "swr/infinite";
 import { mutate as swrMutate } from "swr";
 import {
@@ -25,7 +24,7 @@ function buildPageKey(limit: number, offset: number): string {
   return `${NOTIFICATION_CACHE_KEY_PREFIX}|${limit}|${offset}`;
 }
 
-const fetchNotificationPage: BareFetcher<NotificationListResponse> = async (
+const fetchNotificationPage: (key: string) => Promise<NotificationListResponse> = async (
   key: string,
 ) => {
   const [, limitValue, offsetValue] = key.split("|");
@@ -44,7 +43,7 @@ export function useNotifications(
   isValidating: boolean;
   hasMore: boolean;
   loadMore: () => Promise<NotificationPages | undefined>;
-  mutate: KeyedMutator<NotificationPages>;
+  mutate: SWRInfiniteKeyedMutator<NotificationPages>;
   refresh: () => Promise<NotificationPages | undefined>;
 } {
   const pageSize = options?.pageSize ?? DEFAULT_PAGE_SIZE;

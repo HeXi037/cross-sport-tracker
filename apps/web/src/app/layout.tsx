@@ -6,7 +6,8 @@ import ToastProvider from '../components/ToastProvider';
 import SessionBanner from '../components/SessionBanner';
 import LocalizedMessagesProvider from '../components/LocalizedMessagesProvider';
 import { cookies } from 'next/headers';
-import { createTranslator } from 'next-intl/server';
+import { createTranslator } from 'use-intl';
+import type enMessages from '../messages/en-GB.json';
 import { LocaleProvider } from '../lib/LocaleContext';
 import { resolveServerLocale } from '../lib/server-locale';
 import { loadLocaleMessages } from '../i18n/messages';
@@ -29,9 +30,9 @@ export default async function RootLayout({
     locale: resolvedLocale,
     messages,
   } = await loadLocaleMessages(locale);
-  const translator = createTranslator({
+  const translator = createTranslator<typeof enMessages>({
     locale: resolvedLocale,
-    messages,
+    messages: messages as typeof enMessages,
   });
 
   return (

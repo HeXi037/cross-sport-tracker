@@ -1,7 +1,7 @@
 import useSWR, {
   mutate,
   type Key,
-  type MutateOptions,
+  type MutatorOptions,
   type SWRConfiguration,
   type SWRResponse,
 } from 'swr';
@@ -132,7 +132,7 @@ export function useApiSWR<T>(
 
 export async function invalidateApiResource(
   matcher: Matcher,
-  options?: Partial<MutateOptions<unknown, ApiError>>,
+  options?: Partial<MutatorOptions<unknown, ApiError>>,
 ) {
   await mutate(
     (key: Key) => {
@@ -146,6 +146,6 @@ export async function invalidateApiResource(
   );
 }
 
-export function invalidateMatchesCache(options?: Partial<MutateOptions<unknown, ApiError>>) {
+export function invalidateMatchesCache(options?: Partial<MutatorOptions<unknown, ApiError>>) {
   return invalidateApiResource((key) => key.includes('/v0/matches'), options);
 }

@@ -6,7 +6,9 @@ import { resolveServerLocale } from '../lib/server-locale';
 export default getRequestConfig(async () => {
   const { locale } = resolveServerLocale();
   try {
-    const { locale: supportedLocale, messages } = await loadLocaleMessages(locale);
+    const { locale: supportedLocale, messages } = await loadLocaleMessages(
+      locale ?? NEUTRAL_FALLBACK_LOCALE,
+    );
     return { locale: supportedLocale, messages };
   } catch (error) {
     console.error('Failed to load locale messages', locale, error);

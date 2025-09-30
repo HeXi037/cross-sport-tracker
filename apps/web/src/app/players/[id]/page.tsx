@@ -335,7 +335,15 @@ async function getStats(playerId: string): Promise<PlayerStatsResult> {
 }
 
 function iconForSocialLink(link: PlayerSocialLink): string {
-  const label = link.label.toLowerCase();
+  const normalizedLabel = link.label.trim();
+  const customIcon = normalizedLabel.match(
+    /^\p{Extended_Pictographic}(?:\uFE0F|\uFE0E)?/u
+  );
+  if (customIcon) {
+    return customIcon[0];
+  }
+
+  const label = normalizedLabel.toLowerCase();
   let host = "";
   try {
     host = new URL(link.url).hostname.toLowerCase();
@@ -345,11 +353,25 @@ function iconForSocialLink(link: PlayerSocialLink): string {
   const checks: { icon: string; needles: string[] }[] = [
     { icon: "𝕏", needles: ["twitter", "x.com"] },
     { icon: "📸", needles: ["instagram"] },
-    { icon: "▶️", needles: ["youtube", "youtu.be"] },
+    { icon: "▶️", needles: ["youtube", "youtu.be", "vimeo"] },
     { icon: "🎮", needles: ["twitch"] },
-    { icon: "🎵", needles: ["tiktok"] },
+    { icon: "💬", needles: ["discord", "slack", "whatsapp", "wa.me"] },
+    { icon: "🎵", needles: ["tiktok", "spotify", "soundcloud"] },
     { icon: "📘", needles: ["facebook"] },
     { icon: "💼", needles: ["linkedin"] },
+    { icon: "🧵", needles: ["threads"] },
+    { icon: "🦋", needles: ["bluesky", "bsky.app", "bluesky.social"] },
+    { icon: "🦣", needles: ["mastodon"] },
+    { icon: "🐙", needles: ["github"] },
+    { icon: "👻", needles: ["snapchat"] },
+    { icon: "👽", needles: ["reddit"] },
+    { icon: "✈️", needles: ["telegram", "t.me"] },
+    { icon: "🏃", needles: ["strava"] },
+    { icon: "🌳", needles: ["linktr.ee", "linktree"] },
+    { icon: "☕", needles: ["kofi", "ko-fi", "ko fi"] },
+    { icon: "✍️", needles: ["medium", "substack"] },
+    { icon: "🧡", needles: ["patreon"] },
+    { icon: "📌", needles: ["pinterest"] },
     { icon: "🌐", needles: ["website", "blog"] },
   ];
   for (const { icon, needles } of checks) {

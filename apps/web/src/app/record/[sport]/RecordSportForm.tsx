@@ -51,6 +51,164 @@ const MAX_BOWLING_PLAYERS = 6;
 
 type BowlingFrames = string[][];
 
+type GameScore = {
+  a: string;
+  b: string;
+};
+
+function createGameScoreRows(count: number): GameScore[] {
+  return Array.from({ length: count }, () => ({ a: "", b: "" }));
+}
+
+type GameSeriesConfig = {
+  maxGames: number;
+  gamesNeededOptions: number[];
+  invalidSeriesMessage: string;
+};
+
+type NormalizedGameSeries = {
+  sets: [number, number][];
+  winsA: number;
+  winsB: number;
+  targetWins: number;
+};
+
+function normalizeGameSeries(
+  rows: GameScore[],
+  config: GameSeriesConfig,
+): NormalizedGameSeries {
+  const trimmed: [number, number][] = [];
+  let encounteredBlankAfterScores = false;
+
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = rows[i];
+    const trimmedA = row?.a?.trim() ?? "";
+    const trimmedB = row?.b?.trim() ?? "";
+    const hasA = trimmedA !== "";
+    const hasB = trimmedB !== "";
+
+    if (!hasA && !hasB) {
+      if (trimmed.length > 0) {
+        encounteredBlankAfterScores = true;
+      }
+      continue;
+    }
+
+    if (!hasA || !hasB) {
+      throw new Error(`Enter points for both teams in game ${i + 1}.`);
+    }
+
+    if (encounteredBlankAfterScores) {
+      throw new Error(
+        `Game ${i + 1} has a score after an empty game. Enter games in order without gaps.`,
+      );
+    }
+
+    const valueA = Number(trimmedA);
+    const valueB = Number(trimmedB);
+
+    if (!Number.isFinite(valueA) || !Number.isInteger(valueA)) {
+      throw new Error(`Game ${i + 1} points must be a whole number.`);
+    }
+    if (!Number.isFinite(valueB) || !Number.isInteger(valueB)) {
+      throw new Error(`Game ${i + 1} points must be a whole number.`);
+    }
+
+    if (valueA < 0 || valueB < 0) {
+      throw new Error(`Game ${i + 1} points must be zero or higher.`);
+    }
+
+    if (valueA === valueB) {
+      throw new Error(`Game ${i + 1} cannot be tied.`);
+    }
+
+    trimmed.push([valueA, valueB]);
+  }
+
+  if (trimmed.length === 0) {
+    throw new Error("Enter the points for at least one game.");
+  }
+
+  if (trimmed.length > config.maxGames) {
+    throw new Error(`Too many games entered. Maximum allowed is ${config.maxGames}.`);
+  }
+
+  let winsA = 0;
+  let winsB = 0;
+  const reachedAt = new Map<number, number | null | "invalid">();
+  for (const option of config.gamesNeededOptions) {
+    reachedAt.set(option, null);
+  }
+
+  for (let i = 0; i < trimmed.length; i += 1) {
+    const [aScore, bScore] = trimmed[i];
+
+    if (aScore > bScore) {
+      winsA += 1;
+    } else {
+      winsB += 1;
+    }
+
+    for (const option of config.gamesNeededOptions) {
+      const previous = reachedAt.get(option);
+      if (previous === "invalid") {
+        continue;
+      }
+
+      const currentWinnerWins = Math.max(winsA, winsB);
+      const currentLoserWins = Math.min(winsA, winsB);
+
+      if (currentLoserWins > option - 1 || currentWinnerWins > option) {
+        reachedAt.set(option, "invalid");
+        continue;
+      }
+
+      if (typeof previous === "number" && previous < i + 1) {
+        reachedAt.set(option, "invalid");
+        continue;
+      }
+
+      if (previous === null && currentWinnerWins === option) {
+        reachedAt.set(option, i + 1);
+      }
+    }
+  }
+
+  if (winsA === winsB) {
+    throw new Error("Enter enough games for one side to win the match.");
+  }
+
+  const winnerWins = Math.max(winsA, winsB);
+  const loserWins = Math.min(winsA, winsB);
+
+  const validTarget = config.gamesNeededOptions.find((option) => {
+    const reached = reachedAt.get(option);
+    if (reached === null || reached === "invalid") {
+      return false;
+    }
+    if (!Number.isFinite(reached) || reached <= 0) {
+      return false;
+    }
+    if (winnerWins !== option) {
+      return false;
+    }
+    if (loserWins > option - 1) {
+      return false;
+    }
+    const maxGamesForOption = option * 2 - 1;
+    if (trimmed.length > maxGamesForOption) {
+      return false;
+    }
+    return reached === trimmed.length;
+  });
+
+  if (!validTarget) {
+    throw new Error(config.invalidSeriesMessage);
+  }
+
+  return { sets: trimmed, winsA, winsB, targetWins: validTarget };
+}
+
 function getBowlingInputKey(
   entryIndex: number,
   frameIndex: number,
@@ -436,6 +594,27 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const isTableTennis = sport === "table_tennis";
   const supportsSinglesOrDoubles = isPickleball || isTableTennis;
   const isBowling = sport === "bowling";
+  const gameSeriesConfig = useMemo<GameSeriesConfig | null>(() => {
+    if (isPickleball) {
+      return {
+        maxGames: 3,
+        gamesNeededOptions: [2],
+        invalidSeriesMessage:
+          "Pickleball matches finish when a side wins two games (best of three). Adjust the game scores.",
+      };
+    }
+    if (isTableTennis) {
+      return {
+        maxGames: 5,
+        gamesNeededOptions: [2, 3],
+        invalidSeriesMessage:
+          "Table tennis matches finish when a side wins two or three games. Adjust the game scores.",
+      };
+    }
+    return null;
+  }, [isPickleball, isTableTennis]);
+  const usesGameSeries = Boolean(gameSeriesConfig);
+  const maxGames = gameSeriesConfig?.maxGames ?? 0;
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [ids, setIds] = useState<IdMap>({ a1: "", a2: "", b1: "", b2: "" });
@@ -465,6 +644,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const [isFriendly, setIsFriendly] = useState(false);
   const [doubles, setDoubles] = useState(isPadel);
   const [submitting, setSubmitting] = useState(false);
+  const [gameScores, setGameScores] = useState<GameScore[]>(() =>
+    createGameScoreRows(maxGames),
+  );
   const locale = useLocale();
   const datePlaceholder = useMemo(() => getDatePlaceholder(locale), [locale]);
   const dateExample = useMemo(() => getDateExample(locale), [locale]);
@@ -504,6 +686,66 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const matchTypeGroupName = useMemo(
     () => `${sport || "record"}-match-type`,
     [sport],
+  );
+  const gameSeriesHintId = useId();
+  const gameSeriesStatusId = useId();
+
+  useEffect(() => {
+    setGameScores(createGameScoreRows(maxGames));
+  }, [maxGames]);
+
+  const gameSeriesSummary = useMemo(() => {
+    let winsA = 0;
+    let winsB = 0;
+    let completed = 0;
+
+    for (const row of gameScores) {
+      const trimmedA = row?.a?.trim() ?? "";
+      const trimmedB = row?.b?.trim() ?? "";
+      if (!trimmedA || !trimmedB) {
+        continue;
+      }
+      const valueA = Number(trimmedA);
+      const valueB = Number(trimmedB);
+      if (!Number.isFinite(valueA) || !Number.isInteger(valueA)) {
+        continue;
+      }
+      if (!Number.isFinite(valueB) || !Number.isInteger(valueB)) {
+        continue;
+      }
+      if (valueA === valueB) {
+        continue;
+      }
+      completed += 1;
+      if (valueA > valueB) {
+        winsA += 1;
+      } else {
+        winsB += 1;
+      }
+    }
+
+    return { winsA, winsB, completed };
+  }, [gameScores]);
+
+  const handleGameScoreChange = useCallback(
+    (index: number, side: "A" | "B", value: string) => {
+      setGameScores((prev) => {
+        if (index < 0 || index >= prev.length) {
+          return prev;
+        }
+        const next = prev.slice();
+        const row = next[index];
+        if (!row) {
+          return prev;
+        }
+        next[index] = {
+          ...row,
+          [side === "A" ? "a" : "b"]: value,
+        };
+        return next;
+      });
+    },
+    [],
   );
 
   const setBowlingFieldError = useCallback(
@@ -1007,10 +1249,27 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       return;
     }
 
-    const A = Number(scoreA);
-    const B = Number(scoreB);
-    const sets: [number, number][] =
-      Number.isFinite(A) && Number.isFinite(B) ? [[A, B]] : [];
+    let sets: [number, number][] = [];
+
+    if (usesGameSeries && gameSeriesConfig) {
+      try {
+        const normalized = normalizeGameSeries(gameScores, gameSeriesConfig);
+        sets = normalized.sets;
+      } catch (seriesErr) {
+        const message =
+          seriesErr instanceof Error
+            ? seriesErr.message
+            : "Invalid game scores. Please review and try again.";
+        setError(message);
+        return;
+      }
+    } else {
+      const A = Number(scoreA);
+      const B = Number(scoreB);
+      if (Number.isFinite(A) && Number.isFinite(B)) {
+        sets = [[A, B]];
+      }
+    }
 
     try {
       setSubmitting(true);
@@ -1545,36 +1804,111 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
             <fieldset className="form-fieldset">
               <legend className="form-legend">Match score</legend>
               {sportCopy.scoringHint && (
-                <p className="form-hint">{sportCopy.scoringHint}</p>
+                <p
+                  className="form-hint"
+                  id={usesGameSeries ? gameSeriesHintId : undefined}
+                >
+                  {sportCopy.scoringHint}
+                </p>
               )}
-              <div className="form-grid form-grid--two">
-                <label className="form-field" htmlFor="record-score-a">
-                  <span className="form-label">Team A score</span>
-                  <input
-                    id="record-score-a"
-                    type="number"
-                    min="0"
-                    step="1"
-                    placeholder="A"
-                    value={scoreA}
-                    onChange={(e) => setScoreA(e.target.value)}
-                    inputMode="numeric"
-                  />
-                </label>
-                <label className="form-field" htmlFor="record-score-b">
-                  <span className="form-label">Team B score</span>
-                  <input
-                    id="record-score-b"
-                    type="number"
-                    min="0"
-                    step="1"
-                    placeholder="B"
-                    value={scoreB}
-                    onChange={(e) => setScoreB(e.target.value)}
-                    inputMode="numeric"
-                  />
-                </label>
-              </div>
+              {usesGameSeries ? (
+                <>
+                  <p
+                    className="form-hint"
+                    id={gameSeriesStatusId}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    Games won so far: Team A {gameSeriesSummary.winsA} – Team B {gameSeriesSummary.winsB}.
+                  </p>
+                  <div className="form-stack">
+                    {gameScores.map((row, index) => {
+                      const gameNumber = index + 1;
+                      return (
+                        <div key={gameNumber} className="form-grid form-grid--two">
+                          <label
+                            className="form-field"
+                            htmlFor={`record-game-${gameNumber}-score-a`}
+                          >
+                            <span className="form-label">
+                              Game {gameNumber} – Team A points
+                            </span>
+                            <input
+                              id={`record-game-${gameNumber}-score-a`}
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder="0"
+                              value={row.a}
+                              onChange={(event) =>
+                                handleGameScoreChange(
+                                  index,
+                                  "A",
+                                  event.target.value,
+                                )
+                              }
+                              inputMode="numeric"
+                            />
+                          </label>
+                          <label
+                            className="form-field"
+                            htmlFor={`record-game-${gameNumber}-score-b`}
+                          >
+                            <span className="form-label">
+                              Game {gameNumber} – Team B points
+                            </span>
+                            <input
+                              id={`record-game-${gameNumber}-score-b`}
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder="0"
+                              value={row.b}
+                              onChange={(event) =>
+                                handleGameScoreChange(
+                                  index,
+                                  "B",
+                                  event.target.value,
+                                )
+                              }
+                              inputMode="numeric"
+                            />
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <div className="form-grid form-grid--two">
+                  <label className="form-field" htmlFor="record-score-a">
+                    <span className="form-label">Team A score</span>
+                    <input
+                      id="record-score-a"
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="A"
+                      value={scoreA}
+                      onChange={(e) => setScoreA(e.target.value)}
+                      inputMode="numeric"
+                    />
+                  </label>
+                  <label className="form-field" htmlFor="record-score-b">
+                    <span className="form-label">Team B score</span>
+                    <input
+                      id="record-score-b"
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="B"
+                      value={scoreB}
+                      onChange={(e) => setScoreB(e.target.value)}
+                      inputMode="numeric"
+                    />
+                  </label>
+                </div>
+              )}
             </fieldset>
           </>
         )}

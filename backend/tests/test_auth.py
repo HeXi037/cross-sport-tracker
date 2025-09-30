@@ -386,12 +386,13 @@ def test_create_token_flushes_before_refresh_token():
     )
     session.add(user)
 
-    access, refresh = asyncio.run(auth.create_token(user, session))
+    access, refresh, csrf = asyncio.run(auth.create_token(user, session))
 
     assert session.flush_called
     assert any(isinstance(obj, RefreshToken) for obj in session.added)
     assert access
     assert refresh
+    assert csrf
 
 
 def _create_admin_and_user(client: TestClient, user_name: str):

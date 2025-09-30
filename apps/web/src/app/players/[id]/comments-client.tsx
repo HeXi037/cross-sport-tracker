@@ -119,9 +119,12 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
     } catch (err) {
       const apiError = err as ApiError;
       const message =
-        apiError?.parsedMessage ||
-        apiError?.message ||
-        "We couldn't post your comment. Please try again.";
+        apiError?.code === "auth_csrf_missing" ||
+        apiError?.code === "auth_csrf_invalid"
+          ? "Your session expired. Please refresh and try again."
+          : apiError?.parsedMessage ||
+            apiError?.message ||
+            "We couldn't post your comment. Please try again.";
       setFeedback({ type: "error", message });
     } finally {
       setSubmitting(false);
@@ -157,9 +160,12 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
     } catch (err) {
       const apiError = err as ApiError;
       const message =
-        apiError?.parsedMessage ||
-        apiError?.message ||
-        "We couldn't delete the comment. Please try again.";
+        apiError?.code === "auth_csrf_missing" ||
+        apiError?.code === "auth_csrf_invalid"
+          ? "Your session expired. Please refresh and try again."
+          : apiError?.parsedMessage ||
+            apiError?.message ||
+            "We couldn't delete the comment. Please try again.";
       setFeedback({ type: "error", message });
     }
   }

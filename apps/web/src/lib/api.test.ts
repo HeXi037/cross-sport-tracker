@@ -102,6 +102,26 @@ describe('apiFetch', () => {
     window.localStorage.clear();
   });
 
+  it('attaches CSRF tokens to mutating requests', async () => {
+    const csrf = 'csrf-token';
+    const token = buildToken({ sub: 'user-1', csrf });
+    window.localStorage.setItem('token', token);
+    const response = new Response('{}', {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(response);
+    vi.stubGlobal('fetch', fetchMock);
+
+    await apiFetch('/mutate', { method: 'POST' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0];
+    const headers = new Headers(init?.headers);
+    expect(headers.get('Authorization')).toBe(`Bearer ${token}`);
+    expect(headers.get('X-CSRF-Token')).toBe(csrf);
+  });
+
   it('uses problem detail messages for RFC 7807 responses', async () => {
     const response = new Response(
       JSON.stringify({

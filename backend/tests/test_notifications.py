@@ -2,6 +2,8 @@ import asyncio
 import os
 import uuid
 
+import jwt
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -9,6 +11,7 @@ from fastapi.testclient import TestClient
 from app import db
 from app.models import Sport
 from app.routers import auth, matches, notifications, players
+from app.routers.auth import get_jwt_secret, JWT_ALG
 
 
 os.environ.setdefault("ADMIN_SECRET", "admintest")
@@ -17,8 +20,14 @@ os.environ.setdefault("ADMIN_SECRET", "admintest")
 TEST_PASSWORD = "Str0ng!Pass!"
 
 
-def _auth_headers(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
+def _auth_headers(token: str, *, csrf: bool = False) -> dict[str, str]:
+    headers = {"Authorization": f"Bearer {token}"}
+    if csrf:
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALG])
+        csrf_token = payload.get("csrf")
+        assert isinstance(csrf_token, str)
+        headers["X-CSRF-Token"] = csrf_token
+    return headers
 
 
 def _signup_user(client: TestClient, *, is_admin: bool = False) -> tuple[str, str]:
@@ -94,7 +103,7 @@ def test_comment_and_match_notifications_flow():
         comment_resp = client.post(
             f"/players/{owner_player['id']}/comments",
             json={"content": "Nice game!"},
-            headers=_auth_headers(opponent_token),
+            headers=_auth_headers(opponent_token, csrf=True),
         )
         assert comment_resp.status_code == 200
 

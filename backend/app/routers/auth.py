@@ -7,6 +7,7 @@ import random
 from pathlib import Path
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
+from typing import Any, Tuple
 
 import bcrypt
 import jwt
@@ -143,13 +144,19 @@ def _generate_temporary_password(length: int = 16) -> str:
   return "".join(password_chars)
 
 
-async def create_token(user: User, session: AsyncSession) -> tuple[str, str]:
+def _generate_csrf_token() -> str:
+  return secrets.token_urlsafe(32)
+
+
+async def create_token(user: User, session: AsyncSession) -> tuple[str, str, str]:
   await session.flush()
+  csrf_token = _generate_csrf_token()
   payload = {
       "sub": user.id,
       "username": user.username,
       "is_admin": user.is_admin,
       "exp": datetime.utcnow() + timedelta(seconds=JWT_EXPIRE_SECONDS),
+      "csrf": csrf_token,
   }
   access_token = jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALG)
   refresh_token = secrets.token_urlsafe()
@@ -162,7 +169,68 @@ async def create_token(user: User, session: AsyncSession) -> tuple[str, str]:
           revoked=False,
       )
   )
-  return access_token, refresh_token
+  return access_token, refresh_token, csrf_token
+
+
+def _extract_bearer_token(authorization: str | None) -> str:
+  if not authorization or not authorization.lower().startswith("bearer "):
+    raise http_problem(
+        status_code=401,
+        detail="missing token",
+        code="auth_missing_token",
+    )
+  return authorization.split(" ", 1)[1]
+
+
+async def _resolve_user_and_payload(
+    authorization: str | None, session: AsyncSession
+) -> Tuple[User, dict[str, Any]]:
+  token = _extract_bearer_token(authorization)
+  try:
+    payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALG])
+  except jwt.ExpiredSignatureError:
+    raise http_problem(
+        status_code=401,
+        detail="token expired",
+        code="auth_token_expired",
+    )
+  except jwt.PyJWTError:
+    raise http_problem(
+        status_code=401,
+        detail="invalid token",
+        code="auth_invalid_token",
+    )
+  uid = payload.get("sub")
+  user = await session.get(User, uid)
+  if not user:
+    raise http_problem(
+        status_code=401,
+        detail="user not found",
+        code="auth_user_not_found",
+    )
+  return user, payload
+
+
+def _require_csrf_token(csrf_header: str | None, payload: dict[str, Any]) -> None:
+  expected = payload.get("csrf")
+  if not isinstance(expected, str) or not expected:
+    raise http_problem(
+        status_code=403,
+        detail="missing CSRF token",
+        code="auth_csrf_missing",
+    )
+  if not csrf_header or not isinstance(csrf_header, str):
+    raise http_problem(
+        status_code=403,
+        detail="missing CSRF token",
+        code="auth_csrf_missing",
+    )
+  if not secrets.compare_digest(expected, csrf_header):
+    raise http_problem(
+        status_code=403,
+        detail="invalid CSRF token",
+        code="auth_csrf_invalid",
+    )
 
 
 @router.post("/signup", response_model=TokenOut)
@@ -214,9 +282,13 @@ async def signup(
   else:
     player = Player(id=uuid.uuid4().hex, user_id=uid, name=username)
     session.add(player)
-  access_token, refresh_token = await create_token(user, session)
+  access_token, refresh_token, csrf_token = await create_token(user, session)
   await session.commit()
-  return TokenOut(access_token=access_token, refresh_token=refresh_token)
+  return TokenOut(
+      access_token=access_token,
+      refresh_token=refresh_token,
+      csrf_token=csrf_token,
+  )
 
 
 @router.post("/login", response_model=TokenOut)
@@ -244,44 +316,30 @@ async def login(
         detail="invalid credentials",
         code="auth_invalid_credentials",
     )
-  access_token, refresh_token = await create_token(user, session)
+  access_token, refresh_token, csrf_token = await create_token(user, session)
   await session.commit()
-  return TokenOut(access_token=access_token, refresh_token=refresh_token)
+  return TokenOut(
+      access_token=access_token,
+      refresh_token=refresh_token,
+      csrf_token=csrf_token,
+  )
 
 
 async def get_current_user(
     authorization: str | None = Header(None),
     session: AsyncSession = Depends(get_session),
 ) -> User:
-  if not authorization or not authorization.lower().startswith("bearer "):
-    raise http_problem(
-        status_code=401,
-        detail="missing token",
-        code="auth_missing_token",
-    )
-  token = authorization.split(" ", 1)[1]
-  try:
-    payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALG])
-  except jwt.ExpiredSignatureError:
-    raise http_problem(
-        status_code=401,
-        detail="token expired",
-        code="auth_token_expired",
-    )
-  except jwt.PyJWTError:
-    raise http_problem(
-        status_code=401,
-        detail="invalid token",
-        code="auth_invalid_token",
-    )
-  uid = payload.get("sub")
-  user = await session.get(User, uid)
-  if not user:
-    raise http_problem(
-        status_code=401,
-        detail="user not found",
-        code="auth_user_not_found",
-    )
+  user, _ = await _resolve_user_and_payload(authorization, session)
+  return user
+
+
+async def get_current_user_with_csrf(
+    authorization: str | None = Header(None),
+    csrf_token: str | None = Header(None, alias="X-CSRF-Token"),
+    session: AsyncSession = Depends(get_session),
+) -> User:
+  user, payload = await _resolve_user_and_payload(authorization, session)
+  _require_csrf_token(csrf_token, payload)
   return user
 
 
@@ -399,9 +457,13 @@ async def update_me(
         detail="username exists",
         code="auth_username_exists",
     )
-  access_token, refresh_token = await create_token(current, session)
+  access_token, refresh_token, csrf_token = await create_token(current, session)
   await session.commit()
-  return TokenOut(access_token=access_token, refresh_token=refresh_token)
+  return TokenOut(
+      access_token=access_token,
+      refresh_token=refresh_token,
+      csrf_token=csrf_token,
+  )
 
 
 @router.post("/admin/reset-password", response_model=AdminPasswordResetOut)
@@ -470,9 +532,13 @@ async def refresh_tokens(
         code="auth_user_not_found",
     )
   token.revoked = True
-  access_token, refresh_token = await create_token(user, session)
+  access_token, refresh_token, csrf_token = await create_token(user, session)
   await session.commit()
-  return TokenOut(access_token=access_token, refresh_token=refresh_token)
+  return TokenOut(
+      access_token=access_token,
+      refresh_token=refresh_token,
+      csrf_token=csrf_token,
+  )
 
 
 @router.post("/revoke")

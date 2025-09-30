@@ -23,9 +23,12 @@ vi.mock("../../../components/charts/MatchHeatmap", () => ({
   ),
 }));
 
+const useLocaleMock = vi.fn(() => "en-AU");
+const useTimeZoneMock = vi.fn(() => "Australia/Melbourne");
+
 vi.mock("../../../lib/LocaleContext", () => ({
-  useLocale: () => "en-US",
-  useTimeZone: () => "UTC",
+  useLocale: () => useLocaleMock(),
+  useTimeZone: () => useTimeZoneMock(),
 }));
 
 import PlayerCharts from "./PlayerCharts";
@@ -70,10 +73,12 @@ describe("PlayerCharts", () => {
     const winRate = readJson<Array<{ date: string; winRate: number }>>("win-rate");
     expect(winRate).toHaveLength(2);
     expect(winRate[0].date).toBe("Match 1");
+    expect(winRate[1].date).toBe("1/1/24");
 
     const ranking = readJson<Array<{ date: string; rank: number }>>("ranking-history");
     expect(ranking).toHaveLength(2);
     expect(ranking[0].date).toBe("Match 1");
+    expect(ranking[1].date).toBe("1/1/24");
 
     const heatmap = readJson<Array<{ x: number; y: number; v: number }>>("heatmap");
     expect(heatmap).toHaveLength(1);

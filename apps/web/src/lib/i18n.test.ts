@@ -1,93 +1,101 @@
-import '@testing-library/jest-dom/vitest';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  clearStoredTimeZone,
-  DEFAULT_TIME_ZONE,
   detectTimeZone,
+  formatDate,
   formatDateTime,
-  getStoredTimeZone,
-  NEUTRAL_FALLBACK_LOCALE,
-  normalizeLocale,
-  parseAcceptLanguage,
-  resolveFormatterLocale,
-  resolveTimeZone,
-  storeTimeZonePreference,
-  TIME_ZONE_COOKIE_KEY,
-  TIME_ZONE_STORAGE_KEY,
+  getPreferredDateOptions,
 } from './i18n';
 
-describe('time zone resolution', () => {
+const ORIGINAL_DATE_TIME_FORMAT = Intl.DateTimeFormat;
+
+function mockDateTimeFormat(timeZone: string | undefined) {
+  return vi
+    .spyOn(Intl, 'DateTimeFormat')
+    .mockImplementation(
+      () =>
+        ({
+          resolvedOptions: () => ({ timeZone }),
+        } as unknown as Intl.DateTimeFormat),
+    );
+}
+
+describe('detectTimeZone', () => {
+  beforeEach(() => {
+    vi.stubGlobal('window', {} as Window & typeof globalThis);
+  });
+
   afterEach(() => {
-    clearStoredTimeZone();
-    window.localStorage.clear();
-    document.cookie = `${TIME_ZONE_COOKIE_KEY}=; path=/; max-age=0`;
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    Intl.DateTimeFormat = ORIGINAL_DATE_TIME_FORMAT;
   });
 
-  it('prefers an explicit time zone argument when provided', () => {
-    expect(resolveTimeZone('America/New_York')).toBe('America/New_York');
+  it('prefers the locale hint when the browser reports UTC', () => {
+    mockDateTimeFormat('UTC');
+
+    const zone = detectTimeZone('en-AU');
+
+    expect(zone).toBe('Australia/Melbourne');
   });
 
-  it('prefers stored preferences before falling back to detection', () => {
-    storeTimeZonePreference('Asia/Tokyo');
-    expect(window.localStorage.getItem(TIME_ZONE_STORAGE_KEY)).toBe('Asia/Tokyo');
-    expect(resolveTimeZone(null)).toBe('Asia/Tokyo');
+  it('prefers the locale hint when the browser reports GMT', () => {
+    mockDateTimeFormat('GMT');
+
+    const zone = detectTimeZone('en-AU');
+
+    expect(zone).toBe('Australia/Melbourne');
   });
 
-  it('falls back to UTC when detection is unavailable', () => {
-    const spy = vi
-      .spyOn(Intl, 'DateTimeFormat')
-      .mockImplementation(() => {
-        throw new Error('no detection');
-      });
+  it('returns the detected zone when it is specific', () => {
+    mockDateTimeFormat('America/Los_Angeles');
 
-    expect(resolveTimeZone('')).toBe(DEFAULT_TIME_ZONE);
+    const zone = detectTimeZone('en-US');
 
-    spy.mockRestore();
-  });
-
-  it('falls back to a locale-associated time zone when detection cannot run', () => {
-    const originalWindow = global.window;
-    // @ts-expect-error - simulate a non-browser environment where window is unavailable
-    delete (global as { window?: typeof window }).window;
-
-    try {
-      expect(detectTimeZone('en-AU')).toBe('Australia/Melbourne');
-      expect(resolveTimeZone(null, 'en-AU')).toBe('Australia/Melbourne');
-    } finally {
-      global.window = originalWindow;
-    }
-  });
-
-  it('ignores invalid stored values', () => {
-    storeTimeZonePreference('Invalid/Zone');
-    expect(getStoredTimeZone()).toBeNull();
-    expect(resolveTimeZone(null)).toBe(DEFAULT_TIME_ZONE);
+    expect(zone).toBe('America/Los_Angeles');
   });
 });
 
-describe('formatter helpers', () => {
-  it('falls back to a neutral locale when no locale is provided', () => {
-    expect(resolveFormatterLocale(undefined)).toBe(NEUTRAL_FALLBACK_LOCALE);
-    expect(resolveFormatterLocale('')).toBe(NEUTRAL_FALLBACK_LOCALE);
+describe('getPreferredDateOptions', () => {
+  it('selects short date style for Australian English', () => {
+    expect(getPreferredDateOptions('en-AU')).toEqual({ dateStyle: 'short' });
   });
 
-  it('formats dates with the neutral fallback when locale hints are missing', () => {
-    expect(formatDateTime('2001-11-21T09:30:00Z', '')).toBe('21 Nov 2001, 09:30');
+  it('keeps medium date style for US English', () => {
+    expect(getPreferredDateOptions('en-US')).toEqual({ dateStyle: 'medium' });
   });
 });
 
-describe('locale helpers', () => {
-  it('canonicalises locales with underscores and casing differences', () => {
-    expect(normalizeLocale('en_au')).toBe('en-AU');
-    expect(normalizeLocale('EN_us')).toBe('en-US');
+describe('formatting helpers', () => {
+  it('formats dates using day-first ordering for Australian locales', () => {
+    const formatted = formatDate(
+      new Date('2024-02-03T00:00:00Z'),
+      'en-AU',
+      undefined,
+      'Australia/Melbourne',
+    );
+
+    expect(formatted).toContain('3/2/24');
   });
 
-  it('applies canonicalisation to fallbacks', () => {
-    expect(normalizeLocale(undefined, 'en_gb')).toBe('en-GB');
-    expect(normalizeLocale(null, '')).toBe('');
+  it('preserves month-first ordering for US locales', () => {
+    const formatted = formatDate(
+      new Date('2024-02-03T00:00:00Z'),
+      'en-US',
+      undefined,
+      'America/New_York',
+    );
+
+    expect(formatted).toContain('Feb 2, 2024');
   });
 
-  it('parses Accept-Language values that include underscores', () => {
-    expect(parseAcceptLanguage('en_US,en_AU;q=0.8')).toBe('en-AU');
+  it('applies preferred options when formatting date time presets', () => {
+    const formatted = formatDateTime(
+      new Date('2024-02-03T00:00:00Z'),
+      'en-AU',
+      'default',
+      'Australia/Melbourne',
+    );
+
+    expect(formatted).toMatch(/3\/2\/24/);
   });
 });

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
@@ -12,7 +13,7 @@ import {
   TIME_ZONE_COOKIE_KEY,
 } from "../../../lib/i18n";
 import { hasTimeComponent } from "../../../lib/datetime";
-import { ensureTrailingSlash } from "../../../lib/routes";
+import { ensureTrailingSlash, recordPathForSport } from "../../../lib/routes";
 import {
   type SummaryData,
   type ScoreEvent,
@@ -21,8 +22,16 @@ import {
   rebuildRacketSummaryFromEvents,
   shouldRebuildRacketSummary,
   isRecord,
+  getNumericEntries,
 } from "../../../lib/match-summary";
-import { resolveParticipantGroups } from "../../../lib/participants";
+import {
+  resolveParticipantGroups,
+  sanitizePlayerList,
+} from "../../../lib/participants";
+import {
+  buildComingSoonHref,
+  getRecordSportMetaById,
+} from "../../../lib/recording";
 import { resolveServerLocale } from "../../../lib/server-locale";
 
 export const dynamic = "force-dynamic";
@@ -87,6 +96,26 @@ type MatchDetail = {
 
 const PLACEHOLDER_LABELS = new Set(["-", "–", "—", "n/a", "na"]);
 
+type SummaryColumnKey = "sets" | "games" | "points";
+
+type SummaryColumn = {
+  key: SummaryColumnKey;
+  label: string;
+  values: Map<string, number>;
+};
+
+type ParticipantDisplay = {
+  sideKey: string;
+  label: string;
+  players: PlayerInfo[];
+};
+
+const SUMMARY_COLUMN_CONFIG: Array<[SummaryColumnKey, string]> = [
+  ["sets", "Sets"],
+  ["games", "Games"],
+  ["points", "Points"],
+];
+
 function toPositiveInteger(value: unknown): number | undefined {
   if (typeof value === "number") {
     if (!Number.isFinite(value)) return undefined;
@@ -119,6 +148,71 @@ function normalizeLabel(value: unknown): string | undefined {
     return undefined;
   }
   return normalized;
+}
+
+function normalizeSideKey(side?: string | null): string {
+  if (typeof side !== "string") return "";
+  const trimmed = side.trim();
+  return trimmed ? trimmed.toUpperCase() : "";
+}
+
+function buildParticipantDisplays(
+  participants: Participant[],
+  lookup: Map<string, PlayerInfo>
+): ParticipantDisplay[] {
+  return participants
+    .map((participant, index) => {
+      const ids = participant.playerIds ?? [];
+      const players = sanitizePlayerList(
+        ids.map((rawId) => {
+          if (!rawId) {
+            return null;
+          }
+          const id = String(rawId);
+          return lookup.get(id) ?? { id, name: "Unknown" };
+        })
+      );
+      if (!players.length) {
+        return null;
+      }
+
+      const normalizedLabel = normalizeLabel(participant.side);
+      const normalizedKey = normalizeSideKey(normalizedLabel) || `SIDE_${index + 1}`;
+      const label = normalizedLabel
+        ? /^[A-Za-z0-9]+$/.test(normalizedLabel)
+          ? `Side ${normalizedLabel.toUpperCase()}`
+          : normalizedLabel
+        : `Side ${index + 1}`;
+
+      return {
+        sideKey: normalizedKey,
+        label,
+        players,
+      };
+    })
+    .filter((value): value is ParticipantDisplay => value !== null);
+}
+
+function buildSummaryColumn(
+  summary: SummaryData,
+  key: SummaryColumnKey,
+  label: string
+): SummaryColumn | null {
+  if (!isRecord(summary)) {
+    return null;
+  }
+  const record = summary as { [entry in SummaryColumnKey]?: unknown };
+  const entries = getNumericEntries(record[key]);
+  if (!entries.length) {
+    return null;
+  }
+  const values = new Map<string, number>();
+  entries.forEach(([side, value]) => {
+    const normalized = normalizeSideKey(side);
+    const keyToUse = normalized || normalizeLabel(side) || side;
+    values.set(keyToUse ?? "", value);
+  });
+  return values.size ? { key, label, values } : null;
 }
 
 function isNextNotFoundError(error: unknown):
@@ -587,6 +681,101 @@ export default async function MatchDetailPage({
     headerMetaParts.push(fallbackLabel);
   }
 
+  const participantsWithSides = buildParticipantDisplays(parts, idToPlayer);
+  const summaryColumns = SUMMARY_COLUMN_CONFIG.map(([key, label]) =>
+    buildSummaryColumn(initialSummary, key, label)
+  ).filter((column): column is SummaryColumn => column !== null);
+
+  const summarySideKeys = new Set<string>();
+  participantsWithSides.forEach((participant) => {
+    summarySideKeys.add(participant.sideKey);
+  });
+  summaryColumns.forEach((column) => {
+    column.values.forEach((_, sideKey) => {
+      summarySideKeys.add(sideKey);
+    });
+  });
+
+  const summaryRows = Array.from(summarySideKeys).map((sideKey, index) => {
+    const participant = participantsWithSides.find(
+      (entry) => entry.sideKey === sideKey
+    );
+    const fallbackLabel = sideKey ? `Side ${sideKey}` : `Side ${index + 1}`;
+    return {
+      sideKey,
+      label: participant?.label ?? fallbackLabel,
+    };
+  });
+
+  let winningSideKey: string | null = null;
+  if (isFinished) {
+    for (const key of ["sets", "games", "points"] as const) {
+      const column = summaryColumns.find((entry) => entry.key === key);
+      if (!column) continue;
+      const entries = Array.from(column.values.entries()).sort(
+        (a, b) => b[1] - a[1]
+      );
+      if (!entries.length) continue;
+      const [topKey, topValue] = entries[0];
+      const runnerUp = entries[1];
+      if (!runnerUp || topValue > runnerUp[1]) {
+        winningSideKey = topKey;
+        break;
+      }
+    }
+  }
+
+  const winnerParticipant = winningSideKey
+    ? participantsWithSides.find((participant) => participant.sideKey === winningSideKey)
+    : null;
+  const winnerLabel = isFinished
+    ? winnerParticipant?.label ??
+      (winningSideKey ? `Side ${winningSideKey}` : null)
+    : null;
+
+  const sportMeta = match.sport ? getRecordSportMetaById(match.sport) : null;
+  let rulesHref: string | null = null;
+  if (sportMeta) {
+    if (sportMeta.implemented) {
+      if (sportMeta.form === "custom" && sportMeta.redirectPath) {
+        rulesHref = ensureTrailingSlash(sportMeta.redirectPath);
+      } else {
+        rulesHref = recordPathForSport(sportMeta.id);
+      }
+    } else {
+      rulesHref = buildComingSoonHref(sportMeta.slug);
+    }
+  } else if (match.sport) {
+    rulesHref = recordPathForSport(match.sport);
+  }
+
+  const rulesLinkLabel = sportLabel ?? "this sport";
+  const isFriendlyMatch = match.isFriendly === true;
+  const leaderboardLabel = isFriendlyMatch
+    ? "Friendly match – does not count toward leaderboard standings"
+    : "Counts toward leaderboard standings";
+
+  const infoItems: Array<{ term: string; description: ReactNode }> = [
+    { term: "Date & time", description: playedAtLabel ?? "Not recorded" },
+    { term: "Location", description: locationLabel ?? "Not provided" },
+  ];
+
+  if (rulesetLabel) {
+    infoItems.push({ term: "Ruleset", description: rulesetLabel });
+  }
+
+  infoItems.push({ term: "Leaderboard", description: leaderboardLabel });
+  infoItems.push({
+    term: "Rules",
+    description: rulesHref ? (
+      <Link href={rulesHref}>View {rulesLinkLabel} rules</Link>
+    ) : (
+      "Rules unavailable"
+    ),
+  });
+
+  const hasSummaryTable = summaryColumns.length > 0 && summaryRows.length > 0;
+
   return (
     <main className="container">
       <div className="text-sm">
@@ -628,6 +817,130 @@ export default async function MatchDetailPage({
         </h1>
         <p className="match-meta">{headerMetaParts.join(" · ")}</p>
       </header>
+      <div className="match-detail-layout">
+        <section
+          className="card match-detail-card"
+          aria-labelledby="match-participants-heading"
+        >
+          <h2 id="match-participants-heading" className="match-detail-card__title">
+            Participants
+          </h2>
+          {winnerLabel ? (
+            <p className="match-detail-result">
+              <span>Winner: {winnerLabel}</span>
+              {winnerParticipant?.players.length ? (
+                <MatchParticipants
+                  as="span"
+                  sides={[winnerParticipant.players]}
+                  separatorSymbol="&"
+                />
+              ) : null}
+            </p>
+          ) : null}
+          {participantsWithSides.length ? (
+            <ul
+              className="match-detail-participants"
+              aria-label="Match participants"
+            >
+              {participantsWithSides.map((participant, index) => {
+                const className = [
+                  "match-detail-participant",
+                  winningSideKey === participant.sideKey
+                    ? "match-detail-participant--winner"
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+                return (
+                  <li key={`${participant.sideKey}-${index}`} className={className}>
+                    <div className="match-detail-participant__header">
+                      <span className="match-detail-participant__label">
+                        {participant.label}
+                      </span>
+                      {winningSideKey === participant.sideKey ? (
+                        <span className="match-detail-participant__badge">Winner</span>
+                      ) : null}
+                    </div>
+                    <MatchParticipants
+                      as="div"
+                      sides={[participant.players]}
+                      separatorSymbol="&"
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="match-detail-empty">
+              Participants not yet available.
+            </p>
+          )}
+          {hasSummaryTable ? (
+            <div className="scoreboard-wrapper">
+              <table
+                className="match-detail-summary-table"
+                aria-label="Score totals"
+              >
+                <thead>
+                  <tr>
+                    <th scope="col">Side</th>
+                    {summaryColumns.map((column) => (
+                      <th key={column.key} scope="col">
+                        {column.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {summaryRows.map((row, index) => {
+                    const className = [
+                      "match-detail-summary-row",
+                      winningSideKey === row.sideKey
+                        ? "match-detail-summary-row--winner"
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+                    return (
+                      <tr
+                        key={row.sideKey || `row-${index}`}
+                        className={className}
+                      >
+                        <th scope="row">{row.label}</th>
+                        {summaryColumns.map((column) => {
+                          const value = column.values.get(row.sideKey);
+                          return (
+                            <td key={column.key}>{
+                              value != null ? value : "—"
+                            }</td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="match-detail-empty">
+              Score summary will appear once results are recorded.
+            </p>
+          )}
+        </section>
+        <section className="card match-detail-card" aria-labelledby="match-info-heading">
+          <h2 id="match-info-heading" className="match-detail-card__title">
+            Match info
+          </h2>
+          <dl className="match-detail-info">
+            {infoItems.map(({ term, description }) => (
+              <div key={term} className="match-detail-info__item">
+                <dt className="match-detail-info__term">{term}</dt>
+                <dd className="match-detail-info__description">{description}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      </div>
       <LiveSummary
         mid={params.mid}
         sport={match.sport}

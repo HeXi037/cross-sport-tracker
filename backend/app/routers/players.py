@@ -35,6 +35,10 @@ from ..models import (
     Rating,
     GlickoRating,
     PlayerSocialLink,
+    RefreshToken,
+    NotificationPreference,
+    PushSubscription,
+    Notification,
 )
 from ..config import API_PREFIX
 from ..schemas import (
@@ -943,6 +947,28 @@ async def delete_player(
     if hard:
         # remove associated user so the username can be reused
         if p.user_id:
+            bind = await session.connection()
+
+            async def _delete_related(model, column) -> None:
+                table_name = getattr(model, "__tablename__", None)
+                if not table_name:
+                    return
+
+                exists = await bind.run_sync(
+                    lambda conn, name=table_name: inspect(conn).has_table(name)
+                )
+                if not exists:
+                    return
+
+                await session.execute(delete(model).where(column == p.user_id))
+
+            await _delete_related(RefreshToken, RefreshToken.user_id)
+            await _delete_related(
+                NotificationPreference, NotificationPreference.user_id
+            )
+            await _delete_related(PushSubscription, PushSubscription.user_id)
+            await _delete_related(Notification, Notification.user_id)
+            await _delete_related(Comment, Comment.user_id)
             u = await session.get(User, p.user_id)
             if u:
                 await session.delete(u)

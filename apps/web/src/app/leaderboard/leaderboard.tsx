@@ -482,9 +482,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     return () => window.clearTimeout(timeout);
   }, [measureOverflow, sport]);
 
-  const supportsFilters = SPORTS.includes(
-    sport as (typeof SPORTS)[number],
-  );
+  const supportsFilters = sport !== MASTER_SPORT;
 
   const regionQueryString = useMemo(() => {
     const params = new URLSearchParams();

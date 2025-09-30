@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from fastapi.responses import JSONResponse
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select, func
 from app import db
 from app.routers import players, auth, badges
 from app.models import (
@@ -453,6 +454,36 @@ def test_player_social_link_invalid_url(async_client) -> None:
         assert bad_resp.status_code == 422
 
     loop.run_until_complete(scenario())
+async def _fetch_user_state(username: str) -> tuple[str, int]:
+    async with db.AsyncSessionLocal() as session:
+        user = (
+            await session.execute(
+                select(User).where(func.lower(User.username) == username)
+            )
+        ).scalar_one()
+        token_count = (
+            await session.execute(
+                select(func.count())
+                .select_from(RefreshToken)
+                .where(RefreshToken.user_id == user.id)
+            )
+        ).scalar_one()
+        return user.id, token_count
+
+
+async def _ensure_user_removed(user_id: str) -> tuple[User | None, int]:
+    async with db.AsyncSessionLocal() as session:
+        user = await session.get(User, user_id)
+        remaining_tokens = (
+            await session.execute(
+                select(func.count())
+                .select_from(RefreshToken)
+                .where(RefreshToken.user_id == user_id)
+            )
+        ).scalar_one()
+        return user, remaining_tokens
+
+
 def test_hard_delete_player_allows_username_reuse() -> None:
     with TestClient(app) as client:
         token = admin_token(client)
@@ -462,6 +493,9 @@ def test_hard_delete_player_allows_username_reuse() -> None:
             "/auth/signup", json={"username": "Eve", "password": "Str0ng!Pass!"}
         )
         assert resp.status_code == 200
+
+        user_id, token_count = asyncio.run(_fetch_user_state("eve"))
+        assert token_count > 0
 
         # lookup player id for Eve
         pid = client.get("/players", params={"q": "eve"}).json()["players"][0]["id"]
@@ -473,6 +507,10 @@ def test_hard_delete_player_allows_username_reuse() -> None:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 204
+
+        deleted_user, remaining_token_count = asyncio.run(_ensure_user_removed(user_id))
+        assert deleted_user is None
+        assert remaining_token_count == 0
 
         # signup again with the same username should now succeed
         resp = client.post(

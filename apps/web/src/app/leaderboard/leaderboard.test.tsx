@@ -200,6 +200,48 @@ describe("Leaderboard", () => {
     );
   });
 
+  it("lets users filter the combined leaderboard", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+    updateMockLocation("/leaderboard?sport=all");
+
+    render(<Leaderboard sport="all" />);
+
+    await waitFor(() => expect(fetchClubsSpy).toHaveBeenCalled());
+
+    const countrySelect = (await screen.findByRole("combobox", {
+      name: "Country",
+    })) as HTMLSelectElement;
+    await user.selectOptions(countrySelect, "SE");
+
+    const clubSelect = (await screen.findByRole("combobox", {
+      name: "Club",
+    })) as HTMLSelectElement;
+    await user.selectOptions(clubSelect, "club-123");
+
+    const applyButton = screen.getByRole("button", { name: "Apply" });
+    expect(applyButton).not.toBeDisabled();
+
+    const initialCallCount = replaceMock.mock.calls.length;
+    await user.click(applyButton);
+
+    await waitFor(() =>
+      expect(replaceMock.mock.calls.length).toBeGreaterThan(initialCallCount),
+    );
+
+    const lastCall = replaceMock.mock.calls.at(-1);
+    expect(lastCall).toBeDefined();
+    const [href] = lastCall!;
+    const url = new URL(href as string, "https://example.test");
+    expect(url.pathname).toBe("/leaderboard");
+    expect(url.searchParams.get("sport")).toBe("all");
+    expect(url.searchParams.get("country")).toBe("SE");
+    expect(url.searchParams.get("clubId")).toBe("club-123");
+  });
+
   it("lets users apply structured region filters", async () => {
     const fetchMock = vi
       .fn()

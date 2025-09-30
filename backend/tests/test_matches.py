@@ -417,6 +417,64 @@ async def test_create_match_by_name_with_sets(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_create_match_by_name_accepts_list_of_set_pairs(tmp_path, monkeypatch):
+  from app import db
+  from app.models import Match, MatchParticipant, Player, ScoreEvent, Sport, User
+  from app.routers import matches
+  from app.schemas import MatchCreateByName, ParticipantByName
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+      db.Base.metadata.create_all,
+      tables=[
+        Player.__table__,
+        Sport.__table__,
+        Stage.__table__,
+        Match.__table__,
+        MatchParticipant.__table__,
+        ScoreEvent.__table__,
+      ],
+    )
+
+  async def dummy_broadcast(mid: str, message: dict) -> None:
+    return None
+
+  async def dummy_notify(*args, **kwargs) -> None:  # type: ignore[no-untyped-def]
+    return None
+
+  monkeypatch.setattr(matches, "broadcast", dummy_broadcast)
+  monkeypatch.setattr(matches, "notify_match_recorded", dummy_notify)
+
+  async with db.AsyncSessionLocal() as session:
+    session.add_all([
+      Player(id="p1", name="alice"),
+      Player(id="p2", name="bob"),
+      Sport(id="padel", name="Padel"),
+    ])
+    await session.commit()
+    body = MatchCreateByName(
+      sport="padel",
+      participants=[
+        ParticipantByName(side="A", playerNames=["Alice"]),
+        ParticipantByName(side="B", playerNames=["Bob"]),
+      ],
+      sets=[[6, 4], [6, 2]],
+      isFriendly=True,
+    )
+    admin = User(id="u1", username="admin", password_hash="", is_admin=True)
+    resp = await matches.create_match_by_name(body, session, user=admin)
+    assert resp.id
+    m = await session.get(Match, resp.id)
+    assert m is not None
+    assert m.details is not None
+    assert m.details.get("set_scores") == [{"A": 6, "B": 4}, {"A": 6, "B": 2}]
+    assert m.details.get("sets") == {"A": 2, "B": 0}
+
+
+@pytest.mark.anyio
 async def test_create_match_normalizes_timezone(tmp_path):
   from fastapi import FastAPI
   from fastapi.testclient import TestClient

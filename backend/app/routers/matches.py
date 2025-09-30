@@ -546,7 +546,7 @@ async def create_match_by_name(
         parts.append(Participant(side=part.side, playerIds=ids))
     sets = None
     if body.sets:
-        sets = [list(scores) for scores in zip(*body.sets)]
+        sets = [list(scores) for scores in body.sets]
     mc = MatchCreate(
         sport=body.sport,
         rulesetId=body.rulesetId,

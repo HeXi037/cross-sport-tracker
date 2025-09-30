@@ -75,7 +75,7 @@ const SPORT_COPY: Record<string, Record<string, SportCopy>> = {
       playersHint:
         'Choose the lineup for each side. Leave the second slot empty for singles games.',
       scoringHint:
-        'Enter the winning game totals for teams A and B (best of three unless noted).',
+        'Pickleball matches are best of three games. Enter the points for each game below (for example 11-6, 8-11, 11-9) and the app will calculate the 2-1 result.',
       confirmationMessage: 'Save this pickleball match?',
     },
     'en-au': {
@@ -92,7 +92,7 @@ const SPORT_COPY: Record<string, Record<string, SportCopy>> = {
       playersHint:
         'Select the competitors for each side. Leave unused slots blank for forfeits.',
       scoringHint:
-        'Enter the number of games won by each side (first to three in most matches).',
+        'Enter the points for each game in order. Leave unused games blank—matches end when a side wins two games (best of three) or three games (best of five).',
       confirmationMessage: 'Save this table tennis result?',
     },
     'en-au': {

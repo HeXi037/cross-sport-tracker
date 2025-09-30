@@ -51,6 +51,48 @@ function createMatch(overrides: Partial<MockMatch> = {}): MockMatch {
   };
 }
 
+const defaultSportsCatalog = [
+  { id: "padel", name: "Padel" },
+  { id: "tennis", name: "Tennis" },
+];
+
+function setupFetchMock(
+  matches: MockMatch[],
+  options: {
+    headers?: HeadersInit;
+    sports?: Array<{ id: string; name: string }>;
+    matchStatus?: number;
+  } = {},
+) {
+  const { headers, sports = defaultSportsCatalog, matchStatus = 200 } = options;
+  const matchesHeaders = new Headers({ "X-Has-More": "false", ...headers });
+  const matchesResponse = {
+    ok: matchStatus >= 200 && matchStatus < 300,
+    status: matchStatus,
+    headers: matchesHeaders,
+    json: async () => matches,
+  } as Response;
+  const sportsResponse = {
+    ok: true,
+    headers: new Headers(),
+    json: async () => sports,
+  } as Response;
+
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    if (url.includes("/v0/matches")) {
+      return matchesResponse;
+    }
+    if (url.includes("/v0/sports")) {
+      return sportsResponse;
+    }
+    throw new Error(`Unexpected fetch: ${url}`);
+  });
+
+  global.fetch = fetchMock as unknown as typeof fetch;
+  return fetchMock;
+}
+
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
@@ -87,14 +129,7 @@ describe("MatchesPage", () => {
       }),
     ];
 
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        headers: new Headers({ "X-Has-More": "false" }),
-        json: async () => matches,
-      });
-    global.fetch = fetchMock as unknown as typeof fetch;
+    const fetchMock = setupFetchMock(matches);
 
     const page = await MatchesPage({ searchParams: {} });
     render(page);
@@ -105,7 +140,7 @@ describe("MatchesPage", () => {
     expect(
       screen.getByText((text) => text.includes("6-4, 7-5"))
     ).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/v0/matches?limit=25&offset=0"),
       expect.objectContaining({ cache: "no-store" })
@@ -113,14 +148,7 @@ describe("MatchesPage", () => {
   });
 
   it("disables pagination buttons when at bounds", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        headers: new Headers({ "X-Has-More": "false" }),
-        json: async () => [createMatch()],
-      });
-    global.fetch = fetchMock as unknown as typeof fetch;
+    const fetchMock = setupFetchMock([createMatch()]);
 
     const page = await MatchesPage({ searchParams: {} });
     render(page);
@@ -133,21 +161,14 @@ describe("MatchesPage", () => {
   });
 
   it("renders an empty state when there are no matches", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        headers: new Headers({ "X-Has-More": "false" }),
-        json: async () => [],
-      });
-    global.fetch = fetchMock as unknown as typeof fetch;
+    const fetchMock = setupFetchMock([]);
 
     const page = await MatchesPage({ searchParams: {} });
     render(page);
 
     expect(await screen.findByText("No matches yet.")).toBeInTheDocument();
     expect(screen.queryByText("Next")).not.toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("omits placeholder glyphs from match metadata", async () => {
@@ -170,14 +191,7 @@ describe("MatchesPage", () => {
       }),
     ];
 
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        headers: new Headers({ "X-Has-More": "false" }),
-        json: async () => matches,
-      });
-    global.fetch = fetchMock as unknown as typeof fetch;
+    const fetchMock = setupFetchMock(matches);
 
     const page = await MatchesPage({ searchParams: {} });
     const { container } = render(page);
@@ -195,7 +209,7 @@ describe("MatchesPage", () => {
       expect(text.trim().length).toBeGreaterThan(0);
     }
 
-    expect(metadataTexts.some((text) => text.includes("padel"))).toBe(true);
+    expect(metadataTexts.some((text) => text.includes("Padel"))).toBe(true);
     expect(metadataTexts.some((text) => text.includes("Best of 5"))).toBe(true);
     expect(metadataTexts.some((text) => text.includes("Friendly"))).toBe(true);
   });
@@ -203,17 +217,12 @@ describe("MatchesPage", () => {
   it("disables the next button when the API reports no more results", async () => {
     const matches = [createMatch({ id: "m1" }), createMatch({ id: "m2" })];
 
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        headers: new Headers({
-          "X-Has-More": "false",
-          "X-Next-Offset": "4",
-        }),
-        json: async () => matches,
-      });
-    global.fetch = fetchMock as unknown as typeof fetch;
+    const fetchMock = setupFetchMock(matches, {
+      headers: {
+        "X-Has-More": "false",
+        "X-Next-Offset": "4",
+      },
+    });
 
     const page = await MatchesPage({ searchParams: { limit: "2" } });
     render(page);

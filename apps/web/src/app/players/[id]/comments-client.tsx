@@ -10,6 +10,8 @@ import {
   type ApiError,
 } from "../../../lib/api";
 import { useApiSWR } from "../../../lib/useApiSWR";
+import { useLocale, useTimeZone } from "../../../lib/LocaleContext";
+import { formatDateTime } from "../../../lib/i18n";
 
 interface Comment {
   id: string;
@@ -41,6 +43,8 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
     userId: currentUserId(),
     admin: isAdmin(),
   }));
+  const locale = useLocale();
+  const timeZone = useTimeZone();
 
   const {
     data,
@@ -216,23 +220,31 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
         <p>Loading comments…</p>
       ) : comments.length ? (
         <ul>
-          {comments.map((c) => (
-            <li key={c.id} className="mb-2">
-              <div>{c.content}</div>
-              <div className="text-sm text-gray-700">
-                {c.username} · {new Date(c.createdAt).toLocaleString()}
-                {session.loggedIn &&
-                  (session.admin || session.userId === c.userId) && (
-                    <button
-                    onClick={() => remove(c.id, c.userId)}
-                    className="ml-2 text-red-600"
-                  >
-                    Delete
-                  </button>
-                )}
-              </div>
-            </li>
-          ))}
+          {comments.map((c) => {
+            const createdAtLabel = formatDateTime(
+              c.createdAt,
+              locale,
+              "compact",
+              timeZone,
+            );
+            return (
+              <li key={c.id} className="mb-2">
+                <div>{c.content}</div>
+                <div className="text-sm text-gray-700">
+                  {c.username} · {createdAtLabel}
+                  {session.loggedIn &&
+                    (session.admin || session.userId === c.userId) && (
+                      <button
+                        onClick={() => remove(c.id, c.userId)}
+                        className="ml-2 text-red-600"
+                      >
+                        Delete
+                      </button>
+                    )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       ) : (
         <p>No comments.</p>
@@ -248,6 +260,7 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
             feedback.type === "error" ? "text-red-600" : "text-green-600"
           }`}
           role={feedback.type === "error" ? "alert" : "status"}
+          aria-live={feedback.type === "error" ? "assertive" : "polite"}
         >
           {feedback.message}
         </p>

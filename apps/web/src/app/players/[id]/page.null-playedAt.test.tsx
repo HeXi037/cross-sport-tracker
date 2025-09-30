@@ -133,6 +133,12 @@ describe("PlayerPage matches without playedAt", () => {
         return makeResponse([]);
       }
 
+      if (path === "/v0/sports") {
+        return makeResponse([
+          { id: "tennis", name: "Tennis" },
+        ]);
+      }
+
       throw new Error(`Unexpected apiFetch call: ${path}`);
     });
 

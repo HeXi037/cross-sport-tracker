@@ -175,5 +175,29 @@ v0_router.include_router(notifications.router)
 
 api_router.include_router(v0_router)
 
+# --- DEBUG: remove after verifying routing ---
+from starlette.routing import Mount
+import base64
+
+@app.get(f"{API_PREFIX}/__debug__/mounts", tags=["debug"])
+def debug_mounts():
+    return {
+        "api_prefix": API_PREFIX,
+        "static_dir": str(STATIC_DIR),
+        "mounts": [r.path for r in app.routes if isinstance(r, Mount)],
+    }
+
+@app.post(f"{API_PREFIX}/__debug__/static-test", tags=["debug"])
+def debug_static_write():
+    """Writes a tiny PNG to {STATIC_DIR}/users/pixel.png for quick curl testing."""
+    target = (STATIC_DIR / "users" / "pixel.png")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    data = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/wwAAn8B9nN8oV8AAAAASUVORK5CYII="
+    )
+    target.write_bytes(data)
+    return {"wrote": str(target)}
+# --- /DEBUG ---
+
 app.include_router(api_router)
 app.include_router(player_pages.router)

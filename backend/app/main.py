@@ -1,9 +1,13 @@
+from pathlib import Path
+import logging
+import os
+
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
 from slowapi.errors import RateLimitExceeded
+
 from .routers import (
     sports,
     rulesets,
@@ -20,13 +24,12 @@ from .routers import (
 from .routes import player as player_pages
 from .exceptions import DomainException, ProblemDetail
 from .config import API_PREFIX
-import logging
-import os
-
 
 logger = logging.getLogger(__name__)
 
-
+# -----------------------------------------------------------------------------
+# CORS configuration
+# -----------------------------------------------------------------------------
 ALLOWED_ORIGINS = [
     o.strip()
     for o in os.getenv("ALLOWED_ORIGINS", "*").split(",")
@@ -34,7 +37,7 @@ ALLOWED_ORIGINS = [
 ]
 ALLOW_CREDENTIALS = os.getenv("ALLOW_CREDENTIALS", "true").lower() == "true"
 
-# CORS safety check
+# Fail fast if misconfigured: credentials + wildcard origins is unsafe
 if ALLOW_CREDENTIALS and (not ALLOWED_ORIGINS or "*" in ALLOWED_ORIGINS):
     raise ValueError(
         "ALLOWED_ORIGINS cannot be '*' when credentials are allowed. "
@@ -42,6 +45,9 @@ if ALLOW_CREDENTIALS and (not ALLOWED_ORIGINS or "*" in ALLOWED_ORIGINS):
         "ALLOW_CREDENTIALS=false."
     )
 
+# -----------------------------------------------------------------------------
+# FastAPI app
+# -----------------------------------------------------------------------------
 app = FastAPI(
     title="Cross Sport Tracker API",
     version="0.1.0",
@@ -50,9 +56,11 @@ app = FastAPI(
     openapi_url="/openapi.json",
 )
 
+# Rate limiting
 app.state.limiter = auth.limiter
 app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
 
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS or ["*"],
@@ -64,16 +72,30 @@ app.add_middleware(
 # Fail fast if JWT_SECRET is missing or weak
 auth.get_jwt_secret()
 
-static_dir = Path(__file__).resolve().parent / "static"
-static_dir.mkdir(parents=True, exist_ok=True)
-app.mount(f"{API_PREFIX}/static", StaticFiles(directory=str(static_dir)), name="static")
+# -----------------------------------------------------------------------------
+# Static files
+# -----------------------------------------------------------------------------
+# Allow overriding static directory via env; default to package-local ./static
+STATIC_DIR = Path(os.getenv("STATIC_DIR") or (Path(__file__).resolve().parent / "static"))
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
+logger.info("API_PREFIX=%r", API_PREFIX)
+logger.info("Mounting static at %s/static -> %s", API_PREFIX, STATIC_DIR)
 
+# Serve at /api/static/* when API_PREFIX is '/api'
+app.mount(f"{API_PREFIX}/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+# -----------------------------------------------------------------------------
+# Health checks
+# -----------------------------------------------------------------------------
 @app.get("/healthz", tags=["health"])  # Unprefixed for reverse proxy / uptime checks
 def root_healthz():
     return {"status": "ok"}
 
 
+# -----------------------------------------------------------------------------
+# Error handling
+# -----------------------------------------------------------------------------
 @app.exception_handler(DomainException)
 async def domain_exception_handler(request: Request, exc: DomainException) -> JSONResponse:
     problem = ProblemDetail(
@@ -122,6 +144,9 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
         media_type="application/problem+json",
     )
 
+# -----------------------------------------------------------------------------
+# Routers
+# -----------------------------------------------------------------------------
 api_router = APIRouter(prefix=API_PREFIX, tags=["meta"])
 
 
@@ -136,7 +161,6 @@ def api_root():
 
 
 v0_router = APIRouter(prefix="/v0")
-
 v0_router.include_router(sports.router)
 v0_router.include_router(rulesets.router)
 v0_router.include_router(players.router)

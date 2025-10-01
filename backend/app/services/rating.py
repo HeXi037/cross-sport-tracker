@@ -157,9 +157,12 @@ async def update_ratings(
         ).scalars().all()
 
         match_counts = {pid: 0 for pid in ids}
+        tracked_ids = set(match_counts)
         for player_ids in rows:
-            for pid in ids:
-                if pid in player_ids:
+            if not player_ids:
+                continue
+            for pid in player_ids:
+                if pid in tracked_ids:
                     match_counts[pid] += 1
 
         k_map: dict[str, float] = {}

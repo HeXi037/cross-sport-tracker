@@ -754,11 +754,18 @@ async def upload_player_photo(
     player_id: str,
     file: UploadFile = File(...),
     session: AsyncSession = Depends(get_session),
-    user: User = Depends(require_admin),
+    user: User = Depends(get_current_user),
 ):
     p = await session.get(Player, player_id)
     if not p or p.deleted_at is not None:
         raise PlayerNotFound(player_id)
+
+    if not user.is_admin and p.user_id != user.id:
+        raise http_problem(
+            status_code=403,
+            detail="forbidden",
+            code="player_photo_forbidden",
+        )
 
     filename = await save_photo_upload(
         file,

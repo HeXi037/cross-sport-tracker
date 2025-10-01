@@ -666,6 +666,66 @@ def test_upload_player_photo_prefixed_url() -> None:
             filepath.unlink()
 
 
+def test_upload_player_photo_allows_player_owner(async_client) -> None:
+    client, loop = async_client
+
+    async def scenario() -> None:
+        auth.limiter.reset()
+
+        signup = await client.post(
+            "/auth/signup",
+            json={"username": "selfie-owner", "password": "Str0ng!Pass!"},
+        )
+        assert signup.status_code == 200
+        token = signup.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        me = await client.get("/players/me", headers=headers)
+        assert me.status_code == 200
+        player_id = me.json()["id"]
+
+        files = {"file": ("avatar.png", VALID_PNG_BYTES, "image/png")}
+        upload = await client.post(
+            f"/players/{player_id}/photo",
+            files=files,
+            headers=headers,
+        )
+        assert upload.status_code == 200
+        data = upload.json()
+        assert data["id"] == player_id
+        assert data["photo_url"].startswith("/api/static/players/")
+        filename = data["photo_url"].split("/")[-1]
+        filepath = players.UPLOAD_DIR / filename
+        try:
+            assert filepath.exists()
+        finally:
+            if filepath.exists():
+                filepath.unlink()
+
+        other_signup = await client.post(
+            "/auth/signup",
+            json={"username": "other-owner", "password": "Str0ng!Pass!"},
+        )
+        assert other_signup.status_code == 200
+        other_token = other_signup.json()["access_token"]
+        other_headers = {"Authorization": f"Bearer {other_token}"}
+        other_me = await client.get("/players/me", headers=other_headers)
+        assert other_me.status_code == 200
+        other_player_id = other_me.json()["id"]
+
+        files = {"file": ("avatar.png", VALID_PNG_BYTES, "image/png")}
+        forbidden = await client.post(
+            f"/players/{other_player_id}/photo",
+            files=files,
+            headers=headers,
+        )
+        assert forbidden.status_code == 403
+        problem = forbidden.json()
+        assert problem["code"] == "player_photo_forbidden"
+
+    loop.run_until_complete(scenario())
+
+
 def test_upload_player_photo_streams_chunks(async_client, monkeypatch) -> None:
     client, loop = async_client
     monkeypatch.setattr(players, "CHUNK_SIZE", 8)

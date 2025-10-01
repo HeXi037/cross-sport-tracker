@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { apiFetch, ensureAbsoluteApiUrl } from '../../../lib/api';
+import { useSessionSnapshot } from '../../../lib/useSessionSnapshot';
 
 interface Props {
   playerId: string;
@@ -9,12 +10,17 @@ interface Props {
 }
 
 export default function PhotoUpload({ playerId, initialUrl }: Props) {
+  const { isAdmin } = useSessionSnapshot();
   const [url, setUrl] = useState<string | null | undefined>(initialUrl);
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState<
     | { type: 'idle'; message: null }
     | { type: 'success' | 'error'; message: string }
   >({ type: 'idle', message: null });
+
+  useEffect(() => {
+    setUrl(initialUrl);
+  }, [initialUrl]);
 
   const onChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -78,6 +84,24 @@ export default function PhotoUpload({ playerId, initialUrl }: Props) {
       e.target.value = '';
     }
   };
+
+  if (!isAdmin) {
+    if (!url) {
+      return null;
+    }
+    return (
+      <div className="mb-4">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt="Current player photo"
+          width={120}
+          height={120}
+          style={{ borderRadius: '50%', objectFit: 'cover', marginBottom: 8 }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="mb-4">

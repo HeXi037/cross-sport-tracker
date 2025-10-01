@@ -1,12 +1,23 @@
 'use client';
 
-import { useState } from 'react';
-import { apiFetch, ensureAbsoluteApiUrl } from '../../../lib/api';
+import { useEffect, useState } from 'react';
+import {
+  SESSION_ENDED_EVENT,
+  apiFetch,
+  currentUserId,
+  ensureAbsoluteApiUrl,
+  isLoggedIn,
+} from '../../../lib/api';
 
 interface Props {
   playerId: string;
   initialUrl?: string | null;
 }
+
+type SessionState = {
+  loggedIn: boolean;
+  userId: string | null;
+};
 
 export default function PhotoUpload({ playerId, initialUrl }: Props) {
   const [url, setUrl] = useState<string | null | undefined>(initialUrl);
@@ -15,8 +26,40 @@ export default function PhotoUpload({ playerId, initialUrl }: Props) {
     | { type: 'idle'; message: null }
     | { type: 'success' | 'error'; message: string }
   >({ type: 'idle', message: null });
+  const [session, setSession] = useState<SessionState>(() => ({
+    loggedIn: isLoggedIn(),
+    userId: currentUserId(),
+  }));
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const updateSession = () =>
+      setSession({
+        loggedIn: isLoggedIn(),
+        userId: currentUserId(),
+      });
+
+    const handleSessionEnded = () => updateSession();
+
+    window.addEventListener('storage', updateSession);
+    window.addEventListener(SESSION_ENDED_EVENT, handleSessionEnded);
+
+    return () => {
+      window.removeEventListener('storage', updateSession);
+      window.removeEventListener(SESSION_ENDED_EVENT, handleSessionEnded);
+    };
+  }, []);
+
+  const canUpload = session.loggedIn && session.userId === playerId;
 
   const onChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canUpload) {
+      e.target.value = '';
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -91,30 +134,34 @@ export default function PhotoUpload({ playerId, initialUrl }: Props) {
           style={{ borderRadius: '50%', objectFit: 'cover', marginBottom: 8 }}
         />
       )}
-      <label className="form-field" htmlFor="player-photo-upload">
-        <span className="form-label">Update player photo</span>
-        <input
-          id="player-photo-upload"
-          type="file"
-          accept="image/*"
-          onChange={onChange}
-          disabled={uploading}
-        />
-      </label>
-      {uploading && (
-        <div className="photo-upload__status" role="status" aria-live="polite">
-          <span className="photo-upload__spinner" aria-hidden="true" />
-          <span>Uploading photo…</span>
-        </div>
-      )}
-      {status.type !== 'idle' && status.message && (
-        <p
-          className={`photo-upload__message photo-upload__message--${status.type}`}
-          role={status.type === 'error' ? 'alert' : 'status'}
-          aria-live={status.type === 'error' ? 'assertive' : 'polite'}
-        >
-          {status.message}
-        </p>
+      {canUpload && (
+        <>
+          <label className="form-field" htmlFor="player-photo-upload">
+            <span className="form-label">Update player photo</span>
+            <input
+              id="player-photo-upload"
+              type="file"
+              accept="image/*"
+              onChange={onChange}
+              disabled={uploading}
+            />
+          </label>
+          {uploading && (
+            <div className="photo-upload__status" role="status" aria-live="polite">
+              <span className="photo-upload__spinner" aria-hidden="true" />
+              <span>Uploading photo…</span>
+            </div>
+          )}
+          {status.type !== 'idle' && status.message && (
+            <p
+              className={`photo-upload__message photo-upload__message--${status.type}`}
+              role={status.type === 'error' ? 'alert' : 'status'}
+              aria-live={status.type === 'error' ? 'assertive' : 'polite'}
+            >
+              {status.message}
+            </p>
+          )}
+        </>
       )}
     </div>
   );

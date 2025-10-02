@@ -142,6 +142,16 @@ export default function Header() {
               </li>
               <li>
                 <Link
+                  href={ensureTrailingSlash('/admin/clubs')}
+                  className={linkClassName('/admin/clubs')}
+                  aria-current={linkAriaCurrent('/admin/clubs')}
+                  onClick={() => setOpen(false)}
+                >
+                  {headerT('links.adminClubs')}
+                </Link>
+              </li>
+              <li>
+                <Link
                   href={ensureTrailingSlash('/admin/badges')}
                   className={linkClassName('/admin/badges')}
                   aria-current={linkAriaCurrent('/admin/badges')}

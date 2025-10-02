@@ -495,6 +495,77 @@ async def test_bowling_match_details_compute_score_and_ratings(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_create_match_with_draw_updates_ratings(tmp_path):
+  from app import db
+  from app.models import (
+    GlickoRating,
+    Match,
+    MatchParticipant,
+    Player,
+    PlayerMetric,
+    Rating,
+    ScoreEvent,
+    Sport,
+    User,
+  )
+  from app.schemas import MatchCreate, Participant
+  from app.routers.matches import create_match
+  from sqlalchemy import select
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+      db.Base.metadata.create_all,
+      tables=[
+        Sport.__table__,
+        Player.__table__,
+        Match.__table__,
+        MatchParticipant.__table__,
+        Rating.__table__,
+        GlickoRating.__table__,
+        PlayerMetric.__table__,
+        ScoreEvent.__table__,
+      ],
+    )
+
+  async with db.AsyncSessionLocal() as session:
+    session.add_all([
+      Sport(id="bowling", name="Bowling"),
+      Player(id="pa", name="Alice"),
+      Player(id="pb", name="Bob"),
+      Rating(id="r_pa", player_id="pa", sport_id="bowling", value=1200),
+      Rating(id="r_pb", player_id="pb", sport_id="bowling", value=1000),
+    ])
+    await session.commit()
+
+    body = MatchCreate(
+      sport="bowling",
+      participants=[
+        Participant(side="A", playerIds=["pa"]),
+        Participant(side="B", playerIds=["pb"]),
+      ],
+      sets=[(6, 6)],
+    )
+
+    admin = User(id="admin", username="admin", password_hash="", is_admin=True)
+    resp = await create_match(body, session, user=admin)
+
+    ratings = (
+      await session.execute(select(Rating).order_by(Rating.player_id))
+    ).scalars().all()
+    rating_map = {r.player_id: r.value for r in ratings}
+    assert rating_map["pa"] < 1200
+    assert rating_map["pb"] > 1000
+
+    score_events = (
+      await session.execute(select(ScoreEvent).where(ScoreEvent.match_id == resp.id))
+    ).scalars().all()
+    assert any(ev.type == "RATING" for ev in score_events)
+
+
+@pytest.mark.anyio
 async def test_create_match_by_name_with_sets(tmp_path):
   from app import db
   from app.models import Match, MatchParticipant, Player, Sport, User

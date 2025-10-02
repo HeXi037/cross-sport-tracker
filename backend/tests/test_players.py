@@ -643,7 +643,7 @@ def test_players_by_ids_omits_deleted() -> None:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data == [{"id": active_id, "name": "active", "photo_url": None}]
+        assert data == [{"id": active_id, "name": "Active", "photo_url": None}]
 
 def test_upload_player_photo_prefixed_url() -> None:
     with TestClient(app) as client:

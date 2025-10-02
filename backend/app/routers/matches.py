@@ -517,6 +517,7 @@ async def create_match_by_name(
         return collapsed.lower()
 
     name_to_id: dict[str, str] = {}
+    rows: list[Player] = []
     original_names = [n for part in body.participants for n in part.playerNames]
     normalized_names = [_normalize_lookup_name(n) for n in original_names]
     lookup_names = [n for n in normalized_names if n]
@@ -524,12 +525,12 @@ async def create_match_by_name(
         rows = (
             await session.execute(
                 select(Player).where(
-                    Player.name.in_(lookup_names), Player.deleted_at.is_(None)
+                    func.lower(Player.name).in_(lookup_names),
+                    Player.deleted_at.is_(None),
                 )
             )
         ).scalars().all()
-        # Player names are stored normalized (lowercase)
-        name_to_id = {p.name: p.id for p in rows}
+        name_to_id = {p.name.lower(): p.id for p in rows}
     missing = [
         original_names[idx]
         for idx, normalized in enumerate(normalized_names)
@@ -541,7 +542,7 @@ async def create_match_by_name(
             detail=f"unknown players: {', '.join(missing)}",
             code="match_unknown_players",
         )
-    id_to_name = {pid: name for name, pid in name_to_id.items()}
+    id_to_name = {p.id: p.name for p in rows}
     dup_ids = [
         pid
         for pid, cnt in Counter(

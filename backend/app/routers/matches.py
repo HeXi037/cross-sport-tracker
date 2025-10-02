@@ -739,11 +739,15 @@ async def delete_match(
             r.value = 1000.0
         await session.commit()
 
-        def _to_int(value: object) -> int:
+        def _parse_pair(payload: object) -> tuple[int, int] | None:
+            if not isinstance(payload, dict):
+                return None
+            if "A" not in payload or "B" not in payload:
+                return None
             try:
-                return int(value)  # type: ignore[arg-type]
+                return int(payload["A"]), int(payload["B"])
             except (TypeError, ValueError):
-                return 0
+                return None
 
         # Replay remaining matches to rebuild ratings
         stmt = (
@@ -782,8 +786,10 @@ async def delete_match(
             draws: list[str] = []
 
             if isinstance(sets, dict) and sets:
-                a_sets = _to_int(sets.get("A"))
-                b_sets = _to_int(sets.get("B"))
+                parsed_sets = _parse_pair(sets)
+                if not parsed_sets:
+                    continue
+                a_sets, b_sets = parsed_sets
                 if a_sets == b_sets:
                     result = "draw"
                     draws = players_a + players_b
@@ -793,21 +799,28 @@ async def delete_match(
                     result = "B"
             else:
                 score = details.get("score") if isinstance(details, dict) else None
-                a_score = b_score = 0
-                if isinstance(score, dict):
-                    a_score = _to_int(score.get("A"))
-                    b_score = _to_int(score.get("B"))
-                if a_score == 0 and b_score == 0:
+                parsed_score = _parse_pair(score)
+                if not parsed_score:
                     set_scores = (
                         details.get("set_scores") if isinstance(details, dict) else None
                     )
                     if isinstance(set_scores, list):
-                        a_score = sum(
-                            _to_int((entry or {}).get("A")) for entry in set_scores
-                        )
-                        b_score = sum(
-                            _to_int((entry or {}).get("B")) for entry in set_scores
-                        )
+                        accumulated: list[tuple[int, int]] = []
+                        for entry in set_scores:
+                            parsed_entry = _parse_pair(entry or {})
+                            if not parsed_entry:
+                                accumulated = []
+                                break
+                            accumulated.append(parsed_entry)
+                        if accumulated:
+                            a_score = sum(pair[0] for pair in accumulated)
+                            b_score = sum(pair[1] for pair in accumulated)
+                        else:
+                            continue
+                    else:
+                        continue
+                else:
+                    a_score, b_score = parsed_score
                 if a_score == b_score and (a_score or b_score):
                     result = "draw"
                     draws = players_a + players_b

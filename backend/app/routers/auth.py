@@ -255,10 +255,17 @@ async def signup(
     session: AsyncSession = Depends(get_session),
     admin_secret: str | None = Header(default=None, alias="X-Admin-Secret"),
 ):
-  username = body.username.strip().lower()
+  username = body.username.strip()
+  if not username:
+    raise http_problem(
+        status_code=400,
+        detail="username required",
+        code="auth_username_required",
+    )
+  normalized_username = username.lower()
   existing = (
       await session.execute(
-          select(User).where(func.lower(User.username) == username)
+          select(User).where(func.lower(User.username) == normalized_username)
       )
   ).scalar_one_or_none()
   if existing:
@@ -266,7 +273,7 @@ async def signup(
 
   existing_player = (
       await session.execute(
-          select(Player).where(func.lower(Player.name) == username)
+          select(Player).where(func.lower(Player.name) == normalized_username)
       )
   ).scalar_one_or_none()
   if existing_player and existing_player.user_id is not None:
@@ -293,6 +300,7 @@ async def signup(
   session.add(user)
   if existing_player:
     existing_player.user_id = uid
+    existing_player.name = username
   else:
     player = Player(id=uuid.uuid4().hex, user_id=uid, name=username)
     session.add(player)
@@ -420,33 +428,42 @@ async def update_me(
     current: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-  if body.username and body.username.strip().lower() != current.username:
-    new_username = body.username.strip().lower()
-    existing = (
-        await session.execute(
-            select(User).where(func.lower(User.username) == new_username)
-        )
-    ).scalar_one_or_none()
-    if existing and existing.id != current.id:
+  if body.username:
+    new_username = body.username.strip()
+    if not new_username:
       raise http_problem(
           status_code=400,
-          detail="username exists",
-          code="auth_username_exists",
+          detail="username required",
+          code="auth_username_required",
       )
+    normalized = new_username.lower()
+    current_normalized = current.username.lower()
+    if normalized != current_normalized:
+      existing = (
+          await session.execute(
+              select(User).where(func.lower(User.username) == normalized)
+          )
+      ).scalar_one_or_none()
+      if existing and existing.id != current.id:
+        raise http_problem(
+            status_code=400,
+            detail="username exists",
+            code="auth_username_exists",
+        )
 
-    existing_player = (
-        await session.execute(
-            select(Player)
-            .where(func.lower(Player.name) == new_username)
-            .where(Player.deleted_at.is_(None))
+      existing_player = (
+          await session.execute(
+              select(Player)
+              .where(func.lower(Player.name) == normalized)
+              .where(Player.deleted_at.is_(None))
+          )
+      ).scalar_one_or_none()
+      if existing_player and existing_player.user_id not in {None, current.id}:
+        raise http_problem(
+            status_code=400,
+            detail="player exists",
+            code="auth_player_exists",
         )
-    ).scalar_one_or_none()
-    if existing_player and existing_player.user_id not in {None, current.id}:
-      raise http_problem(
-          status_code=400,
-          detail="player exists",
-          code="auth_player_exists",
-      )
 
     current.username = new_username
     player = (

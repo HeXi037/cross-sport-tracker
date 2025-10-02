@@ -6,7 +6,7 @@ import secrets
 from datetime import datetime, timedelta
 import jwt
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -72,11 +72,12 @@ def test_signup_login_and_protected_access():
             async with db.AsyncSessionLocal() as session:
                 return (
                     await session.execute(
-                        select(User).where(User.username == "alice")
+                        select(User).where(func.lower(User.username) == "alice")
                     )
                 ).scalar_one()
 
         user = asyncio.run(fetch_user())
+        assert user.username == "Alice"
         assert user.password_hash != "pw"
         assert pwd_context.verify("Str0ng!Pass!", user.password_hash)
 
@@ -143,7 +144,9 @@ def test_signup_links_orphan_player():
         async with db.AsyncSessionLocal() as session:
             player = await session.get(Player, pid)
             user = (
-                await session.execute(select(User).where(User.username == "charlie"))
+                await session.execute(
+                    select(User).where(func.lower(User.username) == "charlie")
+                )
             ).scalar_one()
             same_name_players = (
                 await session.execute(select(Player).where(Player.name == "charlie"))
@@ -167,7 +170,9 @@ def test_signup_rejects_attached_player():
     async def fetch_user():
         async with db.AsyncSessionLocal() as session:
             user = (
-                await session.execute(select(User).where(User.username == "dave"))
+                await session.execute(
+                    select(User).where(func.lower(User.username) == "dave")
+                )
             ).scalar_one_or_none()
             return user
 

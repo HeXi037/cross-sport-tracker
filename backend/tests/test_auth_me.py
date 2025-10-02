@@ -7,7 +7,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from slowapi.errors import RateLimitExceeded
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -57,7 +57,7 @@ def test_get_and_update_me():
 
         me = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
         assert me.status_code == 200
-        assert me.json()["username"] == "alice"
+        assert me.json()["username"] == "Alice"
         assert me.json()["photo_url"] is None
 
         resp = client.put(
@@ -82,7 +82,7 @@ def test_get_and_update_me():
             "/auth/me", headers={"Authorization": f"Bearer {new_token}"}
         )
         assert me2.status_code == 200
-        assert me2.json()["username"] == "alice2"
+        assert me2.json()["username"] == "Alice2"
         assert me2.json()["photo_url"] is None
 
 
@@ -124,7 +124,7 @@ def test_update_me_allows_claiming_current_player_name():
             async with db.AsyncSessionLocal() as session:
                 user = (
                     await session.execute(
-                        select(User).where(User.username == "claimee")
+                        select(User).where(func.lower(User.username) == "claimee")
                     )
                 ).scalar_one()
                 player = (
@@ -156,7 +156,7 @@ def test_update_me_allows_claiming_current_player_name():
             async with db.AsyncSessionLocal() as session:
                 user = (
                     await session.execute(
-                        select(User).where(User.username == "claimed")
+                        select(User).where(func.lower(User.username) == "claimed")
                     )
                 ).scalar_one()
                 player = (
@@ -200,7 +200,7 @@ def test_upload_my_photo():
             async with db.AsyncSessionLocal() as session:
                 user = (
                     await session.execute(
-                        select(User).where(User.username == "picuser")
+                        select(User).where(func.lower(User.username) == "picuser")
                     )
                 ).scalar_one()
                 player = (
@@ -248,7 +248,7 @@ def test_delete_my_photo():
             async with db.AsyncSessionLocal() as session:
                 user = (
                     await session.execute(
-                        select(User).where(User.username == "erasepic")
+                        select(User).where(func.lower(User.username) == "erasepic")
                     )
                 ).scalar_one()
                 player = (
@@ -276,7 +276,7 @@ def test_me_missing_user():
             async with db.AsyncSessionLocal() as session:
                 user = (
                     await session.execute(
-                        select(User).where(User.username == "ghost")
+                        select(User).where(func.lower(User.username) == "ghost")
                     )
                 ).scalar_one()
                 await session.delete(user)

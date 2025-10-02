@@ -513,9 +513,10 @@ async def admin_reset_password(
   if body.user_id:
     user = await session.get(User, body.user_id)
   else:
+    normalized_username = body.username.lower() if body.username is not None else None
     user = (
         await session.execute(
-            select(User).where(func.lower(User.username) == body.username)
+            select(User).where(func.lower(User.username) == normalized_username)
         )
     ).scalar_one_or_none()
   if not user:

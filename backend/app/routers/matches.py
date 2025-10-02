@@ -739,6 +739,12 @@ async def delete_match(
             r.value = 1000.0
         await session.commit()
 
+        def _to_int(value: object) -> int:
+            try:
+                return int(value)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                return 0
+
         # Replay remaining matches to rebuild ratings
         stmt = (
             select(Match, Stage)
@@ -764,26 +770,70 @@ async def delete_match(
             ).scalars().all()
             players_a = [pid for p in parts if p.side == "A" for pid in p.player_ids]
             players_b = [pid for p in parts if p.side == "B" for pid in p.player_ids]
-            details = match.details or {}
-            sets = details.get("sets") if isinstance(details, dict) else None
-            if not sets or not players_a or not players_b:
+            if not players_a or not players_b:
                 continue
+
+            details = match.details if isinstance(match.details, dict) else None
+            if not details:
+                continue
+
+            sets = details.get("sets") if isinstance(details, dict) else None
+            result: str | None = None
+            draws: list[str] = []
+
+            if isinstance(sets, dict) and sets:
+                a_sets = _to_int(sets.get("A"))
+                b_sets = _to_int(sets.get("B"))
+                if a_sets == b_sets:
+                    result = "draw"
+                    draws = players_a + players_b
+                elif a_sets > b_sets:
+                    result = "A"
+                else:
+                    result = "B"
+            else:
+                score = details.get("score") if isinstance(details, dict) else None
+                a_score = b_score = 0
+                if isinstance(score, dict):
+                    a_score = _to_int(score.get("A"))
+                    b_score = _to_int(score.get("B"))
+                if a_score == 0 and b_score == 0:
+                    set_scores = (
+                        details.get("set_scores") if isinstance(details, dict) else None
+                    )
+                    if isinstance(set_scores, list):
+                        a_score = sum(
+                            _to_int((entry or {}).get("A")) for entry in set_scores
+                        )
+                        b_score = sum(
+                            _to_int((entry or {}).get("B")) for entry in set_scores
+                        )
+                if a_score == b_score and (a_score or b_score):
+                    result = "draw"
+                    draws = players_a + players_b
+                elif a_score > b_score:
+                    result = "A"
+                elif b_score > a_score:
+                    result = "B"
+
+            if not result:
+                continue
+
             current_rating_sport = _rating_sport_id_for_stage(
                 match.sport_id, match_stage
             )
-            if sets.get("A") == sets.get("B"):
+            if result == "draw":
                 await update_ratings(
                     session,
                     current_rating_sport,
                     players_a,
                     players_b,
-                    draws=players_a + players_b,
+                    draws=draws,
                     match_id=match.id,
                 )
             else:
-                winner_side = "A" if sets["A"] > sets["B"] else "B"
-                winners = players_a if winner_side == "A" else players_b
-                losers = players_b if winner_side == "A" else players_a
+                winners = players_a if result == "A" else players_b
+                losers = players_b if result == "A" else players_a
                 await update_ratings(
                     session, current_rating_sport, winners, losers, match_id=match.id
                 )

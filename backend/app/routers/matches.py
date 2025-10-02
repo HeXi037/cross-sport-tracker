@@ -303,6 +303,16 @@ async def create_match(
         if isinstance(players, list):
             normalized_players: list[Any] = []
             players_updated = False
+            side_totals: dict[str, int] = {}
+
+            def _coerce_total(value: Any) -> int | None:
+                if isinstance(value, bool):
+                    return None
+                try:
+                    return int(value)
+                except (TypeError, ValueError):
+                    return None
+
             for player in players:
                 if not isinstance(player, dict):
                     normalized_players.append(player)
@@ -311,10 +321,17 @@ async def create_match(
                 if "scores" not in player_payload and "frameScores" in player_payload:
                     player_payload["scores"] = player_payload["frameScores"]
                     players_updated = True
+                side = player_payload.get("side")
+                total = _coerce_total(player_payload.get("total"))
+                if isinstance(side, str) and total is not None:
+                    side_totals.setdefault(side, total)
                 normalized_players.append(player_payload)
             if players_updated:
                 extra_details = dict(extra_details)
                 extra_details["players"] = normalized_players
+            if side_totals and "score" not in extra_details:
+                extra_details = dict(extra_details)
+                extra_details["score"] = side_totals
     summary: dict[str, Any] | None = None
     set_pairs: list[tuple[int, int]] = []
     score_events: list[dict[str, Any]] = []
@@ -435,48 +452,73 @@ async def create_match(
     rating_sport_id = _rating_sport_id_for_stage(match.sport_id, stage)
     players_a = side_players.get("A", [])
     players_b = side_players.get("B", [])
-    if not match.is_friendly and summary and players_a and players_b:
-        sets_record = summary.get("sets") if isinstance(summary, dict) else None
-        try:
-            a_sets = int(sets_record.get("A")) if sets_record else None
-            b_sets = int(sets_record.get("B")) if sets_record else None
-        except (TypeError, ValueError):
-            a_sets = b_sets = None
 
+    def _score_value(value: Any) -> int | None:
+        if isinstance(value, bool):
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    if not match.is_friendly and players_a and players_b:
+        details_for_result: dict[str, Any] = {}
+        if isinstance(match.details, dict):
+            details_for_result = match.details
+        elif isinstance(summary, dict):
+            details_for_result = summary
+
+        winners: list[str] = []
+        losers: list[str] = []
+        draws: list[str] = []
+        result_found = False
+
+        sets_record = details_for_result.get("sets") if isinstance(details_for_result, dict) else None
+        a_sets = b_sets = None
+        if isinstance(sets_record, dict):
+            a_sets = _score_value(sets_record.get("A"))
+            b_sets = _score_value(sets_record.get("B"))
         if a_sets is not None and b_sets is not None:
+            result_found = True
             if a_sets == b_sets:
                 draws = players_a + players_b
-                try:
-                    await update_ratings(
-                        session,
-                        rating_sport_id,
-                        players_a,
-                        players_b,
-                        draws=draws,
-                        match_id=mid,
-                    )
-                except Exception:
-                    pass
-                await update_player_metrics(
-                    session, rating_sport_id, [], [], draws
-                )
+            elif a_sets > b_sets:
+                winners = players_a
+                losers = players_b
             else:
-                winner_side = "A" if a_sets > b_sets else "B"
-                winners = players_a if winner_side == "A" else players_b
-                losers = players_b if winner_side == "A" else players_a
-                try:
-                    await update_ratings(
-                        session,
-                        rating_sport_id,
-                        winners,
-                        losers,
-                        match_id=mid,
-                    )
-                except Exception:
-                    pass
-                await update_player_metrics(
-                    session, rating_sport_id, winners, losers
+                winners = players_b
+                losers = players_a
+        else:
+            score_record = details_for_result.get("score") if isinstance(details_for_result, dict) else None
+            if isinstance(score_record, dict) and "A" in score_record and "B" in score_record:
+                a_score = _score_value(score_record.get("A"))
+                b_score = _score_value(score_record.get("B"))
+                if a_score is not None and b_score is not None:
+                    result_found = True
+                    if a_score == b_score:
+                        draws = players_a + players_b
+                    elif a_score > b_score:
+                        winners = players_a
+                        losers = players_b
+                    else:
+                        winners = players_b
+                        losers = players_a
+
+        if result_found:
+            try:
+                await update_ratings(
+                    session,
+                    rating_sport_id,
+                    winners,
+                    losers,
+                    draws=draws or None,
+                    match_id=mid,
                 )
+            except Exception:
+                pass
+            await update_player_metrics(
+                session, rating_sport_id, winners, losers, draws or None
+            )
 
     stage_id = match.stage_id
     await session.flush()

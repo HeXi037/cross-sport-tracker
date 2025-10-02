@@ -25,6 +25,35 @@ class ClubOut(BaseModel):
     id: str
     name: str
 
+
+class ClubCreate(BaseModel):
+    id: str = Field(..., min_length=1, max_length=100)
+    name: str = Field(..., min_length=1, max_length=200)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def _validate_id(cls, value: str) -> str:
+        if not isinstance(value, str):
+            raise TypeError("id must be a string")
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("id must not be empty")
+        if any(ch.isspace() for ch in trimmed):
+            raise ValueError("id must not contain whitespace")
+        return trimmed
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def _validate_name(cls, value: str) -> str:
+        if not isinstance(value, str):
+            raise TypeError("name must be a string")
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("name must not be empty")
+        return trimmed
+
 class BadgeCreate(BaseModel):
     name: str
     icon: Optional[str] = None

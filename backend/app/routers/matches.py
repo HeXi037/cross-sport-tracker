@@ -505,12 +505,14 @@ async def create_match(
                         losers = players_a
 
         if result_found:
+            rating_winners = winners or (players_a if draws else [])
+            rating_losers = losers or (players_b if draws else [])
             try:
                 await update_ratings(
                     session,
                     rating_sport_id,
-                    winners,
-                    losers,
+                    rating_winners,
+                    rating_losers,
                     draws=draws or None,
                     match_id=mid,
                 )
@@ -922,12 +924,14 @@ async def append_event(
                         losers = players_b if winner_side == "A" else players_a
 
     if match_complete:
+        rating_winners = winners or (players_a if draws else [])
+        rating_losers = losers or (players_b if draws else [])
         try:
             await update_ratings(
                 session,
                 rating_sport_id,
-                winners,
-                losers,
+                rating_winners,
+                rating_losers,
                 draws=draws or None,
                 match_id=mid,
             )

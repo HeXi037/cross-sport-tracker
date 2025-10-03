@@ -24,6 +24,7 @@ async def main():
             ("bowling", "Bowling"),
             ("tennis", "Tennis"),
             ("pickleball", "Pickleball"),
+            ("table_tennis", "Table Tennis"),
             ("disc_golf", "Disc Golf"),
         ]:
             if sid not in have:

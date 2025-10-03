@@ -82,9 +82,9 @@ const SPORT_COPY: Record<string, Record<string, SportCopy>> = {
       playersHint:
         'Choose the lineup for each side. Leave the second slot empty for singles games.',
       scoringHint:
-        'Pickleball matches are best of three games. Enter the points for each game below (for example 11-6, 8-11, 11-9) and the app will calculate the 2-1 result.',
+        'Pickleball matches are best of three games. Enter the points for each game below—games are played to 11 and must be won by two (deciders often go to 15). For example 11-6, 12-10, 15-13.',
       confirmationMessage: 'Save this pickleball match?',
-      gameScorePlaceholder: 'Points to 11 for this game (e.g. 11)',
+      gameScorePlaceholder: 'Points to 11 for this game (win by 2, e.g. 11)',
     },
     'en-au': {
       matchDetailsHint:

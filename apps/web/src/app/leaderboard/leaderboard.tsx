@@ -1481,7 +1481,10 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           }}
         >
           <div style={{ display: "flex", flexDirection: "column", minWidth: "160px" }}>
-            <label style={{ fontSize: "0.85rem", fontWeight: 600 }} htmlFor="leaderboard-country">
+            <label
+              style={{ fontSize: "0.85rem", fontWeight: 600 }}
+              htmlFor="leaderboard-country"
+            >
               Country
             </label>
             <CountrySelect
@@ -1508,24 +1511,26 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                   color: "var(--color-text-danger-strong)",
                 }}
               >
-                {filterErrors.country}
-              </p>
-            ) : null}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", minWidth: "220px" }}>
-            <label style={{ fontSize: "0.85rem", fontWeight: 600 }} htmlFor="leaderboard-club-search">
-              Club
-            </label>
-            <ClubSelect
-              value={draftClubId}
-              onChange={(next) => setDraftClubId(normalizeClubId(next))}
-              placeholder="Search for a club"
-              searchInputId="leaderboard-club-search"
-              selectId="leaderboard-club-select"
-              ariaLabel="Club"
-              className="leaderboard-club-select"
-              invalid={filterErrors.clubId ? true : false}
-              describedById={clubErrorId}
+              {filterErrors.country}
+            </p>
+          ) : null}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", minWidth: "220px" }}>
+          <label
+            style={{ fontSize: "0.85rem", fontWeight: 600 }}
+            htmlFor="leaderboard-club-select"
+          >
+            Club
+          </label>
+          <ClubSelect
+            value={draftClubId}
+            onChange={(next) => setDraftClubId(normalizeClubId(next))}
+            placeholder="Search for a club"
+            searchInputId="leaderboard-club-search"
+            selectId="leaderboard-club-select"
+            className="leaderboard-club-select"
+            invalid={filterErrors.clubId ? true : false}
+            describedById={clubErrorId}
             />
             {filterErrors.clubId ? (
               <p

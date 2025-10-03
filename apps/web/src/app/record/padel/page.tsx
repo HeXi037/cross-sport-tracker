@@ -39,6 +39,12 @@ const MAX_REGULAR_SET_SCORE = 6;
 const MAX_TIEBREAK_SET_SCORE = 7;
 const TIEBREAK_ELIGIBLE_LOSING_SCORES = new Set([5, 6]);
 
+const DUPLICATE_PLAYER_MESSAGE = "Player already selected on another team.";
+const PLAYER_SIDE_REQUIRED_MESSAGE = {
+  A: "Select at least one player for side A.",
+  B: "Select at least one player for side B.",
+} as const;
+
 function isValidPadelSetScore(score: number, opponentScore: number): boolean {
   if (!Number.isInteger(score) || score < MIN_SET_SCORE) {
     return false;
@@ -149,6 +155,79 @@ function analysePadelSets(sets: SetScore[], rawBestOf: number): PadelSetAnalysis
   };
 }
 
+function areStringArraysEqual(a: string[], b: string[]): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (a.length !== b.length) {
+    return false;
+  }
+  return a.every((value, index) => value === b[index]);
+}
+
+type PlayerValidationResult = {
+  errors: Record<keyof IdMap, string>;
+  hasErrors: boolean;
+};
+
+const emptyPlayerErrors = (): Record<keyof IdMap, string> => ({
+  a1: "",
+  a2: "",
+  b1: "",
+  b2: "",
+});
+
+const evaluatePlayerSelections = (
+  candidateIds: IdMap,
+  touchedState: Record<keyof IdMap, boolean>,
+): PlayerValidationResult => {
+  const errors = emptyPlayerErrors();
+
+  const entries = Object.entries(candidateIds) as [keyof IdMap, string][];
+  const selectedValues = entries
+    .map(([, value]) => value)
+    .filter((value): value is string => Boolean(value));
+  const duplicateValues = new Set(
+    selectedValues.filter(
+      (value, index, arr) => arr.indexOf(value) !== index,
+    ),
+  );
+
+  if (duplicateValues.size > 0) {
+    entries.forEach(([key, value]) => {
+      if (value && duplicateValues.has(value)) {
+        errors[key] = DUPLICATE_PLAYER_MESSAGE;
+      }
+    });
+  }
+
+  const sideASelected = [candidateIds.a1, candidateIds.a2].filter(Boolean);
+  const sideBSelected = [candidateIds.b1, candidateIds.b2].filter(Boolean);
+  const sideATouched = touchedState.a1 || touchedState.a2;
+  const sideBTouched = touchedState.b1 || touchedState.b2;
+
+  if (sideATouched && sideASelected.length === 0) {
+    (["a1", "a2"] as (keyof IdMap)[]).forEach((key) => {
+      if (touchedState[key]) {
+        errors[key] = errors[key] || PLAYER_SIDE_REQUIRED_MESSAGE.A;
+      }
+    });
+  }
+
+  if (sideBTouched && sideBSelected.length === 0) {
+    (["b1", "b2"] as (keyof IdMap)[]).forEach((key) => {
+      if (touchedState[key]) {
+        errors[key] = errors[key] || PLAYER_SIDE_REQUIRED_MESSAGE.B;
+      }
+    });
+  }
+
+  return {
+    errors,
+    hasErrors: Object.values(errors).some(Boolean),
+  };
+};
+
 interface CreateMatchPayload {
   sport: string;
   participants: { side: string; playerIds: string[] }[];
@@ -170,11 +249,13 @@ export default function RecordPadelPage() {
   const [location, setLocation] = useState("");
   const [isFriendly, setIsFriendly] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
-  const [playerErrors, setPlayerErrors] = useState<Record<keyof IdMap, string>>({
-    a1: "",
-    a2: "",
-    b1: "",
-    b2: "",
+  const [playerTouched, setPlayerTouched] = useState<
+    Record<keyof IdMap, boolean>
+  >({
+    a1: false,
+    a2: false,
+    b1: false,
+    b2: false,
   });
   const [saving, setSaving] = useState(false);
   const [showSummaryValidation, setShowSummaryValidation] = useState(false);
@@ -234,6 +315,15 @@ export default function RecordPadelPage() {
     [sets, bestOfNumber],
   );
 
+  const setAnalysisErrors = setAnalysis.errors;
+
+  const playerValidation = useMemo(
+    () => evaluatePlayerSelections(ids, playerTouched),
+    [ids, playerTouched],
+  );
+
+  const playerErrors = playerValidation.errors;
+
   const hasSideAPlayers = sideASelected.length > 0;
   const hasSideBPlayers = sideBSelected.length > 0;
 
@@ -267,6 +357,12 @@ export default function RecordPadelPage() {
   const hasSetSummaryError = Boolean(setAnalysis.summaryError);
 
   useEffect(() => {
+    setSetErrors((prev) =>
+      areStringArraysEqual(prev, setAnalysisErrors) ? prev : setAnalysisErrors,
+    );
+  }, [setAnalysisErrors]);
+
+  useEffect(() => {
     async function loadPlayers() {
       try {
         const res = await apiFetch(`/v0/players`);
@@ -292,18 +388,13 @@ export default function RecordPadelPage() {
 
   const handleIdChange = (key: keyof IdMap, value: string) => {
     setIds((prev) => ({ ...prev, [key]: value }));
-    setPlayerErrors((prev) => ({ ...prev, [key]: "" }));
+    setPlayerTouched((prev) => ({ ...prev, [key]: true }));
   };
 
   const handleSetChange = (idx: number, side: keyof SetScore, value: string) => {
     setSets((prev) => {
       const next = [...prev];
       next[idx] = { ...next[idx], [side]: value };
-      return next;
-    });
-    setSetErrors((prev) => {
-      const next = [...prev];
-      next[idx] = "";
       return next;
     });
   };
@@ -331,7 +422,9 @@ export default function RecordPadelPage() {
 
   const validateSets = () => {
     const analysis = analysePadelSets(sets, bestOfNumber);
-    setSetErrors(analysis.errors);
+    setSetErrors((prev) =>
+      areStringArraysEqual(prev, analysis.errors) ? prev : analysis.errors,
+    );
     return analysis.isValid;
   };
 
@@ -342,58 +435,32 @@ export default function RecordPadelPage() {
 
     const setsValid = validateSets();
 
-    if (!setsValid) {
-      setGlobalError("Please fix the highlighted set scores before saving.");
-    } else {
-      setGlobalError(null);
-    }
-
     if (saving) {
       return;
     }
 
-    const newPlayerErrors: Record<keyof IdMap, string> = {
-      a1: "",
-      a2: "",
-      b1: "",
-      b2: "",
+    const touchedAllPlayers: Record<keyof IdMap, boolean> = {
+      a1: true,
+      a2: true,
+      b1: true,
+      b2: true,
     };
-    let hasPlayerErrors = false;
-
-    const idValues = [ids.a1, ids.a2, ids.b1, ids.b2];
-    const filtered = idValues.filter((v) => v);
-    const duplicateIds = new Set(
-      filtered.filter((value, index, arr) => arr.indexOf(value) !== index),
+    const playerValidationOnSubmit = evaluatePlayerSelections(
+      ids,
+      touchedAllPlayers,
     );
-    if (duplicateIds.size > 0) {
-      (Object.entries(ids) as [keyof IdMap, string][]).forEach(([key, value]) => {
-        if (value && duplicateIds.has(value)) {
-          newPlayerErrors[key] = "Player already selected on another team.";
-          hasPlayerErrors = true;
-        }
-      });
-    }
+    setPlayerTouched(touchedAllPlayers);
 
-    const sideA = [ids.a1, ids.a2].filter(Boolean);
-    const sideB = [ids.b1, ids.b2].filter(Boolean);
-    if (!sideA.length) {
-      newPlayerErrors.a1 =
-        newPlayerErrors.a1 || "Select at least one player for side A.";
-      newPlayerErrors.a2 =
-        newPlayerErrors.a2 || "Select at least one player for side A.";
-      hasPlayerErrors = true;
+    let nextGlobalError: string | null = null;
+    if (!setsValid) {
+      nextGlobalError = "Please fix the highlighted set scores before saving.";
+    } else if (playerValidationOnSubmit.hasErrors) {
+      nextGlobalError =
+        "Please fix the highlighted player selections before saving.";
     }
-    if (!sideB.length) {
-      newPlayerErrors.b1 =
-        newPlayerErrors.b1 || "Select at least one player for side B.";
-      newPlayerErrors.b2 =
-        newPlayerErrors.b2 || "Select at least one player for side B.";
-      hasPlayerErrors = true;
-    }
+    setGlobalError(nextGlobalError);
 
-    setPlayerErrors(newPlayerErrors);
-    if (hasPlayerErrors || !setsValid || !canSave) {
-      setSaving(false);
+    if (playerValidationOnSubmit.hasErrors || !setsValid || !canSave) {
       setSuccess(false);
       return;
     }
@@ -401,8 +468,8 @@ export default function RecordPadelPage() {
     setSaving(true);
 
     const participants = [
-      { side: "A", playerIds: sideA },
-      { side: "B", playerIds: sideB },
+      { side: "A", playerIds: [ids.a1, ids.a2].filter(Boolean) },
+      { side: "B", playerIds: [ids.b1, ids.b2].filter(Boolean) },
     ];
 
     try {
@@ -772,6 +839,7 @@ export default function RecordPadelPage() {
         </div>
         <button
           type="submit"
+          disabled={!canSave}
           aria-disabled={!canSave ? "true" : "false"}
           aria-describedby={`padel-save-hint ${saveSummaryId}`}
           data-saving={saving}

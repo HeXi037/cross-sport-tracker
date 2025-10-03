@@ -83,21 +83,6 @@ const canonicalizePathname = (pathname: string) => {
   }
   return pathname.replace(/\/+$/, "") || "/";
 };
-const getDocumentReferrerUrl = (): URL | null => {
-  if (typeof document === "undefined") {
-    return null;
-  }
-  const referrer = document.referrer;
-  if (!referrer) {
-    return null;
-  }
-  try {
-    return new URL(referrer);
-  } catch {
-    return null;
-  }
-};
-
 const getStoredPreviousUrl = (): URL | null => {
   if (typeof window === "undefined") {
     return null;
@@ -212,6 +197,8 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const searchParams = useSearchParams();
   const searchParamsString = searchParams?.toString() ?? "";
   const lastSyncedUrlRef = useRef<string | null>(null);
+  const previousRouteRef = useRef<string | null | undefined>(undefined);
+  const hasInitializedPreviousRouteRef = useRef(false);
   const homeT = useTranslations("Home");
   const leaderboardT = useTranslations("Leaderboard");
   const backLinkT = useTranslations("BackLink");
@@ -301,49 +288,58 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       return;
     }
 
-    const applyBackLinkFromUrl = (candidate: URL | null) => {
-      setBackLink((prev) => {
-        if (!candidate) {
-          return prev ? null : prev;
-        }
+    const initializePreviousRoute = () => {
+      if (hasInitializedPreviousRouteRef.current) {
+        return;
+      }
 
-        let currentUrl: URL;
-        try {
-          currentUrl = new URL(window.location.href);
-        } catch {
-          return prev ?? null;
-        }
-
-        if (candidate.origin !== currentUrl.origin) {
-          return prev ? null : prev;
-        }
-
-        const refPath = canonicalizePathname(candidate.pathname || "/");
-        const currentPath = canonicalizePathname(currentUrl.pathname || "/");
-
-        if (refPath === currentPath) {
-          return prev ? null : prev;
-        }
-
-        const hrefPath = candidate.pathname || "/";
-        const href = `${hrefPath}${candidate.search}${candidate.hash}`;
-        const label = getBackLinkLabel(refPath);
-
-        if (prev && prev.href === href && prev.label === label) {
-          return prev;
-        }
-
-        return { href, label };
-      });
+      const storedPrevious = getStoredPreviousUrl();
+      if (storedPrevious && storedPrevious.origin === window.location.origin) {
+        previousRouteRef.current = `${storedPrevious.pathname}${storedPrevious.search}${storedPrevious.hash}`;
+      } else {
+        previousRouteRef.current = null;
+      }
+      hasInitializedPreviousRouteRef.current = true;
     };
 
-    const storedPrevious = getStoredPreviousUrl();
-    if (storedPrevious) {
-      applyBackLinkFromUrl(storedPrevious);
-      return;
-    }
+    initializePreviousRoute();
 
-    applyBackLinkFromUrl(getDocumentReferrerUrl());
+    const currentPathname = pathname ?? window.location.pathname ?? "/";
+    const currentSearch = searchParamsString ? `?${searchParamsString}` : "";
+    const currentRoute = `${currentPathname}${currentSearch}`;
+
+    const previousRoute = previousRouteRef.current;
+
+    setBackLink((prev) => {
+      if (!previousRoute) {
+        return prev ? null : prev;
+      }
+
+      let previousUrl: URL;
+      try {
+        previousUrl = new URL(previousRoute, window.location.origin);
+      } catch {
+        return prev ? null : prev;
+      }
+
+      const previousPath = canonicalizePathname(previousUrl.pathname || "/");
+      const currentPath = canonicalizePathname(currentPathname || "/");
+
+      if (previousPath === currentPath) {
+        return prev ? null : prev;
+      }
+
+      const href = `${previousUrl.pathname || "/"}${previousUrl.search}${previousUrl.hash}`;
+      const label = getBackLinkLabel(previousUrl.pathname || "/");
+
+      if (prev && prev.href === href && prev.label === label) {
+        return prev;
+      }
+
+      return { href, label };
+    });
+
+    previousRouteRef.current = currentRoute;
   }, [getBackLinkLabel, pathname, searchParamsString]);
   const [preferencesApplied, setPreferencesApplied] = useState(false);
 

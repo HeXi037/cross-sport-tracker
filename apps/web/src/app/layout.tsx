@@ -13,6 +13,10 @@ import { LocaleProvider } from '../lib/LocaleContext';
 import { resolveServerLocale } from '../lib/server-locale';
 import { loadLocaleMessages } from '../i18n/messages';
 import {
+  CURRENT_ROUTE_STORAGE_KEY,
+  PREVIOUS_ROUTE_STORAGE_KEY,
+} from '../lib/navigation-history';
+import {
   LOCALE_COOKIE_KEY,
   LOCALE_STORAGE_KEY,
   NEUTRAL_FALLBACK_LOCALE,
@@ -290,6 +294,64 @@ const LOCALE_DETECTION_SCRIPT = `(() => {
   }
 })();`;
 
+const NAVIGATION_TRACKER_SCRIPT = `(() => {
+  if (typeof window === 'undefined' || typeof history === 'undefined') {
+    return;
+  }
+
+  const currentKey = '${CURRENT_ROUTE_STORAGE_KEY}';
+  const previousKey = '${PREVIOUS_ROUTE_STORAGE_KEY}';
+
+  const read = (key) => {
+    try {
+      return window.sessionStorage?.getItem(key) ?? '';
+    } catch {
+      return '';
+    }
+  };
+
+  const write = (key, value) => {
+    try {
+      window.sessionStorage?.setItem(key, value);
+    } catch {
+      // Ignore storage failures (e.g. in private mode).
+    }
+  };
+
+  const update = () => {
+    try {
+      const current = window.location.pathname + window.location.search + window.location.hash;
+      const last = read(currentKey);
+      if (last && last !== current) {
+        write(previousKey, last);
+      }
+      write(currentKey, current);
+    } catch {
+      // Ignore update failures to avoid breaking navigation.
+    }
+  };
+
+  const wrapHistory = (method) => {
+    const original = history[method];
+    if (typeof original !== 'function') {
+      return;
+    }
+    history[method] = function wrappedHistoryMethod(...args) {
+      const result = original.apply(this, args);
+      update();
+      return result;
+    };
+  };
+
+  wrapHistory('pushState');
+  wrapHistory('replaceState');
+  window.addEventListener('popstate', () => {
+    setTimeout(update, 0);
+  });
+
+  update();
+})();`;
+
 export const metadata = {
   title: 'cross-sport-tracker',
   description: 'Ongoing self-hosted project',
@@ -320,6 +382,11 @@ export default async function RootLayout({
           id="cst-locale-detection"
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: LOCALE_DETECTION_SCRIPT }}
+        />
+        <Script
+          id="cst-navigation-tracker"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: NAVIGATION_TRACKER_SCRIPT }}
         />
       </head>
       <body>

@@ -27,6 +27,7 @@ import {
   SPORTS,
   type LeaderboardSport,
 } from "./constants";
+import { PREVIOUS_ROUTE_STORAGE_KEY } from "../../lib/navigation-history";
 
 // Identifier type for players
 export type ID = string | number;
@@ -80,6 +81,43 @@ const canonicalizePathname = (pathname: string) => {
     return "/";
   }
   return pathname.replace(/\/+$/, "") || "/";
+};
+const getDocumentReferrerUrl = (): URL | null => {
+  if (typeof document === "undefined") {
+    return null;
+  }
+  const referrer = document.referrer;
+  if (!referrer) {
+    return null;
+  }
+  try {
+    return new URL(referrer);
+  } catch {
+    return null;
+  }
+};
+
+const getStoredPreviousUrl = (): URL | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  let stored = "";
+  try {
+    stored = window.sessionStorage?.getItem(PREVIOUS_ROUTE_STORAGE_KEY) ?? "";
+  } catch {
+    stored = "";
+  }
+  if (!stored) {
+    return null;
+  }
+  try {
+    if (/^https?:/i.test(stored)) {
+      return new URL(stored);
+    }
+    return new URL(stored, window.location.origin);
+  } catch {
+    return null;
+  }
 };
 
 const SPORT_ICONS: Record<LeaderboardSport, string> = {
@@ -253,34 +291,54 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   );
 
   useEffect(() => {
-    if (typeof document === "undefined" || typeof window === "undefined") {
+    if (typeof window === "undefined") {
       return;
     }
-    const referrer = document.referrer;
-    if (!referrer) {
-      setBackLink(null);
+
+    const applyBackLinkFromUrl = (candidate: URL | null) => {
+      setBackLink((prev) => {
+        if (!candidate) {
+          return prev ? null : prev;
+        }
+
+        let currentUrl: URL;
+        try {
+          currentUrl = new URL(window.location.href);
+        } catch {
+          return prev ?? null;
+        }
+
+        if (candidate.origin !== currentUrl.origin) {
+          return prev ? null : prev;
+        }
+
+        const refPath = canonicalizePathname(candidate.pathname || "/");
+        const currentPath = canonicalizePathname(currentUrl.pathname || "/");
+
+        if (refPath === currentPath) {
+          return prev ? null : prev;
+        }
+
+        const hrefPath = candidate.pathname || "/";
+        const href = `${hrefPath}${candidate.search}${candidate.hash}`;
+        const label = getBackLinkLabel(refPath);
+
+        if (prev && prev.href === href && prev.label === label) {
+          return prev;
+        }
+
+        return { href, label };
+      });
+    };
+
+    const storedPrevious = getStoredPreviousUrl();
+    if (storedPrevious) {
+      applyBackLinkFromUrl(storedPrevious);
       return;
     }
-    let referrerUrl: URL;
-    try {
-      referrerUrl = new URL(referrer);
-    } catch {
-      return;
-    }
-    const currentUrl = new URL(window.location.href);
-    if (referrerUrl.origin !== currentUrl.origin) {
-      return;
-    }
-    const refPath = canonicalizePathname(referrerUrl.pathname);
-    const currentPath = canonicalizePathname(currentUrl.pathname);
-    if (refPath === currentPath && referrerUrl.search === currentUrl.search) {
-      return;
-    }
-    const hrefPath = referrerUrl.pathname || "/";
-    const href = `${hrefPath}${referrerUrl.search}${referrerUrl.hash}`;
-    const label = getBackLinkLabel(refPath);
-    setBackLink({ href, label });
-  }, [getBackLinkLabel]);
+
+    applyBackLinkFromUrl(getDocumentReferrerUrl());
+  }, [getBackLinkLabel, pathname, searchParamsString]);
   const [preferencesApplied, setPreferencesApplied] = useState(false);
 
   const countryCodes = useMemo(

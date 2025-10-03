@@ -155,6 +155,22 @@ export function normalizeGameSeries(
     const losingPoints = Math.min(valueA, valueB);
 
     if (
+      exceedsMax &&
+      allowsScoresBeyondMax &&
+      typeof maxPoints === "number"
+    ) {
+      const minPointsForOvertime = maxPoints - 1;
+      if (
+        winningPoints < minPointsForOvertime ||
+        losingPoints < minPointsForOvertime
+      ) {
+        throw new Error(
+          `Game ${i + 1} scores above ${maxPoints} require both teams to reach at least ${minPointsForOvertime} points first.`,
+        );
+      }
+    }
+
+    if (
       typeof config.requiredWinningMargin === "number" &&
       winningPoints - losingPoints < config.requiredWinningMargin
     ) {

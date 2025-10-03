@@ -74,11 +74,13 @@ function parseNonNegativeInteger(value: string): number | null {
   return parsed;
 }
 
-type GameSeriesConfig = {
+export type GameSeriesConfig = {
   maxGames: number;
   gamesNeededOptions: number[];
   invalidSeriesMessage: string;
   maxPointsPerGame?: number;
+  allowScoresBeyondMax?: boolean;
+  requiredWinningMargin?: number;
 };
 
 type NormalizedGameSeries = {
@@ -88,7 +90,7 @@ type NormalizedGameSeries = {
   targetWins: number;
 };
 
-function normalizeGameSeries(
+export function normalizeGameSeries(
   rows: GameScore[],
   config: GameSeriesConfig,
 ): NormalizedGameSeries {
@@ -133,10 +135,13 @@ function normalizeGameSeries(
       throw new Error(`Game ${i + 1} points must be zero or higher.`);
     }
 
-    if (
-      typeof config.maxPointsPerGame === "number" &&
-      (valueA > config.maxPointsPerGame || valueB > config.maxPointsPerGame)
-    ) {
+    const maxPoints = config.maxPointsPerGame;
+    const allowsScoresBeyondMax = Boolean(config.allowScoresBeyondMax);
+    const exceedsMax =
+      typeof maxPoints === "number" &&
+      (valueA > maxPoints || valueB > maxPoints);
+
+    if (exceedsMax && !allowsScoresBeyondMax) {
       throw new Error(
         `Game ${i + 1} points must be between 0 and ${config.maxPointsPerGame}.`,
       );
@@ -144,6 +149,18 @@ function normalizeGameSeries(
 
     if (valueA === valueB) {
       throw new Error(`Game ${i + 1} cannot be tied.`);
+    }
+
+    const winningPoints = Math.max(valueA, valueB);
+    const losingPoints = Math.min(valueA, valueB);
+
+    if (
+      typeof config.requiredWinningMargin === "number" &&
+      winningPoints - losingPoints < config.requiredWinningMargin
+    ) {
+      throw new Error(
+        `Game ${i + 1} must be won by at least ${config.requiredWinningMargin} points.`,
+      );
     }
 
     trimmed.push([valueA, valueB]);
@@ -628,6 +645,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         invalidSeriesMessage:
           "Pickleball matches finish when a side wins two games (best of three). Adjust the game scores.",
         maxPointsPerGame: 11,
+        allowScoresBeyondMax: true,
+        requiredWinningMargin: 2,
       };
     }
     if (isTableTennis) {
@@ -697,7 +716,10 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     sportCopy.scorePlaceholderB ?? "Team B whole-number score (e.g. 0)";
   const gameScorePlaceholder =
     sportCopy.gameScorePlaceholder ?? "Whole-number points (e.g. 11)";
-  const gameScoreMax = isPickleball ? 11 : undefined;
+  const gameScoreMax =
+    !isPickleball && typeof gameSeriesConfig?.maxPointsPerGame === "number"
+      ? gameSeriesConfig.maxPointsPerGame
+      : undefined;
   const dateLocaleHintId = useMemo(
     () => `${sport || "record"}-date-locale-note`,
     [sport],

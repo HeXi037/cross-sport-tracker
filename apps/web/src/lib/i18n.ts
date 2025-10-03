@@ -200,6 +200,24 @@ const BROWSER_FALLBACK_TIME_ZONES = new Set([
   'ETC/GMT0',
 ]);
 
+const AUSTRALIAN_TIME_ZONE_PREFIX = 'australia/';
+const ADDITIONAL_AUSTRALIAN_TIME_ZONES = new Set(['antarctica/macquarie']);
+
+export function isAustralianTimeZone(
+  timeZone: string | null | undefined,
+): boolean {
+  const normalized = normalizeTimeZoneInternal(timeZone, '').toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  if (normalized.startsWith(AUSTRALIAN_TIME_ZONE_PREFIX)) {
+    return true;
+  }
+
+  return ADDITIONAL_AUSTRALIAN_TIME_ZONES.has(normalized);
+}
+
 const DAY_FIRST_REGIONS = new Set([
   'AU',
   'GB',

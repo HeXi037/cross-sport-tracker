@@ -15,6 +15,7 @@ import {
   DEFAULT_TIME_ZONE,
   normalizeTimeZone,
   TIME_ZONE_STORAGE_KEY,
+  isAustralianTimeZone,
 } from './i18n';
 import {
   loadUserSettings,
@@ -24,22 +25,6 @@ import {
 
 const LocaleContext = createContext(NEUTRAL_FALLBACK_LOCALE);
 const TimeZoneContext = createContext(DEFAULT_TIME_ZONE);
-
-const AUSTRALIAN_TIME_ZONE_PREFIX = 'australia/';
-const ADDITIONAL_AUSTRALIAN_TIME_ZONES = new Set(['antarctica/macquarie']);
-
-function isAustralianTimeZone(timeZone: string | null | undefined): boolean {
-  const normalized = normalizeTimeZone(timeZone, '').toLowerCase();
-  if (!normalized) {
-    return false;
-  }
-
-  if (normalized.startsWith(AUSTRALIAN_TIME_ZONE_PREFIX)) {
-    return true;
-  }
-
-  return ADDITIONAL_AUSTRALIAN_TIME_ZONES.has(normalized);
-}
 
 function resolveLocaleCandidates(
   fallback: string,

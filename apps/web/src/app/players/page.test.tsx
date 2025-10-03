@@ -87,7 +87,7 @@ describe("PlayersPage", () => {
     });
     expect(screen.getByRole("link", { name: /go back home/i })).toBeTruthy();
     const retry = screen.getByRole("button", {
-      name: /retry loading players/i,
+      name: /retry/i,
     });
     await act(async () => {
       fireEvent.click(retry);
@@ -113,11 +113,56 @@ describe("PlayersPage", () => {
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toMatch(/network/i);
     expect(
-      screen.getByRole("button", { name: /retry loading players/i })
+      screen.getByRole("button", { name: /retry/i })
     ).toBeTruthy();
     expect(screen.getByRole("link", { name: /go back home/i })).toBeTruthy();
     const toast = await screen.findByTestId("toast");
     expect(toast.textContent).toMatch(/network/i);
+  });
+
+  it("shows a timeout message with a retry option when loading players takes too long", async () => {
+    vi.useFakeTimers();
+    const abortError = Object.assign(new Error("The operation was aborted."), {
+      name: "AbortError",
+    });
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce((_input: RequestInfo | URL, init?: RequestInit) => {
+        const signal = init?.signal;
+        return new Promise<never>((_resolve, reject) => {
+          signal?.addEventListener("abort", () => {
+            reject(abortError);
+          });
+        });
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
+    global.fetch = fetchMock as typeof fetch;
+
+    await act(async () => {
+      renderWithProviders(<PlayersPage />);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(15000);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    vi.useRealTimers();
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/unable to load players/i);
+    const retryButton = screen.getByRole("button", { name: /retry/i });
+
+    await act(async () => {
+      fireEvent.click(retryButton);
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("disables add button for blank names", async () => {

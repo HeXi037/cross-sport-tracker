@@ -522,7 +522,7 @@ export default function LiveSummary({
       {latestEvent ? (
         <p className="match-meta">Latest update: {latestEvent}</p>
       ) : null}
-      {fallback && !connected ? (
+      {fallback && !connected && !finished ? (
         <p className="match-meta">Live updates unavailable.</p>
       ) : null}
     </section>

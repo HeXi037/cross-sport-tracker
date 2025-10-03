@@ -2,7 +2,7 @@ import createNextIntlPlugin from 'next-intl/plugin';
 
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
-const supportedLocales = ['en-GB', 'es-ES'];
+const supportedLocales = ['en-GB', 'en-AU', 'es-ES'];
 const defaultLocale = supportedLocales[0];
 
 /** @type {import('next').NextConfig} */

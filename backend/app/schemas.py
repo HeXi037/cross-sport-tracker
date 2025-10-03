@@ -1,14 +1,13 @@
 from typing import Any, Dict, List, Literal, Optional, Tuple
 from collections.abc import Sequence
 from datetime import datetime
-import re
 from urllib.parse import urlparse
 from pydantic import BaseModel, Field, model_validator, field_validator, ConfigDict
 
 from .location_utils import normalize_location_fields, continent_for_country
 from .time_utils import require_utc
 
-PASSWORD_REGEX = re.compile(r"^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$")
+MIN_PASSWORD_LENGTH = 8
 
 class SportOut(BaseModel):
     id: str
@@ -454,19 +453,25 @@ class EventIn(BaseModel):
                 )
         return values
 # (remaining schema definitions unchanged)
+def _ensure_password_complexity(value: str) -> str:
+    if len(value) < MIN_PASSWORD_LENGTH:
+        raise ValueError(
+            f"Password must be at least {MIN_PASSWORD_LENGTH} characters long"
+        )
+    if not value.strip():
+        raise ValueError("Password must include at least one non-space character")
+    return value
+
+
 class UserCreate(BaseModel):
     """Schema for user signup requests."""
     username: str = Field(..., min_length=3, max_length=50)
-    password: str = Field(..., min_length=12)
+    password: str = Field(..., min_length=MIN_PASSWORD_LENGTH)
     is_admin: bool = False
 
     @field_validator("password")
     def _check_password_complexity(cls, v: str) -> str:
-        if not PASSWORD_REGEX.match(v):
-            raise ValueError(
-                "Password must contain letters, numbers, and symbols"
-            )
-        return v
+        return _ensure_password_complexity(v)
 
 class UserLogin(BaseModel):
     """Schema for user login requests."""
@@ -491,15 +496,13 @@ class UserOut(BaseModel):
 class UserUpdate(BaseModel):
     """Payload for updating the current user."""
     username: Optional[str] = Field(None, min_length=3, max_length=50)
-    password: Optional[str] = Field(None, min_length=12)
+    password: Optional[str] = Field(None, min_length=MIN_PASSWORD_LENGTH)
 
     @field_validator("password")
     def _check_password_complexity(cls, v: str | None) -> str | None:
         if v is None:
             return v
-        if not PASSWORD_REGEX.match(v):
-            raise ValueError("Password must contain letters, numbers, and symbols")
-        return v
+        return _ensure_password_complexity(v)
 
 
 class AdminPasswordResetRequest(BaseModel):

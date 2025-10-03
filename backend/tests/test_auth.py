@@ -118,9 +118,7 @@ def test_signup_login_and_protected_access():
     "username,password",
     [
         ("weak1", "short"),
-        ("weak2", "allletters"),
-        ("weak3", "NoSymbol1"),
-        ("weak4", "NoNumber!"),
+        ("weak2", "        "),
     ],
 )
 def test_signup_rejects_invalid_password(username, password):
@@ -130,6 +128,16 @@ def test_signup_rejects_invalid_password(username, password):
             "/auth/signup", json={"username": username, "password": password}
         )
         assert resp.status_code == 422
+
+
+def test_signup_allows_passphrase_password():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup",
+            json={"username": "passphrase", "password": "correct horse battery"},
+        )
+        assert resp.status_code == 200
 
 def test_signup_links_orphan_player():
     auth.limiter.reset()

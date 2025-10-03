@@ -63,8 +63,11 @@ import {
   MASTER_SPORT,
   SPORT_OPTIONS,
 } from "../leaderboard/constants";
+import {
+  MIN_PASSWORD_LENGTH,
+  PASSWORD_GUIDELINES,
+} from "../../lib/passwordGuidelines";
 
-const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
 const INVALID_SOCIAL_URL_MESSAGE =
   "Enter a valid URL that starts with http:// or https:// and includes a hostname.";
 const SOCIAL_LINK_LABEL_REQUIRED_MESSAGE = "Link label is required";
@@ -496,11 +499,10 @@ export default function ProfilePage() {
       });
       return;
     }
-    if (password && (password.length < 12 || !PASSWORD_REGEX.test(password))) {
+    if (password && password.length < MIN_PASSWORD_LENGTH) {
       setSaveFeedback({
         type: "error",
-        message:
-          "Password must be at least 12 characters and include letters, numbers, and symbols.",
+        message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`,
       });
       return;
     }
@@ -887,6 +889,16 @@ export default function ProfilePage() {
             }}
             autoComplete="new-password"
           />
+          <ul className="password-guidelines">
+            {PASSWORD_GUIDELINES.map((guideline) => (
+              <li key={guideline} className="password-guidelines__item">
+                <span className="password-guidelines__status" aria-hidden="true">
+                  •
+                </span>
+                {guideline}
+              </li>
+            ))}
+          </ul>
         </label>
         <label className="form-field" htmlFor="profile-confirm-password">
           <span className="form-label">Confirm new password</span>

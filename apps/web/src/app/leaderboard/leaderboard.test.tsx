@@ -266,7 +266,7 @@ describe("Leaderboard", () => {
     });
 
     const select = await screen.findByRole("combobox", {
-      name: /select a sport/i,
+      name: /more sports/i,
     });
     expect(select).toHaveValue("padel");
 
@@ -421,6 +421,10 @@ describe("Leaderboard", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(screen.getByText("Alice")).toBeInTheDocument();
+    const aliceRatingCell = await screen.findByRole("cell", {
+      name: "1,200.0",
+    });
+    expect(aliceRatingCell).toHaveAttribute("title", "1200");
     expect(screen.queryByText("Cara")).not.toBeInTheDocument();
 
     await act(async () => {

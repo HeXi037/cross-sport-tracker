@@ -11,11 +11,14 @@ import {
   type KeyboardEvent,
 } from "react";
 import { flushSync } from "react-dom";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiFetch, type ApiError } from "../../../lib/api";
 import { invalidateMatchesCache } from "../../../lib/useApiSWR";
 import { invalidateNotificationsCache } from "../../../lib/useNotifications";
 import { useLocale } from "../../../lib/LocaleContext";
+import { rememberLoginRedirect } from "../../../lib/loginRedirect";
+import { useSessionSnapshot } from "../../../lib/useSessionSnapshot";
 import {
   getDateExample,
   getDatePlaceholder,
@@ -29,8 +32,6 @@ import {
   type BowlingSummaryResult,
 } from "../../../lib/bowlingSummary";
 import { getSportCopy } from "../../../lib/sportCopy";
-
-const base = process.env.NEXT_PUBLIC_API_BASE_URL || "/api";
 
 interface Player {
   id: string;
@@ -661,6 +662,9 @@ function validateBowlingFrameInput(
 
 export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const router = useRouter();
+  const session = useSessionSnapshot();
+  const loggedIn = session.isLoggedIn;
+  const isAnonymous = !loggedIn;
   const sport = sportId;
   const isStandardPadel = sport === "padel";
   const isPadel = sport === "padel" || sport === "padel_americano";
@@ -962,24 +966,41 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   }, [bowlingEntries]);
 
   useEffect(() => {
+    if (!loggedIn) {
+      setPlayers([]);
+      return;
+    }
+
+    let active = true;
+
     async function loadPlayers() {
       try {
-        const res = await fetch(`${base}/v0/players`);
-        if (res.ok) {
-          const data = (await res.json()) as { players: Player[] };
-          const sortedPlayers = (data.players ?? [])
-            .slice()
-            .sort((a, b) =>
-              a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
-            );
-          setPlayers(sortedPlayers);
+        const res = await apiFetch(`/v0/players`, { cache: "no-store" });
+        if (!active) {
+          return;
         }
-      } catch {
-        // ignore errors
+        const data = (await res.json()) as { players: Player[] };
+        const sortedPlayers = (data.players ?? [])
+          .slice()
+          .sort((a, b) =>
+            a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+          );
+        setPlayers(sortedPlayers);
+      } catch (err) {
+        const apiError = err instanceof Error ? (err as ApiError) : null;
+        if (apiError?.status === 401 && active) {
+          rememberLoginRedirect();
+          router.push("/login");
+        }
       }
     }
+
     loadPlayers();
-  }, []);
+
+    return () => {
+      active = false;
+    };
+  }, [loggedIn, router]);
 
   const handleIdChange = (key: keyof IdMap, value: string) => {
     setIds((prev) => ({ ...prev, [key]: value }));
@@ -1279,6 +1300,11 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isAnonymous) {
+      rememberLoginRedirect();
+      router.push("/login");
+      return;
+    }
     setHasAttemptedSubmit(true);
     setError(null);
     setDuplicatePlayerNames([]);
@@ -1563,8 +1589,22 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         </section>
       )}
       <form onSubmit={handleSubmit} className="form-stack">
+        {isAnonymous && (
+          <div className="login-required-banner" role="note">
+            <p>
+              You need to be logged in to record matches. Please log in or sign up.
+            </p>
+            <Link
+              href="/login"
+              className="button-secondary login-required-banner__action"
+              onClick={() => rememberLoginRedirect()}
+            >
+              Log in
+            </Link>
+          </div>
+        )}
         {supportsSinglesOrDoubles && (
-          <fieldset className="form-fieldset">
+          <fieldset className="form-fieldset" disabled={isAnonymous}>
             <legend className="form-legend">Match type</legend>
             <div className="radio-group">
               <label
@@ -1599,7 +1639,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
           </fieldset>
         )}
 
-        <fieldset className="form-fieldset">
+        <fieldset className="form-fieldset" disabled={isAnonymous}>
           <legend className="form-legend">Match details</legend>
           {sportCopy.matchDetailsHint && (
             <p className="form-hint">{sportCopy.matchDetailsHint}</p>
@@ -1673,7 +1713,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         </fieldset>
 
         {isBowling ? (
-          <fieldset className="form-fieldset">
+          <fieldset className="form-fieldset" disabled={isAnonymous}>
             <legend className="form-legend bowling-legend">
               <span>Players and scores</span>
               <span
@@ -1957,7 +1997,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
           </fieldset>
         ) : (
           <>
-            <fieldset className="form-fieldset">
+            <fieldset className="form-fieldset" disabled={isAnonymous}>
               <legend className="form-legend">Players</legend>
               {sportCopy.playersHint && (
                 <p className="form-hint">{sportCopy.playersHint}</p>
@@ -2064,7 +2104,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
               )}
             </fieldset>
 
-            <fieldset className="form-fieldset">
+            <fieldset className="form-fieldset" disabled={isAnonymous}>
               <legend className="form-legend">Match score</legend>
               {sportCopy.scoringHint && (
                 <p
@@ -2184,7 +2224,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
           </p>
         )}
 
-        <button type="submit" disabled={submitting}>
+        <button type="submit" disabled={isAnonymous || submitting}>
           {submitting ? "Saving..." : "Save"}
         </button>
       </form>

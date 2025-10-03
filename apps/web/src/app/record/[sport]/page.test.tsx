@@ -1,8 +1,12 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
+import * as Api from "../../../lib/api";
+import type { ApiError } from "../../../lib/api";
 import * as bowlingSummary from "../../../lib/bowlingSummary";
 import * as LocaleContext from "../../../lib/LocaleContext";
+import { rememberLoginRedirect } from "../../../lib/loginRedirect";
 import * as NotificationCache from "../../../lib/useNotifications";
+import { useSessionSnapshot } from "../../../lib/useSessionSnapshot";
 import {
   getDateExample,
   getTimeExample,
@@ -16,6 +20,17 @@ const router = { push: vi.fn() };
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
 }));
+
+vi.mock("../../../lib/loginRedirect", () => ({
+  rememberLoginRedirect: vi.fn(),
+}));
+
+vi.mock("../../../lib/useSessionSnapshot", () => ({
+  useSessionSnapshot: vi.fn(),
+}));
+
+const mockedUseSessionSnapshot = vi.mocked(useSessionSnapshot);
+const mockedRememberLoginRedirect = vi.mocked(rememberLoginRedirect);
 
 describe("resolveRecordSportRoute", () => {
   afterEach(() => {
@@ -96,11 +111,59 @@ describe("resolveRecordSportRoute", () => {
 describe("RecordSportForm", () => {
   beforeEach(() => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
+    mockedUseSessionSnapshot.mockReset();
+    mockedUseSessionSnapshot.mockReturnValue({
+      isAdmin: false,
+      isLoggedIn: true,
+      userId: "user-1",
+    });
+    mockedRememberLoginRedirect.mockReset();
   });
 
   afterEach(() => {
     router.push.mockReset();
     vi.clearAllMocks();
+  });
+
+  it("prompts anonymous users to log in before recording", () => {
+    mockedUseSessionSnapshot.mockReturnValue({
+      isAdmin: false,
+      isLoggedIn: false,
+      userId: null,
+    });
+    const apiFetchSpy = vi.spyOn(Api, "apiFetch");
+
+    render(<RecordSportForm sportId="padel" />);
+
+    expect(
+      screen.getByText(
+        "You need to be logged in to record matches. Please log in or sign up.",
+      ),
+    ).toBeInTheDocument();
+    const loginLink = screen.getByRole("link", { name: /log in/i });
+    expect(loginLink).toHaveAttribute("href", "/login");
+    expect(screen.getByRole("button", { name: /save/i })).toBeDisabled();
+    expect(screen.getByLabelText(/date/i)).toBeDisabled();
+    expect(apiFetchSpy).not.toHaveBeenCalled();
+
+    apiFetchSpy.mockRestore();
+  });
+
+  it("redirects to login when loading players returns 401", async () => {
+    const apiError = new Error("HTTP 401: Not authenticated") as ApiError;
+    apiError.status = 401;
+    const apiFetchSpy = vi
+      .spyOn(Api, "apiFetch")
+      .mockRejectedValueOnce(apiError);
+
+    render(<RecordSportForm sportId="padel" />);
+
+    await waitFor(() => {
+      expect(mockedRememberLoginRedirect).toHaveBeenCalled();
+    });
+    expect(router.push).toHaveBeenCalledWith("/login");
+
+    apiFetchSpy.mockRestore();
   });
 
   it("rejects duplicate player selections", async () => {

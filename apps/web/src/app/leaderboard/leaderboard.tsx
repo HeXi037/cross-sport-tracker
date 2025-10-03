@@ -83,21 +83,6 @@ const canonicalizePathname = (pathname: string) => {
   }
   return pathname.replace(/\/+$/, "") || "/";
 };
-const getDocumentReferrerUrl = (): URL | null => {
-  if (typeof document === "undefined") {
-    return null;
-  }
-  const referrer = document.referrer;
-  if (!referrer) {
-    return null;
-  }
-  try {
-    return new URL(referrer);
-  } catch {
-    return null;
-  }
-};
-
 const getStoredPreviousUrl = (): URL | null => {
   if (typeof window === "undefined") {
     return null;
@@ -212,6 +197,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const searchParams = useSearchParams();
   const searchParamsString = searchParams?.toString() ?? "";
   const lastSyncedUrlRef = useRef<string | null>(null);
+  const previousUrlRef = useRef<URL | null>(null);
   const homeT = useTranslations("Home");
   const leaderboardT = useTranslations("Leaderboard");
   const backLinkT = useTranslations("BackLink");
@@ -301,53 +287,47 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       return;
     }
 
-    const applyBackLinkFromUrl = (candidate: URL | null) => {
-      setBackLink((prev) => {
-        if (!candidate) {
-          return prev ? null : prev;
-        }
-
-        let currentUrl: URL;
-        try {
-          currentUrl = new URL(window.location.href);
-        } catch {
-          return prev ?? null;
-        }
-
-        if (candidate.origin !== currentUrl.origin) {
-          return prev ? null : prev;
-        }
-
-        const refPath = canonicalizePathname(candidate.pathname || "/");
-        const currentPath = canonicalizePathname(currentUrl.pathname || "/");
-        const refSearch = candidate.search ?? "";
-        const currentSearch = currentUrl.search ?? "";
-        const refHash = candidate.hash ?? "";
-        const currentHash = currentUrl.hash ?? "";
-
-        if (refPath === currentPath && refSearch === currentSearch && refHash === currentHash) {
-          return prev ? null : prev;
-        }
-
-        const hrefPath = candidate.pathname || "/";
-        const href = `${hrefPath}${candidate.search}${candidate.hash}`;
-        const label = getBackLinkLabel(refPath);
-
-        if (prev && prev.href === href && prev.label === label) {
-          return prev;
-        }
-
-        return { href, label };
-      });
-    };
-
-    const storedPrevious = getStoredPreviousUrl();
-    if (storedPrevious) {
-      applyBackLinkFromUrl(storedPrevious);
+    let currentUrl: URL;
+    try {
+      currentUrl = new URL(window.location.href);
+    } catch {
       return;
     }
 
-    applyBackLinkFromUrl(getDocumentReferrerUrl());
+    let candidate = previousUrlRef.current ?? getStoredPreviousUrl();
+    const currentPath = canonicalizePathname(currentUrl.pathname || "/");
+    const currentSearch = currentUrl.search ?? "";
+    const currentHash = currentUrl.hash ?? "";
+    let nextBackLink: { href: string; label: string } | null = null;
+
+    if (candidate && candidate.origin === currentUrl.origin) {
+      const candidatePath = candidate.pathname || "/";
+      const refPath = canonicalizePathname(candidatePath);
+      const refSearch = candidate.search ?? "";
+      const refHash = candidate.hash ?? "";
+
+      if (
+        refPath !== currentPath ||
+        refSearch !== currentSearch ||
+        refHash !== currentHash
+      ) {
+        const href = `${candidatePath}${candidate.search}${candidate.hash}`;
+        const label = getBackLinkLabel(refPath);
+        nextBackLink = { href, label };
+      }
+    }
+
+    setBackLink((prev) => {
+      if (!nextBackLink) {
+        return prev ? null : prev;
+      }
+      if (prev && prev.href === nextBackLink.href && prev.label === nextBackLink.label) {
+        return prev;
+      }
+      return nextBackLink;
+    });
+
+    previousUrlRef.current = currentUrl;
   }, [getBackLinkLabel, pathname, searchParamsString]);
   const [preferencesApplied, setPreferencesApplied] = useState(false);
 

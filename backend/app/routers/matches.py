@@ -232,50 +232,70 @@ def _resolve_match_outcome(
     return None
 
 
-def _rating_groups_for_update(
+class RatingUpdatePlan(NamedTuple):
+    winners: list[str]
+    losers: list[str]
+    draws: list[str]
+    draw_winners: list[str]
+    draw_losers: list[str]
+    draw_draws: list[str]
+
+
+def _split_draw_players(
     outcome: MatchOutcome, side_players: dict[str, list[str]]
 ) -> tuple[list[str], list[str]]:
+    draws = outcome.draws
+    if not draws:
+        return [], []
+    draw_sides = outcome.draw_sides
+    if not draw_sides:
+        draw_sides = [
+            side
+            for side, players in side_players.items()
+            if any(pid in draws for pid in players)
+        ]
+    if len(draw_sides) < 2:
+        midpoint = len(draws) // 2 or 1
+        return draws[:midpoint], draws[midpoint:]
+    half = len(draw_sides) // 2 or 1
+    first_sides = draw_sides[:half]
+    second_sides = draw_sides[half:]
+    first_players = [
+        pid
+        for side in first_sides
+        for pid in side_players.get(side, [])
+        if pid in draws
+    ]
+    second_players = [
+        pid
+        for side in second_sides
+        for pid in side_players.get(side, [])
+        if pid in draws
+    ]
+    if not first_players or not second_players:
+        midpoint = len(draws) // 2 or 1
+        return draws[:midpoint], draws[midpoint:]
+    return first_players, second_players
+
+
+def _rating_groups_for_update(
+    outcome: MatchOutcome, side_players: dict[str, list[str]]
+) -> RatingUpdatePlan:
     winners = outcome.winners
     losers = outcome.losers
     draws = outcome.draws
 
     if winners and losers:
-        return winners, losers
+        return RatingUpdatePlan(winners, losers, draws, [], [], [])
     if draws and losers and not winners:
-        return draws, losers
+        draw_winners, draw_losers = _split_draw_players(outcome, side_players)
+        return RatingUpdatePlan(draws, losers, [], draw_winners, draw_losers, draws)
     if winners and draws and not losers:
-        return winners, draws
+        return RatingUpdatePlan(winners, draws, draws, [], [], [])
     if draws and not winners and not losers:
-        draw_sides = outcome.draw_sides
-        if not draw_sides:
-            draw_sides = [
-                side
-                for side, players in side_players.items()
-                if any(pid in draws for pid in players)
-            ]
-        if len(draw_sides) < 2:
-            midpoint = len(draws) // 2 or 1
-            return draws[:midpoint], draws[midpoint:]
-        half = len(draw_sides) // 2 or 1
-        first_sides = draw_sides[:half]
-        second_sides = draw_sides[half:]
-        first_players = [
-            pid
-            for side in first_sides
-            for pid in side_players.get(side, [])
-            if pid in draws
-        ]
-        second_players = [
-            pid
-            for side in second_sides
-            for pid in side_players.get(side, [])
-            if pid in draws
-        ]
-        if not first_players or not second_players:
-            midpoint = len(draws) // 2 or 1
-            return draws[:midpoint], draws[midpoint:]
-        return first_players, second_players
-    return winners, losers
+        first_players, second_players = _split_draw_players(outcome, side_players)
+        return RatingUpdatePlan(first_players, second_players, draws, [], [], [])
+    return RatingUpdatePlan(winners, losers, draws, [], [], [])
 
 # GET /api/v0/matches
 @router.get("", response_model=list[MatchSummaryOut])
@@ -633,17 +653,24 @@ async def create_match(
         outcome = _resolve_match_outcome(match.sport_id, sides_with_players, details_for_result)
         if outcome:
             winners, losers, draws, *_ = outcome
-            rating_winners, rating_losers = _rating_groups_for_update(
-                outcome, sides_with_players
-            )
+            rating_plan = _rating_groups_for_update(outcome, sides_with_players)
             try:
-                if rating_winners and rating_losers:
+                if rating_plan.draw_winners and rating_plan.draw_losers:
                     await update_ratings(
                         session,
                         rating_sport_id,
-                        rating_winners,
-                        rating_losers,
-                        draws=draws or None,
+                        rating_plan.draw_winners,
+                        rating_plan.draw_losers,
+                        draws=rating_plan.draw_draws or None,
+                        match_id=None,
+                    )
+                if rating_plan.winners and rating_plan.losers:
+                    await update_ratings(
+                        session,
+                        rating_sport_id,
+                        rating_plan.winners,
+                        rating_plan.losers,
+                        draws=rating_plan.draws or None,
                         match_id=mid,
                     )
             except Exception:
@@ -912,17 +939,24 @@ async def delete_match(
                 match.sport_id, match_stage
             )
             winners, losers, draws, *_ = outcome
-            rating_winners, rating_losers = _rating_groups_for_update(
-                outcome, side_players
-            )
-            if not rating_winners or not rating_losers:
+            rating_plan = _rating_groups_for_update(outcome, side_players)
+            if not rating_plan.winners or not rating_plan.losers:
                 continue
+            if rating_plan.draw_winners and rating_plan.draw_losers:
+                await update_ratings(
+                    session,
+                    current_rating_sport,
+                    rating_plan.draw_winners,
+                    rating_plan.draw_losers,
+                    draws=rating_plan.draw_draws or None,
+                    match_id=None,
+                )
             await update_ratings(
                 session,
                 current_rating_sport,
-                rating_winners,
-                rating_losers,
-                draws=draws or None,
+                rating_plan.winners,
+                rating_plan.losers,
+                draws=rating_plan.draws or None,
                 match_id=match.id,
             )
         await session.commit()

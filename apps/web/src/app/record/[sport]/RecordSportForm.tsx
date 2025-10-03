@@ -21,7 +21,6 @@ import { rememberLoginRedirect } from "../../../lib/loginRedirect";
 import { useSessionSnapshot } from "../../../lib/useSessionSnapshot";
 import {
   getDateExample,
-  getDatePlaceholder,
   getTimeExample,
   usesTwentyFourHourClock,
 } from "../../../lib/i18n";
@@ -770,7 +769,6 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     [playerNameById, duplicateNameSet],
   );
   const locale = useLocale();
-  const datePlaceholder = useMemo(() => getDatePlaceholder(locale), [locale]);
   const dateExample = useMemo(() => getDateExample(locale), [locale]);
   const uses24HourTime = useMemo(
     () => usesTwentyFourHourClock(locale),
@@ -1653,7 +1651,6 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 lang={locale}
-                placeholder={datePlaceholder}
                 aria-describedby={`record-date-format ${dateLocaleHintId}`}
               />
               <span id="record-date-format" className="form-hint">

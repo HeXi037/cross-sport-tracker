@@ -154,6 +154,35 @@ img {
   gap: 1rem;
 }
 
+.form-banner {
+  border-radius: 8px;
+  border: 1px solid rgba(26, 115, 232, 0.25);
+  background: rgba(26, 115, 232, 0.12);
+  color: var(--color-text);
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+}
+
+.form-banner a {
+  color: var(--color-accent-blue);
+  font-weight: 600;
+}
+
+.form-banner a:hover,
+.form-banner a:focus-visible {
+  text-decoration: underline;
+}
+
+.form-disabled-wrapper {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.form-disabled-wrapper[disabled] {
+  opacity: 0.65;
+}
+
 .form-fieldset {
   border: 1px solid rgba(10, 31, 68, 0.12);
   border-radius: 8px;

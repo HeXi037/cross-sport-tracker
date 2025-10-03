@@ -8,6 +8,7 @@ import {
   getTimeExample,
   usesTwentyFourHourClock,
 } from "../../../lib/i18n";
+import { useSessionSnapshot } from "../../../lib/useSessionSnapshot";
 import RecordSportForm from "./RecordSportForm";
 import { resolveRecordSportRoute } from "./resolveRecordSportRoute";
 
@@ -16,6 +17,12 @@ const router = { push: vi.fn() };
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
 }));
+
+vi.mock("../../../lib/useSessionSnapshot", () => ({
+  useSessionSnapshot: vi.fn(),
+}));
+
+const mockedUseSessionSnapshot = vi.mocked(useSessionSnapshot);
 
 describe("resolveRecordSportRoute", () => {
   afterEach(() => {
@@ -96,10 +103,16 @@ describe("resolveRecordSportRoute", () => {
 describe("RecordSportForm", () => {
   beforeEach(() => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
+    mockedUseSessionSnapshot.mockReturnValue({
+      isAdmin: false,
+      isLoggedIn: true,
+      userId: "user-1",
+    });
   });
 
   afterEach(() => {
     router.push.mockReset();
+    mockedUseSessionSnapshot.mockReset();
     vi.clearAllMocks();
   });
 
@@ -723,5 +736,24 @@ describe("RecordSportForm", () => {
     expect(
       screen.getByText("Total: 70", { selector: ".bowling-total-preview" }),
     ).toBeInTheDocument();
+  });
+
+  it("shows a login banner and disables inputs when not authenticated", async () => {
+    mockedUseSessionSnapshot.mockReturnValue({
+      isAdmin: false,
+      isLoggedIn: false,
+      userId: null,
+    });
+
+    render(<RecordSportForm sportId="padel" />);
+
+    const banner = await screen.findByRole("alert");
+    expect(banner).toHaveTextContent(/You need to be logged in to record matches/i);
+
+    const locationField = await screen.findByLabelText("Location");
+    expect(locationField).toBeDisabled();
+
+    const saveButton = screen.getByRole("button", { name: /save/i });
+    expect(saveButton).toBeDisabled();
   });
 });

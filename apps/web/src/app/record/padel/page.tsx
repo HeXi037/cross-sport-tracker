@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch } from "../../../lib/api";
+import { apiFetch, type ApiError } from "../../../lib/api";
 import { invalidateMatchesCache } from "../../../lib/useApiSWR";
 import { invalidateNotificationsCache } from "../../../lib/useNotifications";
 import { ensureTrailingSlash } from "../../../lib/routes";
@@ -15,6 +16,7 @@ import {
 } from "../../../lib/i18n";
 import { buildPlayedAtISOString } from "../../../lib/datetime";
 import { rememberLoginRedirect } from "../../../lib/loginRedirect";
+import { useSessionSnapshot } from "../../../lib/useSessionSnapshot";
 
 interface Player {
   id: string;
@@ -239,6 +241,8 @@ interface CreateMatchPayload {
 
 export default function RecordPadelPage() {
   const router = useRouter();
+  const session = useSessionSnapshot();
+  const loggedIn = session.isLoggedIn;
   const [players, setPlayers] = useState<Player[]>([]);
   const [ids, setIds] = useState<IdMap>({ a1: "", a2: "", b1: "", b2: "" });
   const [bestOf, setBestOf] = useState("3");
@@ -328,6 +332,7 @@ export default function RecordPadelPage() {
   const hasSideBPlayers = sideBSelected.length > 0;
 
   const canSave =
+    loggedIn &&
     !saving &&
     hasSideAPlayers &&
     hasSideBPlayers &&
@@ -363,28 +368,59 @@ export default function RecordPadelPage() {
   }, [setAnalysisErrors]);
 
   useEffect(() => {
+    if (!loggedIn) {
+      setSaving(false);
+      setSuccess(false);
+    }
+  }, [loggedIn]);
+
+  useEffect(() => {
+    let active = true;
+
     async function loadPlayers() {
+      if (!loggedIn) {
+        if (active) {
+          setPlayers([]);
+          setGlobalError(null);
+        }
+        return;
+      }
+
       try {
-        const res = await apiFetch(`/v0/players`);
-        const data = (await res.json()) as { players: Player[] };
-        const sortedPlayers = (data.players ?? [])
-          .slice()
-          .sort((a, b) =>
-            a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
-          );
-        setPlayers(sortedPlayers);
-      } catch (err: unknown) {
+        const res = await apiFetch(`/v0/players`, { cache: "no-store" });
+        if (!active) {
+          return;
+        }
+        if (res.ok) {
+          const data = (await res.json()) as { players: Player[] };
+          const sortedPlayers = (data.players ?? [])
+            .slice()
+            .sort((a, b) =>
+              a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+            );
+          setPlayers(sortedPlayers);
+          setGlobalError(null);
+        }
+      } catch (err) {
+        if (!active) {
+          return;
+        }
         setGlobalError("Failed to load players");
-        const status = (err as { status?: number }).status;
+        const apiError = err as ApiError;
+        const status = apiError?.status ?? (err as { status?: number }).status;
         if (status === 401) {
           rememberLoginRedirect();
           router.push(ensureTrailingSlash("/login"));
         }
       }
     }
+
     loadPlayers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
+    return () => {
+      active = false;
+    };
+  }, [loggedIn, router]);
 
   const handleIdChange = (key: keyof IdMap, value: string) => {
     setIds((prev) => ({ ...prev, [key]: value }));
@@ -430,6 +466,9 @@ export default function RecordPadelPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!loggedIn) {
+      return;
+    }
     setShowSummaryValidation(true);
     setSuccess(false);
 
@@ -530,6 +569,24 @@ export default function RecordPadelPage() {
   return (
     <main className="container">
       <form onSubmit={handleSubmit} className="form-stack">
+        {!loggedIn && (
+          <div className="form-banner" role="alert">
+            You need to be logged in to record matches. Please{' '}
+            <Link
+              href={ensureTrailingSlash("/login")}
+              onClick={() => rememberLoginRedirect()}
+            >
+              log in or sign up
+            </Link>
+            .
+          </div>
+        )}
+        <fieldset
+          className="form-disabled-wrapper"
+          disabled={!loggedIn}
+          aria-disabled={(!loggedIn && true) || undefined}
+        >
+          <div className="form-stack">
         <fieldset className="form-fieldset">
           <legend className="form-legend">Match details</legend>
           <div className="form-grid form-grid--two">
@@ -850,6 +907,8 @@ export default function RecordPadelPage() {
         >
           {saving ? "Saving..." : "Save"}
         </button>
+          </div>
+        </fieldset>
       </form>
     </main>
   );

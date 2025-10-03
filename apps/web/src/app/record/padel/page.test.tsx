@@ -8,13 +8,35 @@ import {
   getTimeExample,
   usesTwentyFourHourClock,
 } from "../../../lib/i18n";
+import { useSessionSnapshot } from "../../../lib/useSessionSnapshot";
 
 const router = { push: vi.fn() };
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
+vi.mock("../../../lib/useSessionSnapshot", () => ({
+  useSessionSnapshot: vi.fn(),
+}));
+
+const mockedUseSessionSnapshot = vi.mocked(useSessionSnapshot);
+
 const originalFetch = global.fetch;
 
+const submitForm = () => {
+  const saveButton = screen.getByRole("button", { name: /save/i });
+  const form = saveButton.closest("form");
+  expect(form).not.toBeNull();
+  fireEvent.submit(form as HTMLFormElement);
+};
+
 describe("RecordPadelPage", () => {
+  beforeEach(() => {
+    mockedUseSessionSnapshot.mockReturnValue({
+      isAdmin: false,
+      isLoggedIn: true,
+      userId: "user-1",
+    });
+  });
+
   afterEach(() => {
     vi.clearAllMocks();
     if (originalFetch) {
@@ -24,6 +46,7 @@ describe("RecordPadelPage", () => {
       delete (global as any).fetch;
     }
     window.localStorage.clear();
+    mockedUseSessionSnapshot.mockReset();
   });
 
   it("creates match and records set scores", async () => {
@@ -90,7 +113,7 @@ describe("RecordPadelPage", () => {
       target: { value: "2" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    submitForm();
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
       await waitFor(() =>
@@ -246,7 +269,7 @@ describe("RecordPadelPage", () => {
       target: { value: "p1" },
     });
 
-    fireEvent.click(saveButton);
+    submitForm();
 
     const missingPlayerError = await screen.findByText(
       /Add at least one player to side B\./i,
@@ -258,7 +281,7 @@ describe("RecordPadelPage", () => {
     fireEvent.change(playerB1, {
       target: { value: "p2" },
     });
-    fireEvent.click(saveButton);
+    submitForm();
   });
 
   it("rejects duplicate player selections", async () => {
@@ -289,7 +312,7 @@ describe("RecordPadelPage", () => {
       target: { value: "p1" },
     });
 
-    fireEvent.click(saveButton);
+    submitForm();
 
     const duplicateErrors = await screen.findByText(
       /Players cannot appear on both sides/i,
@@ -301,7 +324,7 @@ describe("RecordPadelPage", () => {
     fireEvent.change(playerB1, {
       target: { value: "p2" },
     });
-    fireEvent.click(saveButton);
+    submitForm();
   });
 
   it("shows validation errors for incomplete set scores", async () => {
@@ -333,7 +356,7 @@ describe("RecordPadelPage", () => {
       target: { value: "6" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    submitForm();
 
     await waitFor(() =>
       expect(
@@ -384,7 +407,7 @@ describe("RecordPadelPage", () => {
       target: { value: "4" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    submitForm();
 
     await waitFor(() =>
       expect(
@@ -406,7 +429,7 @@ describe("RecordPadelPage", () => {
       target: { value: "6" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    submitForm();
 
     await waitFor(() =>
       expect(
@@ -544,7 +567,7 @@ describe("RecordPadelPage", () => {
       target: { value: "4" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    submitForm();
 
     await waitFor(() =>
       expect(
@@ -603,7 +626,7 @@ describe("RecordPadelPage", () => {
       target: { value: "3" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    submitForm();
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     await waitFor(() =>
@@ -663,7 +686,7 @@ describe("RecordPadelPage", () => {
       target: { value: "1" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    submitForm();
 
     await waitFor(() =>
       expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2),
@@ -685,5 +708,24 @@ describe("RecordPadelPage", () => {
     const errorMessage = await screen.findByText(/failed to load players/i);
     expect(errorMessage).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a login banner and disables the form when logged out", async () => {
+    mockedUseSessionSnapshot.mockReturnValue({
+      isAdmin: false,
+      isLoggedIn: false,
+      userId: null,
+    });
+
+    render(<RecordPadelPage />);
+
+    const banner = await screen.findByRole("alert");
+    expect(banner).toHaveTextContent(/You need to be logged in to record matches/i);
+
+    const locationField = await screen.findByLabelText("Location");
+    expect(locationField).toBeDisabled();
+
+    const saveButton = screen.getByRole("button", { name: /save/i });
+    expect(saveButton).toBeDisabled();
   });
 });

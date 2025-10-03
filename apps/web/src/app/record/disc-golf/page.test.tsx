@@ -8,6 +8,7 @@ import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 import RecordDiscGolfPage from "./page";
+import { useSessionSnapshot } from "../../../lib/useSessionSnapshot";
 
 const useSearchParamsMock = vi.fn<URLSearchParams, []>();
 const pushMock = vi.fn();
@@ -33,11 +34,22 @@ vi.mock("../../../lib/useNotifications", () => ({
     notificationMocks.invalidateNotificationsCacheMock,
 }));
 
+vi.mock("../../../lib/useSessionSnapshot", () => ({
+  useSessionSnapshot: vi.fn(),
+}));
+
+const mockedUseSessionSnapshot = vi.mocked(useSessionSnapshot);
+
 const originalFetch = global.fetch;
 
 describe("RecordDiscGolfPage", () => {
   beforeEach(() => {
     useSearchParamsMock.mockReturnValue(new URLSearchParams("mid=m1"));
+    mockedUseSessionSnapshot.mockReturnValue({
+      isAdmin: false,
+      isLoggedIn: true,
+      userId: "user-1",
+    });
   });
 
   afterEach(() => {
@@ -51,6 +63,7 @@ describe("RecordDiscGolfPage", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (global as any).fetch;
     }
+    mockedUseSessionSnapshot.mockReset();
   });
 
   it("posts hole events", async () => {

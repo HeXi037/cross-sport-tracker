@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -13,6 +14,8 @@ import {
 import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { apiFetch, type ApiError } from "../../../lib/api";
+import { rememberLoginRedirect } from "../../../lib/loginRedirect";
+import { useSessionSnapshot } from "../../../lib/useSessionSnapshot";
 import { invalidateMatchesCache } from "../../../lib/useApiSWR";
 import { invalidateNotificationsCache } from "../../../lib/useNotifications";
 import { useLocale } from "../../../lib/LocaleContext";
@@ -661,6 +664,8 @@ function validateBowlingFrameInput(
 
 export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const router = useRouter();
+  const session = useSessionSnapshot();
+  const loggedIn = session.isLoggedIn;
   const sport = sportId;
   const isStandardPadel = sport === "padel";
   const isPadel = sport === "padel" || sport === "padel_americano";
@@ -962,9 +967,21 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   }, [bowlingEntries]);
 
   useEffect(() => {
+    let active = true;
+
     async function loadPlayers() {
+      if (!loggedIn) {
+        if (active) {
+          setPlayers([]);
+        }
+        return;
+      }
+
       try {
-        const res = await fetch(`${base}/v0/players`);
+        const res = await apiFetch(`/v0/players`, { cache: "no-store" });
+        if (!active) {
+          return;
+        }
         if (res.ok) {
           const data = (await res.json()) as { players: Player[] };
           const sortedPlayers = (data.players ?? [])
@@ -974,12 +991,27 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
             );
           setPlayers(sortedPlayers);
         }
-      } catch {
-        // ignore errors
+      } catch (err) {
+        const apiError = err as ApiError;
+        if (apiError?.status === 401) {
+          rememberLoginRedirect();
+          router.push("/login");
+        }
       }
     }
+
     loadPlayers();
-  }, []);
+
+    return () => {
+      active = false;
+    };
+  }, [loggedIn, router]);
+
+  useEffect(() => {
+    if (!loggedIn) {
+      setSubmitting(false);
+    }
+  }, [loggedIn]);
 
   const handleIdChange = (key: keyof IdMap, value: string) => {
     setIds((prev) => ({ ...prev, [key]: value }));
@@ -1279,6 +1311,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!loggedIn) {
+      return;
+    }
     setHasAttemptedSubmit(true);
     setError(null);
     setDuplicatePlayerNames([]);
@@ -1563,6 +1598,21 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         </section>
       )}
       <form onSubmit={handleSubmit} className="form-stack">
+        {!loggedIn && (
+          <div className="form-banner" role="alert">
+            You need to be logged in to record matches. Please{' '}
+            <Link href="/login" onClick={() => rememberLoginRedirect()}>
+              log in or sign up
+            </Link>
+            .
+          </div>
+        )}
+        <fieldset
+          className="form-disabled-wrapper"
+          disabled={!loggedIn}
+          aria-disabled={(!loggedIn && true) || undefined}
+        >
+          <div className="form-stack">
         {supportsSinglesOrDoubles && (
           <fieldset className="form-fieldset">
             <legend className="form-legend">Match type</legend>
@@ -2187,6 +2237,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         <button type="submit" disabled={submitting}>
           {submitting ? "Saving..." : "Save"}
         </button>
+          </div>
+        </fieldset>
       </form>
     </main>
   );

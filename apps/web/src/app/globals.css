@@ -15,10 +15,19 @@
   --color-accent-red-hover: #8e0a23;
   --color-heading: #8e0a23;
   --color-accent-blue: #1a73e8;
+  --color-focus-ring: #2563eb;
+  --color-focus-ring-soft: rgba(37, 99, 235, 0.3);
+  --color-danger-ring-soft: rgba(185, 28, 28, 0.25);
 
   /* Navigation */
-  --color-nav-bg: #0a1f44;
-  --color-nav-text: #ffffff;
+  --color-nav-bg: #061a3a;
+  --color-nav-text: #f8fafc;
+  --color-nav-divider: #0d2e66;
+  --color-nav-link-hover-bg: rgba(248, 250, 252, 0.14);
+  --color-nav-link-active-bg: rgba(248, 250, 252, 0.24);
+  --color-nav-control-bg: rgba(248, 250, 252, 0.12);
+  --color-nav-control-bg-hover: rgba(248, 250, 252, 0.18);
+  --color-nav-control-border: rgba(248, 250, 252, 0.45);
   --leaderboard-table-header-bg: var(--color-surface);
   --color-surface-elevated: #ffffff;
   --color-text-muted: #3f4f67;
@@ -51,8 +60,17 @@
     --color-accent-red-hover: #dc2626;
     --color-heading: #fca5a5;
     --color-accent-blue: #60a5fa;
-    --color-nav-bg: #0f172a;
+    --color-focus-ring: #60a5fa;
+    --color-focus-ring-soft: rgba(96, 165, 250, 0.4);
+    --color-danger-ring-soft: rgba(248, 113, 113, 0.4);
+    --color-nav-bg: #020b1f;
     --color-nav-text: #f8fafc;
+    --color-nav-divider: #1f2a44;
+    --color-nav-link-hover-bg: rgba(148, 163, 184, 0.25);
+    --color-nav-link-active-bg: rgba(148, 163, 184, 0.35);
+    --color-nav-control-bg: rgba(148, 163, 184, 0.18);
+    --color-nav-control-bg-hover: rgba(148, 163, 184, 0.28);
+    --color-nav-control-border: rgba(148, 163, 184, 0.5);
     --leaderboard-table-header-bg: var(--color-surface-elevated);
     --color-surface-elevated: #16213f;
     --color-text-muted: #cbd5f5;
@@ -98,7 +116,7 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid var(--color-accent-blue);
+  outline: 3px solid var(--color-focus-ring);
   outline-offset: 2px;
 }
 
@@ -361,7 +379,22 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: var(--color-accent-blue);
+  border-color: var(--color-focus-ring);
+  box-shadow: 0 0 0 3px var(--color-focus-ring-soft);
+}
+
+input[aria-invalid="true" i],
+select[aria-invalid="true" i],
+textarea[aria-invalid="true" i] {
+  border-color: var(--color-text-danger-strong);
+  box-shadow: 0 0 0 3px var(--color-danger-ring-soft);
+}
+
+input[aria-invalid="true" i]:focus,
+select[aria-invalid="true" i]:focus,
+textarea[aria-invalid="true" i]:focus {
+  border-color: var(--color-text-danger-strong);
+  box-shadow: 0 0 0 3px var(--color-danger-ring-soft);
 }
 
 textarea {
@@ -530,6 +563,7 @@ textarea {
   background: var(--color-nav-bg);
   color: var(--color-nav-text);
   padding: 1rem;
+  border-bottom: 1px solid var(--color-nav-divider);
 }
 .nav a {
   color: var(--color-nav-text);
@@ -544,19 +578,22 @@ textarea {
   transition: background-color 0.2s ease, color 0.2s ease,
     text-decoration-color 0.2s ease;
 }
-.nav a:hover {
+.nav a:hover,
+.nav .nav-link:hover {
+  background: var(--color-nav-link-hover-bg);
   text-decoration: underline;
 }
 .nav .nav-link.is-active {
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--color-nav-link-active-bg);
   color: var(--color-nav-text);
   font-weight: 600;
 }
 .nav .nav-link.is-active:hover {
+  background: var(--color-nav-link-active-bg);
   text-decoration: none;
 }
 .nav a:focus-visible {
-  outline: 3px solid var(--color-accent-blue);
+  outline: 3px solid var(--color-focus-ring);
   outline-offset: 2px;
 }
 .nav-links ul {
@@ -585,8 +622,8 @@ textarea {
 
 .nav-language__select {
   appearance: none;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: var(--color-nav-control-bg);
+  border: 1px solid var(--color-nav-control-border);
   border-radius: 999px;
   color: var(--color-nav-text);
   cursor: pointer;
@@ -596,11 +633,11 @@ textarea {
 }
 
 .nav-language__select:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--color-nav-control-bg-hover);
 }
 
 .nav-language__select:focus-visible {
-  outline: 3px solid var(--color-accent-blue);
+  outline: 3px solid var(--color-focus-ring);
   outline-offset: 2px;
 }
 
@@ -619,7 +656,7 @@ textarea {
   height: 2.5rem;
   border-radius: 999px;
   border: none;
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--color-nav-control-bg);
   color: inherit;
   cursor: pointer;
   font-size: 1.15rem;
@@ -629,7 +666,24 @@ textarea {
 .notification-bell:hover,
 .notification-bell:focus-visible,
 .notification-bell.notification-bell--unread {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--color-nav-control-bg-hover);
+}
+
+.nav button:not(.hamburger):not(.notification-bell) {
+  background: transparent;
+  border: 1px solid var(--color-nav-control-border);
+  border-radius: 999px;
+  color: var(--color-nav-text);
+  cursor: pointer;
+  padding: 0.4rem 0.9rem;
+  transition: background-color 0.2s ease, border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.nav button:not(.hamburger):not(.notification-bell):hover,
+.nav button:not(.hamburger):not(.notification-bell):focus-visible {
+  background: var(--color-nav-control-bg-hover);
+  border-color: var(--color-nav-control-border);
 }
 
 .notification-bell__badge {

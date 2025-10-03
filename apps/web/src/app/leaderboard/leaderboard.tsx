@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -607,32 +607,34 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   );
   const isBowling = sport === "bowling";
 
+  const locale = useLocale();
+
   const formatInteger = useCallback(
     (value?: number | null) =>
-      value == null ? "—" : Math.round(value).toLocaleString(),
-    [],
+      value == null ? "—" : Math.round(value).toLocaleString(locale),
+    [locale],
   );
 
   const formatRating = useCallback(
     (value?: number | null) =>
       value == null
         ? "—"
-        : value.toLocaleString(undefined, {
+        : value.toLocaleString(locale, {
             minimumFractionDigits: 1,
             maximumFractionDigits: 1,
           }),
-    [],
+    [locale],
   );
 
   const formatDecimal = useCallback(
     (value?: number | null) =>
       value == null
         ? "—"
-        : value.toLocaleString(undefined, {
+        : value.toLocaleString(locale, {
             minimumFractionDigits: 0,
             maximumFractionDigits: 1,
           }),
-    [],
+    [locale],
   );
 
   const parseLeaderboardResponse = useCallback(

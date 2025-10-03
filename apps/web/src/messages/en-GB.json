@@ -59,6 +59,16 @@
       "recordSportMatch": "Record a {sport} match"
     }
   },
+  "BackLink": {
+    "back": "\u2190 Back",
+    "home": "\u2190 Back to home",
+    "matches": "\u2190 Back to matches",
+    "players": "\u2190 Back to players",
+    "tournaments": "\u2190 Back to tournaments",
+    "record": "\u2190 Back to recording",
+    "leaderboards": "\u2190 Back to leaderboards",
+    "profile": "\u2190 Back to profile"
+  },
   "Matches": {
     "title": "Matches",
     "emptyInitial": "No matches yet.",

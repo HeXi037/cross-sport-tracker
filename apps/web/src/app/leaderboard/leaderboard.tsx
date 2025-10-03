@@ -175,6 +175,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const lastSyncedUrlRef = useRef<string | null>(null);
   const homeT = useTranslations("Home");
   const leaderboardT = useTranslations("Leaderboard");
+  const backLinkT = useTranslations("BackLink");
 
   const initialCountry = normalizeCountry(country);
   const initialClubId = normalizeClubId(clubId);
@@ -188,6 +189,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const [filterErrors, setFilterErrors] = useState<FilterErrors>({});
   const [clubOptions, setClubOptions] = useState<ClubSummary[]>([]);
   const [clubsLoaded, setClubsLoaded] = useState(false);
+  const [backLink, setBackLink] = useState<{ href: string; label: string } | null>(
+    null,
+  );
 
   const appliedCountry = filters.country;
   const appliedClubId = filters.clubId;
@@ -218,6 +222,65 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       : hasResults
         ? `Loaded ${resultsCount} leaderboard ${resultsCount === 1 ? "entry" : "entries"}.`
         : "No leaderboard results available.";
+
+  const getBackLinkLabel = useCallback(
+    (rawPathname: string) => {
+      const path = canonicalizePathname(rawPathname);
+      if (path === "/") {
+        return backLinkT("home");
+      }
+      if (path.startsWith("/matches")) {
+        return backLinkT("matches");
+      }
+      if (path.startsWith("/players")) {
+        return backLinkT("players");
+      }
+      if (path.startsWith("/tournaments")) {
+        return backLinkT("tournaments");
+      }
+      if (path.startsWith("/record")) {
+        return backLinkT("record");
+      }
+      if (path.startsWith("/leaderboard")) {
+        return backLinkT("leaderboards");
+      }
+      if (path.startsWith("/profile")) {
+        return backLinkT("profile");
+      }
+      return backLinkT("back");
+    },
+    [backLinkT],
+  );
+
+  useEffect(() => {
+    if (typeof document === "undefined" || typeof window === "undefined") {
+      return;
+    }
+    const referrer = document.referrer;
+    if (!referrer) {
+      setBackLink(null);
+      return;
+    }
+    let referrerUrl: URL;
+    try {
+      referrerUrl = new URL(referrer);
+    } catch {
+      return;
+    }
+    const currentUrl = new URL(window.location.href);
+    if (referrerUrl.origin !== currentUrl.origin) {
+      return;
+    }
+    const refPath = canonicalizePathname(referrerUrl.pathname);
+    const currentPath = canonicalizePathname(currentUrl.pathname);
+    if (refPath === currentPath && referrerUrl.search === currentUrl.search) {
+      return;
+    }
+    const hrefPath = referrerUrl.pathname || "/";
+    const href = `${hrefPath}${referrerUrl.search}${referrerUrl.hash}`;
+    const label = getBackLinkLabel(refPath);
+    setBackLink({ href, label });
+  }, [getBackLinkLabel]);
   const [preferencesApplied, setPreferencesApplied] = useState(false);
 
   const countryCodes = useMemo(
@@ -1355,6 +1418,23 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       <p className="sr-only" aria-live="polite">
         {statusMessage}
       </p>
+      {backLink ? (
+        <nav aria-label="Back" style={{ marginBottom: "1rem" }}>
+          <Link
+            href={backLink.href}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              fontSize: "0.9rem",
+              color: "var(--color-text-muted)",
+              textDecoration: "none",
+              gap: "0.25rem",
+            }}
+          >
+            {backLink.label}
+          </Link>
+        </nav>
+      ) : null}
       <header
         style={{
           display: "flex",

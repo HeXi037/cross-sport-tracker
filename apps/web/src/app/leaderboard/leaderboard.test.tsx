@@ -1,4 +1,4 @@
-import { render, waitFor, screen } from "@testing-library/react";
+import { render, waitFor, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { act, type ComponentProps } from "react";
@@ -61,6 +61,7 @@ class MockIntersectionObserver {
 const replaceMock = vi.fn();
 let mockPathname = "/leaderboard";
 let mockSearchParams = new URLSearchParams();
+let mockDocumentReferrer = "";
 
 const updateMockLocation = (href: string) => {
   const url = new URL(href, "https://example.test");
@@ -68,6 +69,13 @@ const updateMockLocation = (href: string) => {
   mockSearchParams = new URLSearchParams(url.search);
   window.history.replaceState(null, "", `${url.pathname}${url.search}`);
 };
+
+beforeAll(() => {
+  Object.defineProperty(document, "referrer", {
+    configurable: true,
+    get: () => mockDocumentReferrer,
+  });
+});
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: replaceMock }),
@@ -92,6 +100,7 @@ describe("Leaderboard", () => {
     // @ts-expect-error - assign test mock
     global.IntersectionObserver = MockIntersectionObserver as unknown as typeof IntersectionObserver;
     updateMockLocation("/leaderboard");
+    mockDocumentReferrer = "";
     replaceMock.mockReset();
     replaceMock.mockImplementation((nextHref: string) => {
       updateMockLocation(nextHref);
@@ -180,6 +189,55 @@ describe("Leaderboard", () => {
     const table = screen.getByRole("table");
     expect(table).toHaveClass("leaderboard-table");
     expect(table.parentElement).toHaveClass("leaderboard-table-wrapper");
+  });
+
+  it("does not render back navigation without a referrer", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+
+    renderLeaderboard({ sport: "padel" });
+
+    expect(
+      screen.queryByRole("navigation", { name: "Back" }),
+    ).not.toBeInTheDocument();
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+  });
+
+  it("links back to matches when navigated from the matches page", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+    const origin = window.location.origin;
+    mockDocumentReferrer = `${origin}/matches?page=2`;
+
+    renderLeaderboard({ sport: "padel" });
+
+    const nav = await screen.findByRole("navigation", { name: "Back" });
+    const link = within(nav).getByRole("link", { name: "\u2190 Back to matches" });
+    expect(link).toHaveAttribute("href", "/matches?page=2");
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+  });
+
+  it("falls back to a generic back label for unknown referrers", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+    const origin = window.location.origin;
+    mockDocumentReferrer = `${origin}/custom`;
+
+    renderLeaderboard({ sport: "padel" });
+
+    const nav = await screen.findByRole("navigation", { name: "Back" });
+    const link = within(nav).getByRole("link", { name: "\u2190 Back" });
+    expect(link).toHaveAttribute("href", "/custom");
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
   });
 
   it("falls back to a dropdown when the tab navigation overflows", async () => {

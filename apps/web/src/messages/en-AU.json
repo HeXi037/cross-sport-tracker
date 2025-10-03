@@ -50,6 +50,13 @@
       "disc_golf": "Disc golf flying disc icon"
     }
   },
+  "Leaderboard": {
+    "emptyState": {
+      "viewSportLeaderboard": "View {sport} leaderboard",
+      "recordMatch": "Record a match",
+      "recordSportMatch": "Record a {sport} match"
+    }
+  },
   "Matches": {
     "title": "Matches",
     "emptyInitial": "No matches yet.",

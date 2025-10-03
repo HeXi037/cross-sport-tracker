@@ -5,6 +5,7 @@ import { act, type ComponentProps } from "react";
 import Leaderboard from "./leaderboard";
 import * as api from "../../lib/api";
 import { USER_SETTINGS_STORAGE_KEY } from "../user-settings";
+import { PREVIOUS_ROUTE_STORAGE_KEY } from "../../lib/navigation-history";
 import { NextIntlClientProvider } from "next-intl";
 import enMessages from "../../messages/en-GB.json";
 
@@ -61,21 +62,12 @@ class MockIntersectionObserver {
 const replaceMock = vi.fn();
 let mockPathname = "/leaderboard";
 let mockSearchParams = new URLSearchParams();
-let mockDocumentReferrer = "";
-
 const updateMockLocation = (href: string) => {
   const url = new URL(href, "https://example.test");
   mockPathname = url.pathname;
   mockSearchParams = new URLSearchParams(url.search);
-  window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+  window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
 };
-
-beforeAll(() => {
-  Object.defineProperty(document, "referrer", {
-    configurable: true,
-    get: () => mockDocumentReferrer,
-  });
-});
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: replaceMock }),
@@ -100,13 +92,13 @@ describe("Leaderboard", () => {
     // @ts-expect-error - assign test mock
     global.IntersectionObserver = MockIntersectionObserver as unknown as typeof IntersectionObserver;
     updateMockLocation("/leaderboard");
-    mockDocumentReferrer = "";
     replaceMock.mockReset();
     replaceMock.mockImplementation((nextHref: string) => {
       updateMockLocation(nextHref);
       return undefined;
     });
     window.localStorage.clear();
+    window.sessionStorage.clear();
     fetchClubsSpy = vi.spyOn(api, "fetchClubs").mockResolvedValue([
       { id: "club-123", name: "Club 123" },
       { id: "club-a", name: "Club A" },
@@ -191,7 +183,7 @@ describe("Leaderboard", () => {
     expect(table.parentElement).toHaveClass("leaderboard-table-wrapper");
   });
 
-  it("does not render back navigation without a referrer", async () => {
+  it("does not render back navigation without a previous route", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue({ ok: true, json: async () => [] });
@@ -211,8 +203,10 @@ describe("Leaderboard", () => {
       .fn()
       .mockResolvedValue({ ok: true, json: async () => [] });
     global.fetch = fetchMock as typeof fetch;
-    const origin = window.location.origin;
-    mockDocumentReferrer = `${origin}/matches?page=2`;
+    window.sessionStorage.setItem(
+      PREVIOUS_ROUTE_STORAGE_KEY,
+      "/matches?page=2",
+    );
 
     renderLeaderboard({ sport: "padel" });
 
@@ -223,19 +217,56 @@ describe("Leaderboard", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
   });
 
-  it("falls back to a generic back label for unknown referrers", async () => {
+  it("falls back to a generic back label for unknown previous routes", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue({ ok: true, json: async () => [] });
     global.fetch = fetchMock as typeof fetch;
-    const origin = window.location.origin;
-    mockDocumentReferrer = `${origin}/custom`;
+    window.sessionStorage.setItem(
+      PREVIOUS_ROUTE_STORAGE_KEY,
+      "/custom",
+    );
 
     renderLeaderboard({ sport: "padel" });
 
     const nav = await screen.findByRole("navigation", { name: "Back" });
     const link = within(nav).getByRole("link", { name: "\u2190 Back" });
     expect(link).toHaveAttribute("href", "/custom");
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+  });
+
+  it("remembers the previous leaderboard route after client-side navigation", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+
+    const view = renderLeaderboard({ sport: "padel" });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    expect(
+      screen.queryByRole("navigation", { name: "Back" }),
+    ).not.toBeInTheDocument();
+
+    fetchMock.mockClear();
+
+    await act(async () => {
+      updateMockLocation("/leaderboard/master");
+    });
+
+    view.rerender(
+      <NextIntlClientProvider locale="en-GB" messages={enMessages}>
+        <Leaderboard sport="master" />
+      </NextIntlClientProvider>,
+    );
+
+    const nav = await screen.findByRole("navigation", { name: "Back" });
+    const link = within(nav).getByRole("link", {
+      name: "\u2190 Back to leaderboards",
+    });
+    expect(link).toHaveAttribute("href", "/leaderboard");
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
   });

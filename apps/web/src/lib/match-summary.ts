@@ -125,6 +125,10 @@ export const RACKET_SPORTS = new Set([
   "table_tennis",
 ]);
 
+export const RACKET_SPORTS_WITHOUT_GAME_TOTALS = new Set([
+  "padel",
+]);
+
 export function isRacketSport(sport?: string | null): boolean {
   const normalized = normalizeSportId(sport);
   if (!normalized) return false;

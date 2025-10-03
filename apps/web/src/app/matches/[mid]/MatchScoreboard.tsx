@@ -9,6 +9,7 @@ import {
   isRacketSport,
   normalizeSportId,
   isRecord,
+  RACKET_SPORTS_WITHOUT_GAME_TOTALS,
 } from "../../../lib/match-summary";
 
 const BOWLING_FRAME_COUNT = 10;
@@ -25,9 +26,15 @@ function formatToPar(value: unknown): string {
   return value > 0 ? `+${value}` : `${value}`;
 }
 
+const GAME_TOTALS_TOOLTIP =
+  "Game totals are only shown for sports that track them.";
+
 function renderRacketSummary(
   summary: SummaryData,
-  { hideIfEmpty = false }: { hideIfEmpty?: boolean } = {}
+  {
+    hideIfEmpty = false,
+    hideGamesColumn = false,
+  }: { hideIfEmpty?: boolean; hideGamesColumn?: boolean } = {}
 ) {
   if (!summary || typeof summary !== "object") return null;
   const sets = "sets" in summary ? (summary as Record<string, unknown>).sets : undefined;
@@ -42,11 +49,11 @@ function renderRacketSummary(
     : [];
 
   const setEntries = getNumericEntries(sets);
-  const gameEntries = getNumericEntries(games);
+  const gameEntries = hideGamesColumn ? [] : getNumericEntries(games);
   const pointEntries = getNumericEntries(points);
   const hasSetScores = setScores.length > 0;
   const showSetsColumn = setEntries.length > 0;
-  const showGamesColumn = gameEntries.length > 0;
+  const showGamesColumn = !hideGamesColumn && gameEntries.length > 0;
   const showPointsColumn = pointEntries.length > 0;
 
   const shouldRender =
@@ -75,7 +82,7 @@ function renderRacketSummary(
   return (
     <table className="scoreboard-table" aria-label="Racket scoreboard">
       <caption className="sr-only">
-        Set, game, and point totals for each side
+        Set, game, and point totals (where available) for each side
       </caption>
       <thead>
         <tr>
@@ -83,9 +90,13 @@ function renderRacketSummary(
           {setScores.map((_, idx) => (
             <th scope="col" key={`set-${idx}`}>{`Set ${idx + 1}`}</th>
           ))}
-          {showSetsColumn ? <th scope="col">Sets</th> : null}
-          {showGamesColumn ? <th scope="col">Games</th> : null}
-          {showPointsColumn ? <th scope="col">Points</th> : null}
+          {showSetsColumn ? <th scope="col">Sets won</th> : null}
+          {showGamesColumn ? (
+            <th scope="col" title={GAME_TOTALS_TOOLTIP}>
+              Games won
+            </th>
+          ) : null}
+          {showPointsColumn ? <th scope="col">Points won</th> : null}
         </tr>
       </thead>
       <tbody>
@@ -316,11 +327,17 @@ export default function MatchScoreboard({
   isFinished?: boolean;
 }) {
   const sportId = normalizeSportId(sport);
+  const hideGamesColumn = Boolean(
+    sportId && RACKET_SPORTS_WITHOUT_GAME_TOTALS.has(sportId)
+  );
+
+  const renderOptions = {
+    hideIfEmpty: Boolean(isFinished),
+    hideGamesColumn,
+  } as const;
 
   if (isRacketSport(sport)) {
-    const racket = renderRacketSummary(summary, {
-      hideIfEmpty: Boolean(isFinished),
-    });
+    const racket = renderRacketSummary(summary, renderOptions);
     if (racket) {
       return (
         <div className="scoreboard-wrapper table-scroll-container">{racket}</div>
@@ -346,9 +363,7 @@ export default function MatchScoreboard({
     }
   }
 
-  const racketFallback = renderRacketSummary(summary, {
-    hideIfEmpty: Boolean(isFinished),
-  });
+  const racketFallback = renderRacketSummary(summary, renderOptions);
   if (racketFallback) {
     return (
       <div className="scoreboard-wrapper table-scroll-container">{racketFallback}</div>

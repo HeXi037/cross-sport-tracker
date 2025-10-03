@@ -1781,7 +1781,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                       </div>
                     </div>
                     {entryErrorMessage && (
-                      <p className="error" role="alert">
+                      <p className="error" role="alert" aria-live="assertive">
                         {entryErrorMessage}
                       </p>
                     )}
@@ -2097,6 +2097,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                 <p
                   className="form-hint error"
                   role="alert"
+                  aria-live="assertive"
                   id={duplicatePlayersHintId}
                 >
                   Duplicate player names returned: {duplicatePlayerNames.join(", ")}. Each
@@ -2220,7 +2221,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         )}
 
         {error && (
-          <p role="alert" className="error">
+          <p role="alert" className="error" aria-live="assertive">
             {error}
           </p>
         )}

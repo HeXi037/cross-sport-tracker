@@ -212,18 +212,22 @@ export default async function MatchesPage(
                 .map(([, players]) => players);
 
               return (
-                <li key={m.id} className="card match-item">
-                  <MatchParticipants sides={participantSides} />
-                  <div className="match-meta">
-                    {summaryText}
-                    {summaryText && metadataText ? " · " : ""}
-                    {metadataText}
-                  </div>
-                  <div>
-                    <Link href={ensureTrailingSlash(`/matches/${m.id}`)}>
+                <li key={m.id} className="match-list__item">
+                  <Link
+                    href={ensureTrailingSlash(`/matches/${m.id}`)}
+                    className="card match-item match-item--link"
+                    tabIndex={0}
+                  >
+                    <MatchParticipants sides={participantSides} />
+                    <div className="match-meta">
+                      {summaryText}
+                      {summaryText && metadataText ? " · " : ""}
+                      {metadataText}
+                    </div>
+                    <span className="match-item__cta">
                       {commonT('actions.moreInfo')}
-                    </Link>
-                  </div>
+                    </span>
+                  </Link>
                 </li>
               );
             })}

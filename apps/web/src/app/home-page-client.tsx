@@ -545,19 +545,21 @@ export default function HomePageClient({
             <p className="sr-only">{commonT('status.loadingRecentMatches')}</p>
             <ul className="match-list">
               {Array.from({ length: 3 }).map((_, i) => (
-                <li key={`match-skeleton-${i}`} className="card match-item">
-                  <div
-                    className="skeleton"
-                    style={{ width: '60%', height: '1em', marginBottom: '4px' }}
-                  />
-                  <div className="skeleton" style={{ width: '40%', height: '0.8em' }} />
+                <li key={`match-skeleton-${i}`} className="match-list__item">
+                  <div className="card match-item" aria-hidden>
+                    <div
+                      className="skeleton"
+                      style={{ width: '60%', height: '1em', marginBottom: '4px' }}
+                    />
+                    <div className="skeleton" style={{ width: '40%', height: '0.8em' }} />
+                  </div>
                 </li>
               ))}
             </ul>
           </div>
         ) : matches.length === 0 ? (
           matchError ? (
-            <p role="alert">
+            <p role="alert" aria-live="assertive">
               {homeT('matchesError')}{' '}
               <button
                 type="button"
@@ -586,17 +588,19 @@ export default function HomePageClient({
               ]);
 
               return (
-                <li key={m.id} className="card match-item">
-                  <MatchParticipants
-                    sides={Object.values(m.players)}
-                    style={{ fontWeight: 500 }}
-                  />
-                  <div className="match-meta">{metadataText || '—'}</div>
-                  <div>
-                    <Link href={ensureTrailingSlash(`/matches/${m.id}`)}>
-                      {commonT('match.details')}
-                    </Link>
-                  </div>
+                <li key={m.id} className="match-list__item">
+                  <Link
+                    href={ensureTrailingSlash(`/matches/${m.id}`)}
+                    className="card match-item match-item--link"
+                    tabIndex={0}
+                  >
+                    <MatchParticipants
+                      sides={Object.values(m.players)}
+                      style={{ fontWeight: 500 }}
+                    />
+                    <div className="match-meta">{metadataText || '—'}</div>
+                    <span className="match-item__cta">{commonT('match.details')}</span>
+                  </Link>
                 </li>
               );
             })}

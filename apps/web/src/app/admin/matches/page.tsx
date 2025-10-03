@@ -179,23 +179,35 @@ export default function AdminMatchesPage() {
       )}
       <ul className="match-list">
         {matches.map((m) => (
-          <li key={m.id} className="card match-item">
-            <MatchParticipants sides={m.participants} style={{ fontWeight: 500 }} />
-            <div className="match-meta">
-              {formatSummary(m.summary)}
-              {m.summary ? " · " : ""}
-              {m.sport} · Best of {m.bestOf ?? "—"} ·{" "}
-              {m.playedAt ? formatMatchDate(m.playedAt) : "—"} ·{" "}
-              {m.location ?? "—"}
-            </div>
-            <div>
-              <Link href={`/matches/${m.id}`}>More info</Link>
-              <button
-                onClick={() => handleDelete(m.id)}
-                style={{ marginLeft: 8 }}
+          <li key={m.id} className="match-list__item">
+            <div className="card match-item">
+              <Link
+                href={`/matches/${m.id}`}
+                className="match-item--link"
+                tabIndex={0}
               >
-                Delete
-              </button>
+                <MatchParticipants
+                  sides={m.participants}
+                  style={{ fontWeight: 500 }}
+                />
+                <div className="match-meta">
+                  {formatSummary(m.summary)}
+                  {m.summary ? " · " : ""}
+                  {m.sport} · Best of {m.bestOf ?? "—"} · {" "}
+                  {m.playedAt ? formatMatchDate(m.playedAt) : "—"} · {" "}
+                  {m.location ?? "—"}
+                </div>
+                <span className="match-item__cta">More info</span>
+              </Link>
+              <div className="match-item__actions">
+                <button
+                  onClick={() => handleDelete(m.id)}
+                  className="link-button"
+                  type="button"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </li>
         ))}

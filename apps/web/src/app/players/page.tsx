@@ -429,69 +429,81 @@ export default function PlayersPage() {
               <ul className="player-list">
                 {filteredPlayers.map((p) => (
                   <li key={p.id} className="player-list__item">
-                    <div className="player-list__row">
-                      <Link href={`/players/${p.id}`} className="player-list__link">
-                        <PlayerName player={p} />
+                    <div className="player-list__card">
+                      <Link
+                        href={`/players/${p.id}`}
+                        className="player-list__card-link"
+                        tabIndex={0}
+                      >
+                        <div className="player-list__row">
+                          <span className="player-list__name">
+                            <PlayerName player={p} />
+                          </span>
+                          <span className="player-list__stats">
+                            {(() => {
+                              const summary = p.matchSummary;
+                              if (!summary || summary.total <= 0) {
+                                return "No matches yet";
+                              }
+                              return formatMatchRecord(summary);
+                            })()}
+                          </span>
+                          {p.hidden && (
+                            <span className="player-list__status" aria-label="Hidden player">
+                              Hidden
+                            </span>
+                          )}
+                        </div>
                       </Link>
-                      <span className="player-list__stats">
-                        {(() => {
-                          const summary = p.matchSummary;
-                          if (!summary || summary.total <= 0) {
-                            return "No matches yet";
-                          }
-                          return formatMatchRecord(summary);
-                        })()}
-                      </span>
-                      {p.hidden && (
-                        <span className="player-list__status" aria-label="Hidden player">
-                          Hidden
-                        </span>
+                      {admin && (
+                        <div
+                          className="player-list__admin"
+                          role="group"
+                          aria-label={`Admin controls for ${p.name}`}
+                        >
+                          <label className="player-list__label" htmlFor={`country-${p.id}`}>
+                            Country:
+                          </label>
+                          <select
+                            id={`country-${p.id}`}
+                            aria-label={`Country for ${p.name}`}
+                            value={p.country_code ?? ""}
+                            onChange={(e) => handleCountryChange(p, e.target.value)}
+                            disabled={updatingLocation === p.id}
+                            className="input player-list__select"
+                          >
+                            <option value="">Unspecified</option>
+                            {COUNTRY_OPTIONS.map((option) => (
+                              <option key={option.code} value={option.code}>
+                                {option.name}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            className="player-list__action player-list__toggle"
+                            onClick={() => handleToggleVisibility(p)}
+                            disabled={updatingVisibility === p.id}
+                          >
+                            {p.hidden ? "Unhide" : "Hide"}
+                          </button>
+                          <button
+                            type="button"
+                            className="player-list__action player-list__delete"
+                            onClick={() => handleDelete(p.id)}
+                          >
+                            Delete
+                          </button>
+                          <button
+                            type="button"
+                            className="player-list__action player-list__delete"
+                            onClick={() => handleDelete(p.id, true)}
+                          >
+                            Hard delete
+                          </button>
+                        </div>
                       )}
                     </div>
-                    {admin && (
-                      <div className="player-list__admin">
-                        <label className="player-list__label" htmlFor={`country-${p.id}`}>
-                          Country:
-                        </label>
-                        <select
-                          id={`country-${p.id}`}
-                          aria-label={`Country for ${p.name}`}
-                          value={p.country_code ?? ""}
-                          onChange={(e) => handleCountryChange(p, e.target.value)}
-                          disabled={updatingLocation === p.id}
-                          className="input player-list__select"
-                        >
-                          <option value="">Unspecified</option>
-                          {COUNTRY_OPTIONS.map((option) => (
-                            <option key={option.code} value={option.code}>
-                              {option.name}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          className="player-list__action player-list__toggle"
-                          onClick={() => handleToggleVisibility(p)}
-                          disabled={updatingVisibility === p.id}
-                        >
-                          {p.hidden ? "Unhide" : "Hide"}
-                        </button>
-                        <button
-                          type="button"
-                          className="player-list__action player-list__delete"
-                          onClick={() => handleDelete(p.id)}
-                        >
-                          Delete
-                        </button>
-                        <button
-                          type="button"
-                          className="player-list__action player-list__delete"
-                          onClick={() => handleDelete(p.id, true)}
-                        >
-                          Hard delete
-                        </button>
-                      </div>
-                    )}
                   </li>
                 ))}
               </ul>
@@ -517,7 +529,12 @@ export default function PlayersPage() {
             />
           </div>
           {showNameError && (
-            <div id={nameInputErrorId} className="text-red-500 mt-2" role="alert">
+            <div
+              id={nameInputErrorId}
+              className="text-red-500 mt-2"
+              role="alert"
+              aria-live="assertive"
+            >
               Name must be 1-50 characters and contain only letters,
               numbers, spaces, hyphens, or apostrophes.
             </div>
@@ -561,7 +578,7 @@ export default function PlayersPage() {
         </div>
       )}
       {error && !playersLoadError && (
-        <div className="text-red-500 mt-2" role="alert">
+        <div className="text-red-500 mt-2" role="alert" aria-live="assertive">
           {error}
         </div>
       )}
@@ -574,29 +591,31 @@ function PlayerListSkeleton({ count = 6 }: { count?: number }) {
     <ul className="player-list" aria-hidden>
       {Array.from({ length: count }).map((_, index) => (
         <li key={`player-skeleton-${index}`} className="player-list__item">
-          <div className="player-list__row">
-            <span
-              className="skeleton"
-              style={{ width: "45%", maxWidth: "220px", height: "1rem" }}
-            />
-            <span
-              className="skeleton"
-              style={{ width: "30%", maxWidth: "140px", height: "0.8rem" }}
-            />
-          </div>
-          <div className="player-list__row" style={{ gap: "0.35rem" }}>
-            <span
-              className="skeleton"
-              style={{ width: "28%", maxWidth: "120px", height: "0.75rem" }}
-            />
-            <span
-              className="skeleton"
-              style={{ width: "22%", maxWidth: "100px", height: "0.75rem" }}
-            />
-            <span
-              className="skeleton"
-              style={{ width: "18%", maxWidth: "80px", height: "0.75rem" }}
-            />
+          <div className="player-list__card" aria-hidden>
+            <div className="player-list__row">
+              <span
+                className="skeleton"
+                style={{ width: "45%", maxWidth: "220px", height: "1rem" }}
+              />
+              <span
+                className="skeleton"
+                style={{ width: "30%", maxWidth: "140px", height: "0.8rem" }}
+              />
+            </div>
+            <div className="player-list__row" style={{ gap: "0.35rem" }}>
+              <span
+                className="skeleton"
+                style={{ width: "28%", maxWidth: "120px", height: "0.75rem" }}
+              />
+              <span
+                className="skeleton"
+                style={{ width: "22%", maxWidth: "100px", height: "0.75rem" }}
+              />
+              <span
+                className="skeleton"
+                style={{ width: "18%", maxWidth: "80px", height: "0.75rem" }}
+              />
+            </div>
           </div>
         </li>
       ))}

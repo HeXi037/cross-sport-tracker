@@ -1120,6 +1120,74 @@ textarea {
   font-size: 0.9rem;
 }
 
+.match-detail-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.match-detail-header__top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.match-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.share-match {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.share-match__trigger {
+  white-space: nowrap;
+}
+
+.share-match__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.25rem);
+  min-width: 180px;
+  border: 1px solid rgba(10, 31, 68, 0.2);
+  border-radius: 6px;
+  background-color: var(--color-surface);
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.15);
+  padding: 0.25rem 0;
+  z-index: 5;
+}
+
+.share-match__menu-item {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: none;
+  border: none;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.share-match__menu-item:hover,
+.share-match__menu-item:focus {
+  background-color: rgba(26, 115, 232, 0.08);
+  outline: none;
+}
+
+.share-match__feedback {
+  min-height: 1em;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
 .match-detail-layout {
   margin-top: 24px;
   display: grid;

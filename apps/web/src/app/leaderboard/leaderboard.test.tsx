@@ -288,7 +288,7 @@ describe("Leaderboard", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "The master rating averages each player's normalized rating across every sport they've played, letting you compare multi-sport performance on a shared 0–1000 scale.",
+        "Master leaderboard ranks players across all sports based on combined performance.",
       ),
     ).toBeInTheDocument();
   });

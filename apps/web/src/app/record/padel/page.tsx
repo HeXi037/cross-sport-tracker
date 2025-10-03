@@ -425,12 +425,12 @@ export default function RecordPadelPage() {
     ? `Side A: ${sideAPlayerNames.join(", ")}`
     : showSummaryValidation
       ? "Add at least one player to side A."
-      : "Add players to both sides.";
+      : "Add at least one player to side A";
   const sideBSummaryMessage = hasSideBPlayers
     ? `Side B: ${sideBPlayerNames.join(", ")}`
     : showSummaryValidation
       ? "Add at least one player to side B."
-      : "Add players to both sides.";
+      : "Add at least one player to side B";
   const duplicatePlayersMessage = duplicatePlayerNames.length
     ? `Players cannot appear on both sides: ${duplicatePlayerNames.join(", ")}.`
     : null;

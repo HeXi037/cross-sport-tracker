@@ -215,7 +215,10 @@ function DiscGolfForm() {
             .filter((player): player is PlayerOption =>
               Boolean(player?.id && player?.name),
             )
-            .map((player) => ({ id: player.id, name: player.name }));
+            .map((player) => ({ id: player.id, name: player.name }))
+            .sort((a, b) =>
+              a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+            );
           setPlayers(normalized);
         }
       } catch (err) {

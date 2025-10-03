@@ -271,7 +271,12 @@ export default function RecordPadelPage() {
       try {
         const res = await apiFetch(`/v0/players`);
         const data = (await res.json()) as { players: Player[] };
-        setPlayers(data.players || []);
+        const sortedPlayers = (data.players ?? [])
+          .slice()
+          .sort((a, b) =>
+            a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+          );
+        setPlayers(sortedPlayers);
       } catch (err: unknown) {
         setGlobalError("Failed to load players");
         const status = (err as { status?: number }).status;

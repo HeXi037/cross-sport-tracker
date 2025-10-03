@@ -1346,13 +1346,20 @@ async def record_sets_endpoint(
         set_scores = summary.get("set_scores")
         if isinstance(set_scores, list):
             changed = False
+            if tie_break_details:
+                start_idx = max(0, len(set_scores) - len(tie_break_details))
+            else:
+                start_idx = 0
             for idx, tie_break in enumerate(tie_break_details):
-                if not tie_break or idx >= len(set_scores):
+                if not tie_break:
                     continue
-                entry = set_scores[idx]
+                target_idx = idx + start_idx
+                if target_idx >= len(set_scores):
+                    continue
+                entry = set_scores[target_idx]
                 if isinstance(entry, dict):
                     if entry.get("tieBreak") != tie_break:
-                        set_scores[idx] = {**entry, "tieBreak": tie_break}
+                        set_scores[target_idx] = {**entry, "tieBreak": tie_break}
                         changed = True
             if changed:
                 summary["set_scores"] = set_scores

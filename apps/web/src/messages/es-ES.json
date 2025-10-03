@@ -57,6 +57,16 @@
       "recordSportMatch": "Registrar un partido de {sport}"
     }
   },
+  "BackLink": {
+    "back": "\u2190 Volver",
+    "home": "\u2190 Volver al inicio",
+    "matches": "\u2190 Volver a partidos",
+    "players": "\u2190 Volver a jugadores",
+    "tournaments": "\u2190 Volver a torneos",
+    "record": "\u2190 Volver al registro",
+    "leaderboards": "\u2190 Volver a clasificaciones",
+    "profile": "\u2190 Volver al perfil"
+  },
   "Matches": {
     "title": "Partidos",
     "emptyInitial": "Todavía no hay partidos.",

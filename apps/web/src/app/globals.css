@@ -98,7 +98,7 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid var(--color-accent-red);
+  outline: 3px solid var(--color-accent-blue);
   outline-offset: 2px;
 }
 
@@ -342,6 +342,12 @@ textarea {
   width: 100%;
   background-color: var(--color-surface);
   color: inherit;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-accent-blue);
 }
 
 textarea {

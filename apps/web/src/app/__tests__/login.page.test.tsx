@@ -119,7 +119,7 @@ describe('LoginPage signup feedback', () => {
       access_token: 'token',
       refresh_token: 'refresh',
     });
-    expect(pushMock).toHaveBeenCalledWith('/');
+    expect(pushMock).toHaveBeenCalledWith('/profile');
 
     const toast = await screen.findByTestId('toast');
     expect(toast).toHaveTextContent(/Account created successfully!/i);

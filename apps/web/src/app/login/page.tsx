@@ -416,8 +416,8 @@ export default function LoginPage() {
         setConfirmPass("");
         setUsername("");
         setPassword("");
-        const redirectTarget = consumeLoginRedirect();
-        router.push(redirectTarget ?? "/");
+        consumeLoginRedirect();
+        router.push("/profile");
       } else {
         const messages = await extractSignupErrors(res);
         setSignupErrors(messages);
@@ -533,9 +533,8 @@ export default function LoginPage() {
           className="auth-signup__description"
           style={{ margin: "0.5rem 0 0", color: "#4b5563", fontSize: "0.95rem" }}
         >
-          We’ll automatically match your browser’s language and time zone for new
-          accounts. You can fine-tune both defaults anytime from your profile
-          settings.
+          After creating your account, we’ll take you to your profile so you can
+          customize preferences like language and time zone.
         </p>
         {showSignup && (
           <form

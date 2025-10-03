@@ -50,6 +50,29 @@ describe("LiveSummary", () => {
     expect(screen.getByText("Live updates unavailable.")).toBeInTheDocument();
   });
 
+  it("hides fallback messaging for completed matches", () => {
+    useMatchStreamMock.mockReturnValue({
+      event: null,
+      connected: false,
+      fallback: true,
+    });
+
+    render(
+      <LiveSummary
+        mid="match-3"
+        sport="padel"
+        status="Final"
+        statusCode="final"
+        initialSummary={{}}
+        initialEvents={[]}
+      />
+    );
+
+    expect(
+      screen.queryByText("Live updates unavailable.")
+    ).not.toBeInTheDocument();
+  });
+
   it("omits fallback messaging when live updates are active", () => {
     useMatchStreamMock.mockReturnValue({
       event: null,

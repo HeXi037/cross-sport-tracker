@@ -78,6 +78,7 @@ type GameSeriesConfig = {
   maxGames: number;
   gamesNeededOptions: number[];
   invalidSeriesMessage: string;
+  maxPointsPerGame?: number;
 };
 
 type NormalizedGameSeries = {
@@ -130,6 +131,15 @@ function normalizeGameSeries(
 
     if (valueA < 0 || valueB < 0) {
       throw new Error(`Game ${i + 1} points must be zero or higher.`);
+    }
+
+    if (
+      typeof config.maxPointsPerGame === "number" &&
+      (valueA > config.maxPointsPerGame || valueB > config.maxPointsPerGame)
+    ) {
+      throw new Error(
+        `Game ${i + 1} points must be between 0 and ${config.maxPointsPerGame}.`,
+      );
     }
 
     if (valueA === valueB) {
@@ -617,6 +627,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         gamesNeededOptions: [2],
         invalidSeriesMessage:
           "Pickleball matches finish when a side wins two games (best of three). Adjust the game scores.",
+        maxPointsPerGame: 11,
       };
     }
     if (isTableTennis) {
@@ -686,6 +697,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     sportCopy.scorePlaceholderB ?? "Team B whole-number score (e.g. 0)";
   const gameScorePlaceholder =
     sportCopy.gameScorePlaceholder ?? "Whole-number points (e.g. 11)";
+  const gameScoreMax = isPickleball ? 11 : undefined;
   const dateLocaleHintId = useMemo(
     () => `${sport || "record"}-date-locale-note`,
     [sport],
@@ -1951,7 +1963,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                             <input
                               id={`record-game-${gameNumber}-score-a`}
                               type="number"
-                              min="0"
+                              min={0}
+                              max={gameScoreMax}
                               step="1"
                               placeholder={gameScorePlaceholder}
                               value={row.a}
@@ -1975,7 +1988,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                             <input
                               id={`record-game-${gameNumber}-score-b`}
                               type="number"
-                              min="0"
+                              min={0}
+                              max={gameScoreMax}
                               step="1"
                               placeholder={gameScorePlaceholder}
                               value={row.b}

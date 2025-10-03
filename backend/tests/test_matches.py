@@ -439,19 +439,7 @@ async def test_bowling_match_details_compute_score_and_ratings(tmp_path):
   db.AsyncSessionLocal = None
   engine = db.get_engine()
   async with engine.begin() as conn:
-    await conn.run_sync(
-      db.Base.metadata.create_all,
-      tables=[
-        Sport.__table__,
-        Player.__table__,
-        Match.__table__,
-        MatchParticipant.__table__,
-        Rating.__table__,
-        GlickoRating.__table__,
-        PlayerMetric.__table__,
-        ScoreEvent.__table__,
-      ],
-    )
+    await conn.run_sync(db.Base.metadata.create_all)
 
   async with db.AsyncSessionLocal() as session:
     session.add_all([
@@ -492,6 +480,73 @@ async def test_bowling_match_details_compute_score_and_ratings(tmp_path):
       await session.execute(select(ScoreEvent).where(ScoreEvent.match_id == resp.id))
     ).scalars().all()
     assert score_events, "rating events should be recorded for bowling matches"
+
+
+@pytest.mark.anyio
+async def test_bowling_leaderboard_includes_all_players(tmp_path):
+  from sqlalchemy.dialects.sqlite import JSON
+  from app import db
+  from app.models import (
+    GlickoRating,
+    Match,
+    MatchParticipant,
+    Player,
+    PlayerMetric,
+    Rating,
+    ScoreEvent,
+    Sport,
+    User,
+  )
+  from app.schemas import MatchCreate, Participant
+  from app.routers.matches import create_match
+  from app.routers.leaderboards import leaderboard
+  from sqlalchemy import select
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+
+  # Ensure player_ids works with SQLite JSON
+  MatchParticipant.__table__.columns["player_ids"].type = JSON()
+
+  async with engine.begin() as conn:
+    await conn.run_sync(db.Base.metadata.create_all)
+
+  async with db.AsyncSessionLocal() as session:
+    admin = User(id="admin", username="admin", password_hash="", is_admin=True)
+    session.add_all([
+      Sport(id="bowling", name="Bowling"),
+      Player(id="p1", name="One"),
+      Player(id="p2", name="Two"),
+      Player(id="p3", name="Three"),
+      Player(id="p4", name="Four"),
+      admin,
+    ])
+    await session.commit()
+
+    body = MatchCreate(
+      sport="bowling",
+      participants=[
+        Participant(side="A", playerIds=["p1"]),
+        Participant(side="B", playerIds=["p2"]),
+        Participant(side="C", playerIds=["p3"]),
+        Participant(side="D", playerIds=["p4"]),
+      ],
+      score=[210, 180, 170, 150],
+    )
+
+    await create_match(body, session, user=admin)
+
+    ratings = (
+      await session.execute(
+        select(Rating).where(Rating.sport_id == "bowling").order_by(Rating.player_id)
+      )
+    ).scalars().all()
+    assert [r.player_id for r in ratings] == ["p1", "p2", "p3", "p4"]
+
+    lb = await leaderboard("bowling", session=session)
+    assert lb.total == 4
+    assert sorted(entry.playerId for entry in lb.leaders) == ["p1", "p2", "p3", "p4"]
 
 
 @pytest.mark.anyio

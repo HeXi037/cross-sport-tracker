@@ -6,6 +6,7 @@ import { apiFetch, withAbsolutePhotoUrl } from "../../../lib/api";
 import LiveSummary from "./live-summary";
 import MatchParticipants from "../../../components/MatchParticipants";
 import { PlayerInfo } from "../../../components/PlayerName";
+import ShareMatchButton from "./ShareMatchButton";
 import { formatDate, formatDateTime, resolveTimeZone } from "../../../lib/i18n";
 import { hasTimeComponent } from "../../../lib/datetime";
 import { ensureTrailingSlash, recordPathForSport } from "../../../lib/routes";
@@ -807,6 +808,42 @@ export default async function MatchDetailPage({
 
   const hasSummaryTable = summaryColumns.length > 0 && summaryRows.length > 0;
 
+  const shareParticipants = participantsWithSides.map((participant) => ({
+    label: participant.label,
+    players: participant.players.map((player) => player.name),
+  }));
+
+  const shareSummaryColumns = summaryColumns.map((column) => ({
+    key: column.key,
+    label: column.label,
+  }));
+
+  const shareSummaryRows = summaryRows.map((row) => {
+    const values: Record<string, number | null> = {};
+    summaryColumns.forEach((column) => {
+      values[column.key] = column.values.get(row.sideKey) ?? null;
+    });
+    return {
+      label: row.label,
+      values,
+    };
+  });
+
+  const matchTitle = participantsWithSides.length
+    ? participantsWithSides
+        .map((participant) => {
+          const playerNames = participant.players
+            .map((player) => player.name)
+            .filter((name) => name && name.trim().length > 0)
+            .join(" & ");
+          return playerNames || participant.label;
+        })
+        .join(" vs ")
+    : "Match";
+
+  const shareMeta = [...headerMetaParts];
+  const sharePath = `/matches/${encodeURIComponent(params.mid)}`;
+
   return (
     <main className="container">
       <div className="text-sm">
@@ -834,18 +871,34 @@ export default async function MatchDetailPage({
         </div>
       ) : null}
 
-      <header className="section">
-        <h1 className="heading">
-          {participantGroups.length ? (
-            <MatchParticipants
-              as="span"
-              sides={participantGroups}
-              separatorSymbol="/"
+      <header className="section match-detail-header">
+        <div className="match-detail-header__top">
+          <h1 className="heading">
+            {participantGroups.length ? (
+              <MatchParticipants
+                as="span"
+                sides={participantGroups}
+                separatorSymbol="/"
+              />
+            ) : (
+              "A vs B"
+            )}
+          </h1>
+          <div className="match-detail-actions">
+            <ShareMatchButton
+              matchId={params.mid}
+              matchTitle={matchTitle}
+              sharePath={sharePath}
+              participants={shareParticipants}
+              summaryColumns={shareSummaryColumns}
+              summaryRows={shareSummaryRows}
+              meta={shareMeta}
+              status={statusText}
+              playedAt={playedAtLabel}
+              location={locationLabel}
             />
-          ) : (
-            "A vs B"
-          )}
-        </h1>
+          </div>
+        </div>
         <p className="match-meta">{headerMetaParts.join(" · ")}</p>
       </header>
       <div className="match-detail-layout">

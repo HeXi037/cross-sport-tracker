@@ -19,8 +19,11 @@ import {
   rememberLoginRedirect,
   rememberLoginReferrer,
 } from "../../lib/loginRedirect";
+import {
+  MIN_PASSWORD_LENGTH,
+  PASSWORD_GUIDELINES,
+} from "../../lib/passwordGuidelines";
 
-const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_REGEX = /^[A-Za-z0-9_.-]+$/;
 
@@ -96,15 +99,11 @@ interface PasswordStrengthResult {
 function getPasswordStrength(password: string): PasswordStrengthResult {
   const trimmed = password.trim();
   const length = trimmed.length;
-  const hasLetter = /[A-Za-z]/.test(trimmed);
-  const hasNumber = /\d/.test(trimmed);
-  const hasSymbol = /[^A-Za-z0-9]/.test(trimmed);
-
   if (!trimmed) {
     return {
       score: 0,
       label: "Start typing a password",
-      helper: "Use at least 12 characters with letters, numbers, and symbols.",
+      helper: `Use at least ${MIN_PASSWORD_LENGTH} characters. Longer passphrases are even stronger.`,
       variant: "empty",
       activeSegments: 0,
       showTips: true,
@@ -158,7 +157,7 @@ function getPasswordStrength(password: string): PasswordStrengthResult {
   const feedback =
     zxcvbnResult.feedback.warning || zxcvbnResult.feedback.suggestions?.[0] || "";
   const helper = feedback ? `${detail.helper} ${feedback}`.trim() : detail.helper;
-  const showTips = score <= 1 || !hasLetter || !hasNumber || !hasSymbol || length < 12;
+  const showTips = score <= 1 || length < 12;
 
   return {
     score,
@@ -386,10 +385,8 @@ export default function LoginPage() {
     ) {
       validationErrors.push(usernameCharacterRule, usernameEmailOption);
     }
-    if (newPass.length < 12 || !PASSWORD_REGEX.test(newPass)) {
-      validationErrors.push(
-        "Password must be at least 12 characters and include letters, numbers, and symbols.",
-      );
+    if (newPass.length < MIN_PASSWORD_LENGTH) {
+      validationErrors.push(`Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`);
     }
     if (newPass !== confirmPass) {
       validationErrors.push("Password and confirmation must match.");
@@ -582,6 +579,16 @@ export default function LoginPage() {
             autoComplete="new-password"
             required
           />
+          <ul className="password-guidelines" aria-live="polite">
+            {PASSWORD_GUIDELINES.map((guideline) => (
+              <li key={guideline} className="password-guidelines__item">
+                <span className="password-guidelines__status" aria-hidden="true">
+                  •
+                </span>
+                {guideline}
+              </li>
+            ))}
+          </ul>
           <div className="password-strength" aria-live="polite">
             <div
               className="password-strength__meter"

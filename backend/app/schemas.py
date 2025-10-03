@@ -792,6 +792,14 @@ class TournamentOut(BaseModel):
     createdByUserId: Optional[str] = None
 
 
+class TournamentUpdate(BaseModel):
+    """Schema for updating a tournament."""
+
+    name: Optional[str] = None
+    sport: Optional[str] = None
+    clubId: Optional[str] = None
+
+
 class StageCreate(BaseModel):
     """Schema for creating a tournament stage."""
 

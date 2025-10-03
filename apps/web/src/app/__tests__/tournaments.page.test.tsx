@@ -12,6 +12,7 @@ import {
   listStageMatches,
   listTournamentStages,
   deleteTournament,
+  updateTournament,
   type StageScheduleMatch,
   type StageStandings,
 } from "../../lib/api";
@@ -32,6 +33,7 @@ vi.mock("../../lib/api", async () => {
     listStageMatches: vi.fn(),
     listTournamentStages: vi.fn(),
     deleteTournament: vi.fn(),
+    updateTournament: vi.fn(),
   };
 });
 
@@ -48,6 +50,7 @@ const mockedFetchStageStandings = vi.mocked(fetchStageStandings);
 const mockedListStageMatches = vi.mocked(listStageMatches);
 const mockedListTournamentStages = vi.mocked(listTournamentStages);
 const mockedDeleteTournament = vi.mocked(deleteTournament);
+const mockedUpdateTournament = vi.mocked(updateTournament);
 const mockedUseSessionSnapshot = vi.mocked(useSessionSnapshot);
 
 const jsonResponse = (data: unknown): Response =>
@@ -82,6 +85,7 @@ describe("Tournaments flows", () => {
     mockedListStageMatches.mockReset();
     mockedListTournamentStages.mockReset();
     mockedDeleteTournament.mockReset();
+    mockedUpdateTournament.mockReset();
     mockedUseSessionSnapshot.mockReturnValue({
       isAdmin: true,
       isLoggedIn: true,
@@ -236,6 +240,113 @@ describe("Tournaments flows", () => {
     });
 
     confirmSpy.mockRestore();
+  });
+
+  it("allows updating tournament names and reports success", async () => {
+    const initial = [
+      {
+        id: "t-1",
+        sport: "padel",
+        name: "Local Cup",
+        createdByUserId: "admin",
+      },
+      {
+        id: "t-2",
+        sport: "padel",
+        name: "Autumn Friendly",
+        createdByUserId: "owner",
+      },
+    ];
+
+    mockedUpdateTournament.mockResolvedValue({
+      id: "t-1",
+      sport: "padel",
+      name: "Local Cup Finals",
+      createdByUserId: "admin",
+    });
+
+    render(<TournamentsClient initialTournaments={initial} loadError={false} />);
+
+    const card = await screen.findByRole("heading", { name: "Local Cup" });
+    const cardContainer = card.closest("li");
+    expect(cardContainer).not.toBeNull();
+    const editButton = within(cardContainer!).getByRole("button", { name: "Edit" });
+    fireEvent.click(editButton);
+
+    const nameInput = within(cardContainer!).getByLabelText("Tournament name");
+    fireEvent.change(nameInput, { target: { value: " Local Cup Finals " } });
+
+    const saveButton = within(cardContainer!).getByRole("button", { name: /save changes/i });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(mockedUpdateTournament).toHaveBeenCalledWith("t-1", {
+        name: "Local Cup Finals",
+      });
+    });
+
+    expect(await screen.findByText("Local Cup Finals was updated.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Local Cup Finals" })).toBeInTheDocument();
+  });
+
+  it("shows an error when tournament updates are forbidden", async () => {
+    mockedUseSessionSnapshot.mockReturnValue({
+      isAdmin: false,
+      isLoggedIn: true,
+      userId: "player-1",
+    });
+
+    const initial = [
+      {
+        id: "t-1",
+        sport: "padel",
+        name: "Club Night",
+        createdByUserId: "player-1",
+      },
+    ];
+
+    const forbidden = Object.assign(new Error("Forbidden"), { status: 403 });
+    mockedUpdateTournament.mockRejectedValue(forbidden);
+
+    render(<TournamentsClient initialTournaments={initial} loadError={false} />);
+
+    const card = await screen.findByRole("heading", { name: "Club Night" });
+    const cardContainer = card.closest("li");
+    expect(cardContainer).not.toBeNull();
+    const editButton = within(cardContainer!).getByRole("button", { name: "Edit" });
+    fireEvent.click(editButton);
+
+    const nameInput = within(cardContainer!).getByLabelText("Tournament name");
+    fireEvent.change(nameInput, { target: { value: "Club Night Updated" } });
+
+    const saveButton = within(cardContainer!).getByRole("button", { name: /save changes/i });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(mockedUpdateTournament).toHaveBeenCalled();
+    });
+
+    expect(
+      await screen.findByText(
+        "You can only edit padel Americano tournaments that you created."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("describes the tournament permission model", async () => {
+    render(<TournamentsClient initialTournaments={[]} loadError={false} />);
+
+    expect(
+      screen.getByText("Admins can create, edit, and delete tournaments for any sport.")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Logged-in organisers can create padel Americano tournaments and manage the ones they created."
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("You can edit or delete any tournament.")
+    ).toBeInTheDocument();
   });
 
   it("renders tournament detail page with schedule and standings", async () => {

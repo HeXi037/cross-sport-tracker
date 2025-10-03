@@ -235,24 +235,30 @@ export default function PlayerComments({ playerId }: { playerId: string }) {
             const createdAtLabel = formatDateTime(
               c.createdAt,
               locale,
-              "compact",
+              "default",
               timeZone,
             );
+            const createdAtDate = new Date(c.createdAt);
+            const createdAtDateTime = Number.isNaN(createdAtDate.getTime())
+              ? undefined
+              : createdAtDate.toISOString();
+            const canDelete =
+              session.loggedIn && (session.admin || session.userId === c.userId);
             return (
-              <li key={c.id} className="mb-2">
-                <div>{c.content}</div>
-                <div className="text-sm text-gray-700">
-                  {c.username} · {createdAtLabel}
-                  {session.loggedIn &&
-                    (session.admin || session.userId === c.userId) && (
-                      <button
-                        onClick={() => remove(c.id, c.userId)}
-                        className="ml-2 text-red-600"
-                      >
-                        Delete
-                      </button>
-                    )}
-                </div>
+              <li key={c.id} className="mb-4">
+                <header className="flex flex-wrap items-baseline gap-x-2 text-sm text-gray-700">
+                  <span className="font-medium text-gray-900">{c.username}</span>
+                  <time dateTime={createdAtDateTime}>{createdAtLabel}</time>
+                  {canDelete && (
+                    <button
+                      onClick={() => remove(c.id, c.userId)}
+                      className="ml-2 text-red-600"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </header>
+                <p className="mt-1 whitespace-pre-line break-words">{c.content}</p>
               </li>
             );
           })}

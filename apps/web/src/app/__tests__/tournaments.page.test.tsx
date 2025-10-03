@@ -6,9 +6,11 @@ import {
   apiFetch,
   createStage,
   createTournament,
+  getTournament,
   scheduleAmericanoStage,
   fetchStageStandings,
   listStageMatches,
+  listTournamentStages,
   deleteTournament,
   type StageScheduleMatch,
   type StageStandings,
@@ -24,9 +26,11 @@ vi.mock("../../lib/api", async () => {
     apiFetch: vi.fn(),
     createStage: vi.fn(),
     createTournament: vi.fn(),
+    getTournament: vi.fn(),
     scheduleAmericanoStage: vi.fn(),
     fetchStageStandings: vi.fn(),
     listStageMatches: vi.fn(),
+    listTournamentStages: vi.fn(),
     deleteTournament: vi.fn(),
   };
 });
@@ -38,9 +42,11 @@ vi.mock("../../lib/useSessionSnapshot", () => ({
 const mockedApiFetch = vi.mocked(apiFetch);
 const mockedCreateTournament = vi.mocked(createTournament);
 const mockedCreateStage = vi.mocked(createStage);
+const mockedGetTournament = vi.mocked(getTournament);
 const mockedScheduleAmericanoStage = vi.mocked(scheduleAmericanoStage);
 const mockedFetchStageStandings = vi.mocked(fetchStageStandings);
 const mockedListStageMatches = vi.mocked(listStageMatches);
+const mockedListTournamentStages = vi.mocked(listTournamentStages);
 const mockedDeleteTournament = vi.mocked(deleteTournament);
 const mockedUseSessionSnapshot = vi.mocked(useSessionSnapshot);
 
@@ -70,9 +76,11 @@ describe("Tournaments flows", () => {
     mockedApiFetch.mockReset();
     mockedCreateTournament.mockReset();
     mockedCreateStage.mockReset();
+    mockedGetTournament.mockReset();
     mockedScheduleAmericanoStage.mockReset();
     mockedFetchStageStandings.mockReset();
     mockedListStageMatches.mockReset();
+    mockedListTournamentStages.mockReset();
     mockedDeleteTournament.mockReset();
     mockedUseSessionSnapshot.mockReturnValue({
       isAdmin: true,
@@ -233,19 +241,6 @@ describe("Tournaments flows", () => {
   it("renders tournament detail page with schedule and standings", async () => {
     mockedApiFetch.mockImplementation(async (path: RequestInfo | URL) => {
       const url = typeof path === "string" ? path : path.toString();
-      if (url.endsWith("/tournaments/t1")) {
-        return jsonResponse({
-          id: "t1",
-          sport: "padel",
-          name: "Championship",
-          createdByUserId: "admin",
-        });
-      }
-      if (url.endsWith("/tournaments/t1/stages")) {
-        return jsonResponse([
-          { id: "stage-1", tournamentId: "t1", type: "americano", config: null },
-        ]);
-      }
       if (url.includes("/players/by-ids")) {
         return jsonResponse([
           { id: "p1", name: "Player One" },
@@ -256,6 +251,16 @@ describe("Tournaments flows", () => {
       }
       return jsonResponse([]);
     });
+
+    mockedGetTournament.mockResolvedValue({
+      id: "t1",
+      sport: "padel",
+      name: "Championship",
+      createdByUserId: "admin",
+    });
+    mockedListTournamentStages.mockResolvedValue([
+      { id: "stage-1", tournamentId: "t1", type: "americano", config: null },
+    ]);
 
     const matches: StageScheduleMatch[] = [
       {
@@ -303,6 +308,10 @@ describe("Tournaments flows", () => {
     expect(screen.getByText("Player Three, Player Four")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /record a match/i })).toBeInTheDocument();
 
+    expect(mockedGetTournament).toHaveBeenCalledWith("t1", { cache: "no-store" });
+    expect(mockedListTournamentStages).toHaveBeenCalledWith("t1", {
+      cache: "no-store",
+    });
     expect(mockedListStageMatches).toHaveBeenCalledWith("t1", "stage-1", {
       cache: "no-store",
     });

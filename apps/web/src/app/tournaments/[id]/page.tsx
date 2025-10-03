@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import {
   apiFetch,
   fetchStageStandings,
+  getTournament,
   listStageMatches,
+  listTournamentStages,
   withAbsolutePhotoUrl,
   type ApiError,
   type StageScheduleMatch,
@@ -15,19 +17,6 @@ import type { PlayerInfo } from "../../../components/PlayerName";
 import StageScheduleTable from "../stage-schedule";
 import StageStandings from "../stage-standings";
 import { ensureTrailingSlash } from "../../../lib/routes";
-
-async function fetchTournament(id: string): Promise<TournamentSummary> {
-  try {
-    const res = await apiFetch(`/v0/tournaments/${id}`, { cache: "no-store" });
-    return (await res.json()) as TournamentSummary;
-  } catch (error) {
-    const apiError = error as ApiError | undefined;
-    if (apiError?.status === 404) {
-      notFound();
-    }
-    throw error;
-  }
-}
 
 function formatErrorMessage(error: unknown, fallback: string): string {
   const apiError = error as ApiError | undefined;
@@ -44,13 +33,6 @@ function formatErrorMessage(error: unknown, fallback: string): string {
   }
 
   return fallback;
-}
-
-async function fetchStages(tournamentId: string): Promise<StageSummary[]> {
-  const res = await apiFetch(`/v0/tournaments/${tournamentId}/stages`, {
-    cache: "no-store",
-  });
-  return (await res.json()) as StageSummary[];
 }
 
 const PLAYER_LOOKUP_INCOMPLETE_MESSAGE =
@@ -124,12 +106,21 @@ export default async function TournamentDetailPage({
 }: {
   params: { id: string };
 }) {
-  const tournament = await fetchTournament(params.id);
+  let tournament: TournamentSummary;
+  try {
+    tournament = await getTournament(params.id, { cache: "no-store" });
+  } catch (error) {
+    const apiError = error as ApiError | undefined;
+    if (apiError?.status === 404) {
+      notFound();
+    }
+    throw error;
+  }
   let stages: StageSummary[] = [];
   let stagesError: string | null = null;
 
   try {
-    stages = await fetchStages(params.id);
+    stages = await listTournamentStages(params.id, { cache: "no-store" });
   } catch (error) {
     console.error("Failed to load tournament stages", error);
     stagesError = formatErrorMessage(

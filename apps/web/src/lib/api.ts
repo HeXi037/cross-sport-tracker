@@ -842,6 +842,17 @@ export async function listTournaments(
   return res.json();
 }
 
+export async function getTournament(
+  tournamentId: string,
+  init?: ApiRequestInit
+): Promise<TournamentSummary> {
+  const res = await apiFetch(
+    `/v0/tournaments/${tournamentId}`,
+    withNoStore(init)
+  );
+  return res.json();
+}
+
 export async function createTournament(
   payload: TournamentCreatePayload
 ): Promise<TournamentSummary> {
@@ -866,6 +877,17 @@ export async function createStage(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+  return res.json();
+}
+
+export async function listTournamentStages(
+  tournamentId: string,
+  init?: ApiRequestInit
+): Promise<StageSummary[]> {
+  const res = await apiFetch(
+    `/v0/tournaments/${tournamentId}/stages`,
+    withNoStore(init)
+  );
   return res.json();
 }
 

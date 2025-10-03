@@ -320,8 +320,12 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
 
         const refPath = canonicalizePathname(candidate.pathname || "/");
         const currentPath = canonicalizePathname(currentUrl.pathname || "/");
+        const refSearch = candidate.search ?? "";
+        const currentSearch = currentUrl.search ?? "";
+        const refHash = candidate.hash ?? "";
+        const currentHash = currentUrl.hash ?? "";
 
-        if (refPath === currentPath) {
+        if (refPath === currentPath && refSearch === currentSearch && refHash === currentHash) {
           return prev ? null : prev;
         }
 

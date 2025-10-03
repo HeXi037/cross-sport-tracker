@@ -114,31 +114,110 @@ describe("RecordSportForm", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) });
+    const originalFetch = global.fetch;
     global.fetch = fetchMock as typeof fetch;
 
-    render(<RecordSportForm sportId="padel" />);
+    try {
+      render(<RecordSportForm sportId="padel" />);
 
-    await screen.findAllByText("Alice");
+      await screen.findAllByText("Alice");
 
-    const selects = screen.getAllByRole("combobox");
-    fireEvent.change(selects[0], { target: { value: "1" } });
-    fireEvent.change(selects[1], { target: { value: "1" } });
-    fireEvent.change(selects[2], { target: { value: "2" } });
-    fireEvent.change(selects[3], { target: { value: "3" } });
+      const selects = screen.getAllByRole("combobox");
+      fireEvent.change(selects[0], { target: { value: "1" } });
+      fireEvent.change(selects[1], { target: { value: "1" } });
+      fireEvent.change(selects[2], { target: { value: "2" } });
+      fireEvent.change(selects[3], { target: { value: "3" } });
 
-    fireEvent.change(screen.getByLabelText(/team a score/i), {
-      target: { value: "2" },
-    });
-    fireEvent.change(screen.getByLabelText(/team b score/i), {
-      target: { value: "1" },
-    });
+      fireEvent.change(screen.getByLabelText(/team a score/i), {
+        target: { value: "2" },
+      });
+      fireEvent.change(screen.getByLabelText(/team b score/i), {
+        target: { value: "1" },
+      });
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+      fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
-    expect(
-      await screen.findByText("Please select unique players."),
-    ).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(
+        await screen.findByText("Please select unique players."),
+      ).toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("highlights duplicate player names returned by the API", async () => {
+    const players = [
+      { id: "1", name: "Alex Smith" },
+      { id: "2", name: "Alex Smith" },
+      { id: "3", name: "Beth Jones" },
+      { id: "4", name: "Cara Lee" },
+    ];
+    const duplicateDetail = "duplicate players: Alex Smith";
+
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((input: RequestInfo, _init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input?.toString();
+        if (url?.includes("/v0/players")) {
+          return Promise.resolve({ ok: true, json: async () => ({ players }) });
+        }
+        if (url?.includes("/v0/matches/by-name")) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                detail: duplicateDetail,
+                code: "match_duplicate_players",
+              }),
+              {
+                status: 400,
+                headers: { "Content-Type": "application/json" },
+              },
+            ),
+          );
+        }
+        throw new Error(`Unexpected fetch call: ${url}`);
+      });
+    const originalFetch = global.fetch;
+    global.fetch = fetchMock as typeof fetch;
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    try {
+      render(<RecordSportForm sportId="padel" />);
+
+      await screen.findAllByText("Alex Smith");
+
+      const selects = screen.getAllByRole("combobox");
+      fireEvent.change(selects[0], { target: { value: "1" } });
+      fireEvent.change(selects[1], { target: { value: "3" } });
+      fireEvent.change(selects[2], { target: { value: "2" } });
+      fireEvent.change(selects[3], { target: { value: "4" } });
+
+      fireEvent.change(screen.getByLabelText(/team a score/i), {
+        target: { value: "2" },
+      });
+      fireEvent.change(screen.getByLabelText(/team b score/i), {
+        target: { value: "1" },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+      expect(
+        await screen.findByText(
+          "Duplicate player names returned: Alex Smith. Each player name must be unique before saving.",
+        ),
+      ).toBeInTheDocument();
+      expect(selects[0]).toHaveAttribute("aria-invalid", "true");
+      expect(selects[2]).toHaveAttribute("aria-invalid", "true");
+      expect(
+        screen.getByText("Resolve duplicate player names before saving."),
+      ).toBeInTheDocument();
+    } finally {
+      consoleErrorSpy.mockRestore();
+      global.fetch = originalFetch;
+    }
   });
 
   it("shows an Australian date format when the locale is en-AU", async () => {

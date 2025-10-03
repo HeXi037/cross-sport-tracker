@@ -12,7 +12,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
-import { apiFetch } from "../../../lib/api";
+import { apiFetch, type ApiError } from "../../../lib/api";
 import { invalidateMatchesCache } from "../../../lib/useApiSWR";
 import { invalidateNotificationsCache } from "../../../lib/useNotifications";
 import { useLocale } from "../../../lib/LocaleContext";
@@ -47,6 +47,23 @@ interface IdMap {
 
 const BOWLING_FRAME_COUNT = 10;
 const MAX_BOWLING_PLAYERS = 6;
+
+const DUPLICATE_PLAYERS_ERROR_CODE = "match_duplicate_players";
+const DUPLICATE_PLAYERS_REGEX = /duplicate players:\s*(.+)/i;
+
+function parseDuplicatePlayerNames(message?: string | null): string[] {
+  if (typeof message !== "string") {
+    return [];
+  }
+  const match = message.match(DUPLICATE_PLAYERS_REGEX);
+  if (!match) {
+    return [];
+  }
+  return match[1]
+    .split(",")
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0);
+}
 
 type BowlingFrames = string[][];
 
@@ -664,11 +681,13 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const bowlingMaxReached =
     bowlingEntries.length >= MAX_BOWLING_PLAYERS;
   const bowlingMaxHintId = useId();
+  const duplicatePlayersHintId = useId();
   const bowlingInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const pendingBowlingFocusRef = useRef<string | null>(null);
   const [scoreA, setScoreA] = useState("0");
   const [scoreB, setScoreB] = useState("0");
   const [error, setError] = useState<string | null>(null);
+  const [duplicatePlayerNames, setDuplicatePlayerNames] = useState<string[]>([]);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
@@ -678,6 +697,38 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [gameScores, setGameScores] = useState<GameScore[]>(() =>
     createGameScoreRows(maxGames),
+  );
+  const playerNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    players.forEach((player) => {
+      if (player?.id) {
+        map.set(player.id, player.name);
+      }
+    });
+    return map;
+  }, [players]);
+  const duplicateNameSet = useMemo(
+    () =>
+      new Set(
+        duplicatePlayerNames
+          .map((name) => name.trim().toLowerCase())
+          .filter((name) => name.length > 0),
+      ),
+    [duplicatePlayerNames],
+  );
+  const duplicateHintActive = duplicatePlayerNames.length > 0;
+  const isDuplicateSelection = useCallback(
+    (playerId: string) => {
+      if (!playerId) {
+        return false;
+      }
+      const name = playerNameById.get(playerId);
+      if (!name) {
+        return false;
+      }
+      return duplicateNameSet.has(name.trim().toLowerCase());
+    },
+    [playerNameById, duplicateNameSet],
   );
   const locale = useLocale();
   const datePlaceholder = useMemo(() => getDatePlaceholder(locale), [locale]);
@@ -726,6 +777,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     () => `${sport || "record"}-match-type`,
     [sport],
   );
+  const duplicateHintId = duplicateHintActive ? duplicatePlayersHintId : undefined;
   const gameSeriesHintId = useId();
   const gameSeriesStatusId = useId();
 
@@ -894,6 +946,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const handleIdChange = (key: keyof IdMap, value: string) => {
     setIds((prev) => ({ ...prev, [key]: value }));
     setError(null);
+    setDuplicatePlayerNames([]);
   };
 
   const handleBowlingPlayerChange = (index: number, value: string) => {
@@ -1182,6 +1235,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       setIds((prev) => ({ ...prev, a2: "", b2: "" }));
     }
     setError(null);
+    setDuplicatePlayerNames([]);
     setDoubles(next);
   };
 
@@ -1189,6 +1243,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     event.preventDefault();
     setHasAttemptedSubmit(true);
     setError(null);
+    setDuplicatePlayerNames([]);
 
     if (!sport) {
       setError("Select a sport");
@@ -1421,7 +1476,16 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       router.push(`/matches`);
     } catch (err) {
       console.error(err);
-      setError("Failed to save. Please review players/scores and try again.");
+      const apiError = err instanceof Error ? (err as ApiError) : null;
+      if (apiError?.code === DUPLICATE_PLAYERS_ERROR_CODE) {
+        const duplicates = parseDuplicatePlayerNames(
+          apiError.parsedMessage ?? apiError.message,
+        );
+        setDuplicatePlayerNames(duplicates);
+        setError("Resolve duplicate player names before saving.");
+      } else {
+        setError("Failed to save. Please review players/scores and try again.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -1867,6 +1931,12 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                     id="record-player-a1"
                     value={ids.a1}
                     onChange={(e) => handleIdChange("a1", e.target.value)}
+                    aria-invalid={
+                      duplicateHintActive && isDuplicateSelection(ids.a1)
+                        ? true
+                        : undefined
+                    }
+                    aria-describedby={duplicateHintId}
                   >
                     <option value="">Select player</option>
                     {players.map((p) => (
@@ -1883,6 +1953,12 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                       id="record-player-a2"
                       value={ids.a2}
                       onChange={(e) => handleIdChange("a2", e.target.value)}
+                      aria-invalid={
+                        duplicateHintActive && isDuplicateSelection(ids.a2)
+                          ? true
+                          : undefined
+                      }
+                      aria-describedby={duplicateHintId}
                     >
                       <option value="">Select player</option>
                       {players.map((p) => (
@@ -1899,6 +1975,12 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                     id="record-player-b1"
                     value={ids.b1}
                     onChange={(e) => handleIdChange("b1", e.target.value)}
+                    aria-invalid={
+                      duplicateHintActive && isDuplicateSelection(ids.b1)
+                        ? true
+                        : undefined
+                    }
+                    aria-describedby={duplicateHintId}
                   >
                     <option value="">Select player</option>
                     {players.map((p) => (
@@ -1915,6 +1997,12 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                       id="record-player-b2"
                       value={ids.b2}
                       onChange={(e) => handleIdChange("b2", e.target.value)}
+                      aria-invalid={
+                        duplicateHintActive && isDuplicateSelection(ids.b2)
+                          ? true
+                          : undefined
+                      }
+                      aria-describedby={duplicateHintId}
                     >
                       <option value="">Select player</option>
                       {players.map((p) => (
@@ -1926,6 +2014,16 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                   </label>
                 )}
               </div>
+              {duplicatePlayerNames.length > 0 && (
+                <p
+                  className="form-hint error"
+                  role="alert"
+                  id={duplicatePlayersHintId}
+                >
+                  Duplicate player names returned: {duplicatePlayerNames.join(", ")}. Each
+                  player name must be unique before saving.
+                </p>
+              )}
             </fieldset>
 
             <fieldset className="form-fieldset">

@@ -516,6 +516,7 @@ describe("Leaderboard", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     await screen.findByText("We couldn't load the leaderboard right now.");
+    expect(screen.getByRole("button", { name: /retry/i })).toBeVisible();
   });
 
   it("normalizes a trailing slash when syncing filters", async () => {

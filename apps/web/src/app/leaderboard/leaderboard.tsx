@@ -181,6 +181,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const [leaders, setLeaders] = useState<Leader[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   type CachedLeaderboard = {
     leaders: Leader[];
     total: number;
@@ -1035,6 +1036,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     appliedClubId,
     buildUrl,
     preferencesApplied,
+    reloadToken,
     getCachedLeaders,
     storeCachedLeaders,
     combineLeaders,
@@ -1042,6 +1044,12 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     parseLeaderboardResponse,
     refreshLeadersFromCache,
   ]);
+
+  const handleRetryLoad = useCallback(() => {
+    setReloadToken((prev) => prev + 1);
+    setError(null);
+    setLoading(true);
+  }, []);
 
   const loadMore = useCallback(async () => {
     if (loading || isLoadingMore || !hasMore) {
@@ -1638,6 +1646,8 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         error ? (
           <div
             role="alert"
+            aria-live="assertive"
+            aria-atomic="true"
             style={{
               marginTop: "1.5rem",
               padding: "1rem",
@@ -1645,9 +1655,28 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
               border: "1px solid var(--color-feedback-error-border)",
               background: "var(--color-feedback-error-bg)",
               color: "var(--color-feedback-error-text)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.75rem",
+              alignItems: "flex-start",
             }}
           >
-            {error}
+            <p style={{ margin: 0 }}>{error}</p>
+            <button
+              type="button"
+              onClick={handleRetryLoad}
+              style={{
+                padding: "0.5rem 1rem",
+                borderRadius: "6px",
+                border: "1px solid var(--color-button-outline-border)",
+                background: "var(--color-button-outline-bg)",
+                color: "var(--color-button-outline-text)",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Retry
+            </button>
           </div>
         ) : (
           <EmptyState {...emptyStateContent} />

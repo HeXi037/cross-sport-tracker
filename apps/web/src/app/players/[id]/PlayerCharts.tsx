@@ -6,6 +6,7 @@ import RankingHistoryChart, { RankingPoint } from '../../../components/charts/Ra
 import MatchHeatmap, { HeatmapDatum } from '../../../components/charts/MatchHeatmap';
 import { useLocale, useTimeZone } from '../../../lib/LocaleContext';
 import { formatDate } from '../../../lib/i18n';
+import NoMatchesGuidance from './NoMatchesGuidance';
 
 interface EnrichedMatch {
   playedAt: string | null;
@@ -76,7 +77,7 @@ export default function PlayerCharts({ matches }: { matches: EnrichedMatch[] }) 
         {hasMatches ? (
           <WinRateChart data={winRateData} />
         ) : (
-          <p className="text-sm text-gray-600">No matches found.</p>
+          <NoMatchesGuidance className="text-sm" />
         )}
       </div>
       <div>

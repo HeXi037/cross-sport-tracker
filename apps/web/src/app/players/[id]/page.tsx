@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { apiFetch, fetchClubs, withAbsolutePhotoUrl } from "../../../lib/api";
 import PlayerCharts from "./PlayerCharts";
+import NoMatchesGuidance from "./NoMatchesGuidance";
 import PlayerComments from "./comments-client";
 import PlayerDetailErrorBoundary, {
   type PlayerDetailError,
@@ -773,7 +774,7 @@ export default async function PlayerPage({
                   </ul>
                 </section>
               ) : (
-                <p>No matches found.</p>
+                <NoMatchesGuidance />
               )
             ) : seasons.length ? (
               <section>
@@ -790,7 +791,7 @@ export default async function PlayerPage({
                 </ul>
               </section>
             ) : (
-              <p>No matches found.</p>
+              <NoMatchesGuidance />
             )}
 
             {recentOpponents.length ? (

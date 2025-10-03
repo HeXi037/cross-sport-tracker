@@ -231,9 +231,12 @@ describe("PlayerPage optional sections", () => {
     expect(
       screen.queryByRole("heading", { name: "Matches" })
     ).not.toBeInTheDocument();
+    const guidanceMatcher = (_: string, element?: Element | null) =>
+      element?.textContent?.startsWith("No matches yet.") ?? false;
+    expect(screen.getByText(guidanceMatcher)).toBeInTheDocument();
     expect(
-      screen.getByText("No matches found.")
-    ).toBeInTheDocument();
+      screen.getAllByRole("link", { name: "Record a match" }).length
+    ).toBeGreaterThanOrEqual(1);
     expect(
       screen.queryByRole("heading", { name: "Recent Opponents" })
     ).not.toBeInTheDocument();
@@ -265,8 +268,6 @@ describe("PlayerPage optional sections", () => {
     expect(
       screen.queryByRole("heading", { name: "Season Summary" })
     ).not.toBeInTheDocument();
-    expect(
-      screen.getAllByText("No matches found.").length
-    ).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(guidanceMatcher).length).toBeGreaterThanOrEqual(1);
   });
 });

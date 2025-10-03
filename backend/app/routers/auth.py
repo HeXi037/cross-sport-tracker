@@ -11,7 +11,7 @@ from typing import Any, Tuple
 
 import bcrypt
 import jwt
-from fastapi import APIRouter, Depends, Header, Request, UploadFile, File
+from fastapi import APIRouter, Depends, Header, Query, Request, UploadFile, File
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
@@ -31,6 +31,7 @@ from ..schemas import (
     RefreshRequest,
     AdminPasswordResetRequest,
     AdminPasswordResetOut,
+    UsernameAvailabilityResponse,
 )
 from ..services.photo_uploads import save_photo_upload
 from ..exceptions import http_problem
@@ -245,6 +246,42 @@ def _require_csrf_token(csrf_header: str | None, payload: dict[str, Any]) -> Non
         detail="invalid CSRF token",
         code="auth_csrf_invalid",
     )
+
+
+@router.get(
+    "/signup/username-availability",
+    response_model=UsernameAvailabilityResponse,
+)
+async def username_availability(
+    username: str = Query(..., min_length=1, max_length=50),
+    session: AsyncSession = Depends(get_session),
+) -> UsernameAvailabilityResponse:
+  trimmed = username.strip()
+  if not trimmed:
+    raise http_problem(
+        status_code=400,
+        detail="username required",
+        code="auth_username_required",
+    )
+
+  normalized_username = trimmed.lower()
+  existing_user = (
+      await session.execute(
+          select(User).where(func.lower(User.username) == normalized_username)
+      )
+  ).scalar_one_or_none()
+  if existing_user:
+    return UsernameAvailabilityResponse(available=False)
+
+  existing_player = (
+      await session.execute(
+          select(Player).where(func.lower(Player.name) == normalized_username)
+      )
+  ).scalar_one_or_none()
+  if existing_player and existing_player.user_id is not None:
+    return UsernameAvailabilityResponse(available=False)
+
+  return UsernameAvailabilityResponse(available=True)
 
 
 @router.post("/signup", response_model=TokenOut)

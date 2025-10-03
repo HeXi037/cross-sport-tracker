@@ -1313,6 +1313,20 @@ textarea {
   font-size: 0.9rem;
 }
 
+.auth-form__hint {
+  font-size: 0.85rem;
+  color: rgba(10, 31, 68, 0.75);
+  margin-top: 0.5rem;
+}
+
+.auth-form__hint--success {
+  color: var(--color-success);
+}
+
+.auth-form__hint--error {
+  color: var(--color-accent-red);
+}
+
 .connection-indicator {
   display: inline-flex;
   align-items: center;

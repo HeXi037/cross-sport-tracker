@@ -55,4 +55,16 @@ describe("normalizeGameSeries – pickleball overtime", () => {
       ),
     ).toThrowError(/won by at least 2 points/);
   });
+
+  it("rejects overtime when the loser never reached game point", () => {
+    expect(() =>
+      normalizeGameSeries(
+        [
+          { a: "15", b: "3" },
+          { a: "11", b: "8" },
+        ],
+        pickleballConfig,
+      ),
+    ).toThrowError(/require both teams to reach at least 10 points/);
+  });
 });

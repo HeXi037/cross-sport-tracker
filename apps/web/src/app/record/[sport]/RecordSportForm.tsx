@@ -13,6 +13,7 @@ import {
 import { flushSync } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { apiFetch, type ApiError } from "../../../lib/api";
 import { invalidateMatchesCache } from "../../../lib/useApiSWR";
 import { invalidateNotificationsCache } from "../../../lib/useNotifications";
@@ -769,6 +770,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     [playerNameById, duplicateNameSet],
   );
   const locale = useLocale();
+  const commonT = useTranslations("Common");
+  const recordT = useTranslations("Record");
   const dateExample = useMemo(() => getDateExample(locale), [locale]);
   const uses24HourTime = useMemo(
     () => usesTwentyFourHourClock(locale),
@@ -1681,11 +1684,11 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
             </label>
           </div>
           <label className="form-field" htmlFor="record-location">
-            <span className="form-label">Location</span>
+            <span className="form-label">{recordT("fields.location.label")}</span>
             <input
               id="record-location"
               type="text"
-              placeholder="Location"
+              placeholder={recordT("fields.location.placeholder")}
               value={location}
               onChange={(e) => setLocation(e.target.value)}
             />
@@ -1701,11 +1704,12 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
               onChange={(e) => setIsFriendly(e.target.checked)}
               aria-describedby={friendlyHintId}
             />
-            <span className="form-label">Mark as friendly</span>
+            <span className="form-label">
+              {recordT("fields.friendly.label")}
+            </span>
           </label>
           <p id={friendlyHintId} className="form-hint">
-            Friendly matches appear in match history but do not impact leaderboards
-            or player statistics.
+            {recordT("fields.friendly.hint")}
           </p>
         </fieldset>
 
@@ -2222,7 +2226,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         )}
 
         <button type="submit" disabled={isAnonymous || submitting}>
-          {submitting ? "Saving..." : "Save"}
+          {submitting
+            ? commonT("status.saving")
+            : commonT("actions.save")}
         </button>
       </form>
     </main>

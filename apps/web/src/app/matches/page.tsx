@@ -117,19 +117,22 @@ function formatSummary(
 const PLACEHOLDER_VALUES = new Set(["", "—", "Best of —"]);
 
 function formatMatchMetadata(parts: Array<string | null | undefined>): string {
-  const normalizedParts = parts
-    .map((part) => (typeof part === "string" ? part.trim() : part))
-    .filter((part): part is string => {
-      if (!part) return false;
-      const normalized = part.trim();
-      return normalized.length > 0 && !PLACEHOLDER_VALUES.has(normalized);
-    });
+  let metadata = "";
 
-  if (!normalizedParts.length) {
-    return "";
+  for (const part of parts) {
+    if (typeof part !== "string") {
+      continue;
+    }
+
+    const normalized = part.trim();
+    if (!normalized || PLACEHOLDER_VALUES.has(normalized)) {
+      continue;
+    }
+
+    metadata = metadata ? `${metadata} · ${normalized}` : normalized;
   }
 
-  return normalizedParts.join(" · ");
+  return metadata;
 }
 
 export default async function MatchesPage(

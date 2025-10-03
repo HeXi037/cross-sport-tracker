@@ -51,15 +51,18 @@ function normalizeMetadataSegment(value: unknown): string | undefined {
 }
 
 function formatMatchMetadata(parts: Array<string | null | undefined>): string {
-  const normalizedParts = parts
-    .map((part) => normalizeMetadataSegment(part))
-    .filter((part): part is string => Boolean(part));
+  let metadata = '';
 
-  if (!normalizedParts.length) {
-    return '';
+  for (const part of parts) {
+    const normalized = normalizeMetadataSegment(part);
+    if (!normalized) {
+      continue;
+    }
+
+    metadata = metadata ? `${metadata} · ${normalized}` : normalized;
   }
 
-  return normalizedParts.join(' · ');
+  return metadata;
 }
 
 type MatchWithOptionalRuleset = EnrichedMatch & {

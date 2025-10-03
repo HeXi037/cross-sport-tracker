@@ -5,6 +5,7 @@ from collections import Counter
 from datetime import datetime
 from typing import Any, Sequence, NamedTuple
 
+import jwt
 from fastapi import APIRouter, Depends, Query, Response, Request
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,7 +50,7 @@ from ..services import (
 )
 from ..services.notifications import notify_match_recorded
 from ..exceptions import http_problem
-from .auth import get_current_user, limiter
+from .auth import get_current_user, limiter, get_jwt_secret, JWT_ALG
 from ..time_utils import coerce_utc
 
 # Resource-only prefix; versioning is added in main.py
@@ -81,13 +82,27 @@ def _client_ip(request: Request) -> str:
 
 
 def _rate_limit_key(request: Request) -> str:
-    return _client_ip(request)
+    auth_header = request.headers.get("Authorization")
+    if auth_header:
+        scheme, _, token = auth_header.partition(" ")
+        if scheme.lower() == "bearer" and token.strip():
+            try:
+                payload = jwt.decode(
+                    token.strip(),
+                    get_jwt_secret(),
+                    algorithms=[JWT_ALG],
+                    options={"verify_exp": False},
+                )
+            except (jwt.PyJWTError, RuntimeError):
+                pass
+            else:
+                subject = payload.get("sub")
+                if isinstance(subject, str) and subject:
+                    return f"user:{subject}"
+    return f"ip:{_client_ip(request)}"
 
 
 def _rate_limit_cost(request: Request) -> int:
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.strip():
-        return 0
     return 1
 
 

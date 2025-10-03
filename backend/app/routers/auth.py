@@ -122,7 +122,18 @@ pwd_context = _BcryptContext()
 
 
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
-  return JSONResponse(status_code=429, content={"detail": "Too Many Requests"})
+  detail = exc.detail if isinstance(exc.detail, str) else ""
+  if detail:
+    message = f"rate limit exceeded: {detail}"
+  else:
+    message = "rate limit exceeded: please wait before submitting another request."
+  return JSONResponse(
+      status_code=429,
+      content={
+          "detail": message,
+          "code": "rate_limit_exceeded",
+      },
+  )
 
 
 def _utcnow() -> datetime:

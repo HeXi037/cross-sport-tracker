@@ -1814,6 +1814,15 @@ textarea {
 .leaderboard-nav-select {
   position: relative;
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.leaderboard-nav-select__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
 }
 
 .leaderboard-nav-select__control {

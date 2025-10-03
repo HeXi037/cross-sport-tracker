@@ -7,6 +7,7 @@ import { currentUsername, isAdmin, logout } from '../lib/api';
 import { ensureTrailingSlash } from '../lib/routes';
 import { rememberLoginRedirect } from '../lib/loginRedirect';
 import NotificationBell from '../components/NotificationBell';
+import LanguageSelector from '../components/LanguageSelector';
 import { useTranslations } from 'next-intl';
 
 export default function Header() {
@@ -127,6 +128,9 @@ export default function Header() {
             >
               {headerT('links.leaderboards')}
             </Link>
+          </li>
+          <li className="nav-language-item">
+            <LanguageSelector />
           </li>
           {admin && (
             <>

@@ -9,7 +9,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Avoid startup validation error when importing the app
 os.environ.setdefault("ALLOW_CREDENTIALS", "false")
-os.environ.setdefault("ALLOWED_ORIGINS", "")
+os.environ.setdefault("ALLOWED_ORIGINS", "http://testserver")
 from app.main import unhandled_exception_handler
 
 

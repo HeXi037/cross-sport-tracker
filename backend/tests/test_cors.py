@@ -12,3 +12,12 @@ def test_rejects_wildcard_with_credentials(monkeypatch):
     with pytest.raises(ValueError):
         importlib.import_module("app.main")
 
+
+def test_requires_allowed_origins(monkeypatch):
+    monkeypatch.delenv("JWT_SECRET", raising=False)
+    monkeypatch.delenv("ALLOWED_ORIGINS", raising=False)
+    monkeypatch.delenv("ALLOW_CREDENTIALS", raising=False)
+    sys.modules.pop("app.main", None)
+    with pytest.raises(ValueError):
+        importlib.import_module("app.main")
+

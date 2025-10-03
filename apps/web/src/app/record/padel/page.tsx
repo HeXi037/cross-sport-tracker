@@ -31,6 +31,8 @@ interface IdMap {
 interface SetScore {
   A: string;
   B: string;
+  tieBreakA: string;
+  tieBreakB: string;
 }
 
 const VALID_BEST_OF = new Set([1, 3, 5]);
@@ -38,6 +40,7 @@ const MIN_SET_SCORE = 0;
 const MAX_REGULAR_SET_SCORE = 6;
 const MAX_TIEBREAK_SET_SCORE = 7;
 const TIEBREAK_ELIGIBLE_LOSING_SCORES = new Set([5, 6]);
+const EMPTY_SET: SetScore = { A: "", B: "", tieBreakA: "", tieBreakB: "" };
 
 const DUPLICATE_PLAYER_MESSAGE = "Player already selected on another team.";
 const PLAYER_SIDE_REQUIRED_MESSAGE = {
@@ -57,6 +60,23 @@ function isValidPadelSetScore(score: number, opponentScore: number): boolean {
   return (
     score === MAX_TIEBREAK_SET_SCORE &&
     TIEBREAK_ELIGIBLE_LOSING_SCORES.has(opponentScore)
+  );
+}
+
+function shouldCollectTieBreak(scoreA: string, scoreB: string): boolean {
+  const trimmedA = scoreA.trim();
+  const trimmedB = scoreB.trim();
+  if (!trimmedA || !trimmedB) {
+    return false;
+  }
+  const aNum = Number(trimmedA);
+  const bNum = Number(trimmedB);
+  if (!Number.isInteger(aNum) || !Number.isInteger(bNum)) {
+    return false;
+  }
+  return (
+    (aNum === MAX_TIEBREAK_SET_SCORE && bNum === MAX_REGULAR_SET_SCORE) ||
+    (bNum === MAX_TIEBREAK_SET_SCORE && aNum === MAX_REGULAR_SET_SCORE)
   );
 }
 
@@ -103,9 +123,10 @@ function analysePadelSets(sets: SetScore[], rawBestOf: number): PadelSetAnalysis
       !isValidPadelSetScore(aNum, bNum) ||
       !isValidPadelSetScore(bNum, aNum)
     ) {
-      errors[idx] = `Scores in ${setLabel} must be whole numbers between 0 and 6.`;
+      const message = `Scores in ${setLabel} must be whole numbers between 0 and 7.`;
+      errors[idx] = message;
       if (!summaryError) {
-        summaryError = `Scores in ${setLabel} must be whole numbers between 0 and 6.`;
+        summaryError = message;
       }
       return;
     }
@@ -116,6 +137,66 @@ function analysePadelSets(sets: SetScore[], rawBestOf: number): PadelSetAnalysis
         summaryError = `Set ${idx + 1} must have a winner.`;
       }
       return;
+    }
+
+    if (shouldCollectTieBreak(set.A, set.B)) {
+      const winnerSide: keyof SetScore = aNum > bNum ? "A" : "B";
+      const loserSide: keyof SetScore = winnerSide === "A" ? "B" : "A";
+      const winnerRaw = (winnerSide === "A" ? set.tieBreakA : set.tieBreakB).trim();
+      const loserRaw = (loserSide === "A" ? set.tieBreakA : set.tieBreakB).trim();
+
+      if (!winnerRaw || !loserRaw) {
+        const message = `Enter tie-break points for ${setLabel}.`;
+        errors[idx] = message;
+        if (!summaryError) {
+          summaryError = message;
+        }
+        return;
+      }
+
+      const winnerPoints = Number(winnerRaw);
+      const loserPoints = Number(loserRaw);
+
+      if (
+        !Number.isInteger(winnerPoints) ||
+        !Number.isInteger(loserPoints) ||
+        winnerPoints < 0 ||
+        loserPoints < 0
+      ) {
+        const message = `Tie-break points in ${setLabel} must be whole numbers at or above zero.`;
+        errors[idx] = message;
+        if (!summaryError) {
+          summaryError = message;
+        }
+        return;
+      }
+
+      if (winnerPoints <= loserPoints) {
+        const message = `Tie-break winner in ${setLabel} must finish with more points than the opponent.`;
+        errors[idx] = message;
+        if (!summaryError) {
+          summaryError = message;
+        }
+        return;
+      }
+
+      if (winnerPoints < 7) {
+        const message = `Tie-break winner in ${setLabel} must reach at least 7 points.`;
+        errors[idx] = message;
+        if (!summaryError) {
+          summaryError = message;
+        }
+        return;
+      }
+
+      if (winnerPoints - loserPoints < 2) {
+        const message = `Tie-break points in ${setLabel} must have a margin of at least two.`;
+        errors[idx] = message;
+        if (!summaryError) {
+          summaryError = message;
+        }
+        return;
+      }
     }
 
     completed += 1;
@@ -242,7 +323,7 @@ export default function RecordPadelPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [ids, setIds] = useState<IdMap>({ a1: "", a2: "", b1: "", b2: "" });
   const [bestOf, setBestOf] = useState("3");
-  const [sets, setSets] = useState<SetScore[]>([{ A: "", B: "" }]);
+  const [sets, setSets] = useState<SetScore[]>([{ ...EMPTY_SET }]);
   const [setErrors, setSetErrors] = useState<string[]>([""]);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -391,16 +472,44 @@ export default function RecordPadelPage() {
     setPlayerTouched((prev) => ({ ...prev, [key]: true }));
   };
 
-  const handleSetChange = (idx: number, side: keyof SetScore, value: string) => {
+  const handleSetChange = (
+    idx: number,
+    side: "A" | "B",
+    value: string,
+  ) => {
     setSets((prev) => {
       const next = [...prev];
-      next[idx] = { ...next[idx], [side]: value };
+      const current = next[idx] ?? EMPTY_SET;
+      const updated: SetScore = { ...current, [side]: value };
+      if (!shouldCollectTieBreak(updated.A, updated.B)) {
+        updated.tieBreakA = "";
+        updated.tieBreakB = "";
+      }
+      next[idx] = updated;
+      return next;
+    });
+  };
+
+  const handleTieBreakChange = (
+    idx: number,
+    side: "A" | "B",
+    value: string,
+  ) => {
+    setSets((prev) => {
+      const next = [...prev];
+      const current = next[idx] ?? EMPTY_SET;
+      const updated: SetScore = {
+        ...current,
+        tieBreakA: side === "A" ? value : current.tieBreakA,
+        tieBreakB: side === "B" ? value : current.tieBreakB,
+      };
+      next[idx] = updated;
       return next;
     });
   };
 
   const addSet = () => {
-    setSets((prev) => [...prev, { A: "", B: "" }]);
+    setSets((prev) => [...prev, { ...EMPTY_SET }]);
     setSetErrors((prev) => [...prev, ""]);
   };
 
@@ -727,10 +836,25 @@ export default function RecordPadelPage() {
           </fieldset>
         </fieldset>
 
+        <p className="form-hint" id="padel-tiebreak-hint">
+          Sets ending 7–6 require tie-break points – enter the winner and
+          opponent totals when prompted so extended tie-breaks are captured
+          accurately.
+        </p>
         <div className="sets">
           {sets.map((s, idx) => {
             const setError = setErrors[idx];
             const errorId = setError ? `padel-set-${idx + 1}-error` : undefined;
+            const showTieBreakFields = shouldCollectTieBreak(s.A, s.B);
+            const tieBreakHintId = showTieBreakFields
+              ? `padel-set-${idx + 1}-tiebreak-hint`
+              : undefined;
+            const combinedDescribedBy = [
+              errorId,
+              showTieBreakFields ? tieBreakHintId : undefined,
+            ]
+              .filter(Boolean)
+              .join(" ");
             return (
               <div key={idx} className="set">
                 <label className="form-field" htmlFor={`padel-set-${idx + 1}-a`}>
@@ -746,7 +870,7 @@ export default function RecordPadelPage() {
                     onChange={(e) => handleSetChange(idx, "A", e.target.value)}
                     inputMode="numeric"
                     aria-invalid={Boolean(setError)}
-                    aria-describedby={errorId}
+                    aria-describedby={combinedDescribedBy || undefined}
                   />
                 </label>
                 <label className="form-field" htmlFor={`padel-set-${idx + 1}-b`}>
@@ -762,9 +886,63 @@ export default function RecordPadelPage() {
                     onChange={(e) => handleSetChange(idx, "B", e.target.value)}
                     inputMode="numeric"
                     aria-invalid={Boolean(setError)}
-                    aria-describedby={errorId}
+                    aria-describedby={combinedDescribedBy || undefined}
                   />
                 </label>
+                {showTieBreakFields && (
+                  <div className="form-subfieldset" aria-live="polite">
+                    <p id={tieBreakHintId} className="form-hint">
+                      Set {idx + 1} went to a tie-break. Enter the points for
+                      each side (winner must lead by at least two).
+                    </p>
+                    <div className="form-grid form-grid--two">
+                      <label
+                        className="form-field"
+                        htmlFor={`padel-set-${idx + 1}-tiebreak-a`}
+                      >
+                        <span className="form-label">
+                          Tie-break points team A
+                        </span>
+                        <input
+                          id={`padel-set-${idx + 1}-tiebreak-a`}
+                          type="number"
+                          min="0"
+                          step="1"
+                          placeholder="Tie-break A"
+                          value={s.tieBreakA}
+                          onChange={(e) =>
+                            handleTieBreakChange(idx, "A", e.target.value)
+                          }
+                          inputMode="numeric"
+                          aria-invalid={Boolean(setError)}
+                          aria-describedby={combinedDescribedBy || undefined}
+                        />
+                      </label>
+                      <label
+                        className="form-field"
+                        htmlFor={`padel-set-${idx + 1}-tiebreak-b`}
+                      >
+                        <span className="form-label">
+                          Tie-break points team B
+                        </span>
+                        <input
+                          id={`padel-set-${idx + 1}-tiebreak-b`}
+                          type="number"
+                          min="0"
+                          step="1"
+                          placeholder="Tie-break B"
+                          value={s.tieBreakB}
+                          onChange={(e) =>
+                            handleTieBreakChange(idx, "B", e.target.value)
+                          }
+                          inputMode="numeric"
+                          aria-invalid={Boolean(setError)}
+                          aria-describedby={combinedDescribedBy || undefined}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                )}
                 {setError && (
                   <p id={errorId} role="alert" className="error">
                     {setError}

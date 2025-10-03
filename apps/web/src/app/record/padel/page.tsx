@@ -607,7 +607,27 @@ export default function RecordPadelPage() {
       const setPayload = {
         sets: sets
           .filter((s) => s.A !== "" && s.B !== "")
-          .map((s) => ({ A: Number(s.A), B: Number(s.B) })),
+          .map((s) => {
+            const payloadSet: {
+              A: number;
+              B: number;
+              tieBreak?: { A: number; B: number };
+            } = {
+              A: Number(s.A),
+              B: Number(s.B),
+            };
+            const tieBreakA =
+              typeof s.tieBreakA === "string" ? s.tieBreakA.trim() : "";
+            const tieBreakB =
+              typeof s.tieBreakB === "string" ? s.tieBreakB.trim() : "";
+            if (tieBreakA !== "" && tieBreakB !== "") {
+              payloadSet.tieBreak = {
+                A: Number(tieBreakA),
+                B: Number(tieBreakB),
+              };
+            }
+            return payloadSet;
+          }),
       };
       if (setPayload.sets.length) {
         await apiFetch(`/v0/matches/${data.id}/sets`, {

@@ -3,7 +3,7 @@ import uuid
 import importlib
 from collections import Counter
 from datetime import datetime
-from typing import Any, Sequence, NamedTuple
+from typing import Any, Dict, List, Optional, Sequence, NamedTuple
 
 import jwt
 from fastapi import APIRouter, Depends, Query, Response, Request
@@ -1267,15 +1267,50 @@ async def record_sets_endpoint(
 
     # Validate set scores before applying them.
     # Normalize Pydantic models, dicts, or 2-item tuples into list[dict] for the validator.
+    def _extract_tiebreak(raw: Any) -> Optional[Dict[str, int]]:
+        if raw is None:
+            return None
+        if isinstance(raw, dict):
+            a_raw = raw.get("A")
+            b_raw = raw.get("B")
+        else:
+            a_raw = getattr(raw, "A", None)
+            b_raw = getattr(raw, "B", None)
+        if isinstance(a_raw, bool) or isinstance(b_raw, bool):
+            return None
+        try:
+            a_val = int(a_raw)
+            b_val = int(b_raw)
+        except (TypeError, ValueError):
+            return None
+        return {"A": a_val, "B": b_val}
+
     try:
         normalized_sets = []
+        tie_break_details: List[Optional[Dict[str, int]]] = []
         for s in body.sets:
             if isinstance(s, dict):
                 normalized_sets.append({"A": s.get("A"), "B": s.get("B")})
+                raw_tie = s.get("tieBreak")
+                if raw_tie is None and (
+                    "tieBreakA" in s or "tieBreakB" in s
+                ):
+                    raw_tie = {"A": s.get("tieBreakA"), "B": s.get("tieBreakB")}
+                tie_break_details.append(_extract_tiebreak(raw_tie))
             elif isinstance(s, (list, tuple)) and len(s) == 2:
                 normalized_sets.append({"A": s[0], "B": s[1]})
+                tie_break_details.append(None)
             else:
-                normalized_sets.append({"A": getattr(s, "A", None), "B": getattr(s, "B", None)})
+                normalized_sets.append(
+                    {"A": getattr(s, "A", None), "B": getattr(s, "B", None)}
+                )
+                raw_tie = getattr(s, "tieBreak", None)
+                if raw_tie is None:
+                    tie_a = getattr(s, "tieBreakA", None)
+                    tie_b = getattr(s, "tieBreakB", None)
+                    if tie_a is not None or tie_b is not None:
+                        raw_tie = {"A": tie_a, "B": tie_b}
+                tie_break_details.append(_extract_tiebreak(raw_tie))
         validate_set_scores(normalized_sets)
         set_tuples = [(int(s["A"]), int(s["B"])) for s in normalized_sets]
     except ValidationError as e:
@@ -1306,7 +1341,23 @@ async def record_sets_endpoint(
         )
         session.add(e)
 
-    m.details = engine.summary(state)
+    summary = engine.summary(state)
+    if isinstance(summary, dict):
+        set_scores = summary.get("set_scores")
+        if isinstance(set_scores, list):
+            changed = False
+            for idx, tie_break in enumerate(tie_break_details):
+                if not tie_break or idx >= len(set_scores):
+                    continue
+                entry = set_scores[idx]
+                if isinstance(entry, dict):
+                    if entry.get("tieBreak") != tie_break:
+                        set_scores[idx] = {**entry, "tieBreak": tie_break}
+                        changed = True
+            if changed:
+                summary["set_scores"] = set_scores
+
+    m.details = summary
     players_a = [pid for p in parts if p.side == "A" for pid in p.player_ids]
     players_b = [pid for p in parts if p.side == "B" for pid in p.player_ids]
     sets = m.details.get("sets") if m.details else None

@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { SWRConfig } from "swr";
 
@@ -158,12 +165,12 @@ describe("PlayerComments", () => {
     const expectedTimestamp = formatDateTime(
       "2024-01-01T12:00:00Z",
       "en-GB",
-      "compact",
+      "default",
       "UTC",
     );
-    expect(
-      screen.getByText((text) => text.includes(expectedTimestamp))
-    ).toBeInTheDocument();
+    const commentItem = screen.getByRole("listitem");
+    expect(within(commentItem).getByText("alice")).toBeInTheDocument();
+    expect(within(commentItem).getByText(expectedTimestamp)).toBeInTheDocument();
     expect(notificationMocks.invalidateNotificationsCache).toHaveBeenCalled();
   });
 

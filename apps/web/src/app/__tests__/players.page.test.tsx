@@ -117,7 +117,10 @@ describe('PlayersPage sorting', () => {
       container.querySelectorAll<HTMLAnchorElement>(
         '.player-list__item .player-list__card-link',
       ),
-    ).map((link) => link.textContent?.trim());
+    ).map(
+      (link) =>
+        link.querySelector<HTMLSpanElement>('.player-list__name')?.textContent?.trim(),
+    );
 
     expect(names).toEqual(['Addi', 'Amy', 'benni', 'bridget']);
   });

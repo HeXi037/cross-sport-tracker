@@ -30,19 +30,24 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 # CORS configuration
 # -----------------------------------------------------------------------------
-ALLOWED_ORIGINS = [
-    o.strip()
-    for o in os.getenv("ALLOWED_ORIGINS", "*").split(",")
-    if o.strip()
-]
+allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "").strip()
+
+if not allowed_origins_raw:
+    raise ValueError(
+        "ALLOWED_ORIGINS environment variable must be set to a comma-separated "
+        "list of trusted origins."
+    )
+
+ALLOWED_ORIGINS = [o.strip() for o in allowed_origins_raw.split(",") if o.strip()]
+
+if not ALLOWED_ORIGINS:
+    raise ValueError("ALLOWED_ORIGINS must contain at least one non-empty origin.")
 ALLOW_CREDENTIALS = os.getenv("ALLOW_CREDENTIALS", "true").lower() == "true"
 
 # Fail fast if misconfigured: credentials + wildcard origins is unsafe
-if ALLOW_CREDENTIALS and (not ALLOWED_ORIGINS or "*" in ALLOWED_ORIGINS):
+if "*" in ALLOWED_ORIGINS:
     raise ValueError(
-        "ALLOWED_ORIGINS cannot be '*' when credentials are allowed. "
-        "Set ALLOWED_ORIGINS to a comma-separated list of origins or set "
-        "ALLOW_CREDENTIALS=false."
+        "ALLOWED_ORIGINS cannot include '*' (wildcard). Specify explicit, trusted origins."
     )
 
 # -----------------------------------------------------------------------------
@@ -63,7 +68,7 @@ app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS or ["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],

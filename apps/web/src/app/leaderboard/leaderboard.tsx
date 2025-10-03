@@ -1335,15 +1335,6 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       <p className="sr-only" aria-live="polite">
         {statusMessage}
       </p>
-      <div style={{ marginBottom: "1rem", fontSize: "0.9rem" }}>
-        <Link
-          href={ensureTrailingSlash("/matches")}
-          style={{ textDecoration: "underline" }}
-        >
-          ← Back to matches
-        </Link>
-      </div>
-
       <header
         style={{
           display: "flex",

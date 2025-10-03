@@ -87,6 +87,14 @@ async def test_tournament_crud(tmp_path):
         assert resp.json()["name"] == "Winter Cup"
         assert resp.json()["createdByUserId"] == "admin"
 
+        resp = client.patch(f"/tournaments/{tid}", json={"name": "Winter Cup Finals"})
+        assert resp.status_code == 200
+        assert resp.json()["name"] == "Winter Cup Finals"
+
+        resp = client.get(f"/tournaments/{tid}")
+        assert resp.status_code == 200
+        assert resp.json()["name"] == "Winter Cup Finals"
+
 
 @pytest.mark.anyio
 async def test_stage_crud(tmp_path):
@@ -518,6 +526,174 @@ async def test_normal_user_cannot_delete_other_users_tournament():
         resp = client.delete(f"/tournaments/{tid}")
         assert resp.status_code == 403
 
+
+@pytest.mark.anyio
+async def test_normal_user_can_update_own_padel_tournament():
+    from app import db
+    from app.models import Sport, Tournament, User
+    from app.routers import tournaments
+    from app.routers.auth import get_current_user
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            db.Base.metadata.create_all,
+            tables=[Sport.__table__, Tournament.__table__, User.__table__],
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        session.add(Sport(id="padel", name="Padel"))
+        session.add(
+            User(
+                id="owner",
+                username="owner",
+                password_hash="hashed",
+                is_admin=False,
+            )
+        )
+        await session.commit()
+
+    app = _configured_app()
+    app.include_router(tournaments.router)
+
+    owner = SimpleNamespace(id="owner", is_admin=False)
+
+    async def _owner_dep():
+        return owner
+
+    app.dependency_overrides[get_current_user] = _owner_dep
+
+    with TestClient(app) as client:
+        tid = client.post(
+            "/tournaments", json={"sport": "padel", "name": "Club Americano"}
+        ).json()["id"]
+
+        resp = client.patch(
+            f"/tournaments/{tid}", json={"name": "Club Americano Finals"}
+        )
+        assert resp.status_code == 200
+        assert resp.json()["name"] == "Club Americano Finals"
+
+
+@pytest.mark.anyio
+async def test_normal_user_cannot_update_other_users_tournament():
+    from app import db
+    from app.models import Sport, Tournament, User
+    from app.routers import tournaments
+    from app.routers.auth import get_current_user
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            db.Base.metadata.create_all,
+            tables=[Sport.__table__, Tournament.__table__, User.__table__],
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        session.add(Sport(id="padel", name="Padel"))
+        session.add(
+            User(
+                id="owner",
+                username="owner",
+                password_hash="hashed",
+                is_admin=False,
+            )
+        )
+        session.add(
+            User(
+                id="other",
+                username="other",
+                password_hash="hashed",
+                is_admin=False,
+            )
+        )
+        await session.commit()
+
+    app = _configured_app()
+    app.include_router(tournaments.router)
+
+    owner = SimpleNamespace(id="owner", is_admin=False)
+
+    async def _owner_dep():
+        return owner
+
+    app.dependency_overrides[get_current_user] = _owner_dep
+
+    with TestClient(app) as client:
+        tid = client.post(
+            "/tournaments", json={"sport": "padel", "name": "Club Americano"}
+        ).json()["id"]
+
+    other_user = SimpleNamespace(id="other", is_admin=False)
+
+    async def _other_dep():
+        return other_user
+
+    app.dependency_overrides[get_current_user] = _other_dep
+
+    with TestClient(app) as client:
+        resp = client.patch(
+            f"/tournaments/{tid}", json={"name": "Updated Name"}
+        )
+        assert resp.status_code == 403
+
+
+@pytest.mark.anyio
+async def test_normal_user_cannot_update_non_padel_tournament():
+    from app import db
+    from app.models import Sport, Tournament, User
+    from app.routers import tournaments
+    from app.routers.auth import get_current_user
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            db.Base.metadata.create_all,
+            tables=[Sport.__table__, Tournament.__table__, User.__table__],
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        session.add(Sport(id="padel", name="Padel"))
+        session.add(Sport(id="tennis", name="Tennis"))
+        session.add(
+            User(
+                id="owner",
+                username="owner",
+                password_hash="hashed",
+                is_admin=False,
+            )
+        )
+        session.add(
+            Tournament(
+                id="tennis1",
+                sport_id="tennis",
+                name="Club Tennis Night",
+                created_by_user_id="owner",
+            )
+        )
+        await session.commit()
+
+    app = _configured_app()
+    app.include_router(tournaments.router)
+
+    owner = SimpleNamespace(id="owner", is_admin=False)
+
+    async def _owner_dep():
+        return owner
+
+    app.dependency_overrides[get_current_user] = _owner_dep
+
+    with TestClient(app) as client:
+        resp = client.patch(
+            "/tournaments/tennis1", json={"name": "Updated Tennis Night"}
+        )
+        assert resp.status_code == 403
 
 @pytest.mark.anyio
 async def test_admin_can_delete_user_tournament():

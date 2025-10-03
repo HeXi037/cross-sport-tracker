@@ -16,6 +16,7 @@ from ..models import (
 from ..schemas import (
     TournamentCreate,
     TournamentOut,
+    TournamentUpdate,
     StageCreate,
     StageOut,
     StageScheduleRequest,
@@ -96,6 +97,73 @@ async def get_tournament(
         name=t.name,
         clubId=t.club_id,
         createdByUserId=t.created_by_user_id,
+    )
+
+
+@router.patch("/tournaments/{tournament_id}", response_model=TournamentOut)
+async def update_tournament(
+    tournament_id: str,
+    body: TournamentUpdate,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    tournament = await session.get(Tournament, tournament_id)
+    if not tournament:
+        raise http_problem(
+            status_code=404,
+            detail="tournament not found",
+            code="tournament_not_found",
+        )
+
+    payload = body.model_dump(exclude_unset=True)
+    if not payload:
+        return TournamentOut(
+            id=tournament.id,
+            sport=tournament.sport_id,
+            name=tournament.name,
+            clubId=tournament.club_id,
+            createdByUserId=tournament.created_by_user_id,
+        )
+
+    if not user.is_admin:
+        if tournament.created_by_user_id != user.id or tournament.sport_id != "padel":
+            raise http_problem(
+                status_code=403,
+                detail="forbidden",
+                code="tournament_forbidden",
+            )
+        if "sport" in payload and payload["sport"] not in (None, "padel"):
+            raise http_problem(
+                status_code=403,
+                detail="forbidden",
+                code="tournament_forbidden",
+            )
+
+    if "name" in payload:
+        new_name = (payload["name"] or "").strip()
+        if not new_name:
+            raise http_problem(
+                status_code=400,
+                detail="tournament name is required",
+                code="tournament_invalid",
+            )
+        tournament.name = new_name
+
+    if "sport" in payload and payload["sport"]:
+        tournament.sport_id = payload["sport"]
+
+    if "clubId" in payload:
+        tournament.club_id = payload["clubId"]
+
+    await session.commit()
+    await session.refresh(tournament)
+
+    return TournamentOut(
+        id=tournament.id,
+        sport=tournament.sport_id,
+        name=tournament.name,
+        clubId=tournament.club_id,
+        createdByUserId=tournament.created_by_user_id,
     )
 
 

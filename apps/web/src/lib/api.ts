@@ -760,6 +760,12 @@ export type TournamentSummary = TournamentCreatePayload & {
   createdByUserId?: string | null;
 };
 
+export type TournamentUpdatePayload = {
+  name?: string | null;
+  sport?: string | null;
+  clubId?: string | null;
+};
+
 export type StageCreatePayload = {
   type: string;
   config?: Record<string, unknown> | null;
@@ -860,6 +866,22 @@ export async function createTournament(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+export async function updateTournament(
+  tournamentId: string,
+  payload: TournamentUpdatePayload
+): Promise<TournamentSummary> {
+  const entries = Object.entries(payload).filter(
+    (entry): entry is [string, string | null] => entry[1] !== undefined
+  );
+  const body = Object.fromEntries(entries);
+  const res = await apiFetch(`/v0/tournaments/${tournamentId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
   return res.json();
 }

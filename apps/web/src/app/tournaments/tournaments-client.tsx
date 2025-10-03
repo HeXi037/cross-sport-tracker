@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { ensureTrailingSlash } from "../../lib/routes";
 import {
   deleteTournament,
   type ApiError,
   type TournamentSummary,
+  updateTournament,
 } from "../../lib/api";
 import CreateTournamentForm from "./create-tournament-form";
 import { useSessionSnapshot } from "../../lib/useSessionSnapshot";
@@ -26,6 +27,9 @@ export default function TournamentsClient({
   const { isAdmin, isLoggedIn, userId } = session;
   const [tournaments, setTournaments] = useState(initialTournaments);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState<string>("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
@@ -51,7 +55,7 @@ export default function TournamentsClient({
     });
   };
 
-  const canDelete = useMemo(() => {
+  const canManage = useMemo(() => {
     if (isAdmin) {
       return () => true;
     }
@@ -63,8 +67,8 @@ export default function TournamentsClient({
   }, [isAdmin, isLoggedIn, userId]);
 
   const handleDelete = async (tournament: TournamentSummary) => {
-    if (!canDelete(tournament)) {
-      setError("You do not have permission to delete this tournament.");
+    if (!canManage(tournament)) {
+      setError("You can only delete Americano tournaments that you created.");
       return;
     }
     if (deletingId) return;
@@ -97,6 +101,78 @@ export default function TournamentsClient({
     }
   };
 
+  const handleStartEdit = (tournament: TournamentSummary) => {
+    if (!canManage(tournament)) {
+      setError("You can only edit padel Americano tournaments that you created.");
+      return;
+    }
+    setStatus(null);
+    setError(null);
+    setEditingId(tournament.id);
+    setEditingName(tournament.name);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditingName("");
+    setSavingEdit(false);
+  };
+
+  const handleEditSubmit = async (
+    event: FormEvent<HTMLFormElement>,
+    tournament: TournamentSummary
+  ) => {
+    event.preventDefault();
+    if (!canManage(tournament)) {
+      setError("You can only edit padel Americano tournaments that you created.");
+      handleCancelEdit();
+      return;
+    }
+    if (savingEdit) {
+      return;
+    }
+    const trimmedName = editingName.trim();
+    if (!trimmedName) {
+      setError("Enter a tournament name before saving.");
+      return;
+    }
+    setSavingEdit(true);
+    setError(null);
+    setStatus(null);
+    try {
+      const updated = await updateTournament(tournament.id, { name: trimmedName });
+      setTournaments((prev) => {
+        const next = prev.map((item) =>
+          item.id === updated.id ? { ...item, ...updated } : item
+        );
+        next.sort((a, b) => a.name.localeCompare(b.name));
+        return next;
+      });
+      setStatus(`${updated.name} was updated.`);
+      handleCancelEdit();
+    } catch (err) {
+      console.error("Failed to update tournament", err);
+      const apiError = err as ApiError | undefined;
+      if (apiError?.status === 403) {
+        setError("You can only edit padel Americano tournaments that you created.");
+      } else if (apiError?.status === 404) {
+        setError("This tournament no longer exists.");
+        setTournaments((prev) => prev.filter((item) => item.id !== tournament.id));
+        handleCancelEdit();
+      } else if (apiError?.status === 400) {
+        const detailed =
+          typeof apiError.parsedMessage === "string" && apiError.parsedMessage.trim()
+            ? apiError.parsedMessage.trim()
+            : "Unable to update the tournament. Please check the details and try again.";
+        setError(detailed);
+      } else {
+        setError("Unable to update the tournament. Please try again.");
+      }
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       {comingSoon ? (
@@ -109,6 +185,25 @@ export default function TournamentsClient({
         </section>
       ) : (
         <>
+          <section className="card" style={{ padding: 16 }}>
+            <h2 className="subheading">Tournament permissions</h2>
+            <ul
+              className="form-hint"
+              style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}
+            >
+              <li>Admins can create, edit, and delete tournaments for any sport.</li>
+              <li>
+                Logged-in organisers can create padel Americano tournaments and manage the ones
+                they created.
+              </li>
+              <li>Contact an admin to manage tournaments created by other organisers.</li>
+            </ul>
+            {!isLoggedIn && (
+              <p className="form-hint" style={{ marginTop: 12 }}>
+                Sign in to create padel Americano tournaments and manage their schedules.
+              </p>
+            )}
+          </section>
           <CreateTournamentForm onCreated={handleTournamentCreated} />
           <section
             aria-labelledby="tournament-list-heading"
@@ -120,6 +215,11 @@ export default function TournamentsClient({
               </h2>
               <p className="form-hint">
                 Browse previously created tournaments and manage their stages.
+              </p>
+              <p className="form-hint">
+                {isAdmin
+                  ? "You can edit or delete any tournament."
+                  : "You can edit or delete padel Americano tournaments that you created."}
               </p>
             </div>
             {error && (
@@ -138,33 +238,97 @@ export default function TournamentsClient({
               <ul style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {tournaments.map((tournament) => (
                   <li key={tournament.id} className="card" style={{ padding: 16 }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <div>
-                        <h3 style={{ fontSize: 18, fontWeight: 600 }}>{tournament.name}</h3>
-                        <p className="form-hint">Sport: {tournament.sport}</p>
-                        {tournament.clubId && (
-                          <p className="form-hint">Club: {tournament.clubId}</p>
-                        )}
-                      </div>
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <Link
-                          href={ensureTrailingSlash(`/tournaments/${tournament.id}`)}
-                          className="link-button"
-                        >
-                          View tournament
-                        </Link>
-                        {canDelete(tournament) && (
+                    {editingId === tournament.id ? (
+                      <form
+                        onSubmit={(event) => handleEditSubmit(event, tournament)}
+                        style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                        aria-label={`Edit ${tournament.name}`}
+                      >
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          <div>
+                            <label
+                              className="form-label"
+                              htmlFor={`edit-tournament-name-${tournament.id}`}
+                            >
+                              Tournament name
+                            </label>
+                            <input
+                              id={`edit-tournament-name-${tournament.id}`}
+                              type="text"
+                              value={editingName}
+                              onChange={(event) => setEditingName(event.target.value)}
+                              autoFocus
+                            />
+                            <p className="form-hint">Update the name shown on tournament pages.</p>
+                          </div>
+                          <p className="form-hint">Sport: {tournament.sport}</p>
+                          {tournament.clubId && (
+                            <p className="form-hint">Club: {tournament.clubId}</p>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <Link
+                            href={ensureTrailingSlash(`/tournaments/${tournament.id}`)}
+                            className="link-button"
+                          >
+                            View tournament
+                          </Link>
+                          <button
+                            type="submit"
+                            className="link-button"
+                            disabled={savingEdit}
+                          >
+                            {savingEdit ? "Saving…" : "Save changes"}
+                          </button>
                           <button
                             type="button"
                             className="link-button"
-                            onClick={() => handleDelete(tournament)}
-                            disabled={deletingId === tournament.id}
+                            onClick={handleCancelEdit}
+                            disabled={savingEdit}
                           >
-                            {deletingId === tournament.id ? "Deleting…" : "Delete"}
+                            Cancel
                           </button>
-                        )}
+                        </div>
+                      </form>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div>
+                          <h3 style={{ fontSize: 18, fontWeight: 600 }}>{tournament.name}</h3>
+                          <p className="form-hint">Sport: {tournament.sport}</p>
+                          {tournament.clubId && (
+                            <p className="form-hint">Club: {tournament.clubId}</p>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <Link
+                            href={ensureTrailingSlash(`/tournaments/${tournament.id}`)}
+                            className="link-button"
+                          >
+                            View tournament
+                          </Link>
+                          {canManage(tournament) && (
+                            <button
+                              type="button"
+                              className="link-button"
+                              onClick={() => handleStartEdit(tournament)}
+                              disabled={deletingId === tournament.id}
+                            >
+                              Edit
+                            </button>
+                          )}
+                          {canManage(tournament) && (
+                            <button
+                              type="button"
+                              className="link-button"
+                              onClick={() => handleDelete(tournament)}
+                              disabled={deletingId === tournament.id}
+                            >
+                              {deletingId === tournament.id ? "Deleting…" : "Delete"}
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </li>
                 ))}
               </ul>

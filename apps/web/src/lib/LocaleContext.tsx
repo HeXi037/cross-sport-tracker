@@ -2,7 +2,9 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import {
+  detectTimeZone,
   getStoredLocale,
+  getStoredTimeZone,
   normalizeLocale,
   parseAcceptLanguage,
   storeLocalePreference,
@@ -23,11 +25,28 @@ import {
 const LocaleContext = createContext(NEUTRAL_FALLBACK_LOCALE);
 const TimeZoneContext = createContext(DEFAULT_TIME_ZONE);
 
+const AUSTRALIAN_TIME_ZONE_PREFIX = 'australia/';
+const ADDITIONAL_AUSTRALIAN_TIME_ZONES = new Set(['antarctica/macquarie']);
+
+function isAustralianTimeZone(timeZone: string | null | undefined): boolean {
+  const normalized = normalizeTimeZone(timeZone, '').toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  if (normalized.startsWith(AUSTRALIAN_TIME_ZONE_PREFIX)) {
+    return true;
+  }
+
+  return ADDITIONAL_AUSTRALIAN_TIME_ZONES.has(normalized);
+}
+
 function resolveLocaleCandidates(
   fallback: string,
   acceptLanguage?: string | null,
   storedLocale?: string | null,
   preferredLocale?: string | null,
+  timeZoneHints: Array<string | null | undefined> = [],
 ): string[] {
   const normalizedFallback = normalizeLocale(fallback);
   const candidates: string[] = [];
@@ -59,6 +78,21 @@ function resolveLocaleCandidates(
 
     if (typeof navigator.language === 'string' && navigator.language.length > 0) {
       candidates.push(navigator.language);
+    }
+  }
+
+  const hasAustralianLocale = candidates.some((candidate) => {
+    const normalized = normalizeLocale(candidate, '');
+    return normalized ? normalized.toLowerCase().startsWith('en-au') : false;
+  });
+
+  if (!hasAustralianLocale) {
+    const australianTimeZoneDetected = timeZoneHints.some((hint) =>
+      isAustralianTimeZone(hint ?? null),
+    );
+
+    if (australianTimeZoneDetected) {
+      candidates.push('en-AU');
     }
   }
 
@@ -130,20 +164,38 @@ export function LocaleProvider({
       normalizedProvided,
     );
     const storedLocale = getStoredLocale();
-    const preferredSettingsLocale = (() => {
+    const preferredSettings = (() => {
       try {
-        const settings = loadUserSettings();
-        return normalizeLocale(settings.preferredLocale, '');
+        return loadUserSettings();
       } catch {
-        return '';
+        return null;
       }
     })();
+    const preferredSettingsLocale = normalizeLocale(
+      preferredSettings?.preferredLocale,
+      '',
+    );
+    const preferredSettingsTimeZone = normalizeTimeZone(
+      preferredSettings?.preferredTimeZone,
+      '',
+    );
+    const storedTimeZone = getStoredTimeZone();
+    const cookieTimeZone = normalizeTimeZone(timeZone, '');
+    const detectedTimeZone = detectTimeZone(
+      preferredSettingsLocale || storedLocale || fallbackFromHeader,
+    );
 
     const candidates = resolveLocaleCandidates(
       fallbackFromHeader,
       acceptLanguage,
       storedLocale,
       preferredSettingsLocale,
+      [
+        preferredSettingsTimeZone,
+        storedTimeZone,
+        cookieTimeZone,
+        detectedTimeZone,
+      ],
     );
 
     return pickLocaleCandidate(candidates, fallbackFromHeader, {
@@ -184,11 +236,26 @@ export function LocaleProvider({
         preferredSettings?.preferredLocale,
         '',
       );
+      const preferredSettingsTimeZone = normalizeTimeZone(
+        preferredSettings?.preferredTimeZone,
+        '',
+      );
+      const storedTimeZone = getStoredTimeZone();
+      const cookieTimeZone = normalizeTimeZone(timeZone, '');
+      const detectedTimeZone = detectTimeZone(
+        preferredSettingsLocale || storedLocale || fallbackLocale,
+      );
       const candidates = resolveLocaleCandidates(
         fallbackLocale,
         acceptLanguage,
         storedLocale,
         preferredSettingsLocale,
+        [
+          preferredSettingsTimeZone,
+          storedTimeZone,
+          cookieTimeZone,
+          detectedTimeZone,
+        ],
       );
       const nextLocale = pickLocaleCandidate(candidates, fallbackLocale, {
         preferredLocale: preferredSettingsLocale,
@@ -206,13 +273,8 @@ export function LocaleProvider({
         storeLocalePreference(nextLocale);
       }
 
-      const cookieTimeZone = normalizeTimeZone(timeZone, '');
-      const preferredSettingsTimeZone = normalizeTimeZone(
-        preferredSettings?.preferredTimeZone,
-        '',
-      );
       const nextTimeZone = resolveTimeZone(
-        preferredSettingsTimeZone || cookieTimeZone || null,
+        preferredSettingsTimeZone || cookieTimeZone || storedTimeZone || null,
         nextLocale,
       );
       setCurrentTimeZone((prev) => (prev === nextTimeZone ? prev : nextTimeZone));

@@ -82,6 +82,14 @@
     },
     "actions": {
       "logout": "Cerrar sesión"
+    },
+    "locale": {
+      "label": "Idioma",
+      "options": {
+        "en-GB": "Inglés (Reino Unido)",
+        "en-AU": "Inglés (Australia)",
+        "es-ES": "Español"
+      }
     }
   },
   "NotFound": {

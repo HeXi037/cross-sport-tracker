@@ -548,6 +548,42 @@ textarea {
   padding: 0;
 }
 
+.nav-language-item {
+  display: flex;
+  align-items: center;
+}
+
+.nav-language {
+  display: flex;
+  align-items: center;
+}
+
+.nav-language__label {
+  display: flex;
+  align-items: center;
+}
+
+.nav-language__select {
+  appearance: none;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  color: var(--color-nav-text);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.35rem 1.5rem 0.35rem 0.75rem;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.nav-language__select:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.nav-language__select:focus-visible {
+  outline: 3px solid var(--color-accent-blue);
+  outline-offset: 2px;
+}
+
 .nav-notifications {
   position: relative;
   display: flex;
@@ -756,6 +792,15 @@ textarea {
   .nav-links ul {
     flex-direction: column;
     gap: 0.5rem;
+  }
+  .nav-language-item {
+    width: 100%;
+  }
+  .nav-language {
+    width: 100%;
+  }
+  .nav-language__select {
+    width: 100%;
   }
   .hamburger {
     display: block;

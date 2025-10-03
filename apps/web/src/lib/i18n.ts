@@ -307,6 +307,16 @@ export function getStoredTimeZone(): string | null {
   }
 
   try {
+    const sessionRaw = window.sessionStorage?.getItem(TIME_ZONE_STORAGE_KEY);
+    const sessionNormalized = normalizeTimeZoneInternal(sessionRaw, '');
+    if (sessionNormalized) {
+      return sessionNormalized;
+    }
+  } catch {
+    // Ignore storage errors and fall through to localStorage lookup.
+  }
+
+  try {
     const raw = window.localStorage?.getItem(TIME_ZONE_STORAGE_KEY);
     const normalized = normalizeTimeZoneInternal(raw, '');
     if (normalized) {
@@ -349,6 +359,16 @@ export function storeTimeZonePreference(
   if (typeof window !== 'undefined') {
     try {
       if (normalized) {
+        window.sessionStorage?.setItem(TIME_ZONE_STORAGE_KEY, normalized);
+      } else {
+        window.sessionStorage?.removeItem(TIME_ZONE_STORAGE_KEY);
+      }
+    } catch {
+      // Ignore storage quota errors or unavailable sessionStorage.
+    }
+
+    try {
+      if (normalized) {
         window.localStorage?.setItem(TIME_ZONE_STORAGE_KEY, normalized);
       } else {
         window.localStorage?.removeItem(TIME_ZONE_STORAGE_KEY);
@@ -372,6 +392,11 @@ export function storeTimeZonePreference(
 
 export function clearStoredTimeZone(): void {
   if (typeof window !== 'undefined') {
+    try {
+      window.sessionStorage?.removeItem(TIME_ZONE_STORAGE_KEY);
+    } catch {
+      // Ignore storage errors.
+    }
     try {
       window.localStorage?.removeItem(TIME_ZONE_STORAGE_KEY);
     } catch {
@@ -415,6 +440,16 @@ export function getStoredLocale(): string | null {
     return null;
   }
   try {
+    const sessionRaw = window.sessionStorage?.getItem(LOCALE_STORAGE_KEY);
+    const sessionNormalized = normalizeLocale(sessionRaw, '');
+    if (sessionNormalized) {
+      return sessionNormalized;
+    }
+  } catch {
+    // Ignore storage errors and continue to localStorage lookup.
+  }
+
+  try {
     const raw = window.localStorage?.getItem(LOCALE_STORAGE_KEY);
     const normalized = normalizeLocale(raw, '');
     if (normalized) {
@@ -452,6 +487,16 @@ export function storeLocalePreference(locale: string | null | undefined): void {
   if (typeof window !== 'undefined') {
     try {
       if (normalized) {
+        window.sessionStorage?.setItem(LOCALE_STORAGE_KEY, normalized);
+      } else {
+        window.sessionStorage?.removeItem(LOCALE_STORAGE_KEY);
+      }
+    } catch {
+      // Ignore storage quota errors or unavailable sessionStorage.
+    }
+
+    try {
+      if (normalized) {
         window.localStorage?.setItem(LOCALE_STORAGE_KEY, normalized);
       } else {
         window.localStorage?.removeItem(LOCALE_STORAGE_KEY);
@@ -475,6 +520,11 @@ export function storeLocalePreference(locale: string | null | undefined): void {
 
 export function clearStoredLocale(): void {
   if (typeof window !== 'undefined') {
+    try {
+      window.sessionStorage?.removeItem(LOCALE_STORAGE_KEY);
+    } catch {
+      // Ignore storage errors.
+    }
     try {
       window.localStorage?.removeItem(LOCALE_STORAGE_KEY);
     } catch {

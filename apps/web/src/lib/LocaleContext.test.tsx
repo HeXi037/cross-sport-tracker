@@ -6,6 +6,7 @@ import {
   formatDateTime,
   LOCALE_STORAGE_KEY,
   LOCALE_COOKIE_KEY,
+  TIME_ZONE_STORAGE_KEY,
   TIME_ZONE_COOKIE_KEY,
 } from './i18n';
 import {
@@ -17,6 +18,7 @@ describe('LocaleProvider', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     window.localStorage.clear();
+    window.sessionStorage.clear();
     document.cookie = `${LOCALE_COOKIE_KEY}=; path=/; max-age=0`;
     document.cookie = `${TIME_ZONE_COOKIE_KEY}=; path=/; max-age=0`;
     document.documentElement.lang = '';
@@ -85,6 +87,21 @@ describe('LocaleProvider', () => {
     expect(localeDisplay).toHaveTextContent('sv-SE');
   });
 
+  it('prefers a session-stored locale before falling back', async () => {
+    window.sessionStorage.setItem(LOCALE_STORAGE_KEY, 'fr-FR');
+    vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue([]);
+    vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('');
+
+    render(
+      <LocaleProvider locale="en-US" acceptLanguage={null}>
+        <LocaleConsumer />
+      </LocaleProvider>,
+    );
+
+    const localeDisplay = await screen.findByTestId('locale-value');
+    expect(localeDisplay).toHaveTextContent('fr-FR');
+  });
+
   it('retains the stored locale when browser hints differ', async () => {
     window.localStorage.setItem(LOCALE_STORAGE_KEY, 'sv-SE');
     vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['en-AU', 'en-US']);
@@ -102,6 +119,51 @@ describe('LocaleProvider', () => {
 
     const localeDisplay = await screen.findByTestId('locale-value');
     expect(localeDisplay).toHaveTextContent('sv-SE');
+  });
+
+  it('defaults to en-AU when an Australian time zone is detected', async () => {
+    vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['en-US']);
+    vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('en-US');
+    const originalResolvedOptions =
+      Intl.DateTimeFormat.prototype.resolvedOptions;
+
+    vi
+      .spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions')
+      .mockImplementation(function (...args) {
+        const resolved = originalResolvedOptions.apply(this, args as never);
+        return {
+          ...resolved,
+          timeZone: 'Australia/Sydney',
+        };
+      });
+
+    render(
+      <LocaleProvider locale="en-US" acceptLanguage="en-US,en;q=0.9">
+        <LocaleConsumer />
+      </LocaleProvider>,
+    );
+
+    const localeDisplay = await screen.findByTestId('locale-value');
+    await waitFor(() => {
+      expect(localeDisplay).toHaveTextContent('en-AU');
+    });
+  });
+
+  it('defaults to en-AU when an Australian time zone is stored', async () => {
+    window.localStorage.setItem(TIME_ZONE_STORAGE_KEY, 'Australia/Perth');
+    vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['en-US']);
+    vi.spyOn(window.navigator, 'language', 'get').mockReturnValue('en-US');
+
+    render(
+      <LocaleProvider locale="en-US" acceptLanguage="en-US,en;q=0.9">
+        <LocaleConsumer />
+      </LocaleProvider>,
+    );
+
+    const localeDisplay = await screen.findByTestId('locale-value');
+    await waitFor(() => {
+      expect(localeDisplay).toHaveTextContent('en-AU');
+    });
   });
 
   it('falls back to navigator.language when languages is empty', async () => {
@@ -184,7 +246,7 @@ describe('LocaleProvider', () => {
     );
 
     const localeDisplay = await screen.findByTestId('locale-value');
-    expect(localeDisplay).toHaveTextContent('en-GB');
+    expect(localeDisplay).toHaveTextContent('en-AU');
 
     const timeZoneDisplay = await screen.findByTestId('time-zone-value');
     expect(timeZoneDisplay).toHaveTextContent('Australia/Melbourne');

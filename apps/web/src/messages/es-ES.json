@@ -8,7 +8,8 @@
       "logout": "Cerrar sesión",
       "loadMoreMatches": "Cargar más partidos",
       "viewAllMatches": "Ver todos los partidos",
-      "moreInfo": "Más información"
+      "moreInfo": "Más información",
+      "save": "Guardar"
     },
     "status": {
       "loading": "Cargando…",
@@ -16,7 +17,8 @@
       "updatingSports": "Actualizando deportes…",
       "loadingSports": "Cargando deportes…",
       "updatingMatches": "Actualizando partidos…",
-      "loadingRecentMatches": "Cargando partidos recientes…"
+      "loadingRecentMatches": "Cargando partidos recientes…",
+      "saving": "Guardando…"
     },
     "errors": {
       "loadMoreMatches": "No se pueden cargar más partidos. Inténtalo de nuevo."
@@ -102,5 +104,37 @@
   "NotFound": {
     "title": "Página no encontrada",
     "returnHome": "Volver al inicio"
+  },
+  "Record": {
+    "actions": {
+      "addSet": "Añadir set"
+    },
+    "fields": {
+      "location": {
+        "label": "Ubicación",
+        "placeholder": "Ubicación"
+      },
+      "friendly": {
+        "label": "Marcar como amistoso",
+        "hint": "Los partidos amistosos aparecen en el historial pero no afectan a las clasificaciones ni a las estadísticas de los jugadores."
+      }
+    },
+    "hints": {
+      "save": "Guarda cuando cada lado tenga al menos un jugador y se hayan introducido los sets completados necesarios."
+    },
+    "messages": {
+      "matchRecorded": "¡Partido registrado!"
+    },
+    "padel": {
+      "hints": {
+        "addSet": "Añade otro set si el partido se prolongó más allá de los sets registrados."
+      },
+      "tieBreak": {
+        "labelTeamA": "Puntos de desempate equipo A",
+        "labelTeamB": "Puntos de desempate equipo B",
+        "placeholderTeamA": "Desempate A",
+        "placeholderTeamB": "Desempate B"
+      }
+    }
   }
 }

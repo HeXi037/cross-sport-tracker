@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { apiFetch } from "../../../lib/api";
 import { invalidateMatchesCache } from "../../../lib/useApiSWR";
 import { invalidateNotificationsCache } from "../../../lib/useNotifications";
@@ -340,6 +341,9 @@ export default function RecordPadelPage() {
   const [saving, setSaving] = useState(false);
   const [showSummaryValidation, setShowSummaryValidation] = useState(false);
   const locale = useLocale();
+  const commonT = useTranslations("Common");
+  const recordT = useTranslations("Record");
+  const recordPadelT = useTranslations("Record.padel");
   const [success, setSuccess] = useState(false);
   const saveSummaryId = useId();
 
@@ -698,11 +702,11 @@ export default function RecordPadelPage() {
             </label>
           </div>
           <label className="form-field" htmlFor="padel-location">
-            <span className="form-label">Location</span>
+            <span className="form-label">{recordT("fields.location.label")}</span>
             <input
               id="padel-location"
               type="text"
-              placeholder="Location"
+              placeholder={recordT("fields.location.placeholder")}
               value={location}
               onChange={(e) => setLocation(e.target.value)}
             />
@@ -718,11 +722,12 @@ export default function RecordPadelPage() {
               onChange={(e) => setIsFriendly(e.target.checked)}
               aria-describedby="padel-friendly-hint"
             />
-            <span className="form-label">Mark as friendly</span>
+            <span className="form-label">
+              {recordT("fields.friendly.label")}
+            </span>
           </label>
           <p id="padel-friendly-hint" className="form-hint">
-            Friendly matches appear in match history but do not impact leaderboards
-            or player statistics.
+            {recordT("fields.friendly.hint")}
           </p>
         </fieldset>
 
@@ -918,14 +923,14 @@ export default function RecordPadelPage() {
                         htmlFor={`padel-set-${idx + 1}-tiebreak-a`}
                       >
                         <span className="form-label">
-                          Tie-break points team A
+                          {recordPadelT("tieBreak.labelTeamA")}
                         </span>
                         <input
                           id={`padel-set-${idx + 1}-tiebreak-a`}
                           type="number"
                           min="0"
                           step="1"
-                          placeholder="Tie-break A"
+                          placeholder={recordPadelT("tieBreak.placeholderTeamA")}
                           value={s.tieBreakA}
                           onChange={(e) =>
                             handleTieBreakChange(idx, "A", e.target.value)
@@ -940,14 +945,14 @@ export default function RecordPadelPage() {
                         htmlFor={`padel-set-${idx + 1}-tiebreak-b`}
                       >
                         <span className="form-label">
-                          Tie-break points team B
+                          {recordPadelT("tieBreak.labelTeamB")}
                         </span>
                         <input
                           id={`padel-set-${idx + 1}-tiebreak-b`}
                           type="number"
                           min="0"
                           step="1"
-                          placeholder="Tie-break B"
+                          placeholder={recordPadelT("tieBreak.placeholderTeamB")}
                           value={s.tieBreakB}
                           onChange={(e) =>
                             handleTieBreakChange(idx, "B", e.target.value)
@@ -970,14 +975,14 @@ export default function RecordPadelPage() {
           })}
         </div>
         <p id="padel-add-set-hint" className="form-hint">
-          Add another set if the match extended beyond the recorded sets.
+          {recordPadelT("hints.addSet")}
         </p>
         <button
           type="button"
           onClick={addSet}
           aria-describedby="padel-add-set-hint"
         >
-          Add Set
+          {recordT("actions.addSet")}
         </button>
 
         {globalError && (
@@ -988,12 +993,11 @@ export default function RecordPadelPage() {
 
         {success && (
           <p role="status" className="success">
-            Match recorded!
+            {recordT("messages.matchRecorded")}
           </p>
         )}
         <p id="padel-save-hint" className="form-hint">
-          Save once each side has at least one player and completed sets are
-          entered as needed.
+          {recordT("hints.save")}
         </p>
         <div id={saveSummaryId} aria-live="polite">
           <p
@@ -1043,7 +1047,7 @@ export default function RecordPadelPage() {
             cursor: buttonCursor,
           }}
         >
-          {saving ? "Saving..." : "Save"}
+          {saving ? commonT("status.saving") : commonT("actions.save")}
         </button>
       </form>
     </main>

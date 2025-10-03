@@ -8,7 +8,8 @@
       "logout": "Logout",
       "loadMoreMatches": "Load more matches",
       "viewAllMatches": "View all matches",
-      "moreInfo": "More info"
+      "moreInfo": "More info",
+      "save": "Save"
     },
     "status": {
       "loading": "Loading…",
@@ -16,7 +17,8 @@
       "updatingSports": "Updating sports…",
       "loadingSports": "Loading sports…",
       "updatingMatches": "Updating matches…",
-      "loadingRecentMatches": "Loading recent matches…"
+      "loadingRecentMatches": "Loading recent matches…",
+      "saving": "Saving…"
     },
     "errors": {
       "loadMoreMatches": "Unable to load more matches. Please try again."
@@ -102,5 +104,37 @@
   "NotFound": {
     "title": "Page not found",
     "returnHome": "Return home"
+  },
+  "Record": {
+    "actions": {
+      "addSet": "Add Set"
+    },
+    "fields": {
+      "location": {
+        "label": "Location",
+        "placeholder": "Location"
+      },
+      "friendly": {
+        "label": "Mark as friendly",
+        "hint": "Friendly matches appear in match history but do not impact leaderboards or player statistics."
+      }
+    },
+    "hints": {
+      "save": "Save once each side has at least one player and completed sets are entered as needed."
+    },
+    "messages": {
+      "matchRecorded": "Match recorded!"
+    },
+    "padel": {
+      "hints": {
+        "addSet": "Add another set if the match extended beyond the recorded sets."
+      },
+      "tieBreak": {
+        "labelTeamA": "Tie-break points team A",
+        "labelTeamB": "Tie-break points team B",
+        "placeholderTeamA": "Tie-break A",
+        "placeholderTeamB": "Tie-break B"
+      }
+    }
   }
 }

@@ -1411,14 +1411,16 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             </ul>
             {isOverflowing ? (
               <div className="leaderboard-nav-select">
-                <label className="sr-only" htmlFor="leaderboard-sport-more">
+                <label
+                  className="leaderboard-nav-select__label"
+                  htmlFor="leaderboard-sport-more"
+                >
                   More sports
                 </label>
                 <select
                   id="leaderboard-sport-more"
                   value={sport}
                   onChange={handleSportChange}
-                  aria-label="Select a sport"
                   className="leaderboard-nav-select__control"
                 >
                   {navItems.map((item) => (

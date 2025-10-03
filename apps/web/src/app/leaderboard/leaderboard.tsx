@@ -1382,6 +1382,39 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         </section>
       </header>
 
+      {sport === MASTER_SPORT ? (
+        <section
+          aria-label="Master leaderboard information"
+          style={{
+            marginTop: "1rem",
+            padding: "0.75rem 1rem",
+            borderRadius: "8px",
+            border: "1px solid var(--color-border-subtle)",
+            background: "var(--color-surface-elevated)",
+          }}
+        >
+          <h2
+            style={{
+              margin: "0 0 0.35rem",
+              fontSize: "0.95rem",
+            }}
+          >
+            What is the Master leaderboard?
+          </h2>
+          <p
+            style={{
+              margin: 0,
+              fontSize: "0.85rem",
+              color: "var(--color-text-muted)",
+            }}
+          >
+            The master rating averages each player's normalized rating across every sport
+            they've played, letting you compare multi-sport performance on a shared 0–1000
+            scale.
+          </p>
+        </section>
+      ) : null}
+
       {supportsFilters ? (
         <form
           onSubmit={handleSubmit}

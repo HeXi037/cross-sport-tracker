@@ -89,9 +89,17 @@ describe('LoginPage signup feedback', () => {
   });
 
   it('shows a success message when signup succeeds', async () => {
-    mockedApiFetch.mockResolvedValueOnce(
-      makeResponse({ access_token: 'token', refresh_token: 'refresh' })
-    );
+    mockedApiFetch.mockImplementation((path) => {
+      if (path.startsWith('/v0/auth/signup/username-availability')) {
+        return Promise.resolve(makeResponse({ available: true }));
+      }
+      if (path === '/v0/auth/signup') {
+        return Promise.resolve(
+          makeResponse({ access_token: 'token', refresh_token: 'refresh' })
+        );
+      }
+      return Promise.reject(new Error(`Unexpected apiFetch call to ${path}`));
+    });
 
     renderWithToast(<LoginPage />);
 
@@ -159,12 +167,20 @@ describe('LoginPage signup feedback', () => {
   });
 
   it('surfaces signup failure reasons from the server', async () => {
-    mockedApiFetch.mockResolvedValueOnce(
-      makeResponse(
-        { detail: 'username exists' },
-        { ok: false, status: 400 }
-      )
-    );
+    mockedApiFetch.mockImplementation((path) => {
+      if (path.startsWith('/v0/auth/signup/username-availability')) {
+        return Promise.resolve(makeResponse({ available: true }));
+      }
+      if (path === '/v0/auth/signup') {
+        return Promise.resolve(
+          makeResponse(
+            { detail: 'username exists' },
+            { ok: false, status: 400 }
+          )
+        );
+      }
+      return Promise.reject(new Error(`Unexpected apiFetch call to ${path}`));
+    });
 
     renderWithToast(<LoginPage />);
 
@@ -187,6 +203,31 @@ describe('LoginPage signup feedback', () => {
     ).toBeInTheDocument();
     expect(mockedPersistSession).not.toHaveBeenCalled();
     expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it('alerts when a username is already taken before submitting', async () => {
+    mockedApiFetch.mockResolvedValueOnce(makeResponse({ available: false }));
+
+    renderWithToast(<LoginPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: /create an account/i }));
+
+    const signupForm = screen.getByTestId('signup-form');
+    const signupUsername = within(signupForm).getByLabelText('Username');
+
+    fireEvent.change(signupUsername, { target: { value: 'ExistingUser' } });
+    fireEvent.blur(signupUsername);
+
+    await waitFor(() => {
+      expect(mockedApiFetch).toHaveBeenCalledWith(
+        '/v0/auth/signup/username-availability?username=ExistingUser',
+        expect.objectContaining({ signal: expect.any(Object) })
+      );
+    });
+
+    expect(
+      await within(signupForm).findByText(/Username already taken\./i)
+    ).toBeInTheDocument();
   });
 
   it('shows username format guidance when validation fails', async () => {

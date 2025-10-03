@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useId, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useId, type FormEvent } from "react";
 import { zxcvbn } from "@zxcvbn-ts/core";
 import { useRouter } from "next/navigation";
 import {
@@ -95,6 +95,13 @@ interface PasswordStrengthResult {
   activeSegments: number;
   showTips: boolean;
 }
+
+type UsernameAvailabilityState =
+  | { status: "idle" }
+  | { status: "checking" }
+  | { status: "available" }
+  | { status: "unavailable"; message: string }
+  | { status: "error"; message: string };
 
 function getPasswordStrength(password: string): PasswordStrengthResult {
   const trimmed = password.trim();
@@ -305,6 +312,11 @@ export default function LoginPage() {
   const [loginErrors, setLoginErrors] = useState<string[]>([]);
   const [signupErrors, setSignupErrors] = useState<string[]>([]);
   const [showSignup, setShowSignup] = useState(false);
+  const [usernameAvailability, setUsernameAvailability] = useState<UsernameAvailabilityState>({
+    status: "idle",
+  });
+  const usernameCheckAbortRef = useRef<AbortController | null>(null);
+  const lastUsernameCheckRef = useRef<string | null>(null);
   const passwordStrengthLabelId = useId();
   const passwordStrengthHelperId = useId();
   const errorSummaryTitleId = useId();
@@ -327,6 +339,98 @@ export default function LoginPage() {
     ? `${passwordStrengthLabelId} ${passwordStrengthHelperId}`
     : passwordStrengthLabelId;
 
+  const cancelPendingUsernameCheck = () => {
+    if (usernameCheckAbortRef.current) {
+      usernameCheckAbortRef.current.abort();
+      usernameCheckAbortRef.current = null;
+    }
+  };
+
+  const resetUsernameAvailability = () => {
+    cancelPendingUsernameCheck();
+    setUsernameAvailability((prev) =>
+      prev.status === "idle" ? prev : { status: "idle" }
+    );
+    lastUsernameCheckRef.current = null;
+  };
+
+  const handleSignupUsernameChange = (value: string) => {
+    setNewUser(value);
+    cancelPendingUsernameCheck();
+    setUsernameAvailability((prev) =>
+      prev.status === "idle" ? prev : { status: "idle" }
+    );
+    if (value.trim() !== lastUsernameCheckRef.current) {
+      lastUsernameCheckRef.current = null;
+    }
+  };
+
+  const handleSignupUsernameBlur = async () => {
+    const trimmed = newUser.trim();
+    if (trimmed.length < 3 || trimmed.length > 50) {
+      if (lastUsernameCheckRef.current !== null) {
+        resetUsernameAvailability();
+      }
+      return;
+    }
+
+    if (
+      !EMAIL_REGEX.test(trimmed) &&
+      !USERNAME_REGEX.test(trimmed)
+    ) {
+      if (lastUsernameCheckRef.current !== null) {
+        resetUsernameAvailability();
+      }
+      return;
+    }
+
+    if (
+      trimmed === lastUsernameCheckRef.current &&
+      usernameAvailability.status !== "checking"
+    ) {
+      return;
+    }
+
+    cancelPendingUsernameCheck();
+    const controller = new AbortController();
+    usernameCheckAbortRef.current = controller;
+    setUsernameAvailability({ status: "checking" });
+    try {
+      const res = await apiFetch(
+        `/v0/auth/signup/username-availability?username=${encodeURIComponent(
+          trimmed
+        )}`,
+        { signal: controller.signal }
+      );
+      const data = (await res.json()) as { available?: boolean };
+      lastUsernameCheckRef.current = trimmed;
+      if (data?.available) {
+        setUsernameAvailability({ status: "available" });
+      } else {
+        setUsernameAvailability({
+          status: "unavailable",
+          message: "Username already taken.",
+        });
+      }
+    } catch (err) {
+      if ((err as DOMException)?.name === "AbortError") {
+        return;
+      }
+      lastUsernameCheckRef.current = null;
+      setUsernameAvailability({
+        status: "error",
+        message: normalizeErrorMessage(
+          err,
+          "We couldn't check username availability."
+        ),
+      });
+    } finally {
+      if (usernameCheckAbortRef.current === controller) {
+        usernameCheckAbortRef.current = null;
+      }
+    }
+  };
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -341,6 +445,14 @@ export default function LoginPage() {
       rememberLoginReferrer();
     }
   }, []);
+
+  useEffect(() => () => cancelPendingUsernameCheck(), []);
+
+  useEffect(() => {
+    if (!showSignup) {
+      resetUsernameAvailability();
+    }
+  }, [showSignup]);
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -392,6 +504,15 @@ export default function LoginPage() {
       validationErrors.push("Password and confirmation must match.");
     }
 
+    if (
+      trimmedUser.length >= 3 &&
+      trimmedUser.length <= 50 &&
+      usernameAvailability.status === "unavailable" &&
+      lastUsernameCheckRef.current === trimmedUser
+    ) {
+      validationErrors.push(usernameAvailability.message);
+    }
+
     if (validationErrors.length > 0) {
       setSignupErrors(validationErrors);
       return;
@@ -414,6 +535,7 @@ export default function LoginPage() {
         setNewUser("");
         setNewPass("");
         setConfirmPass("");
+        resetUsernameAvailability();
         setUsername("");
         setPassword("");
         const redirectTarget = consumeLoginRedirect();
@@ -421,6 +543,19 @@ export default function LoginPage() {
       } else {
         const messages = await extractSignupErrors(res);
         setSignupErrors(messages);
+        if (
+          trimmedUser.length >= 3 &&
+          trimmedUser.length <= 50 &&
+          messages.some((message) =>
+            message.toLowerCase().includes("username already taken")
+          )
+        ) {
+          setUsernameAvailability({
+            status: "unavailable",
+            message: "Username already taken.",
+          });
+          lastUsernameCheckRef.current = trimmedUser;
+        }
       }
     } catch (err) {
       setSignupErrors([
@@ -552,7 +687,8 @@ export default function LoginPage() {
             id="signup-username"
             type="text"
             value={newUser}
-            onChange={(e) => setNewUser(e.target.value)}
+            onChange={(e) => handleSignupUsernameChange(e.target.value)}
+            onBlur={handleSignupUsernameBlur}
             autoComplete="username"
             required
           />
@@ -566,6 +702,30 @@ export default function LoginPage() {
               </li>
             ))}
           </ul>
+          {usernameAvailability.status === "checking" && (
+            <p className="auth-form__hint" role="status" aria-live="polite">
+              Checking username availability…
+            </p>
+          )}
+          {usernameAvailability.status === "available" && (
+            <p
+              className="auth-form__hint auth-form__hint--success"
+              role="status"
+              aria-live="polite"
+            >
+              Username is available.
+            </p>
+          )}
+          {(usernameAvailability.status === "unavailable" ||
+            usernameAvailability.status === "error") && (
+            <p
+              className="auth-form__hint auth-form__hint--error"
+              role="status"
+              aria-live="polite"
+            >
+              {usernameAvailability.message}
+            </p>
+          )}
         </div>
         <div className="form-field">
           <label htmlFor="signup-password" className="form-label">

@@ -139,6 +139,30 @@ def test_signup_allows_passphrase_password():
         )
         assert resp.status_code == 200
 
+
+def test_username_availability_endpoint_reports_taken_usernames():
+    auth.limiter.reset()
+    username = f"availability-{uuid.uuid4().hex[:6]}"
+    with TestClient(app) as client:
+        created = client.post(
+            "/auth/signup", json={"username": username, "password": "Str0ng!Pass!"}
+        )
+        assert created.status_code == 200
+
+        unavailable = client.get(
+            "/auth/signup/username-availability",
+            params={"username": username},
+        )
+        assert unavailable.status_code == 200
+        assert unavailable.json() == {"available": False}
+
+        available = client.get(
+            "/auth/signup/username-availability",
+            params={"username": f"{username}-extra"},
+        )
+        assert available.status_code == 200
+        assert available.json() == {"available": True}
+
 def test_signup_links_orphan_player():
     auth.limiter.reset()
     pid = asyncio.run(create_player("charlie"))

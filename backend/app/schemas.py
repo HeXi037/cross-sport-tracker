@@ -485,6 +485,12 @@ class TokenOut(BaseModel):
     csrf_token: str
 
 
+class UsernameAvailabilityResponse(BaseModel):
+    """Response payload for username availability checks."""
+
+    available: bool
+
+
 class UserOut(BaseModel):
     """Public user information."""
     id: str

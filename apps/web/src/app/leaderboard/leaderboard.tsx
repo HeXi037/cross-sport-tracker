@@ -174,6 +174,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const searchParamsString = searchParams?.toString() ?? "";
   const lastSyncedUrlRef = useRef<string | null>(null);
   const homeT = useTranslations("Home");
+  const leaderboardT = useTranslations("Leaderboard");
 
   const initialCountry = normalizeCountry(country);
   const initialClubId = normalizeClubId(clubId);
@@ -811,24 +812,30 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         const firstSport = SPORTS[0];
         cta = {
           href: withRegion(`/leaderboard?sport=${firstSport}`),
-          label: `View ${getSportDisplayName(firstSport)} leaderboard`,
+          label: leaderboardT("emptyState.viewSportLeaderboard", {
+            sport: getSportDisplayName(firstSport),
+          }),
         };
       } else if (sport === ALL_SPORTS) {
         cta = {
           href: ensureTrailingSlash("/record"),
-          label: "Record a match",
+          label: leaderboardT("emptyState.recordMatch"),
         };
       } else if (SPORTS.includes(sport as (typeof SPORTS)[number])) {
         const normalizedSportId = sport.replace(/-/g, "_");
         if (isSportIdImplementedForRecording(normalizedSportId)) {
           cta = {
             href: recordPathForSport(normalizedSportId),
-            label: `Record a ${sportDisplayName} match`,
+            label: leaderboardT("emptyState.recordSportMatch", {
+              sport: sportDisplayName,
+            }),
           };
         } else {
           cta = {
             href: "/record",
-            label: `Record a ${sportDisplayName} match`,
+            label: leaderboardT("emptyState.recordSportMatch", {
+              sport: sportDisplayName,
+            }),
           };
         }
       }
@@ -851,30 +858,43 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       const firstSport = SPORTS[0];
       cta = {
         href: withRegion(`/leaderboard?sport=${firstSport}`),
-        label: `View ${getSportDisplayName(firstSport)} leaderboard`,
+        label: leaderboardT("emptyState.viewSportLeaderboard", {
+          sport: getSportDisplayName(firstSport),
+        }),
       };
     } else if (sport === ALL_SPORTS) {
       cta = {
         href: ensureTrailingSlash("/record"),
-        label: "Record a match",
+        label: leaderboardT("emptyState.recordMatch"),
       };
     } else if (SPORTS.includes(sport as (typeof SPORTS)[number])) {
       const normalizedSportId = sport.replace(/-/g, "_");
       if (isSportIdImplementedForRecording(normalizedSportId)) {
         cta = {
           href: recordPathForSport(normalizedSportId),
-          label: `Record a ${sportDisplayName} match`,
+          label: leaderboardT("emptyState.recordSportMatch", {
+            sport: sportDisplayName,
+          }),
         };
       } else {
         cta = {
           href: "/record",
-          label: `Record a ${sportDisplayName} match`,
+          label: leaderboardT("emptyState.recordSportMatch", {
+            sport: sportDisplayName,
+          }),
         };
       }
     }
 
     return { icon, iconLabel, title, description, cta };
-  }, [getSportIconLabel, hasAppliedFilters, sport, sportDisplayName, withRegion]);
+  }, [
+    getSportIconLabel,
+    hasAppliedFilters,
+    leaderboardT,
+    sport,
+    sportDisplayName,
+    withRegion,
+  ]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

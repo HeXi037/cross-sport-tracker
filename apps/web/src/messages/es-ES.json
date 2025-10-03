@@ -50,6 +50,13 @@
       "disc_golf": "Icono de disco volador de disc golf"
     }
   },
+  "Leaderboard": {
+    "emptyState": {
+      "viewSportLeaderboard": "Ver la clasificación de {sport}",
+      "recordMatch": "Registrar un partido",
+      "recordSportMatch": "Registrar un partido de {sport}"
+    }
+  },
   "Matches": {
     "title": "Partidos",
     "emptyInitial": "Todavía no hay partidos.",

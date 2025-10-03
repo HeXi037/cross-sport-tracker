@@ -9,7 +9,6 @@ import { ensureTrailingSlash } from "../../../lib/routes";
 import { useLocale } from "../../../lib/LocaleContext";
 import {
   getDateExample,
-  getDatePlaceholder,
   getTimeExample,
   usesTwentyFourHourClock,
 } from "../../../lib/i18n";
@@ -513,7 +512,6 @@ export default function RecordPadelPage() {
     setSetErrors((prev) => [...prev, ""]);
   };
 
-  const datePlaceholder = useMemo(() => getDatePlaceholder(locale), [locale]);
   const dateExample = useMemo(() => getDateExample(locale), [locale]);
   const uses24HourTime = useMemo(
     () => usesTwentyFourHourClock(locale),
@@ -670,7 +668,6 @@ export default function RecordPadelPage() {
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 lang={locale}
-                placeholder={datePlaceholder}
                 aria-describedby={`padel-date-format ${dateLocaleHintId}`}
               />
               <span id="padel-date-format" className="form-hint">

@@ -254,6 +254,34 @@ describe("Leaderboard", () => {
     );
   });
 
+  it("explains how the master leaderboard works", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<Leaderboard sport="master" />);
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/leaderboards/master?limit=50&offset=0"),
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      ),
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        level: 2,
+        name: "What is the Master leaderboard?",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "The master rating averages each player's normalized rating across every sport they've played, letting you compare multi-sport performance on a shared 0–1000 scale.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("passes region filters to each sport when viewing the combined board", async () => {
     const fetchMock = vi
       .fn()

@@ -564,6 +564,78 @@ describe("RecordPadelPage", () => {
     });
   });
 
+  it("sends tie-break points when saving a 7–6 set", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          players: [
+            { id: "pa1", name: "Player A1" },
+            { id: "pa2", name: "Player A2" },
+            { id: "pb1", name: "Player B1" },
+            { id: "pb2", name: "Player B2" },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "m7" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordPadelPage />);
+
+    await waitFor(() => screen.getByLabelText("Player A 1"));
+
+    fireEvent.change(screen.getByLabelText("Player A 1"), {
+      target: { value: "pa1" },
+    });
+    fireEvent.change(screen.getByLabelText("Player A 2"), {
+      target: { value: "pa2" },
+    });
+    fireEvent.change(screen.getByLabelText("Player B 1"), {
+      target: { value: "pb1" },
+    });
+    fireEvent.change(screen.getByLabelText("Player B 2"), {
+      target: { value: "pb2" },
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("Set 1 A"), {
+      target: { value: "7" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Set 1 B"), {
+      target: { value: "6" },
+    });
+
+    fireEvent.change(screen.getByLabelText("Tie-break points team A"), {
+      target: { value: "9" },
+    });
+    fireEvent.change(screen.getByLabelText("Tie-break points team B"), {
+      target: { value: "7" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /add set/i }));
+    fireEvent.change(screen.getByPlaceholderText("Set 2 A"), {
+      target: { value: "6" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Set 2 B"), {
+      target: { value: "3" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+
+    const setRequest = fetchMock.mock.calls[2];
+    expect(setRequest?.[0]).toBe("/api/v0/matches/m7/sets");
+    const payload = JSON.parse(setRequest?.[1]?.body ?? "{}");
+    expect(Array.isArray(payload?.sets)).toBe(true);
+    expect(payload?.sets?.[0]).toEqual({
+      A: 7,
+      B: 6,
+      tieBreak: { A: 9, B: 7 },
+    });
+  });
+
   it("prevents recording extra sets once the winner is decided", async () => {
     const fetchMock = vi
       .fn()

@@ -412,20 +412,69 @@ class MatchCreateByName(BaseModel):
     def _validate_participants(cls, data: Any) -> Any:
         return _normalize_participants_payload(data, "playerNames")
 
-class SetScore(BaseModel):
+class TieBreakScore(BaseModel):
     A: int
     B: int
 
+    model_config = ConfigDict(extra="ignore")
+
     @model_validator(mode="before")
-    def _coerce(cls, value: Any) -> Dict[str, int]:
-        """Allow incoming set scores to be provided as tuples or objects."""
+    def _coerce(cls, value: Any) -> Dict[str, Any]:
         if isinstance(value, dict):
             return value
         if isinstance(value, (list, tuple)) and len(value) == 2:
             return {"A": value[0], "B": value[1]}
         if hasattr(value, "A") or hasattr(value, "B"):
             return {"A": getattr(value, "A", None), "B": getattr(value, "B", None)}
-        raise TypeError("Set scores must be a mapping or 2-item tuple/list.")
+        raise TypeError("Tie-break scores must be a mapping or 2-item tuple/list.")
+
+
+class SetScore(BaseModel):
+    A: int
+    B: int
+    tieBreak: Optional[TieBreakScore] = None
+
+    model_config = ConfigDict(extra="ignore")
+
+    @model_validator(mode="before")
+    def _coerce(cls, value: Any) -> Dict[str, Any]:
+        """Allow incoming set scores to be provided as tuples or objects."""
+        if isinstance(value, dict):
+            data = dict(value)
+        elif isinstance(value, (list, tuple)) and len(value) == 2:
+            data = {"A": value[0], "B": value[1]}
+        elif hasattr(value, "A") or hasattr(value, "B"):
+            data = {"A": getattr(value, "A", None), "B": getattr(value, "B", None)}
+            if hasattr(value, "tieBreak"):
+                data["tieBreak"] = getattr(value, "tieBreak")
+            else:
+                tie_a = getattr(value, "tieBreakA", None)
+                tie_b = getattr(value, "tieBreakB", None)
+                if tie_a is not None or tie_b is not None:
+                    data["tieBreak"] = {"A": tie_a, "B": tie_b}
+        else:
+            raise TypeError("Set scores must be a mapping or 2-item tuple/list.")
+
+        tie_break = data.get("tieBreak")
+        if tie_break is None:
+            tie_a = data.pop("tieBreakA", None)
+            tie_b = data.pop("tieBreakB", None)
+            if tie_a is not None or tie_b is not None:
+                tie_break = {"A": tie_a, "B": tie_b}
+        elif isinstance(tie_break, (list, tuple)) and len(tie_break) == 2:
+            tie_break = {"A": tie_break[0], "B": tie_break[1]}
+        elif hasattr(tie_break, "A") or hasattr(tie_break, "B"):
+            tie_break = {"A": getattr(tie_break, "A", None), "B": getattr(tie_break, "B", None)}
+
+        if isinstance(tie_break, dict):
+            a_val = tie_break.get("A")
+            b_val = tie_break.get("B")
+            if a_val is not None and b_val is not None:
+                data["tieBreak"] = tie_break
+            else:
+                data.pop("tieBreak", None)
+
+        return data
 
 
 class SetsIn(BaseModel):

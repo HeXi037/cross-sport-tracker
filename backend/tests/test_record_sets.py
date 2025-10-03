@@ -133,7 +133,10 @@ def test_record_sets_tiebreak_updates_summary_and_ratings(client_and_session):
 
     asyncio.run(seed_players_and_participants())
 
-    resp = client.post(f"/matches/{mid}/sets", json={"sets": [[7, 6]]})
+    resp = client.post(
+        f"/matches/{mid}/sets",
+        json={"sets": [{"A": 7, "B": 6, "tieBreak": {"A": 9, "B": 7}}]},
+    )
     assert resp.status_code == 200
     expected = len(padel.record_sets([(7, 6)])[0])
     assert resp.json() == {"ok": True, "added": expected}
@@ -150,7 +153,9 @@ def test_record_sets_tiebreak_updates_summary_and_ratings(client_and_session):
 
     summary, rating_map = asyncio.run(fetch_summary_and_ratings())
     assert summary["sets"] == {"A": 1, "B": 0}
-    assert summary["set_scores"] == [{"A": 7, "B": 6}]
+    assert summary["set_scores"] == [
+        {"A": 7, "B": 6, "tieBreak": {"A": 9, "B": 7}}
+    ]
     assert set(rating_map) == {"pa", "pb"}
     assert rating_map["pa"] > rating_map["pb"]
     assert rating_map["pa"] > 1000

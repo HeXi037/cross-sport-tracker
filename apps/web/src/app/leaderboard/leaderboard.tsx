@@ -39,6 +39,12 @@ export type Leader = {
   setsWon?: number;
   setsLost?: number;
   sport?: string;
+  sets?: number;
+  setDiff?: number;
+  highestScore?: number | null;
+  averageScore?: number | null;
+  matchesPlayed?: number | null;
+  standardDeviation?: number | null;
 };
 
 type Props = {
@@ -453,6 +459,24 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     () => getSportDisplayName(sport),
     [sport],
   );
+  const isBowling = sport === "bowling";
+
+  const formatInteger = useCallback(
+    (value?: number | null) =>
+      value == null ? "—" : Math.round(value).toLocaleString(),
+    [],
+  );
+
+  const formatDecimal = useCallback(
+    (value?: number | null) =>
+      value == null
+        ? "—"
+        : value.toLocaleString(undefined, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 1,
+          }),
+    [],
+  );
 
   const parseLeaderboardResponse = useCallback(
     (raw: unknown, fallbackOffset: number) => {
@@ -704,13 +728,15 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     return `${base} ${regionFiltersCaption}`;
   }, [regionFiltersCaption, sport, sportDisplayName]);
 
-  const columnDescription = useMemo(
-    () =>
-      sport === ALL_SPORTS
-        ? "Columns display rank, player, sport, rating, wins, losses, matches, and win percentage."
-        : "Columns display rank, player, rating, wins, losses, matches, and win percentage.",
-    [sport],
-  );
+  const columnDescription = useMemo(() => {
+    if (sport === ALL_SPORTS) {
+      return "Columns display rank, player, sport, rating, wins, losses, matches, and win percentage.";
+    }
+    if (isBowling) {
+      return "Columns display rank, player, rating, highest score, average score, matches played, and score standard deviation.";
+    }
+    return "Columns display rank, player, rating, wins, losses, matches, and win percentage.";
+  }, [isBowling, sport]);
 
   const captionText = useMemo(
     () => `${tableCaption} ${columnDescription}`,
@@ -1229,18 +1255,37 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         <th scope="col" style={headerCellStyle}>
           Rating
         </th>
-        <th scope="col" style={headerCellStyle}>
-          W
-        </th>
-        <th scope="col" style={headerCellStyle}>
-          L
-        </th>
-        <th scope="col" style={headerCellStyle}>
-          Matches
-        </th>
-        <th scope="col" style={lastHeaderCellStyle}>
-          Win%
-        </th>
+        {isBowling ? (
+          <>
+            <th scope="col" style={headerCellStyle}>
+              Highest score
+            </th>
+            <th scope="col" style={headerCellStyle}>
+              Average score
+            </th>
+            <th scope="col" style={headerCellStyle}>
+              Matches played
+            </th>
+            <th scope="col" style={lastHeaderCellStyle}>
+              Std. deviation (consistency)
+            </th>
+          </>
+        ) : (
+          <>
+            <th scope="col" style={headerCellStyle}>
+              W
+            </th>
+            <th scope="col" style={headerCellStyle}>
+              L
+            </th>
+            <th scope="col" style={headerCellStyle}>
+              Matches
+            </th>
+            <th scope="col" style={lastHeaderCellStyle}>
+              Win%
+            </th>
+          </>
+        )}
       </tr>
     </thead>
   );
@@ -1520,18 +1565,37 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                   <td style={cellStyle}>
                     <div className="skeleton" style={{ width: "40px", height: "1em" }} />
                   </td>
-                  <td style={cellStyle}>
-                    <div className="skeleton" style={{ width: "20px", height: "1em" }} />
-                  </td>
-                  <td style={cellStyle}>
-                    <div className="skeleton" style={{ width: "20px", height: "1em" }} />
-                  </td>
-                  <td style={cellStyle}>
-                    <div className="skeleton" style={{ width: "30px", height: "1em" }} />
-                  </td>
-                  <td style={lastCellStyle}>
-                    <div className="skeleton" style={{ width: "40px", height: "1em" }} />
-                  </td>
+                  {isBowling ? (
+                    <>
+                      <td style={cellStyle}>
+                        <div className="skeleton" style={{ width: "40px", height: "1em" }} />
+                      </td>
+                      <td style={cellStyle}>
+                        <div className="skeleton" style={{ width: "50px", height: "1em" }} />
+                      </td>
+                      <td style={cellStyle}>
+                        <div className="skeleton" style={{ width: "40px", height: "1em" }} />
+                      </td>
+                      <td style={lastCellStyle}>
+                        <div className="skeleton" style={{ width: "60px", height: "1em" }} />
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td style={cellStyle}>
+                        <div className="skeleton" style={{ width: "20px", height: "1em" }} />
+                      </td>
+                      <td style={cellStyle}>
+                        <div className="skeleton" style={{ width: "20px", height: "1em" }} />
+                      </td>
+                      <td style={cellStyle}>
+                        <div className="skeleton" style={{ width: "30px", height: "1em" }} />
+                      </td>
+                      <td style={lastCellStyle}>
+                        <div className="skeleton" style={{ width: "40px", height: "1em" }} />
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -1572,7 +1636,11 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                 const won = row.setsWon ?? 0;
                 const lost = row.setsLost ?? 0;
                 const total = won + lost;
-                const winPct = total > 0 ? Math.round((won / total) * 100) : null;
+                const winPct = !isBowling && total > 0 ? Math.round((won / total) * 100) : null;
+                const matchesPlayed = row.matchesPlayed ?? row.sets ?? null;
+                const highestScore = row.highestScore ?? null;
+                const averageScore = row.averageScore ?? null;
+                const stdDeviation = row.standardDeviation ?? null;
                 const rowSportName = formatSportName(row.sport);
                 return (
                   <tr
@@ -1587,10 +1655,21 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                     <td style={cellStyle}>
                       {row.rating != null ? Math.round(row.rating) : "—"}
                     </td>
-                    <td style={cellStyle}>{row.setsWon ?? "—"}</td>
-                    <td style={cellStyle}>{row.setsLost ?? "—"}</td>
-                    <td style={cellStyle}>{total || "—"}</td>
-                    <td style={lastCellStyle}>{winPct != null ? `${winPct}%` : "—"}</td>
+                    {isBowling ? (
+                      <>
+                        <td style={cellStyle}>{formatInteger(highestScore)}</td>
+                        <td style={cellStyle}>{formatDecimal(averageScore)}</td>
+                        <td style={cellStyle}>{formatInteger(matchesPlayed)}</td>
+                        <td style={lastCellStyle}>{formatDecimal(stdDeviation)}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td style={cellStyle}>{row.setsWon ?? "—"}</td>
+                        <td style={cellStyle}>{row.setsLost ?? "—"}</td>
+                        <td style={cellStyle}>{total || "—"}</td>
+                        <td style={lastCellStyle}>{winPct != null ? `${winPct}%` : "—"}</td>
+                      </>
+                    )}
                   </tr>
                 );
               })}

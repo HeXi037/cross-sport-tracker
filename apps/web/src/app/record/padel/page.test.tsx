@@ -235,6 +235,8 @@ describe("RecordPadelPage", () => {
     const playerA1 = await screen.findByRole("combobox", { name: "Player A 1" });
     const playerB1 = await screen.findByRole("combobox", { name: "Player B 1" });
     const saveButton = screen.getByRole("button", { name: /save/i });
+    const form = saveButton.closest("form");
+    expect(form).not.toBeNull();
 
     const playerHints = await screen.findAllByText(/Add players to both sides\./i);
     expect(playerHints).toHaveLength(2);
@@ -246,7 +248,9 @@ describe("RecordPadelPage", () => {
       target: { value: "p1" },
     });
 
-    fireEvent.click(saveButton);
+    if (form) {
+      fireEvent.submit(form);
+    }
 
     const missingPlayerError = await screen.findByText(
       /Add at least one player to side B\./i,
@@ -258,7 +262,9 @@ describe("RecordPadelPage", () => {
     fireEvent.change(playerB1, {
       target: { value: "p2" },
     });
-    fireEvent.click(saveButton);
+    if (form) {
+      fireEvent.submit(form);
+    }
   });
 
   it("rejects duplicate player selections", async () => {
@@ -281,6 +287,8 @@ describe("RecordPadelPage", () => {
     const playerA1 = await screen.findByRole("combobox", { name: "Player A 1" });
     const playerB1 = await screen.findByRole("combobox", { name: "Player B 1" });
     const saveButton = screen.getByRole("button", { name: /save/i });
+    const form = saveButton.closest("form");
+    expect(form).not.toBeNull();
 
     fireEvent.change(playerA1, {
       target: { value: "p1" },
@@ -289,7 +297,9 @@ describe("RecordPadelPage", () => {
       target: { value: "p1" },
     });
 
-    fireEvent.click(saveButton);
+    if (form) {
+      fireEvent.submit(form);
+    }
 
     const duplicateErrors = await screen.findByText(
       /Players cannot appear on both sides/i,
@@ -301,7 +311,9 @@ describe("RecordPadelPage", () => {
     fireEvent.change(playerB1, {
       target: { value: "p2" },
     });
-    fireEvent.click(saveButton);
+    if (form) {
+      fireEvent.submit(form);
+    }
   });
 
   it("shows validation errors for incomplete set scores", async () => {
@@ -333,21 +345,21 @@ describe("RecordPadelPage", () => {
       target: { value: "6" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    const saveButton = screen.getByRole("button", { name: /save/i });
+    const form = saveButton.closest("form");
+    expect(form).not.toBeNull();
+    if (form) {
+      fireEvent.submit(form);
+    }
 
     await waitFor(() =>
       expect(
-        screen.getAllByRole("alert").some((alert) =>
-          alert.textContent?.includes("Enter a score for both teams"),
-        ),
-      ).toBe(true),
+        screen.getByText(/Enter a score for both teams\./i),
+      ).toBeInTheDocument(),
     );
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("button", { name: /save/i })).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    expect(saveButton).toHaveAttribute("aria-disabled", "true");
   });
 
   it("enforces the best-of selection when validating sets", async () => {
@@ -384,18 +396,17 @@ describe("RecordPadelPage", () => {
       target: { value: "4" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    const saveButton = screen.getByRole("button", { name: /save/i });
+    const form = saveButton.closest("form");
+    expect(form).not.toBeNull();
+    if (form) {
+      fireEvent.submit(form);
+    }
 
     await waitFor(() =>
       expect(
-        screen
-          .getAllByRole("alert")
-          .some((alert) =>
-            alert.textContent?.includes(
-              "Best of 3 requires 2 set wins for a team.",
-            ),
-          ),
-      ).toBe(true),
+        screen.getByText("Best of 3 requires 2 set wins for a team."),
+      ).toBeInTheDocument(),
     );
 
     fireEvent.click(screen.getByRole("button", { name: /add set/i }));
@@ -406,18 +417,14 @@ describe("RecordPadelPage", () => {
       target: { value: "6" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    if (form) {
+      fireEvent.submit(form);
+    }
 
     await waitFor(() =>
       expect(
-        screen
-          .getAllByRole("alert")
-          .some((alert) =>
-            alert.textContent?.includes(
-              "Best of 3 requires 2 set wins for a team.",
-            ),
-          ),
-      ).toBe(true),
+        screen.getByText("Best of 3 requires 2 set wins for a team."),
+      ).toBeInTheDocument(),
     );
 
     fireEvent.click(screen.getByRole("button", { name: /add set/i }));
@@ -480,12 +487,81 @@ describe("RecordPadelPage", () => {
     );
     expect(alertMessage).toHaveAttribute("role", "alert");
     const scoreErrors = await screen.findAllByText(
-      "Scores in set 1 must be whole numbers between 0 and 6.",
+      "Scores in set 1 must be whole numbers between 0 and 7.",
     );
     expect(scoreErrors.length).toBeGreaterThan(0);
+    expect(saveButton).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("requires tie-break points for 7–6 sets", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          players: [
+            { id: "p1", name: "Player 1" },
+            { id: "p2", name: "Player 2" },
+          ],
+        }),
+      });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordPadelPage />);
+
+    await waitFor(() => screen.getByLabelText("Player A 1"));
+
+    fireEvent.change(screen.getByLabelText("Player A 1"), {
+      target: { value: "p1" },
+    });
+    fireEvent.change(screen.getByLabelText("Player B 1"), {
+      target: { value: "p2" },
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("Set 1 A"), {
+      target: { value: "7" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Set 1 B"), {
+      target: { value: "6" },
+    });
+
     expect(
-      screen.getByRole("button", { name: /save/i }),
-    ).toHaveAttribute("aria-disabled", "true");
+      screen.getByText(/Set 1 went to a tie-break/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Tie-break points team A"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Tie-break points team B"),
+    ).toBeInTheDocument();
+
+    const saveButton = screen.getByRole("button", { name: /save/i });
+    const form = saveButton.closest("form");
+    expect(form).not.toBeNull();
+    if (form) {
+      fireEvent.submit(form);
+    }
+
+    const tieBreakErrors = await screen.findAllByText(
+      "Enter tie-break points for set 1.",
+    );
+    expect(tieBreakErrors.length).toBeGreaterThan(0);
+    tieBreakErrors.forEach((error) => {
+      expect(error).toHaveAttribute("role", "alert");
+    });
+
+    fireEvent.change(screen.getByLabelText("Tie-break points team A"), {
+      target: { value: "9" },
+    });
+    fireEvent.change(screen.getByLabelText("Tie-break points team B"), {
+      target: { value: "7" },
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("Enter tie-break points for set 1."),
+      ).not.toBeInTheDocument();
+    });
   });
 
   it("prevents recording extra sets once the winner is decided", async () => {
@@ -544,22 +620,21 @@ describe("RecordPadelPage", () => {
       target: { value: "4" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    const saveButton = screen.getByRole("button", { name: /save/i });
+    const form = saveButton.closest("form");
+    expect(form).not.toBeNull();
+    if (form) {
+      fireEvent.submit(form);
+    }
 
     await waitFor(() =>
       expect(
-        screen
-          .getAllByRole("alert")
-          .some((alert) =>
-            alert.textContent?.includes(
-              "Best of 3 ends when a side wins 2 sets. Remove extra set scores.",
-            ),
-          ),
-      ).toBe(true),
+        screen.getByText(
+          "Best of 3 ends when a side wins 2 sets. Remove extra set scores.",
+        ),
+      ).toBeInTheDocument(),
     );
-    expect(
-      screen.getByRole("button", { name: /save/i }),
-    ).toHaveAttribute("aria-disabled", "true");
+    expect(saveButton).toHaveAttribute("aria-disabled", "true");
   });
 
   it("shows an error when saving the match fails", async () => {

@@ -28,7 +28,7 @@ describe("PhotoUpload", () => {
   });
 
   it("hides upload controls when not logged in", () => {
-    render(<PhotoUpload playerId="player-1" />);
+    render(<PhotoUpload playerId="player-1" playerName="Player One" />);
 
     expect(
       screen.queryByLabelText(/update player photo/i)
@@ -39,7 +39,7 @@ describe("PhotoUpload", () => {
     sessionMocks.isLoggedIn.mockReturnValue(true);
     sessionMocks.currentUserId.mockReturnValue("player-2");
 
-    render(<PhotoUpload playerId="player-1" />);
+    render(<PhotoUpload playerId="player-1" playerName="Player One" />);
 
     expect(
       screen.queryByLabelText(/update player photo/i)
@@ -50,7 +50,7 @@ describe("PhotoUpload", () => {
     sessionMocks.isLoggedIn.mockReturnValue(true);
     sessionMocks.currentUserId.mockReturnValue("player-1");
 
-    render(<PhotoUpload playerId="player-1" />);
+    render(<PhotoUpload playerId="player-1" playerName="Player One" />);
 
     expect(
       screen.getByLabelText(/update player photo/i)

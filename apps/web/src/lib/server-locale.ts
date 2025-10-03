@@ -2,8 +2,10 @@ import { cookies, headers } from 'next/headers';
 import {
   LOCALE_COOKIE_KEY,
   TIME_ZONE_COOKIE_KEY,
+  NEUTRAL_FALLBACK_LOCALE,
   normalizeLocale,
   parseAcceptLanguage,
+  isAustralianTimeZone,
 } from './i18n';
 
 export type ResolveServerLocaleOptions = {
@@ -36,11 +38,24 @@ export function resolveServerLocale(
       ? rawTimeZone.trim()
       : null;
 
+  const fallbackFromHeader = normalizedAcceptLanguage
+    ? parseAcceptLanguage(normalizedAcceptLanguage, NEUTRAL_FALLBACK_LOCALE)
+    : NEUTRAL_FALLBACK_LOCALE;
+
+  const normalizedCookieLocale = normalizeLocale(cookieLocale, '');
+  const normalizedFallback = normalizeLocale(
+    fallbackFromHeader,
+    NEUTRAL_FALLBACK_LOCALE,
+  );
+
+  let resolvedLocale = normalizedCookieLocale || normalizedFallback;
+
+  if (!normalizedCookieLocale && isAustralianTimeZone(preferredTimeZone)) {
+    resolvedLocale = 'en-AU';
+  }
+
   return {
-    locale: normalizeLocale(
-      cookieLocale,
-      parseAcceptLanguage(normalizedAcceptLanguage),
-    ),
+    locale: normalizeLocale(resolvedLocale, NEUTRAL_FALLBACK_LOCALE),
     acceptLanguage: normalizedAcceptLanguage,
     preferredTimeZone,
   };

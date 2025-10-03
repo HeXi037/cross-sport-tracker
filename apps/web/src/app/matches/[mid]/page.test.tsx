@@ -77,6 +77,9 @@ vi.mock("next/navigation", () => {
 import MatchDetailPage from "./page";
 import MatchNotFound from "./not-found";
 
+const GAME_TOOLTIP_TEXT =
+  "Game totals are only shown for sports that track them.";
+
 describe("MatchDetailPage", () => {
   afterEach(() => {
     vi.clearAllMocks();
@@ -211,7 +214,7 @@ describe("MatchDetailPage", () => {
 
   it("prefers API-provided ruleset and status labels", async () => {
     const match = {
-      id: "m5",
+      id: "m6",
       sport: "padel",
       rulesetId: "padel_standard",
       ruleset: { id: "padel_standard", name: "Premier Padel" },
@@ -234,7 +237,7 @@ describe("MatchDetailPage", () => {
         ],
       });
 
-    render(await MatchDetailPage({ params: { mid: "m5" } }));
+    render(await MatchDetailPage({ params: { mid: "m6" } }));
 
     const meta = screen.getByText(
       (text, element) =>
@@ -347,7 +350,7 @@ describe("MatchDetailPage", () => {
     const sideACells = within(totalRows[1])
       .getAllByRole("cell")
       .map((cell) => cell.textContent?.trim());
-    expect(sideACells).toEqual(["2", "18", "120"]);
+    expect(sideACells).toEqual(["2", "120"]);
 
     expect(
       screen.getByRole("heading", { level: 2, name: /match info/i })
@@ -411,7 +414,18 @@ describe("MatchDetailPage", () => {
     const headers = within(rows[0])
       .getAllByRole("columnheader")
       .map((cell) => cell.textContent?.trim());
-    expect(headers).toEqual(["Side", "Set 1", "Set 2", "Sets", "Games", "Points"]);
+    expect(headers).toEqual([
+      "Side",
+      "Set 1",
+      "Set 2",
+      "Sets won",
+      "Games won",
+      "Points won",
+    ]);
+    const gamesHeader = within(rows[0]).getByRole("columnheader", {
+      name: "Games won",
+    });
+    expect(gamesHeader).toHaveAttribute("title", GAME_TOOLTIP_TEXT);
 
     const sideARow = rows[1];
     const sideACells = within(sideARow)
@@ -480,20 +494,94 @@ describe("MatchDetailPage", () => {
     const headers = within(rows[0])
       .getAllByRole("columnheader")
       .map((cell) => cell.textContent?.trim());
-    expect(headers).toEqual(["Side", "Set 1", "Set 2", "Sets", "Games", "Points"]);
+    expect(headers).toEqual([
+      "Side",
+      "Set 1",
+      "Set 2",
+      "Sets won",
+      "Points won",
+    ]);
 
     const sideARow = rows[1];
     const sideACells = within(sideARow)
       .getAllByRole("cell")
       .map((cell) => cell.textContent?.trim());
-    expect(sideACells).toEqual(["6", "6", "2", "12", "48"]);
+    expect(sideACells).toEqual(["6", "6", "2", "48"]);
 
     const sideBRow = rows[2];
     const sideBCells = within(sideBRow)
       .getAllByRole("cell")
       .map((cell) => cell.textContent?.trim());
-    expect(sideBCells).toEqual(["4", "3", "0", "7", "28"]);
+    expect(sideBCells).toEqual(["4", "3", "0", "28"]);
     expect(screen.getByText(/Overall: 6-4, 6-3/)).toBeInTheDocument();
+  });
+
+  it("hides padel game totals when not provided", async () => {
+    const match = {
+      id: "m5",
+      sport: "padel",
+      rulesetId: "padel_standard",
+      status: "Scheduled",
+      playedAt: null,
+      participants: [
+        { side: "A", playerIds: ["p1", "p2"] },
+        { side: "B", playerIds: ["p3", "p4"] },
+      ],
+      summary: {
+        set_scores: [{ A: 6, B: 3 }],
+        sets: { A: 1, B: 0 },
+        games: { A: 0, B: 0 },
+        points: { A: 52, B: 48 },
+      },
+    };
+
+    apiFetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => match })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: "p1", name: "Ana" },
+          { id: "p2", name: "Bea" },
+          { id: "p3", name: "Carla" },
+          { id: "p4", name: "Dana" },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: "padel", name: "Padel" }],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: "padel_standard", name: "World Padel Tour" },
+        ],
+      });
+
+    render(await MatchDetailPage({ params: { mid: "m5" } }));
+
+    const scoreboard = await screen.findByRole("table", {
+      name: /racket scoreboard/i,
+    });
+    const scoreboardHeaders = within(scoreboard)
+      .getAllByRole("columnheader")
+      .map((cell) => cell.textContent?.trim());
+    expect(scoreboardHeaders).toEqual([
+      "Side",
+      "Set 1",
+      "Sets won",
+      "Points won",
+    ]);
+    expect(
+      within(scoreboard).queryByRole("columnheader", { name: "Games won" })
+    ).not.toBeInTheDocument();
+
+    const summaryTable = await screen.findByRole("table", {
+      name: /score totals/i,
+    });
+    const summaryHeaders = within(summaryTable)
+      .getAllByRole("columnheader")
+      .map((cell) => cell.textContent?.trim());
+    expect(summaryHeaders).toEqual(["Side", "Sets won", "Points won"]);
   });
 
   it("renders disc golf hole breakdown including to-par totals", async () => {
@@ -597,12 +685,12 @@ describe("MatchDetailPage", () => {
     const sideACells = within(rows[1])
       .getAllByRole("cell")
       .map((cell) => cell.textContent?.trim());
-    expect(sideACells).toEqual(["6", "3", "7", "2", "16"]);
+    expect(sideACells).toEqual(["6", "3", "7", "2"]);
 
     const sideBCells = within(rows[2])
       .getAllByRole("cell")
       .map((cell) => cell.textContent?.trim());
-    expect(sideBCells).toEqual(["4", "6", "5", "1", "15"]);
+    expect(sideBCells).toEqual(["4", "6", "5", "1"]);
 
     expect(screen.getByText(/Overall: 6-4, 3-6, 7-5/)).toBeInTheDocument();
 

@@ -14,10 +14,12 @@ import {
   type ScoreEvent,
   isFinishedStatus,
   isRacketSport,
+  normalizeSportId,
   rebuildRacketSummaryFromEvents,
   shouldRebuildRacketSummary,
   isRecord,
   getNumericEntries,
+  RACKET_SPORTS_WITHOUT_GAME_TOTALS,
 } from "../../../lib/match-summary";
 import {
   resolveParticipantGroups,
@@ -113,10 +115,13 @@ type ParticipantDisplay = {
 };
 
 const SUMMARY_COLUMN_CONFIG: Array<[SummaryColumnKey, string]> = [
-  ["sets", "Sets"],
-  ["games", "Games"],
-  ["points", "Points"],
+  ["sets", "Sets won"],
+  ["games", "Games won"],
+  ["points", "Points won"],
 ];
+
+const GAME_TOTALS_TOOLTIP =
+  "Game totals are only shown for sports that track them.";
 
 function toPositiveInteger(value: unknown): number | undefined {
   if (typeof value === "number") {
@@ -625,6 +630,7 @@ export default async function MatchDetailPage({
   const resolvedRulesetName = resolveRulesetName(match);
   const resolvedRulesetId = resolveRulesetIdentifier(match);
 
+  const sportId = normalizeSportId(match.sport);
   const sportLabel =
     normalizeLabel(match.sportName) ??
     normalizeLabel(sportName) ??
@@ -651,6 +657,9 @@ export default async function MatchDetailPage({
   const summaryRecord = isRecord(initialSummary)
     ? (initialSummary as Record<string, unknown>)
     : null;
+  const hideGamesTotals = Boolean(
+    sportId && RACKET_SPORTS_WITHOUT_GAME_TOTALS.has(sportId)
+  );
 
   const finishedStatus = statusCode ?? statusText;
   const isFinished = isFinishedStatus(finishedStatus);
@@ -701,9 +710,12 @@ export default async function MatchDetailPage({
   }
 
   const participantsWithSides = buildParticipantDisplays(parts, idToPlayer);
-  const summaryColumns = SUMMARY_COLUMN_CONFIG.map(([key, label]) =>
-    buildSummaryColumn(initialSummary, key, label)
-  ).filter((column): column is SummaryColumn => column !== null);
+  const summaryColumnConfig = SUMMARY_COLUMN_CONFIG.filter(
+    ([key]) => key !== "games" || !hideGamesTotals
+  );
+  const summaryColumns = summaryColumnConfig
+    .map(([key, label]) => buildSummaryColumn(initialSummary, key, label))
+    .filter((column): column is SummaryColumn => column !== null);
 
   const summarySideKeys = new Set<string>();
   participantsWithSides.forEach((participant) => {
@@ -904,11 +916,17 @@ export default async function MatchDetailPage({
                 <thead>
                   <tr>
                     <th scope="col">Side</th>
-                    {summaryColumns.map((column) => (
-                      <th key={column.key} scope="col">
-                        {column.label}
-                      </th>
-                    ))}
+                    {summaryColumns.map((column) => {
+                      const title =
+                        column.key === "games"
+                          ? GAME_TOTALS_TOOLTIP
+                          : undefined;
+                      return (
+                        <th key={column.key} scope="col" title={title}>
+                          {column.label}
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>

@@ -132,6 +132,19 @@ const sportIcons: Record<string, { glyph: string; labelKey: string }> = {
   },
 } as const;
 
+function pickFirstNonEmpty(
+  ...candidates: Array<string | null | undefined>
+): string | null {
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') continue;
+    const trimmed = candidate.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+  return null;
+}
+
 interface Props {
   sports: Sport[];
   matches: EnrichedMatch[];
@@ -481,6 +494,21 @@ export default function HomePageClient({
                 sportIcons[s.id] ?? sportIcons[canonicalizeSportId(s.id)];
               const href = recordPathForSport(s.id);
               const displayName = getSportName(s.id);
+              let iconLabel: string | null = null;
+              if (icon) {
+                try {
+                  iconLabel = homeT(icon.labelKey);
+                } catch {
+                  iconLabel = null;
+                }
+              }
+              const iconAriaLabel =
+                pickFirstNonEmpty(
+                  iconLabel,
+                  displayName,
+                  typeof s.name === 'string' ? s.name : null,
+                  homeT('sportsHeading'),
+                ) ?? homeT('sportsHeading');
               return (
                 <li key={s.id} className="sport-item">
                   <Link href={href} className="sport-link">
@@ -488,7 +516,7 @@ export default function HomePageClient({
                       <span
                         className="sport-icon"
                         role="img"
-                        aria-label={homeT(icon.labelKey)}
+                        aria-label={iconAriaLabel}
                       >
                         {icon.glyph}
                       </span>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -104,12 +105,19 @@ const getSportDisplayName = (sportId: LeaderboardSport) => {
 
 type EmptyStateContent = {
   icon: string;
+  iconLabel: string;
   title: string;
   description: string;
   cta?: { href: string; label: string };
 };
 
-const EmptyState = ({ icon, title, description, cta }: EmptyStateContent) => (
+const EmptyState = ({
+  icon,
+  iconLabel,
+  title,
+  description,
+  cta,
+}: EmptyStateContent) => (
   <div
     style={{
       marginTop: "2rem",
@@ -120,7 +128,11 @@ const EmptyState = ({ icon, title, description, cta }: EmptyStateContent) => (
       textAlign: "center",
     }}
   >
-    <div aria-hidden style={{ fontSize: "2.25rem", marginBottom: "0.75rem" }}>
+    <div
+      role="img"
+      aria-label={iconLabel}
+      style={{ fontSize: "2.25rem", marginBottom: "0.75rem" }}
+    >
       {icon}
     </div>
     <h2 style={{ margin: "0 0 0.5rem", fontSize: "1.25rem" }}>{title}</h2>
@@ -161,6 +173,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const searchParams = useSearchParams();
   const searchParamsString = searchParams?.toString() ?? "";
   const lastSyncedUrlRef = useRef<string | null>(null);
+  const homeT = useTranslations("Home");
 
   const initialCountry = normalizeCountry(country);
   const initialClubId = normalizeClubId(clubId);
@@ -761,8 +774,27 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const countryErrorId = filterErrors.country ? "leaderboard-country-error" : undefined;
   const clubErrorId = filterErrors.clubId ? "leaderboard-club-error" : undefined;
 
+  const getSportIconLabel = useCallback(
+    (sportId: LeaderboardSport) => {
+      if (sportId === ALL_SPORTS) {
+        return homeT("sportsHeading");
+      }
+      if (sportId === MASTER_SPORT) {
+        return "Master leaderboard";
+      }
+      const normalized = sportId.replace(/-/g, "_");
+      try {
+        return homeT(`icons.${normalized}`);
+      } catch {
+        return getSportDisplayName(sportId);
+      }
+    },
+    [homeT],
+  );
+
   const emptyStateContent = useMemo<EmptyStateContent>(() => {
     const icon = SPORT_ICONS[sport] ?? "🏅";
+    const iconLabel = getSportIconLabel(sport);
     if (hasAppliedFilters) {
       const title =
         sport === MASTER_SPORT
@@ -800,7 +832,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           };
         }
       }
-      return { icon, title, description, cta };
+      return { icon, iconLabel, title, description, cta };
     }
 
     const title =
@@ -841,8 +873,8 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       }
     }
 
-    return { icon, title, description, cta };
-  }, [sport, hasAppliedFilters, sportDisplayName, withRegion]);
+    return { icon, iconLabel, title, description, cta };
+  }, [getSportIconLabel, hasAppliedFilters, sport, sportDisplayName, withRegion]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

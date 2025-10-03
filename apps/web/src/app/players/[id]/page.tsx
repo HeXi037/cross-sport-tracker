@@ -625,7 +625,11 @@ export default async function PlayerPage({
       <PlayerDetailErrorBoundary playerId={params.id}>
         <main className="container md:flex">
           <section className="flex-1 md:mr-4">
-            <PhotoUpload playerId={player.id} initialUrl={player.photo_url} />
+            <PhotoUpload
+              playerId={player.id}
+              playerName={player.name}
+              initialUrl={player.photo_url}
+            />
             <h1 className="heading">
               <PlayerName player={player} />
             </h1>

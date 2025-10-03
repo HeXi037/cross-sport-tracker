@@ -1,10 +1,12 @@
 import { render, waitFor, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
-import { act } from "react";
+import { act, type ComponentProps } from "react";
 import Leaderboard from "./leaderboard";
 import * as api from "../../lib/api";
 import { USER_SETTINGS_STORAGE_KEY } from "../user-settings";
+import { NextIntlClientProvider } from "next-intl";
+import enMessages from "../../messages/en-GB.json";
 
 const mockIntersectionObservers: MockIntersectionObserver[] = [];
 
@@ -76,6 +78,15 @@ vi.mock("next/navigation", () => ({
 describe("Leaderboard", () => {
   let fetchClubsSpy: vi.SpiedFunction<typeof api.fetchClubs>;
 
+  const renderLeaderboard = (
+    props: ComponentProps<typeof Leaderboard>,
+  ) =>
+    render(
+      <NextIntlClientProvider locale="en-GB" messages={enMessages}>
+        <Leaderboard {...props} />
+      </NextIntlClientProvider>,
+    );
+
   beforeEach(() => {
     mockIntersectionObservers.length = 0;
     // @ts-expect-error - assign test mock
@@ -109,7 +120,7 @@ describe("Leaderboard", () => {
       .mockResolvedValue({ ok: true, json: async () => [] });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<Leaderboard sport="all" />);
+    renderLeaderboard({ sport: "all" });
 
     expect(
       screen.getByRole("heading", { level: 1, name: "All Sports Leaderboard" }),
@@ -135,7 +146,7 @@ describe("Leaderboard", () => {
       .mockResolvedValue({ ok: true, json: async () => [] });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<Leaderboard sport="padel" />);
+    renderLeaderboard({ sport: "padel" });
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
 
@@ -164,7 +175,7 @@ describe("Leaderboard", () => {
     const pendingFetch = new Promise<Response>(() => {});
     global.fetch = vi.fn().mockReturnValue(pendingFetch) as unknown as typeof fetch;
 
-    render(<Leaderboard sport="padel" />);
+    renderLeaderboard({ sport: "padel" });
 
     const table = screen.getByRole("table");
     expect(table).toHaveClass("leaderboard-table");
@@ -177,7 +188,7 @@ describe("Leaderboard", () => {
       .mockResolvedValue({ ok: true, json: async () => [] });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<Leaderboard sport="padel" />);
+    renderLeaderboard({ sport: "padel" });
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     replaceMock.mockClear();
@@ -219,7 +230,7 @@ describe("Leaderboard", () => {
     global.fetch = fetchMock as typeof fetch;
     updateMockLocation("/leaderboard/padel");
 
-    render(<Leaderboard sport="padel" country="SE" />);
+    renderLeaderboard({ sport: "padel", country: "SE" });
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     const [requestUrl, requestOptions] = fetchMock.mock.calls[0] ?? [];
@@ -240,7 +251,7 @@ describe("Leaderboard", () => {
     global.fetch = fetchMock as typeof fetch;
     updateMockLocation("/leaderboard/padel");
 
-    render(<Leaderboard sport="padel" clubId="club-a" />);
+    renderLeaderboard({ sport: "padel", clubId: "club-a" });
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     const [clubUrl, clubOptions] = fetchMock.mock.calls[0] ?? [];
@@ -260,7 +271,7 @@ describe("Leaderboard", () => {
       .mockResolvedValue({ ok: true, json: async () => [] });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<Leaderboard sport="master" />);
+    renderLeaderboard({ sport: "master" });
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -289,7 +300,7 @@ describe("Leaderboard", () => {
     global.fetch = fetchMock as typeof fetch;
     updateMockLocation("/leaderboard?sport=all");
 
-    render(<Leaderboard sport="all" country="SE" clubId="club-a" />);
+    renderLeaderboard({ sport: "all", country: "SE", clubId: "club-a" });
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
     const combinedUrls = fetchMock.mock.calls.map((c) => c[0] as string);
@@ -348,7 +359,7 @@ describe("Leaderboard", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => secondPage });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<Leaderboard sport="padel" />);
+    renderLeaderboard({ sport: "padel" });
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(screen.getByText("Alice")).toBeInTheDocument();
@@ -370,7 +381,7 @@ describe("Leaderboard", () => {
     global.fetch = fetchMock as typeof fetch;
     updateMockLocation("/leaderboard?sport=all");
 
-    render(<Leaderboard sport="all" />);
+    renderLeaderboard({ sport: "all" });
 
     await waitFor(() => expect(fetchClubsSpy).toHaveBeenCalled());
 
@@ -411,7 +422,7 @@ describe("Leaderboard", () => {
     global.fetch = fetchMock as typeof fetch;
     updateMockLocation("/leaderboard/padel");
 
-    render(<Leaderboard sport="padel" />);
+    renderLeaderboard({ sport: "padel" });
 
     await waitFor(() => expect(fetchClubsSpy).toHaveBeenCalled());
 
@@ -444,7 +455,11 @@ describe("Leaderboard", () => {
     fetchClubsSpy.mockResolvedValue([{ id: "club-123", name: "Club 123" }]);
     updateMockLocation("/leaderboard/padel?country=ZZ&clubId=club-missing");
 
-    render(<Leaderboard sport="padel" country="ZZ" clubId="club-missing" />);
+    renderLeaderboard({
+      sport: "padel",
+      country: "ZZ",
+      clubId: "club-missing",
+    });
 
     const countryAlert = await screen.findByText(
       "We don't support country code \"ZZ\". Please pick a country from the list.",
@@ -473,7 +488,7 @@ describe("Leaderboard", () => {
       .mockResolvedValue({ ok: true, json: async () => [] });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<Leaderboard sport="disc_golf" />);
+    renderLeaderboard({ sport: "disc_golf" });
 
     await screen.findByRole("heading", {
       level: 2,
@@ -493,7 +508,7 @@ describe("Leaderboard", () => {
       .mockResolvedValue({ ok: true, json: async () => [] });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<Leaderboard sport="bowling" country="SE" />);
+    renderLeaderboard({ sport: "bowling", country: "SE" });
 
     await screen.findByRole("heading", {
       level: 2,
@@ -512,7 +527,7 @@ describe("Leaderboard", () => {
     global.fetch = fetchMock as typeof fetch;
     vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    render(<Leaderboard sport="padel" />);
+    renderLeaderboard({ sport: "padel" });
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     await screen.findByText("We couldn't load the leaderboard right now.");
@@ -526,7 +541,7 @@ describe("Leaderboard", () => {
       .mockResolvedValue({ ok: true, json: async () => [] });
     global.fetch = fetchMock as typeof fetch;
 
-    render(<Leaderboard sport="padel" />);
+    renderLeaderboard({ sport: "padel" });
 
     await waitFor(() =>
       expect(replaceMock).toHaveBeenCalledWith("/leaderboard", { scroll: false })
@@ -547,7 +562,7 @@ describe("Leaderboard", () => {
       .mockResolvedValue({ ok: true, json: async () => [] });
     global.fetch = fetchMock as typeof fetch;
 
-    const view = render(<Leaderboard sport="all" />);
+    const view = renderLeaderboard({ sport: "all" });
 
     await waitFor(() =>
       expect(replaceMock).toHaveBeenCalledWith(
@@ -557,7 +572,11 @@ describe("Leaderboard", () => {
     );
 
     updateMockLocation("/leaderboard?sport=padel&country=SE");
-    view.rerender(<Leaderboard sport="padel" />);
+    view.rerender(
+      <NextIntlClientProvider locale="en-GB" messages={enMessages}>
+        <Leaderboard sport="padel" />
+      </NextIntlClientProvider>,
+    );
 
     const countrySelect = (await screen.findByRole("combobox", { name: "Country" })) as HTMLSelectElement;
     await waitFor(() => expect(countrySelect.value).toBe("SE"));
@@ -572,7 +591,7 @@ describe("Leaderboard", () => {
 
     updateMockLocation("/leaderboard?sport=padel&foo=bar");
 
-    render(<Leaderboard sport="padel" />);
+    renderLeaderboard({ sport: "padel" });
 
     const countrySelect = (await screen.findByLabelText("Country")) as HTMLSelectElement;
     await user.selectOptions(countrySelect, "SE");
@@ -652,7 +671,7 @@ describe("Leaderboard", () => {
     global.fetch = fetchMock as typeof fetch;
     updateMockLocation("/leaderboard/padel");
 
-    render(<Leaderboard sport="padel" />);
+    renderLeaderboard({ sport: "padel" });
 
     const table = await screen.findByRole("table");
     expect(table).toHaveAttribute("id", "leaderboard-results");
@@ -725,19 +744,27 @@ describe("Leaderboard", () => {
       .mockResolvedValueOnce(discResponse);
     global.fetch = fetchMock as typeof fetch;
 
-    const { rerender } = render(<Leaderboard sport="padel" />);
+    const { rerender } = renderLeaderboard({ sport: "padel" });
 
     await screen.findByText("Padel Ace");
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
 
     updateMockLocation("/leaderboard?sport=disc_golf");
-    rerender(<Leaderboard sport="disc_golf" />);
+    rerender(
+      <NextIntlClientProvider locale="en-GB" messages={enMessages}>
+        <Leaderboard sport="disc_golf" />
+      </NextIntlClientProvider>,
+    );
 
     await screen.findByText("Disc Star");
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
     updateMockLocation("/leaderboard?sport=padel");
-    rerender(<Leaderboard sport="padel" />);
+    rerender(
+      <NextIntlClientProvider locale="en-GB" messages={enMessages}>
+        <Leaderboard sport="padel" />
+      </NextIntlClientProvider>,
+    );
 
     await screen.findByText("Padel Ace");
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));

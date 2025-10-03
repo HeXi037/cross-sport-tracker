@@ -11,6 +11,7 @@ import {
 
 interface Props {
   playerId: string;
+  playerName: string;
   initialUrl?: string | null;
 }
 
@@ -19,7 +20,11 @@ type SessionState = {
   userId: string | null;
 };
 
-export default function PhotoUpload({ playerId, initialUrl }: Props) {
+export default function PhotoUpload({
+  playerId,
+  playerName,
+  initialUrl,
+}: Props) {
   const [url, setUrl] = useState<string | null | undefined>(initialUrl);
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState<
@@ -128,7 +133,11 @@ export default function PhotoUpload({ playerId, initialUrl }: Props) {
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={url}
-          alt="Current player photo"
+          alt={
+            typeof playerName === "string" && playerName.trim().length
+              ? `${playerName} profile photo`
+              : "Player profile photo"
+          }
           width={120}
           height={120}
           style={{ borderRadius: '50%', objectFit: 'cover', marginBottom: 8 }}

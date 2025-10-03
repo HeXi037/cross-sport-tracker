@@ -613,6 +613,17 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     [],
   );
 
+  const formatRating = useCallback(
+    (value?: number | null) =>
+      value == null
+        ? "—"
+        : value.toLocaleString(undefined, {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          }),
+    [],
+  );
+
   const formatDecimal = useCallback(
     (value?: number | null) =>
       value == null
@@ -2019,8 +2030,11 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                     {sport === ALL_SPORTS && (
                       <td style={cellStyle}>{rowSportName}</td>
                     )}
-                    <td style={cellStyle}>
-                      {row.rating != null ? Math.round(row.rating) : "—"}
+                    <td
+                      style={cellStyle}
+                      title={row.rating != null ? row.rating.toString() : undefined}
+                    >
+                      {formatRating(row.rating)}
                     </td>
                     {isBowling ? (
                       <>

@@ -43,8 +43,7 @@ const PLAYERS_SERVER_ERROR_MESSAGE =
   "Failed to load players due to a server error. Please try again later.";
 const PLAYERS_NETWORK_ERROR_MESSAGE =
   "Failed to load players because we couldn't reach the network. Check your connection and retry.";
-const PLAYERS_TIMEOUT_ERROR_MESSAGE =
-  "Unable to load players. Please try again later.";
+const PLAYERS_TIMEOUT_ERROR_MESSAGE = "Unable to load players.";
 const PLAYERS_FORBIDDEN_MESSAGE =
   "You do not have permission to view hidden players.";
 
@@ -386,7 +385,7 @@ export default function PlayersPage() {
                 void load();
               }}
             >
-              Retry loading players
+              Retry
             </button>
             <Link className="underline" href="/">
               Go back home

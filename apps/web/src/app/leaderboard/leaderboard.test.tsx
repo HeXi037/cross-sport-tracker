@@ -465,17 +465,27 @@ describe("Leaderboard", () => {
       "We don't support country code \"ZZ\". Please pick a country from the list.",
     );
     expect(countryAlert).toHaveAttribute("role", "alert");
+    expect(countryAlert).toHaveAttribute("id", "leaderboard-country-error");
 
     const clubAlert = await screen.findByText(
       "We don't recognise the club \"club-missing\". Please choose an option from the list.",
     );
     expect(clubAlert).toHaveAttribute("role", "alert");
+    expect(clubAlert).toHaveAttribute("id", "leaderboard-club-error");
 
     const countrySelect = screen.getByRole("combobox", { name: "Country" });
     expect(countrySelect).toHaveAttribute("aria-invalid", "true");
+    expect(countrySelect).toHaveAttribute(
+      "aria-describedby",
+      expect.stringContaining("leaderboard-country-error"),
+    );
 
     const clubSelect = screen.getByRole("combobox", { name: "Club" });
     expect(clubSelect).toHaveAttribute("aria-invalid", "true");
+    expect(clubSelect).toHaveAttribute(
+      "aria-describedby",
+      expect.stringContaining("leaderboard-club-error"),
+    );
 
     await waitFor(() =>
       expect(replaceMock).toHaveBeenCalledWith("/leaderboard/padel", { scroll: false }),

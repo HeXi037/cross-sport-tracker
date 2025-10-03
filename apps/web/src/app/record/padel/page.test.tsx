@@ -238,8 +238,14 @@ describe("RecordPadelPage", () => {
     const form = saveButton.closest("form");
     expect(form).not.toBeNull();
 
-    const playerHints = await screen.findAllByText(/Add players to both sides\./i);
-    expect(playerHints).toHaveLength(2);
+    const sideAHint = await screen.findByText(
+      /Add at least one player to side A$/i,
+    );
+    expect(sideAHint).toBeInTheDocument();
+    const sideBHint = await screen.findByText(
+      /Add at least one player to side B$/i,
+    );
+    expect(sideBHint).toBeInTheDocument();
     expect(
       screen.queryByText(/Add at least one player to side B\./i),
     ).not.toBeInTheDocument();

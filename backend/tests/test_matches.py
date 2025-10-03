@@ -1306,9 +1306,9 @@ async def test_delete_match_updates_ratings_and_leaderboard(tmp_path):
             select(Rating).where(Rating.sport_id == "padel").order_by(Rating.player_id)
         )
     ).scalars().all()
-  ratings = {r.player_id: r.value for r in rows}
-  assert ratings["p1"] == pytest.approx(1000.0)
-  assert ratings["p2"] > ratings["p1"] > ratings["p3"]
+    ratings = {r.player_id: r.value for r in rows}
+    assert ratings["p1"] == pytest.approx(1000.0)
+    assert ratings["p2"] > ratings["p1"] > ratings["p3"]
 
 
 @pytest.mark.anyio

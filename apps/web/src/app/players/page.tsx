@@ -125,15 +125,18 @@ export default function PlayersPage() {
         signal: controller.signal,
       });
       const data = await res.json();
-      const normalized = ((data.players ?? []) as ApiPlayer[]).map(
-        ({ matchSummary, match_summary, hidden: maybeHidden, ...rest }) =>
+      const normalized = ((data.players ?? []) as ApiPlayer[])
+        .map(({ matchSummary, match_summary, hidden: maybeHidden, ...rest }) =>
           withAbsolutePhotoUrl<Player>({
             ...rest,
             hidden: Boolean(maybeHidden),
             matchSummary:
               normalizeMatchSummary(matchSummary ?? match_summary) ?? null,
           })
-      );
+        )
+        .sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+        );
       if (loadRequestId.current !== requestId) {
         return;
       }

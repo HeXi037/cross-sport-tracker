@@ -112,7 +112,12 @@ export default function CreateTournamentForm({
     try {
       const res = await apiFetch("/v0/players", { cache: "no-store" });
       const data = (await res.json()) as { players: PlayerOption[] };
-      setPlayers(data.players || []);
+      const sortedPlayers = (data.players ?? [])
+        .slice()
+        .sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+        );
+      setPlayers(sortedPlayers);
       setPlayersStatus("success");
     } catch (err) {
       console.error("Failed to load players", err);

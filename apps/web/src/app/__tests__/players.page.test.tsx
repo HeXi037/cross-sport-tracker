@@ -79,3 +79,46 @@ describe('PlayersPage error handling', () => {
     consoleErrorSpy.mockRestore();
   });
 });
+
+describe('PlayersPage sorting', () => {
+  beforeEach(() => {
+    mockedApiFetch.mockReset();
+    mockedIsAdmin.mockReset();
+    mockedIsAdmin.mockReturnValue(false);
+  });
+
+  it('sorts players alphabetically ignoring case', async () => {
+    mockedApiFetch.mockResolvedValueOnce({
+      json: async () => ({
+        players: [
+          { id: '2', name: 'benni', hidden: false, photo_url: null },
+          { id: '4', name: 'bridget', hidden: false, photo_url: null },
+          { id: '1', name: 'Addi', hidden: false, photo_url: null },
+          { id: '3', name: 'Amy', hidden: false, photo_url: null },
+        ],
+      }),
+    } as unknown as Response);
+
+    const { container } = render(
+      <ToastProvider>
+        <PlayersPage />
+      </ToastProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockedApiFetch).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(container.querySelectorAll('ul.player-list li')).toHaveLength(4);
+    });
+
+    const names = Array.from(
+      container.querySelectorAll<HTMLAnchorElement>(
+        '.player-list__item .player-list__link',
+      ),
+    ).map((link) => link.textContent?.trim());
+
+    expect(names).toEqual(['Addi', 'Amy', 'benni', 'bridget']);
+  });
+});

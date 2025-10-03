@@ -865,7 +865,12 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         const res = await fetch(`${base}/v0/players`);
         if (res.ok) {
           const data = (await res.json()) as { players: Player[] };
-          setPlayers(data.players || []);
+          const sortedPlayers = (data.players ?? [])
+            .slice()
+            .sort((a, b) =>
+              a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+            );
+          setPlayers(sortedPlayers);
         }
       } catch {
         // ignore errors

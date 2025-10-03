@@ -52,6 +52,18 @@ export default function StageScheduleTable({
     );
   }
 
+  const sides = Array.from(
+    new Set(
+      matches.flatMap((match) =>
+        match.participants
+          .map((participant) => participant.side)
+          .filter((side): side is string => typeof side === "string" && side.length > 0)
+      )
+    )
+  ).sort((a, b) => a.localeCompare(b));
+
+  const resolvedSides = sides.length > 0 ? sides : ["A", "B"];
+
   return (
     <section className="card" style={{ padding: 16 }}>
       <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>{title}</h3>
@@ -60,23 +72,18 @@ export default function StageScheduleTable({
           <thead>
             <tr>
               <th scope="col">Match</th>
-              <th scope="col">Side A</th>
-              <th scope="col">Side B</th>
+              {resolvedSides.map((side) => (
+                <th key={side} scope="col">
+                  Side {side}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {matches.map((match, index) => {
-              const participants = match.participants
-                .slice()
-                .sort((a, b) => a.side.localeCompare(b.side));
-              const sideA = participants.find((p) => p.side === "A");
-              const sideB = participants.find((p) => p.side === "B");
-              const sideAPlayers = sideA
-                ? sideA.playerIds.map((id) => getPlayerName(playerLookup, id)).join(", ")
-                : "TBD";
-              const sideBPlayers = sideB
-                ? sideB.playerIds.map((id) => getPlayerName(playerLookup, id)).join(", ")
-                : "TBD";
+              const participantsBySide = new Map(
+                match.participants.map((participant) => [participant.side, participant] as const)
+              );
               return (
                 <tr key={match.id}>
                   <th scope="row">
@@ -85,8 +92,15 @@ export default function StageScheduleTable({
                       <div className="form-hint">Ruleset: {match.rulesetId}</div>
                     )}
                   </th>
-                  <td>{sideAPlayers}</td>
-                  <td>{sideBPlayers}</td>
+                  {resolvedSides.map((side) => {
+                    const participant = participantsBySide.get(side);
+                    const players = participant?.playerIds ?? [];
+                    const names = players
+                      .map((id) => getPlayerName(playerLookup, id))
+                      .filter((name) => name.trim().length > 0)
+                      .join(", ");
+                    return <td key={side}>{names || "TBD"}</td>;
+                  })}
                 </tr>
               );
             })}

@@ -115,7 +115,7 @@ describe('PlayersPage sorting', () => {
 
     const names = Array.from(
       container.querySelectorAll<HTMLAnchorElement>(
-        '.player-list__item .player-list__link',
+        '.player-list__item .player-list__card-link',
       ),
     ).map((link) => link.textContent?.trim());
 

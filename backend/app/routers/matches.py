@@ -232,6 +232,63 @@ def _resolve_match_outcome(
     return None
 
 
+def _score_player_tiers(
+    sport_id: str,
+    side_players: dict[str, list[str]],
+    details: dict[str, Any] | None,
+) -> list[list[str]] | None:
+    if not isinstance(details, dict):
+        return None
+
+    score_record = details.get("score")
+    if not isinstance(score_record, dict):
+        return None
+
+    parsed_scores: dict[str, int] = {}
+    for side, raw_value in score_record.items():
+        side_key = str(side)
+        players = side_players.get(side_key)
+        if not players:
+            continue
+        parsed = _score_value(raw_value)
+        if parsed is None:
+            continue
+        parsed_scores[side_key] = parsed
+
+    if len(parsed_scores) < 2:
+        return None
+
+    higher_is_better = sport_id not in LOWER_SCORE_WINS_SPORTS
+    sorted_items = sorted(
+        parsed_scores.items(),
+        key=lambda item: item[1],
+        reverse=higher_is_better,
+    )
+
+    tiers: list[tuple[int | None, list[str]]] = []
+    for side, value in sorted_items:
+        if not tiers or value != tiers[-1][0]:
+            tiers.append((value, [side]))
+        else:
+            tiers[-1][1].append(side)
+
+    remaining_sides = [side for side in side_players if side not in parsed_scores]
+    if remaining_sides:
+        tiers.append((None, remaining_sides))
+
+    player_tiers: list[list[str]] = []
+    for _, tier_sides in tiers:
+        players = [
+            pid
+            for side in tier_sides
+            for pid in side_players.get(side, [])
+        ]
+        if players:
+            player_tiers.append(players)
+
+    return player_tiers if len(player_tiers) >= 2 else None
+
+
 class RatingUpdatePlan(NamedTuple):
     winners: list[str]
     losers: list[str]
@@ -654,6 +711,9 @@ async def create_match(
         if outcome:
             winners, losers, draws, *_ = outcome
             rating_plan = _rating_groups_for_update(outcome, sides_with_players)
+            score_tiers = _score_player_tiers(
+                match.sport_id, sides_with_players, details_for_result
+            )
             try:
                 if rating_plan.draw_winners and rating_plan.draw_losers:
                     await update_ratings(
@@ -673,6 +733,19 @@ async def create_match(
                         draws=rating_plan.draws or None,
                         match_id=mid,
                     )
+                if score_tiers and len(score_tiers) >= 3:
+                    loser_tiers = score_tiers[1:]
+                    for idx, tier_winners in enumerate(loser_tiers):
+                        for lower_tier in loser_tiers[idx + 1 :]:
+                            if not tier_winners or not lower_tier:
+                                continue
+                            await update_ratings(
+                                session,
+                                rating_sport_id,
+                                tier_winners,
+                                lower_tier,
+                                match_id=None,
+                            )
             except Exception:
                 pass
             await update_player_metrics(

@@ -1,6 +1,9 @@
 "use client";
 
-import type { StageScheduleMatch } from "../../lib/api";
+import type {
+  StageScheduleMatch,
+  StageScheduleParticipant,
+} from "../../lib/api";
 import type { PlayerInfo } from "../../components/PlayerName";
 
 export type PlayerLookup =
@@ -52,17 +55,25 @@ export default function StageScheduleTable({
     );
   }
 
-  const sides = Array.from(
+  const uniqueSides = Array.from(
     new Set(
       matches.flatMap((match) =>
         match.participants
           .map((participant) => participant.side)
-          .filter((side): side is string => typeof side === "string" && side.length > 0)
+          .filter(
+            (
+              side
+            ): side is StageScheduleParticipant["side"] =>
+              typeof side === "string" && side.length > 0
+          )
       )
     )
-  ).sort((a, b) => a.localeCompare(b));
+  ) as StageScheduleParticipant["side"][];
 
-  const resolvedSides = sides.length > 0 ? sides : ["A", "B"];
+  const sides = uniqueSides.sort((a, b) => a.localeCompare(b));
+
+  const defaultSides: StageScheduleParticipant["side"][] = ["A", "B"];
+  const resolvedSides = sides.length > 0 ? sides : defaultSides;
 
   return (
     <section className="card" style={{ padding: 16 }}>

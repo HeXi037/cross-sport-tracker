@@ -218,7 +218,7 @@ export default function ShareMatchButton({
       const writeLines = (text: string, indent = 0) => {
         const availableWidth = maxWidth - indent;
         const lines = doc.splitTextToSize(text, availableWidth);
-        lines.forEach((line) => {
+        lines.forEach((line: string) => {
           ensureSpace(lineHeight);
           doc.text(line, 10 + indent, cursorY);
           cursorY += lineHeight;

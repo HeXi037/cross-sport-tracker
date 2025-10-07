@@ -1,6 +1,7 @@
 import os, sys, asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Tuple
+from types import SimpleNamespace
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
@@ -20,8 +21,11 @@ from backend.app.models import (
     ScoreEvent,
     Rating,
     GlickoRating,
+    PlayerMetric,
 )
 from backend.app.routers import players
+from backend.app.routers import matches as matches_router
+from backend.app.schemas import MatchCreate, Participant
 from sqlalchemy.dialects.sqlite import JSON as SQLiteJSON
 
 
@@ -48,6 +52,7 @@ def client_and_session():
             await conn.run_sync(ScoreEvent.__table__.create)
             await conn.run_sync(Rating.__table__.create)
             await conn.run_sync(GlickoRating.__table__.create)
+            await conn.run_sync(PlayerMetric.__table__.create)
 
     asyncio.run(init_models())
 
@@ -245,6 +250,94 @@ def seed_with_score_only(session_maker):
             await session.commit()
 
     asyncio.run(_seed())
+
+
+def test_player_stats_after_recording_padel_matches(client_and_session, monkeypatch):
+    client, session_maker = client_and_session
+
+    async def noop(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr("backend.app.routers.matches.update_ratings", noop)
+    monkeypatch.setattr("backend.app.routers.matches.update_player_metrics", noop)
+    monkeypatch.setattr(
+        "backend.app.routers.matches.player_stats_cache.invalidate_players", noop
+    )
+    monkeypatch.setattr("backend.app.routers.matches.broadcast", noop)
+    monkeypatch.setattr("backend.app.routers.matches.notify_match_recorded", noop)
+    monkeypatch.setattr("backend.app.routers.matches.recompute_stage_standings", noop)
+
+    async def record_matches():
+        async with session_maker() as session:
+            session.add(Sport(id="padel", name="Padel"))
+            session.add_all(
+                [
+                    Player(id="p1", name="Alice"),
+                    Player(id="p2", name="Bob"),
+                    Player(id="p3", name="Cara"),
+                    Player(id="p4", name="Dan"),
+                ]
+            )
+            await session.commit()
+
+            admin = SimpleNamespace(id="admin", is_admin=True)
+
+            first_match = MatchCreate(
+                sport="padel",
+                participants=[
+                    Participant(side="A", playerIds=["p1", "p2"]),
+                    Participant(side="B", playerIds=["p3", "p4"]),
+                ],
+                sets=[[6, 4], [6, 3]],
+                playedAt=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            )
+            await matches_router.create_match(first_match, session, user=admin)
+
+            second_match = MatchCreate(
+                sport="padel",
+                participants=[
+                    Participant(side="A", playerIds=["p1", "p3"]),
+                    Participant(side="B", playerIds=["p2", "p4"]),
+                ],
+                sets=[[4, 6], [5, 7]],
+                playedAt=datetime(2024, 1, 2, tzinfo=timezone.utc),
+            )
+            await matches_router.create_match(second_match, session, user=admin)
+
+    asyncio.run(record_matches())
+
+    resp = client.get("/players/p1/stats")
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["matchSummary"] == {
+        "total": 2,
+        "wins": 1,
+        "losses": 1,
+        "draws": 0,
+        "winPct": pytest.approx(0.5),
+    }
+    assert data["setSummary"] == {"won": 2, "lost": 2, "differential": 0}
+    assert data["recentForm"] == {"lastFive": ["W", "L"], "currentStreak": "L1"}
+    assert data["rollingWinPct"] == [1.0, 0.5]
+
+    sf = {(entry["sport"], entry["format"]): entry for entry in data["sportFormatStats"]}
+    assert sf[("padel", "doubles")]["wins"] == 1
+    assert sf[("padel", "doubles")]["losses"] == 1
+
+    assert data["bestAgainst"]["playerId"] == "p3"
+    assert data["worstAgainst"]["playerId"] == "p2"
+    assert data["bestWith"]["playerId"] == "p2"
+    assert data["worstWith"]["playerId"] == "p3"
+
+    records = {record["playerId"]: record for record in data["withRecords"]}
+    assert records["p2"]["wins"] == 1 and records["p2"]["losses"] == 0
+    assert records["p3"]["wins"] == 0 and records["p3"]["losses"] == 1
+
+    h2h = {record["playerId"]: record for record in data["headToHeadRecords"]}
+    assert h2h["p3"]["wins"] == 1 and h2h["p3"]["losses"] == 0
+    assert h2h["p4"]["wins"] == 1 and h2h["p4"]["losses"] == 1
+    assert h2h["p2"]["wins"] == 0 and h2h["p2"]["losses"] == 1
 
 
 def test_player_stats(client_and_session):

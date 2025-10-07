@@ -323,8 +323,9 @@ export default function MultiSelect({
                   gap: 6,
                   padding: "4px 8px",
                   borderRadius: 9999,
-                  backgroundColor: "#eef2ff",
-                  border: "1px solid #c7d2fe",
+                  backgroundColor: "var(--multiselect-chip-bg)",
+                  border: "1px solid var(--multiselect-chip-border)",
+                  color: "var(--multiselect-chip-text)",
                 }}
               >
                 <span>{option.name}</span>
@@ -336,7 +337,7 @@ export default function MultiSelect({
                   style={{
                     border: "none",
                     background: "transparent",
-                    color: "#4338ca",
+                    color: "var(--multiselect-chip-remove)",
                     cursor: "pointer",
                     padding: 0,
                     fontSize: 16,
@@ -382,10 +383,10 @@ export default function MultiSelect({
         ref={listRef}
         onScroll={handleScroll}
         style={{
-          border: "1px solid #d4d4d8",
+          border: "1px solid var(--multiselect-border)",
           borderRadius: 8,
           padding: 4,
-          backgroundColor: "#fff",
+          backgroundColor: "var(--multiselect-surface)",
           maxHeight: ITEM_HEIGHT * VISIBLE_ITEM_COUNT,
           overflowY: "auto",
         }}
@@ -403,6 +404,14 @@ export default function MultiSelect({
                 const isSelected = selectedIds.includes(option.id);
                 const isActive = activeOptionIndex === absoluteIndex;
                 const optionId = `${listboxId}-option-${option.id}`;
+                const optionBackgroundColor = isActive
+                  ? "var(--multiselect-option-bg-active)"
+                  : isSelected
+                  ? "var(--multiselect-option-bg-selected)"
+                  : "var(--multiselect-option-bg)";
+                const optionBorderColor = isActive
+                  ? "var(--multiselect-option-border-active)"
+                  : "var(--multiselect-option-border)";
                 return (
                   <div
                     id={optionId}
@@ -419,12 +428,8 @@ export default function MultiSelect({
                       padding: "8px 12px",
                       borderRadius: 8,
                       border: "1px solid",
-                      borderColor: isActive ? "#6366f1" : "#e4e4e7",
-                      backgroundColor: isActive
-                        ? "#eef2ff"
-                        : isSelected
-                        ? "#f4f4f5"
-                        : "#fff",
+                      borderColor: optionBorderColor,
+                      backgroundColor: optionBackgroundColor,
                       cursor: "pointer",
                     }}
                   >

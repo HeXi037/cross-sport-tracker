@@ -46,6 +46,19 @@
   --color-feedback-error-bg: #fff5f5;
   --color-feedback-error-text: #8a1c1c;
   --color-text-danger-strong: #b91c1c;
+
+  /* Multi-select tokens */
+  --multiselect-surface: var(--color-surface);
+  --multiselect-border: #d4d4d8;
+  --multiselect-option-bg: var(--color-surface);
+  --multiselect-option-border: #e4e4e7;
+  --multiselect-option-bg-selected: #f4f4f5;
+  --multiselect-option-bg-active: #eef2ff;
+  --multiselect-option-border-active: #6366f1;
+  --multiselect-chip-bg: #eef2ff;
+  --multiselect-chip-border: #c7d2fe;
+  --multiselect-chip-text: #312e81;
+  --multiselect-chip-remove: #4338ca;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -89,6 +102,19 @@
     --color-feedback-error-bg: #3f1d1d;
     --color-feedback-error-text: #fecaca;
     --color-text-danger-strong: #f87171;
+
+    /* Multi-select tokens */
+    --multiselect-surface: var(--color-surface-elevated);
+    --multiselect-border: #334155;
+    --multiselect-option-bg: var(--color-surface-elevated);
+    --multiselect-option-border: #1e293b;
+    --multiselect-option-bg-selected: rgba(148, 163, 184, 0.18);
+    --multiselect-option-bg-active: rgba(96, 165, 250, 0.25);
+    --multiselect-option-border-active: #60a5fa;
+    --multiselect-chip-bg: rgba(96, 165, 250, 0.18);
+    --multiselect-chip-border: rgba(96, 165, 250, 0.35);
+    --multiselect-chip-text: #e2e8f0;
+    --multiselect-chip-remove: #bfdbfe;
   }
 }
 

@@ -38,6 +38,7 @@ async def player_profile(
 
     stats = await player_stats(player_id, session=session)
     return templates.TemplateResponse(
+        request,
         "player/profile.html",
-        {"request": request, "player": player_out, "stats": stats},
+        {"player": player_out, "stats": stats},
     )

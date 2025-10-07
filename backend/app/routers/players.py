@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import json
 from collections import defaultdict
 
 from fastapi import (
@@ -326,6 +327,95 @@ async def _rollback_if_active(session: AsyncSession) -> None:
         # If rollback itself fails we have nothing else to do; propagate the
         # original error instead.
         pass
+
+
+LOWER_SCORE_WINS_SPORTS = {"disc_golf"}
+
+
+def _coerce_int(value: object) -> int | None:
+    """Safely convert ``value`` to an ``int`` when possible."""
+
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return None
+        try:
+            return int(stripped)
+        except ValueError:
+            return None
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_player_ids(value: object) -> list[str]:
+    """Return a list of player ids from a JSON column value."""
+
+    if isinstance(value, (list, tuple)):
+        return [pid for pid in value if isinstance(pid, str)]
+    if isinstance(value, str):
+        try:
+            decoded = json.loads(value)
+        except json.JSONDecodeError:
+            return [value]
+        if isinstance(decoded, list):
+            return [pid for pid in decoded if isinstance(pid, str)]
+    return []
+
+
+def _result_from_details(side: str, sport_id: str, details: dict[str, object]) -> bool | None:
+    """Derive a win/loss result for ``side`` based on stored match details."""
+
+    sets_record = details.get("sets") if isinstance(details, dict) else None
+    if isinstance(sets_record, dict):
+        my_sets = _coerce_int(sets_record.get(side))
+        opponent_sets = None
+        for key, raw_value in sets_record.items():
+            key_str = str(key)
+            if key_str == side:
+                continue
+            opponent_sets = _coerce_int(raw_value)
+            if opponent_sets is not None:
+                break
+        if my_sets is not None and opponent_sets is not None:
+            if my_sets == opponent_sets:
+                return None
+            return my_sets > opponent_sets
+
+    score_record = details.get("score") if isinstance(details, dict) else None
+    if isinstance(score_record, dict):
+        parsed: dict[str, int] = {}
+        for raw_key, raw_value in score_record.items():
+            key = str(raw_key)
+            value = _coerce_int(raw_value)
+            if value is None:
+                continue
+            parsed[key] = value
+        if not parsed:
+            return None
+        side_key = str(side)
+        my_value = parsed.get(side_key)
+        if my_value is None:
+            alt_key = side_key.upper()
+            if alt_key != side_key:
+                my_value = parsed.get(alt_key)
+                if my_value is not None:
+                    side_key = alt_key
+        if my_value is None:
+            return None
+        higher_is_better = sport_id not in LOWER_SCORE_WINS_SPORTS
+        best_value = max(parsed.values()) if higher_is_better else min(parsed.values())
+        top_sides = [key for key, value in parsed.items() if value == best_value]
+        if side_key in top_sides:
+            return True if len(top_sides) == 1 else None
+        return False
+
+    return None
 
 
 async def _load_match_summaries_for_players(
@@ -1033,7 +1123,6 @@ async def _compute_player_stats(
         .join(self_ids, true())
         .where(self_id_value == player_id)
         .where(Match.deleted_at.is_(None))
-        .where(winner.is_not(None))
     ).cte("pm")
 
     rows = (
@@ -1044,35 +1133,117 @@ async def _compute_player_stats(
     if not rows:
         return PlayerStatsOut(playerId=player_id)
 
+    seen_ids: set[str] = set()
     match_ids: list[str] = []
     match_sport: dict[str, str] = {}
+    for row in rows:
+        match_sport[row.match_id] = row.sport_id
+        if row.match_id not in seen_ids:
+            seen_ids.add(row.match_id)
+            match_ids.append(row.match_id)
+
+    participant_map: dict[str, dict[str, list[str]]] = {}
+    if match_ids:
+        participant_rows = (
+            await session.execute(
+                select(
+                    MatchParticipant.match_id,
+                    MatchParticipant.side,
+                    MatchParticipant.player_ids,
+                ).where(MatchParticipant.match_id.in_(match_ids))
+            )
+        ).all()
+        for match_id_value, side_value, player_ids_value in participant_rows:
+            participant_map.setdefault(match_id_value, {})[
+                side_value
+            ] = _normalize_player_ids(player_ids_value)
+
     results: list[bool | None] = []
     sets_won = 0
     sets_lost = 0
+    format_counts: defaultdict[tuple[str, int], dict[str, int]] = defaultdict(
+        lambda: {"wins": 0, "losses": 0, "draws": 0}
+    )
+    team_counter: defaultdict[str, dict[str, int]] = defaultdict(
+        lambda: {"wins": 0, "losses": 0, "draws": 0}
+    )
+    opp_counter: defaultdict[str, dict[str, int]] = defaultdict(
+        lambda: {"wins": 0, "losses": 0, "draws": 0}
+    )
+    included_match_ids: list[str] = []
+    included_match_ids_set: set[str] = set()
+    included_sports: set[str] = set()
 
     for row in rows:
-        if row.match_id not in match_sport:
-            match_ids.append(row.match_id)
-        match_sport[row.match_id] = row.sport_id
-
-        result_value: bool | None = None
+        details = row.details if isinstance(row.details, dict) else {}
         if row.is_win is not None:
-            result_value = bool(row.is_win)
+            result_value: bool | None = bool(row.is_win)
+        else:
+            result_value = _result_from_details(row.side, row.sport_id, details)
+        if result_value is None:
+            continue
         results.append(result_value)
 
-        details = row.details if isinstance(row.details, dict) else None
+        if row.match_id not in included_match_ids_set:
+            included_match_ids_set.add(row.match_id)
+            included_match_ids.append(row.match_id)
+        if row.sport_id:
+            included_sports.add(row.sport_id)
+
         sets = details.get("sets") if isinstance(details, dict) else None
         if isinstance(sets, dict):
-            side_sets = sets.get(row.side)
-            if isinstance(side_sets, (int, float)):
-                sets_won += int(side_sets)
+            side_sets = _coerce_int(sets.get(row.side))
+            if side_sets is not None:
+                sets_won += side_sets
             opponent_total = 0
             for key, value in sets.items():
-                if key == row.side:
+                key_str = str(key)
+                if key_str == row.side:
                     continue
-                if isinstance(value, (int, float)):
-                    opponent_total += int(value)
+                value_int = _coerce_int(value)
+                if value_int is not None:
+                    opponent_total += value_int
             sets_lost += opponent_total
+
+        side_players = _normalize_player_ids(row.player_ids)
+        teammates = [pid for pid in side_players if pid != player_id]
+        opponents = [
+            pid
+            for side_key, ids in participant_map.get(row.match_id, {}).items()
+            if side_key != row.side
+            for pid in ids
+            if isinstance(pid, str) and pid and pid != player_id
+        ]
+
+        team_size = row.team_size or len(side_players) or 1
+        fmt_entry = format_counts[(row.sport_id, team_size)]
+        if result_value is True:
+            fmt_entry["wins"] += 1
+        elif result_value is False:
+            fmt_entry["losses"] += 1
+        else:
+            fmt_entry["draws"] += 1
+
+        for teammate in teammates:
+            entry = team_counter[teammate]
+            if result_value is True:
+                entry["wins"] += 1
+            elif result_value is False:
+                entry["losses"] += 1
+            else:
+                entry["draws"] += 1
+
+        for opponent in opponents:
+            entry = opp_counter[opponent]
+            if result_value is True:
+                entry["wins"] += 1
+            elif result_value is False:
+                entry["losses"] += 1
+            else:
+                entry["draws"] += 1
+
+    if not results:
+        return PlayerStatsOut(playerId=player_id)
 
     wins = sum(1 for r in results if r is True)
     losses = sum(1 for r in results if r is False)
@@ -1102,85 +1273,32 @@ async def _compute_player_stats(
 
     recent_results = [format_result(r) for r in results[-5:]]
 
-    tm = json_each(pm.c.player_ids).table_valued("value").alias("tm")
-    tm_pid = _json_text_value(tm.c.value, is_sqlite=is_sqlite)
-    team_stmt = (
-        select(
-            tm_pid.label("pid"),
-            func.count().label("total"),
-            func.sum(case((pm.c.is_win == 1, 1), else_=0)).label("wins"),
-            func.sum(case((pm.c.is_win == 0, 1), else_=0)).label("losses"),
-        )
-        .select_from(pm)
-        .join(tm, true())
-        .where(tm_pid != player_id)
-        .group_by(tm_pid)
-    )
-    opp_mp = aliased(MatchParticipant)
-    opp_ids = json_each(opp_mp.player_ids).table_valued("value").alias("opp_ids")
-    opp_pid = _json_text_value(opp_ids.c.value, is_sqlite=is_sqlite)
-    opp_stmt = (
-        select(
-            opp_pid.label("pid"),
-            func.count().label("total"),
-            func.sum(case((pm.c.is_win == 1, 1), else_=0)).label("wins"),
-            func.sum(case((pm.c.is_win == 0, 1), else_=0)).label("losses"),
-        )
-        .select_from(pm)
-        .join(opp_mp, opp_mp.match_id == pm.c.match_id)
-        .join(opp_ids, true())
-        .where(opp_mp.id != pm.c.mp_id)
-        .group_by(opp_pid)
-    )
-
-    team_rows = (await session.execute(team_stmt)).all()
-    opp_rows = (await session.execute(opp_stmt)).all()
-
     team_stats: dict[str, dict[str, int]] = {
-        row.pid: {
-            "wins": row.wins or 0,
-            "losses": row.losses or 0,
-            "total": row.total,
-        }
-        for row in team_rows
+        pid: dict(stats) for pid, stats in team_counter.items()
     }
     opp_stats: dict[str, dict[str, int]] = {
-        row.pid: {
-            "wins": row.wins or 0,
-            "losses": row.losses or 0,
-            "total": row.total,
-        }
-        for row in opp_rows
+        pid: dict(stats) for pid, stats in opp_counter.items()
     }
 
-    sf_stmt = (
-        select(
-            pm.c.sport_id,
-            pm.c.team_size,
-            func.count().label("total"),
-            func.sum(case((pm.c.is_win == 1, 1), else_=0)).label("wins"),
-            func.sum(case((pm.c.is_win == 0, 1), else_=0)).label("losses"),
-        )
-        .select_from(pm)
-        .group_by(pm.c.sport_id, pm.c.team_size)
-    )
-    sf_rows = (await session.execute(sf_stmt)).all()
-    sf_stats = []
-    for row in sf_rows:
-        wins = row.wins or 0
-        losses_count = row.losses or 0
-        total = row.total
-        losses = losses_count
-        win_pct = wins / total if total else 0.0
+    sf_stats: list[SportFormatStats] = []
+    for (sport, team_size), stats in format_counts.items():
+        total = stats["wins"] + stats["losses"] + stats["draws"]
+        if not total:
+            continue
+        wins_val = stats["wins"]
+        losses_val = stats["losses"]
+        win_pct = wins_val / total if total else 0.0
         sf_stats.append(
             SportFormatStats(
-                sport=row.sport_id,
-                format={1: "singles", 2: "doubles"}.get(row.team_size, f"{row.team_size}-player"),
-                wins=wins,
-                losses=losses,
+                sport=sport,
+                format={1: "singles", 2: "doubles"}.get(team_size, f"{team_size}-player"),
+                wins=wins_val,
+                losses=losses_val,
                 winPct=win_pct,
             )
         )
+
+    sf_stats.sort(key=lambda item: (item.sport, item.format))
 
     needed_ids = set(list(opp_stats.keys()) + list(team_stats.keys()))
     if needed_ids:
@@ -1192,9 +1310,10 @@ async def _compute_player_stats(
         id_to_name = {}
 
     def to_record(pid: str, stats: dict[str, int], *, is_partner: bool) -> VersusRecord:
-        total = stats.get("total", 0)
         wins_val = stats.get("wins", 0)
-        losses_val = stats.get("losses", max(total - wins_val, 0))
+        losses_val = stats.get("losses", 0)
+        draws_val = stats.get("draws", 0)
+        total = wins_val + losses_val + draws_val
         win_pct = wins_val / total if total else 0.0
         return VersusRecord(
             playerId=pid,
@@ -1295,20 +1414,21 @@ async def _compute_player_stats(
         sparkline = downsample(spark_values) if spark_values else ([value] if value is not None else [])
         return value, delta, sparkline, last_updated
 
-    sports = sorted({row.sport_id for row in rows if row.sport_id})
+    sports = sorted(included_sports)
     rating_history: defaultdict[str, list[tuple[datetime | None, float]]] = defaultdict(list)
     glicko_history: defaultdict[
         str, list[tuple[datetime | None, float, float | None]]
     ] = defaultdict(list)
 
     rating_events: list[ScoreEvent] = []
-    if match_ids:
+    relevant_match_ids = included_match_ids or match_ids
+    if relevant_match_ids:
         try:
             rating_events = (
                 await session.execute(
                     select(ScoreEvent)
                     .where(
-                        ScoreEvent.match_id.in_(match_ids),
+                        ScoreEvent.match_id.in_(relevant_match_ids),
                         ScoreEvent.type == "RATING",
                     )
                     .order_by(ScoreEvent.created_at)

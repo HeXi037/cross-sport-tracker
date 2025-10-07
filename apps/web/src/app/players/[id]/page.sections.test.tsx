@@ -93,7 +93,7 @@ describe("PlayerPage optional sections", () => {
             badges: [{ id: "badge-1", name: "Club MVP" }],
             social_links: [],
           });
-        case "/v0/matches?playerId=player-rich":
+        case "/v0/matches?playerId=player-rich&limit=100":
           return makeResponse([
             {
               id: "match-1",
@@ -103,17 +103,24 @@ describe("PlayerPage optional sections", () => {
               location: "Court A",
               isFriendly: false,
               stageId: null,
+              participants: [
+                {
+                  id: "part-1",
+                  side: "A",
+                  playerIds: ["player-rich"],
+                  players: [{ id: "player-rich", name: "Riley Ace" }],
+                },
+                {
+                  id: "part-2",
+                  side: "B",
+                  playerIds: ["opponent-1"],
+                  players: [{ id: "opponent-1", name: "Jordan Foe" }],
+                },
+              ],
+              summary: { sets: { A: 2, B: 1 } },
             },
           ]);
-        case "/v0/matches/match-1":
-          return makeResponse({
-            participants: [
-              { side: "A", playerIds: ["player-rich"] },
-              { side: "B", playerIds: ["opponent-1"] },
-            ],
-            summary: { sets: { A: 2, B: 1 } },
-          });
-        case "/v0/matches?playerId=player-rich&upcoming=true":
+        case "/v0/matches?playerId=player-rich&limit=20&upcoming=true":
           return makeResponse([
             {
               id: "match-upcoming",
@@ -123,43 +130,49 @@ describe("PlayerPage optional sections", () => {
               location: "Centre Court",
               isFriendly: true,
               stageId: null,
+              participants: [
+                {
+                  id: "part-up-1",
+                  side: "A",
+                  playerIds: ["player-rich", "teammate-1"],
+                  players: [
+                    { id: "player-rich", name: "Riley Ace" },
+                    { id: "teammate-1", name: "Alex Ally" },
+                  ],
+                },
+                {
+                  id: "part-up-2",
+                  side: "B",
+                  playerIds: ["opponent-2", "opponent-3"],
+                  players: [
+                    { id: "opponent-2", name: "Sky Rival" },
+                    { id: "opponent-3", name: "Lane Foe" },
+                  ],
+                },
+              ],
+              summary: null,
             },
           ]);
-        case "/v0/matches/match-upcoming":
-          return makeResponse({
-            participants: [
-              { side: "A", playerIds: ["player-rich", "teammate-1"] },
-              { side: "B", playerIds: ["opponent-2", "opponent-3"] },
-            ],
-            summary: null,
-          });
         case "/v0/players/player-rich/stats":
           return makeResponse({
             playerId: "player-rich",
             matchSummary: { wins: 5, losses: 2 },
             withRecords: [],
+            headToHeadRecords: [
+              {
+                playerId: "opponent-1",
+                playerName: "Jordan Foe",
+                wins: 3,
+                losses: 1,
+                winPct: 0.75,
+              },
+            ],
           });
         case "/v0/sports":
           return makeResponse([
             { id: "padel", name: "Padel" },
           ]);
         default:
-          if (path.startsWith("/v0/players/by-ids")) {
-            const idsParam = path.split("ids=")[1] ?? "";
-            const ids = idsParam.split(",");
-            const directory: Record<string, { id: string; name: string }> = {
-              "player-rich": { id: "player-rich", name: "Riley Ace" },
-              "opponent-1": { id: "opponent-1", name: "Jordan Foe" },
-              "opponent-2": { id: "opponent-2", name: "Sky Rival" },
-              "opponent-3": { id: "opponent-3", name: "Lane Foe" },
-              "teammate-1": { id: "teammate-1", name: "Alex Ally" },
-            };
-            return makeResponse(
-              ids
-                .filter((id) => id in directory)
-                .map((id) => directory[id])
-            );
-          }
           throw new Error(`Unexpected apiFetch call: ${path}`);
       }
     });
@@ -179,6 +192,9 @@ describe("PlayerPage optional sections", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Recent Opponents" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Opponent Records" })
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Upcoming Matches" })
@@ -203,9 +219,9 @@ describe("PlayerPage optional sections", () => {
             badges: [],
             social_links: [],
           });
-        case "/v0/matches?playerId=player-empty":
+        case "/v0/matches?playerId=player-empty&limit=100":
           return makeResponse([]);
-        case "/v0/matches?playerId=player-empty&upcoming=true":
+        case "/v0/matches?playerId=player-empty&limit=20&upcoming=true":
           return makeResponse([]);
         case "/v0/players/player-empty/stats":
           return makeResponse(null, { status: 204 });
@@ -214,9 +230,6 @@ describe("PlayerPage optional sections", () => {
             { id: "padel", name: "Padel" },
           ]);
         default:
-          if (path.startsWith("/v0/players/by-ids")) {
-            return makeResponse([]);
-          }
           throw new Error(`Unexpected apiFetch call: ${path}`);
       }
     });
@@ -242,6 +255,9 @@ describe("PlayerPage optional sections", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getByText("No recent opponents found.")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("No opponent records.")
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "Upcoming Matches" })

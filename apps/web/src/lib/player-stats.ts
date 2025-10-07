@@ -77,10 +77,44 @@ export type NormalizedVersusRecord = {
   wins: number;
   losses: number;
   winPct: number;
+  total?: number;
+  chemistry?: number | null;
 };
+
+function normalizeOptionalNumber(value: unknown): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const normalized = normalizeRequiredNumber(value);
+  return normalized ?? null;
+}
 
 function isRecordObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object";
+}
+
+function normalizeId(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : null;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  return null;
+}
+
+function normalizeRequiredNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim().length) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
 }
 
 export function normalizeVersusRecords(
@@ -92,18 +126,15 @@ export function normalizeVersusRecords(
   const normalized: NormalizedVersusRecord[] = [];
   for (const entry of records) {
     if (!isRecordObject(entry)) continue;
-    const { playerId, playerName, wins, losses, winPct } = entry as Record<
-      string,
-      unknown
-    >;
-    if (typeof playerId !== "string" || playerId.length === 0) {
+    const raw = entry as Record<string, unknown>;
+    const id = normalizeId(raw.playerId);
+    if (!id) {
       continue;
     }
-    if (
-      typeof wins !== "number" ||
-      typeof losses !== "number" ||
-      typeof winPct !== "number"
-    ) {
+    const wins = normalizeRequiredNumber(raw.wins);
+    const losses = normalizeRequiredNumber(raw.losses);
+    const winPct = normalizeRequiredNumber(raw.winPct);
+    if (wins === null || losses === null || winPct === null) {
       continue;
     }
     if (wins < 0 || losses < 0 || winPct < 0) {
@@ -112,16 +143,125 @@ export function normalizeVersusRecords(
     if (!Number.isFinite(wins) || !Number.isFinite(losses) || !Number.isFinite(winPct)) {
       continue;
     }
+    const playerName = raw.playerName;
+    const totalValue = normalizeOptionalNumber(raw.total);
+    const chemistryValue = normalizeOptionalNumber(raw.chemistry);
     normalized.push({
-      playerId,
+      playerId: id,
       playerName:
         typeof playerName === "string" && playerName.trim().length > 0
           ? playerName
-          : playerId,
+          : id,
       wins,
       losses,
       winPct: Math.max(0, Math.min(winPct, 1)),
+      total: totalValue !== null && totalValue >= 0 ? totalValue : undefined,
+      chemistry:
+        chemistryValue !== null && chemistryValue >= 0 && chemistryValue <= 1
+          ? chemistryValue
+          : chemistryValue !== null
+          ? Math.max(0, Math.min(chemistryValue, 1))
+          : null,
     });
   }
   return normalized;
+}
+
+export function normalizeVersusRecord(
+  record: unknown
+): NormalizedVersusRecord | null {
+  if (!record || typeof record !== "object") {
+    return null;
+  }
+  const [normalized] = normalizeVersusRecords([record]);
+  return normalized ?? null;
+}
+
+export type RatingSnapshot = {
+  value: number | null;
+  delta30: number | null;
+  sparkline: number[];
+  deviation?: number | null;
+  lastUpdated?: string | null;
+};
+
+export type SportRatingSummary = {
+  sport: string;
+  elo?: RatingSnapshot | null;
+  glicko?: RatingSnapshot | null;
+};
+
+function normalizeSparkline(value: unknown): number[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((entry) =>
+      typeof entry === "number" && Number.isFinite(entry) ? entry : null
+    )
+    .filter((entry): entry is number => entry !== null);
+}
+
+function normalizeRatingSnapshot(value: unknown): RatingSnapshot | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const raw = value as Record<string, unknown>;
+  const snapshot: RatingSnapshot = {
+    value: normalizeOptionalNumber(raw.value),
+    delta30: normalizeOptionalNumber(raw.delta30),
+    sparkline: normalizeSparkline(raw.sparkline),
+    deviation: normalizeOptionalNumber(raw.deviation) ?? undefined,
+    lastUpdated:
+      typeof raw.lastUpdated === "string" ? raw.lastUpdated : undefined,
+  };
+  const hasContent =
+    snapshot.value !== null ||
+    snapshot.delta30 !== null ||
+    snapshot.sparkline.length > 0 ||
+    (typeof snapshot.deviation === "number" && Number.isFinite(snapshot.deviation)) ||
+    typeof snapshot.lastUpdated === "string";
+  return hasContent ? snapshot : null;
+}
+
+export function normalizeRatingSummaries(
+  ratings: unknown
+): SportRatingSummary[] {
+  if (!Array.isArray(ratings)) {
+    return [];
+  }
+  const normalized: SportRatingSummary[] = [];
+  for (const entry of ratings) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+    const raw = entry as Record<string, unknown>;
+    const sport = raw.sport;
+    if (typeof sport !== "string" || sport.trim().length === 0) {
+      continue;
+    }
+    const elo = normalizeRatingSnapshot(raw.elo);
+    const glicko = normalizeRatingSnapshot(raw.glicko);
+    if (!elo && !glicko) {
+      continue;
+    }
+    normalized.push({
+      sport,
+      elo,
+      glicko,
+    });
+  }
+  return normalized;
+}
+
+export function normalizeRollingWinPct(values: unknown): number[] {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+  return values
+    .map((entry) =>
+      typeof entry === "number" && Number.isFinite(entry) ? entry : null
+    )
+    .filter((entry): entry is number => entry !== null)
+    .map((entry) => Math.max(0, Math.min(entry, 1)));
 }

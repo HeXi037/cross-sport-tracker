@@ -19,7 +19,20 @@ function parseMatchDate(value: string | null | undefined): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-export default function PlayerCharts({ matches }: { matches: EnrichedMatch[] }) {
+interface RatingHistoryInput {
+  values: number[];
+  label: string;
+}
+
+export default function PlayerCharts({
+  matches,
+  rollingWinPct = [],
+  ratingHistory,
+}: {
+  matches: EnrichedMatch[];
+  rollingWinPct?: number[];
+  ratingHistory?: RatingHistoryInput | null;
+}) {
   const locale = useLocale();
   const timeZone = useTimeZone();
   const formatMatchDate = useMemo(
@@ -32,26 +45,88 @@ export default function PlayerCharts({ matches }: { matches: EnrichedMatch[] }) 
     return da - db;
   });
 
-  let wins = 0;
-  let rank = 100;
+  const matchesWithOutcome = sorted.filter(
+    (match) => typeof match.playerWon === 'boolean'
+  );
+
+  const safeRolling = rollingWinPct.filter(
+    (value) => typeof value === 'number' && Number.isFinite(value)
+  );
+
   const winRateData: WinRatePoint[] = [];
+
+  if (matchesWithOutcome.length && safeRolling.length) {
+    const offset = Math.max(0, safeRolling.length - matchesWithOutcome.length);
+    const alignedRolling = safeRolling.slice(offset);
+    matchesWithOutcome.forEach((match, index) => {
+      const playedDate = parseMatchDate(match.playedAt);
+      const label = playedDate
+        ? formatMatchDate(playedDate)
+        : `Match ${index + 1}`;
+      const pct = alignedRolling[index] ?? null;
+      if (pct !== null && Number.isFinite(pct)) {
+        winRateData.push({ date: label, winRate: Math.max(0, Math.min(pct, 1)) });
+      }
+    });
+  }
+
+  if (!winRateData.length) {
+    let wins = 0;
+    matchesWithOutcome.forEach((match, index) => {
+      if (match.playerWon) {
+        wins += 1;
+      }
+      const playedDate = parseMatchDate(match.playedAt);
+      const label = playedDate
+        ? formatMatchDate(playedDate)
+        : `Match ${index + 1}`;
+      const total = index + 1;
+      winRateData.push({ date: label, winRate: total ? wins / total : 0 });
+    });
+  }
+
   const rankingData: RankingPoint[] = [];
+
+  if (ratingHistory?.values?.length) {
+    const validRatings = ratingHistory.values.filter((value) =>
+      Number.isFinite(value)
+    );
+    if (validRatings.length) {
+      const maxRating = Math.max(...validRatings);
+      const prefix = ratingHistory.label.trim() || 'Update';
+      validRatings.forEach((value, index) => {
+        const adjusted = Math.max(1, Math.round(maxRating - value + 1));
+        const label =
+          validRatings.length === 1
+            ? prefix
+            : `${prefix} ${index + 1}`;
+        rankingData.push({ date: label, rank: adjusted });
+      });
+    }
+  }
+
+  if (!rankingData.length) {
+    let wins = 0;
+    let rank = 100;
+    matchesWithOutcome.forEach((match, index) => {
+      if (match.playerWon) {
+        wins += 1;
+        rank = Math.max(rank - 1, 1);
+      } else {
+        rank += 1;
+      }
+      const playedDate = parseMatchDate(match.playedAt);
+      const label = playedDate
+        ? formatMatchDate(playedDate)
+        : `Match ${index + 1}`;
+      rankingData.push({ date: label, rank });
+    });
+  }
+
   const heatmapMap = new Map<string, number>();
 
-  sorted.forEach((m, i) => {
-    const playedDate = parseMatchDate(m.playedAt);
-    if (m.playerWon) {
-      wins += 1;
-      rank = Math.max(rank - 1, 1);
-    } else {
-      rank += 1;
-    }
-    const dateLabel = playedDate
-      ? formatMatchDate(playedDate)
-      : `Match ${i + 1}`;
-    winRateData.push({ date: dateLabel, winRate: wins / (i + 1) });
-    rankingData.push({ date: dateLabel, rank });
-
+  sorted.forEach((match) => {
+    const playedDate = parseMatchDate(match.playedAt);
     if (playedDate) {
       const key = `${playedDate.getDay()}-${playedDate.getHours()}`;
       heatmapMap.set(key, (heatmapMap.get(key) || 0) + 1);

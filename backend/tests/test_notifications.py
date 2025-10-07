@@ -153,6 +153,7 @@ def test_comment_and_match_notifications_flow():
             headers=_auth_headers(owner_token),
         ).json()
         assert "match_recorded" in [item["type"] for item in owner_notifs["items"]]
+        assert owner_notifs["unreadCount"] > 0
 
         opponent_notifs = client.get(
             "/notifications",
@@ -166,3 +167,15 @@ def test_comment_and_match_notifications_flow():
             headers=_auth_headers(opponent_token),
         )
         assert mark_resp.status_code == 204
+
+        clear_resp = client.post(
+            "/notifications/read-all",
+            headers=_auth_headers(owner_token),
+        )
+        assert clear_resp.status_code == 204
+
+        cleared_notifs = client.get(
+            "/notifications",
+            headers=_auth_headers(owner_token),
+        ).json()
+        assert cleared_notifs["unreadCount"] == 0

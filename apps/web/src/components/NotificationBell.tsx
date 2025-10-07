@@ -10,6 +10,7 @@ import {
   type MouseEvent,
 } from "react";
 import {
+  markAllNotificationsRead,
   markNotificationRead,
   type NotificationListResponse,
   type NotificationRecord,
@@ -36,6 +37,7 @@ function isUnread(notification: NotificationRecord): boolean {
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [marking, setMarking] = useState<Set<string>>(new Set());
+  const [clearingAll, setClearingAll] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const { showToast } = useToast();
@@ -152,6 +154,36 @@ export default function NotificationBell() {
     [marking, mutate, showToast],
   );
 
+  const handleClearAll = useCallback(async () => {
+    if (clearingAll || !hasUnread) {
+      return;
+    }
+    setClearingAll(true);
+    try {
+      await markAllNotificationsRead();
+      await mutate((pages: NotificationListResponse[] | undefined) => {
+        if (!pages) return pages;
+        const nowIso = new Date().toISOString();
+        return pages.map((page, pageIndex) => ({
+          ...page,
+          items: page.items.map((item) =>
+            item.readAt ? item : { ...item, readAt: nowIso },
+          ),
+          ...(pageIndex === 0 ? { unreadCount: 0 } : {}),
+        }));
+      }, false);
+      await mutate();
+    } catch (err) {
+      console.error("Failed to clear notifications", err);
+      showToast({
+        message: "Failed to clear notifications. Please try again.",
+        variant: "error",
+      });
+    } finally {
+      setClearingAll(false);
+    }
+  }, [clearingAll, hasUnread, mutate, showToast]);
+
   const renderContent = () => {
     if (isLoading) {
       return <p className="notification-panel__status">Loading notifications…</p>;
@@ -164,9 +196,22 @@ export default function NotificationBell() {
       );
     }
     if (!formattedNotifications.length) {
-      return (
-        <p className="notification-panel__status">No notifications yet.</p>
-      );
+      if (hasUnread) {
+        return (
+          <div className="notification-panel__empty">
+            <p className="notification-panel__status">No notifications yet.</p>
+            <button
+              type="button"
+              className="notification-panel__action"
+              onClick={() => void handleClearAll()}
+              disabled={clearingAll}
+            >
+              {clearingAll ? "Clearing…" : "Clear badge"}
+            </button>
+          </div>
+        );
+      }
+      return <p className="notification-panel__status">No notifications yet.</p>;
     }
     return (
       <ul className="notification-panel__list">

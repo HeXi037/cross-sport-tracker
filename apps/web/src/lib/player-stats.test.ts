@@ -112,6 +112,31 @@ describe("normalizeVersusRecords", () => {
         wins: 4,
         losses: 2,
         winPct: 1,
+        chemistry: null,
+      },
+    ]);
+  });
+
+  it("coerces numeric identifiers and stringified metrics", () => {
+    const records = normalizeVersusRecords([
+      {
+        playerId: 42,
+        playerName: "Jordan",
+        wins: "6",
+        losses: "4",
+        winPct: "0.6",
+        total: "10",
+      },
+    ]);
+    expect(records).toEqual([
+      {
+        playerId: "42",
+        playerName: "Jordan",
+        wins: 6,
+        losses: 4,
+        winPct: 0.6,
+        total: 10,
+        chemistry: null,
       },
     ]);
   });

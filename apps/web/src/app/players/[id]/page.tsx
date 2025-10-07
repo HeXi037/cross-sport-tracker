@@ -16,9 +16,13 @@ import { resolveServerLocale } from "../../../lib/server-locale";
 import {
   formatMatchRecord,
   normalizeMatchSummary,
+  normalizeRatingSummaries,
+  normalizeRollingWinPct,
+  normalizeVersusRecord,
   normalizeVersusRecords,
   type NormalizedMatchSummary,
   type NormalizedVersusRecord,
+  type SportRatingSummary,
 } from "../../../lib/player-stats";
 import { sanitizePlayersBySide } from "../../../lib/participants";
 import {
@@ -39,8 +43,6 @@ type CachedRequestInit = RequestInit & { next?: { revalidate?: number } };
 
 const PLAYER_REVALIDATE_SECONDS = 120;
 const PLAYER_MATCH_LIST_REVALIDATE_SECONDS = 60;
-const PLAYER_MATCH_DETAIL_REVALIDATE_SECONDS = 120;
-const PLAYER_LOOKUP_REVALIDATE_SECONDS = 300;
 const PLAYER_STATS_REVALIDATE_SECONDS = 300;
 
 interface Badge {
@@ -56,6 +58,19 @@ interface PlayerSocialLink {
   created_at: string;
 }
 
+type MatchSummaryScores = {
+  sets?: Record<string, number>;
+  games?: Record<string, number>;
+  points?: Record<string, number>;
+} | null;
+
+type MatchParticipantSummary = {
+  id: string;
+  side: string;
+  playerIds: string[];
+  players?: PlayerInfo[];
+};
+
 type MatchRow = {
   id: string;
   sport: string;
@@ -64,24 +79,23 @@ type MatchRow = {
   playedAt: string | null;
   location: string | null;
   isFriendly: boolean;
+  participants: MatchParticipantSummary[];
+  summary?: MatchSummaryScores;
 };
 
 type Participant = { side: string; playerIds: string[] };
-type MatchDetail = {
-  participants: Participant[];
-  summary?:
-    | {
-        sets?: Record<string, number>;
-        games?: Record<string, number>;
-        points?: Record<string, number>;
-      }
-    | null;
-};
 
-type EnrichedMatch = MatchRow & {
+type EnrichedMatch = {
+  id: string;
+  sport: string;
+  stageId: string | null;
+  bestOf: number | null;
+  playedAt: string | null;
+  location: string | null;
+  isFriendly: boolean;
   players: Record<string, PlayerInfo[]>;
   participants: Participant[];
-  summary?: MatchDetail["summary"];
+  summary?: MatchSummaryScores;
   playerSide: string | null;
   playerWon?: boolean;
 };
@@ -92,12 +106,15 @@ type MatchSummary = NormalizedMatchSummary;
 
 interface PlayerStats {
   playerId: string;
-  matchSummary?: MatchSummary | null;
-  bestAgainst?: VersusRecord | null;
-  worstAgainst?: VersusRecord | null;
-  bestWith?: VersusRecord | null;
-  worstWith?: VersusRecord | null;
-  withRecords?: VersusRecord[];
+  matchSummary: MatchSummary | null;
+  bestAgainst: VersusRecord | null;
+  worstAgainst: VersusRecord | null;
+  bestWith: VersusRecord | null;
+  worstWith: VersusRecord | null;
+  withRecords: VersusRecord[];
+  headToHeadRecords: VersusRecord[];
+  rollingWinPct: number[];
+  ratings: SportRatingSummary[];
 }
 
 const PLAYER_FETCH_OPTIONS: CachedRequestInit = {
@@ -157,14 +174,6 @@ const PLAYER_MATCH_LIST_FETCH_OPTIONS: CachedRequestInit = {
   next: { revalidate: PLAYER_MATCH_LIST_REVALIDATE_SECONDS },
 };
 
-const PLAYER_MATCH_DETAIL_FETCH_OPTIONS: CachedRequestInit = {
-  next: { revalidate: PLAYER_MATCH_DETAIL_REVALIDATE_SECONDS },
-};
-
-const PLAYER_LOOKUP_FETCH_OPTIONS: CachedRequestInit = {
-  next: { revalidate: PLAYER_LOOKUP_REVALIDATE_SECONDS },
-};
-
 const PLAYER_STATS_FETCH_OPTIONS: CachedRequestInit = {
   next: { revalidate: PLAYER_STATS_REVALIDATE_SECONDS },
 };
@@ -173,119 +182,75 @@ async function getMatches(
   playerId: string,
   upcoming = false
 ): Promise<EnrichedMatch[]> {
-  const r = await apiFetch(
-    `/v0/matches?playerId=${encodeURIComponent(playerId)}${
-      upcoming ? "&upcoming=true" : ""
-    }`,
+  const params = new URLSearchParams({
+    playerId,
+    limit: upcoming ? "20" : "100",
+  });
+  if (upcoming) {
+    params.set("upcoming", "true");
+  }
+
+  const response = await apiFetch(
+    `/v0/matches?${params.toString()}`,
     PLAYER_MATCH_LIST_FETCH_OPTIONS
   );
-  if (!r.ok) return [];
-  const rows = ((await r.json()) as MatchRow[]).slice(0, 5);
-
-  const detailResults = await Promise.allSettled(
-    rows.map(async (m) => {
-      const resp = await apiFetch(
-        `/v0/matches/${encodeURIComponent(m.id)}`,
-        PLAYER_MATCH_DETAIL_FETCH_OPTIONS
-      );
-      if (!resp.ok) throw new Error(`match ${m.id}`);
-      return { row: m, detail: (await resp.json()) as MatchDetail };
-    })
-  );
-
-  const details: { row: MatchRow; detail: MatchDetail }[] = [];
-  const failedDetails: { matchId: string; reason: unknown }[] = [];
-
-  detailResults.forEach((result, index) => {
-    const match = rows[index];
-    if (result.status === "fulfilled") {
-      details.push(result.value);
-    } else if (match) {
-      failedDetails.push({ matchId: match.id, reason: result.reason });
-      details.push({ row: match, detail: { participants: [] } });
-    }
-  });
-
-  if (failedDetails.length) {
-    console.warn(
-      `Failed to load match details for matches: ${failedDetails
-        .map((f) => f.matchId)
-        .join(", ")}`,
-      failedDetails.map((f) => ({ matchId: f.matchId, reason: f.reason }))
-    );
+  if (!response.ok) {
+    return [];
   }
+  const rows = (await response.json()) as MatchRow[];
 
-  const ids = new Set<string>();
-  for (const { detail } of details) {
-    const parts = detail?.participants ?? [];
-    for (const p of parts) {
-      (p?.playerIds ?? []).forEach((id) => ids.add(id));
-    }
-  }
-
-  const idList = Array.from(ids);
-  const idToPlayer = new Map<string, PlayerInfo>();
-  if (idList.length) {
-    const resp = await apiFetch(
-      `/v0/players/by-ids?ids=${idList.join(",")}`,
-      PLAYER_LOOKUP_FETCH_OPTIONS
-    );
-    if (resp.ok) {
-      const players = (await resp.json()) as PlayerInfo[];
-      const remaining = new Set(idList);
-      const missing: string[] = [];
-      players.forEach((p) => {
-        if (p.id) {
-          remaining.delete(p.id);
-          if (p.name) {
-            idToPlayer.set(p.id, withAbsolutePhotoUrl(p));
-          } else {
-            missing.push(p.id);
-            idToPlayer.set(p.id, { id: p.id, name: "Unknown" });
-          }
-        }
-      });
-      if (remaining.size) {
-        missing.push(...Array.from(remaining));
-        remaining.forEach((id) =>
-          idToPlayer.set(id, { id, name: "Unknown" })
-        );
-      }
-      if (missing.length) {
-        console.warn(
-          `Player names missing for ids: ${missing.join(", ")}`
-        );
-      }
-    }
-  }
-
-  return details.map(({ row, detail }) => {
-    const players: Record<string, PlayerInfo[]> = {};
+  return rows.map((row) => {
     let playerSide: string | null = null;
-    for (const p of detail.participants ?? []) {
-      const ids = p.playerIds ?? [];
-      players[p.side] = ids.map(
-        (id) => idToPlayer.get(id) ?? { id, name: "Unknown" }
-      );
+    const participants: Participant[] = [];
+    const playersBySide: Record<string, PlayerInfo[]> = {};
+
+    for (const participant of row.participants ?? []) {
+      const ids = (participant.playerIds ?? []).map((id) => String(id));
+      participants.push({ side: participant.side, playerIds: ids });
       if (ids.includes(playerId)) {
-        playerSide = p.side;
+        playerSide = participant.side;
       }
+      const resolvedPlayers = (participant.players ?? []).map((player, index) => {
+        const fallbackId = ids[index] ?? player?.id ?? "";
+        const name =
+          typeof player?.name === "string" && player.name.trim().length > 0
+            ? player.name
+            : fallbackId || "Unknown";
+        return {
+          id: player?.id ?? fallbackId,
+          name,
+          photo_url: player?.photo_url ?? null,
+        } satisfies PlayerInfo;
+      });
+      playersBySide[participant.side] = resolvedPlayers;
     }
-    const sanitizedPlayers = sanitizePlayersBySide(players);
-    let playerWon: boolean | undefined = undefined;
-    const summary = detail.summary;
+
+    const sanitizedPlayers = sanitizePlayersBySide(playersBySide);
+    const summary = row.summary ?? undefined;
+    let playerWon: boolean | undefined;
     if (playerSide && summary) {
       const metric = summary.sets || summary.games || summary.points;
       if (metric && playerSide in metric) {
         const myScore = metric[playerSide];
-        const others = Object.entries(metric).filter(([s]) => s !== playerSide);
-        playerWon = others.every(([, v]) => myScore > v);
+        const others = Object.entries(metric).filter(([side]) => side !== playerSide);
+        if (typeof myScore === "number" && others.length) {
+          playerWon = others.every(([, value]) =>
+            typeof value === "number" ? myScore > value : false
+          );
+        }
       }
     }
+
     return {
-      ...row,
+      id: row.id,
+      sport: row.sport,
+      stageId: row.stageId,
+      bestOf: row.bestOf,
+      playedAt: row.playedAt,
+      location: row.location,
+      isFriendly: row.isFriendly,
       players: sanitizedPlayers,
-      participants: detail.participants ?? [],
+      participants,
       summary,
       playerSide,
       playerWon,
@@ -351,12 +316,27 @@ async function getStats(playerId: string): Promise<PlayerStatsResult> {
     }
 
     const normalizedWithRecords = normalizeVersusRecords(raw["withRecords"]);
+    const normalizedHeadToHead = normalizeVersusRecords(
+      raw["headToHeadRecords"]
+    );
+    const normalizedBestAgainst = normalizeVersusRecord(raw["bestAgainst"]);
+    const normalizedWorstAgainst = normalizeVersusRecord(raw["worstAgainst"]);
+    const normalizedBestWith = normalizeVersusRecord(raw["bestWith"]);
+    const normalizedWorstWith = normalizeVersusRecord(raw["worstWith"]);
+    const rolling = normalizeRollingWinPct(raw["rollingWinPct"]);
+    const ratings = normalizeRatingSummaries(raw["ratings"]);
 
     const sanitized: PlayerStats = {
-      ...(parsed as PlayerStats),
       playerId: playerIdValue,
       matchSummary: normalizedSummary,
       withRecords: normalizedWithRecords,
+      headToHeadRecords: normalizedHeadToHead,
+      bestAgainst: normalizedBestAgainst,
+      worstAgainst: normalizedWorstAgainst,
+      bestWith: normalizedBestWith,
+      worstWith: normalizedWorstWith,
+      rollingWinPct: rolling,
+      ratings,
     };
 
     return { stats: sanitized, error: false };
@@ -418,7 +398,7 @@ function iconForSocialLink(link: PlayerSocialLink): string {
   return "🔗";
 }
 
-function formatSummary(s?: MatchDetail["summary"]): string {
+function formatSummary(s?: MatchSummaryScores): string {
   if (!s) return "";
   const render = (scores: Record<string, number>, label: string) => {
     const parts = Object.keys(scores)
@@ -439,7 +419,7 @@ function joinMetadata(parts: Array<string | null | undefined>): string {
     .join(" · ");
 }
 
-function winnerFromSummary(s?: MatchDetail["summary"]): string | null {
+function winnerFromSummary(s?: MatchSummaryScores): string | null {
   if (!s) return null;
   const checks: (keyof NonNullable<typeof s>)[] = [
     "sets",
@@ -494,6 +474,42 @@ function summariseSeasons(matches: EnrichedMatch[]): SeasonSummary[] {
   return Object.keys(byYear)
     .sort()
     .map((season) => ({ season, ...byYear[season] }));
+}
+
+function extractRatingHistory(
+  stats: PlayerStats | null | undefined
+): { values: number[]; label: string } | null {
+  if (!stats?.ratings?.length) {
+    return null;
+  }
+  for (const rating of stats.ratings) {
+    const systems: Array<[string, SportRatingSummary["elo"]]> = [
+      ["Elo", rating.elo],
+      ["Glicko", rating.glicko],
+    ];
+    for (const [systemName, snapshot] of systems) {
+      if (!snapshot) continue;
+      const values = [...(snapshot.sparkline ?? [])].filter((value) =>
+        typeof value === "number" && Number.isFinite(value)
+      );
+      const current = snapshot.value;
+      if (typeof current === "number" && Number.isFinite(current)) {
+        if (!values.length || values[values.length - 1] !== current) {
+          values.push(current);
+        }
+      }
+      if (values.length) {
+        const labelParts = [rating.sport, systemName].filter(
+          (part) => typeof part === "string" && part.trim().length > 0
+        );
+        const label = labelParts.length
+          ? labelParts.join(" ")
+          : "Rating Update";
+        return { values, label };
+      }
+    }
+  }
+  return null;
 }
 
 export default async function PlayerPage({
@@ -619,8 +635,10 @@ export default async function PlayerPage({
     }[];
 
     const matchSummary = stats?.matchSummary ?? null;
-    const teammateRecords: VersusRecord[] =
-      stats && Array.isArray(stats.withRecords) ? stats.withRecords : [];
+    const teammateRecords: VersusRecord[] = stats?.withRecords ?? [];
+    const opponentRecords: VersusRecord[] = stats?.headToHeadRecords ?? [];
+    const rollingWinPct = stats?.rollingWinPct ?? [];
+    const ratingHistory = extractRatingHistory(stats);
 
     return (
       <PlayerDetailErrorBoundary playerId={params.id}>
@@ -814,6 +832,24 @@ export default async function PlayerPage({
               <p className="mt-4 text-sm text-gray-600">No recent opponents found.</p>
             )}
 
+            {opponentRecords.length ? (
+              <>
+                <h2 className="heading mt-4">Opponent Records</h2>
+                <ul>
+                  {opponentRecords.slice(0, 5).map((r) => (
+                    <li key={r.playerId} className="mb-1">
+                      {r.playerName || r.playerId} · {r.wins}-{r.losses}
+                      {Number.isFinite(r.winPct)
+                        ? ` (${Math.round(Math.max(0, Math.min(r.winPct, 1)) * 100)}%)`
+                        : ""}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p className="mt-4 text-sm text-gray-600">No opponent records.</p>
+            )}
+
             {teammateRecords.length ? (
               <>
                 <h2 className="heading mt-4">Teammate Records</h2>
@@ -829,7 +865,11 @@ export default async function PlayerPage({
               <p className="mt-4 text-sm text-gray-600">No teammate records.</p>
             )}
 
-            <PlayerCharts matches={matches} />
+            <PlayerCharts
+              matches={matches}
+              rollingWinPct={rollingWinPct}
+              ratingHistory={ratingHistory}
+            />
 
             <PlayerComments playerId={player.id} />
 

@@ -68,17 +68,27 @@ describe("PlayerCharts", () => {
       },
     ];
 
-    render(<PlayerCharts matches={matches} />);
+    render(
+      <PlayerCharts
+        matches={matches}
+        rollingWinPct={[0.5, 0.25]}
+        ratingHistory={{ values: [1200, 1180], label: "Padel Elo" }}
+      />,
+    );
 
     const winRate = readJson<Array<{ date: string; winRate: number }>>("win-rate");
     expect(winRate).toHaveLength(2);
     expect(winRate[0].date).toBe("Match 1");
     expect(winRate[1].date).toBe("1/1/24");
+    expect(winRate[0].winRate).toBeCloseTo(0.5);
+    expect(winRate[1].winRate).toBeCloseTo(0.25);
 
     const ranking = readJson<Array<{ date: string; rank: number }>>("ranking-history");
     expect(ranking).toHaveLength(2);
-    expect(ranking[0].date).toBe("Match 1");
-    expect(ranking[1].date).toBe("1/1/24");
+    expect(ranking[0].date).toBe("Padel Elo 1");
+    expect(ranking[1].date).toBe("Padel Elo 2");
+    expect(ranking[0].rank).toBe(1);
+    expect(ranking[1].rank).toBe(21);
 
     const heatmap = readJson<Array<{ x: number; y: number; v: number }>>("heatmap");
     expect(heatmap).toHaveLength(1);

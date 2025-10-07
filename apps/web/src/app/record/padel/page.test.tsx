@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import RecordPadelPage from "./page";
 import * as LocaleContext from "../../../lib/LocaleContext";
 import * as NotificationCache from "../../../lib/useNotifications";
+import { createRequire } from "node:module";
 import {
   getDateExample,
   getTimeExample,
@@ -11,6 +12,64 @@ import {
 
 const router = { push: vi.fn() };
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
+
+const require = createRequire(import.meta.url);
+const intlMessages = require("../../../messages/en-GB.json") as Record<string, unknown>;
+
+vi.mock("next-intl", () => ({
+  useTranslations: (namespace?: string) => (key: string) => {
+    if (!namespace) {
+      return key;
+    }
+    const namespaceParts = namespace.split(".");
+    let base: unknown = intlMessages;
+    for (const part of namespaceParts) {
+      if (!base || typeof base !== "object") {
+        return `${namespace}.${key}`;
+      }
+      base = (base as Record<string, unknown>)[part];
+    }
+    if (!base || typeof base !== "object") {
+      return `${namespace}.${key}`;
+    }
+    const keyParts = key.split(".");
+    let current: unknown = base;
+    for (const part of keyParts) {
+      if (!current || typeof current !== "object") {
+        return `${namespace}.${key}`;
+      }
+      current = (current as Record<string, unknown>)[part];
+    }
+    return typeof current === "string" ? current : `${namespace}.${key}`;
+  },
+}));
+
+vi.mock("../../../components/ClubSelect", () => ({
+  default: ({
+    value,
+    onChange,
+    selectId,
+    describedById,
+    placeholder,
+  }: {
+    value: string;
+    onChange: (next: string) => void;
+    selectId?: string;
+    describedById?: string;
+    placeholder?: string;
+  }) => (
+    <select
+      id={selectId}
+      aria-describedby={describedById}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    >
+      <option value="">{placeholder ?? "Select a club"}</option>
+      <option value="club-1">Nordic Padel</option>
+      <option value="club-2">Padel House</option>
+    </select>
+  ),
+}));
 
 const originalFetch = global.fetch;
 
@@ -52,6 +111,10 @@ describe("RecordPadelPage", () => {
       render(<RecordPadelPage />);
 
       await waitFor(() => screen.getByLabelText("Player A 1"));
+
+      fireEvent.change(screen.getByLabelText("Played at club"), {
+        target: { value: "club-1" },
+      });
 
     fireEvent.change(screen.getByPlaceholderText("Location"), {
       target: { value: "Center Court" },
@@ -106,6 +169,7 @@ describe("RecordPadelPage", () => {
           { side: "A", playerIds: ["p1", "p2"] },
           { side: "B", playerIds: ["p3", "p4"] },
         ],
+        clubId: "club-1",
         location: "Court 1",
       });
       expect(setsPayload).toEqual({

@@ -223,6 +223,30 @@ def seed_with_unknown_results(session_maker):
     asyncio.run(_seed())
 
 
+def seed_with_score_only(session_maker):
+    async def _seed():
+        async with session_maker() as session:
+            session.add(Sport(id="padel", name="Padel"))
+            session.add_all(
+                [
+                    Player(id="p1", name="Alice"),
+                    Player(id="p2", name="Bob"),
+                ]
+            )
+            session.add(
+                Match(id="m1", sport_id="padel", details={"score": {"A": 21, "B": 18}})
+            )
+            session.add(
+                MatchParticipant(id="mp1", match_id="m1", side="A", player_ids=["p1"])
+            )
+            session.add(
+                MatchParticipant(id="mp2", match_id="m1", side="B", player_ids=["p2"])
+            )
+            await session.commit()
+
+    asyncio.run(_seed())
+
+
 def test_player_stats(client_and_session):
     client, session_maker = client_and_session
     seed(session_maker)
@@ -347,6 +371,26 @@ def test_player_stats_ignores_matches_without_winner(client_and_session):
     records = {r["playerId"]: r for r in data["withRecords"]}
     assert "p4" not in records
 
+
+def test_player_stats_handles_score_only_matches(client_and_session):
+    client, session_maker = client_and_session
+    seed_with_score_only(session_maker)
+
+    resp = client.get("/players/p1/stats")
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["matchSummary"]["total"] == 1
+    assert data["matchSummary"]["wins"] == 1
+    assert data["matchSummary"]["losses"] == 0
+    assert data["matchSummary"]["draws"] == 0
+
+    assert data["sportFormatStats"][0]["wins"] == 1
+    assert data["sportFormatStats"][0]["losses"] == 0
+
+    head_to_head = {r["playerId"]: r for r in data["headToHeadRecords"]}
+    assert head_to_head["p2"]["wins"] == 1
+    assert head_to_head["p2"]["losses"] == 0
 
 def test_player_stats_caches_results(client_and_session, monkeypatch):
     client, session_maker = client_and_session

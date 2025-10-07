@@ -3,7 +3,7 @@ import sys
 import asyncio
 import uuid
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import jwt
 import pytest
 from sqlalchemy import select, func
@@ -356,7 +356,7 @@ def test_expired_token():
                 "sub": payload["sub"],
                 "username": payload.get("username"),
                 "is_admin": payload.get("is_admin"),
-                "exp": datetime.utcnow() - timedelta(seconds=1),
+                "exp": datetime.now(timezone.utc) - timedelta(seconds=1),
             },
             auth.get_jwt_secret(),
             algorithm=auth.JWT_ALG,

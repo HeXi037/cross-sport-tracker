@@ -425,7 +425,9 @@ async def _load_match_summaries_for_players(
         return {}
 
     is_sqlite = session.bind.dialect.name == "sqlite"
-    json_each = func.json_each if is_sqlite else func.jsonb_array_elements
+    json_each = (
+        func.json_each if is_sqlite else func.jsonb_array_elements_text
+    )
     mp = aliased(MatchParticipant)
     player_values = json_each(mp.player_ids).table_valued("value").alias("player_values")
     player_id_value = _json_text_value(player_values.c.value, is_sqlite=is_sqlite)
@@ -1086,7 +1088,9 @@ async def _compute_player_stats(
 ) -> PlayerStatsOut:
     mp = aliased(MatchParticipant)
     is_sqlite = session.bind.dialect.name == "sqlite"
-    json_each = func.json_each if is_sqlite else func.jsonb_array_elements
+    json_each = (
+        func.json_each if is_sqlite else func.jsonb_array_elements_text
+    )
     json_array_length = (
         func.json_array_length if is_sqlite else func.jsonb_array_length
     )

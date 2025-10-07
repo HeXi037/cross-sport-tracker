@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..db import get_session
 from ..cache import player_stats_cache
 from ..models import (
+    Club,
     Match,
     MatchParticipant,
     Player,
@@ -482,6 +483,17 @@ async def create_match(
     session: AsyncSession,
     user: User,
 ) -> MatchIdOut:
+    if body.clubId:
+        club_exists = (
+            await session.execute(select(Club.id).where(Club.id == body.clubId))
+        ).scalar_one_or_none()
+        if club_exists is None:
+            raise http_problem(
+                status_code=400,
+                detail=f"unknown club: {body.clubId}",
+                code="match_unknown_club",
+            )
+
     mid = uuid.uuid4().hex
     match = Match(
         id=mid,

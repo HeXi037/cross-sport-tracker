@@ -417,6 +417,12 @@ def test_player_stats_postgresql_json_handling(client_and_session, monkeypatch):
     )
     monkeypatch.setattr(
         players.func,
+        "jsonb_array_elements_text",
+        players.func.json_each,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        players.func,
         "jsonb_array_length",
         players.func.json_array_length,
         raising=False,

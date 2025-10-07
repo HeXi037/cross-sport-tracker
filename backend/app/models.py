@@ -128,6 +128,7 @@ class Match(Base):
     sport_id = Column(String, ForeignKey("sport.id"), nullable=False)
     stage_id = Column(String, ForeignKey("stage.id"), nullable=True)
     ruleset_id = Column(String, ForeignKey("ruleset.id"), nullable=True)
+    club_id = Column(String, ForeignKey("club.id"), nullable=True)
     best_of = Column(Integer, nullable=True)
     played_at = Column(DateTime(timezone=True), nullable=True)
     location = Column(String, nullable=True)

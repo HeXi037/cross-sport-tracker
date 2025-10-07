@@ -120,6 +120,12 @@
       "addSet": "Añadir set"
     },
     "fields": {
+      "club": {
+        "label": "Club donde se jugó",
+        "placeholder": "Ejemplo: Nordic Padel",
+        "hint": "Selecciona el club donde se jugó el partido o déjalo en blanco si no fue en un club.",
+        "searchLabel": "Club donde se jugó"
+      },
       "location": {
         "label": "Ubicación",
         "placeholder": "Ubicación"

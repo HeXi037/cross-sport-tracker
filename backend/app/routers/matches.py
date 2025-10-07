@@ -457,6 +457,7 @@ async def list_matches(
             bestOf=m.best_of,
             playedAt=_coerce_utc(m.played_at),
             location=m.location,
+            clubId=m.club_id,
             isFriendly=m.is_friendly,
             participants=[
                 MatchSummaryParticipantOut(
@@ -486,6 +487,7 @@ async def create_match(
         id=mid,
         sport_id=body.sport,
         ruleset_id=body.rulesetId,
+        club_id=body.clubId,
         best_of=body.bestOf,
         played_at=body.playedAt,
         location=body.location,
@@ -911,6 +913,7 @@ async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
         bestOf=m.best_of,
         playedAt=_coerce_utc(m.played_at),
         location=m.location,
+        clubId=m.club_id,
         isFriendly=m.is_friendly,
         participants=[
             ParticipantOut(id=p.id, side=p.side, playerIds=p.player_ids) for p in parts

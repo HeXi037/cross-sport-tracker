@@ -377,6 +377,7 @@ class MatchCreate(BaseModel):
     bestOf: Optional[int] = None
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
+    clubId: Optional[str] = None
     score: Optional[List[int]] = None
     sets: Optional[List[List[int]]] = None
     details: Optional[Dict[str, Any]] = None
@@ -385,6 +386,16 @@ class MatchCreate(BaseModel):
     @field_validator("playedAt")
     def _normalize_played_at(cls, v: datetime | None) -> datetime | None:
         return require_utc(v, field_name="playedAt")
+
+    @field_validator("clubId", mode="after")
+    @classmethod
+    def _normalize_club_id(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            trimmed = value.strip()
+            return trimmed or None
+        raise TypeError("clubId must be a string")
 
     @model_validator(mode="before")
     def _validate_participants(cls, data: Any) -> Any:
@@ -401,12 +412,23 @@ class MatchCreateByName(BaseModel):
     bestOf: Optional[int] = None
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
+    clubId: Optional[str] = None
     sets: Optional[List[Tuple[int, int]]] = None
     isFriendly: bool = False
 
     @field_validator("playedAt")
     def _normalize_played_at(cls, v: datetime | None) -> datetime | None:
         return require_utc(v, field_name="playedAt")
+
+    @field_validator("clubId", mode="after")
+    @classmethod
+    def _normalize_club_id(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            trimmed = value.strip()
+            return trimmed or None
+        raise TypeError("clubId must be a string")
 
     @model_validator(mode="before")
     def _validate_participants(cls, data: Any) -> Any:
@@ -769,6 +791,7 @@ class MatchSummaryOut(BaseModel):
     bestOf: Optional[int] = None
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
+    clubId: Optional[str] = None
     isFriendly: bool
     participants: List["MatchSummaryParticipantOut"] = Field(default_factory=list)
     summary: Optional[Dict[str, Any]] = None
@@ -817,6 +840,7 @@ class MatchOut(BaseModel):
     bestOf: Optional[int] = None
     playedAt: Optional[datetime] = None
     location: Optional[str] = None
+    clubId: Optional[str] = None
     isFriendly: bool
     participants: List[ParticipantOut] = Field(default_factory=list)
     events: List[ScoreEventOut] = Field(default_factory=list)

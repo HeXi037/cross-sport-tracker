@@ -10,11 +10,13 @@ import { ensureTrailingSlash } from "../../../lib/routes";
 import { useLocale } from "../../../lib/LocaleContext";
 import {
   getDateExample,
+  getDatePlaceholder,
   getTimeExample,
   usesTwentyFourHourClock,
 } from "../../../lib/i18n";
 import { buildPlayedAtISOString } from "../../../lib/datetime";
 import { rememberLoginRedirect } from "../../../lib/loginRedirect";
+import ClubSelect from "../../../components/ClubSelect";
 
 interface Player {
   id: string;
@@ -315,6 +317,7 @@ interface CreateMatchPayload {
   bestOf: number;
   playedAt?: string;
   location?: string;
+  clubId?: string;
   isFriendly?: boolean;
 }
 
@@ -328,6 +331,7 @@ export default function RecordPadelPage() {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
+  const [clubId, setClubId] = useState("");
   const [isFriendly, setIsFriendly] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [playerTouched, setPlayerTouched] = useState<
@@ -346,6 +350,7 @@ export default function RecordPadelPage() {
   const recordPadelT = useTranslations("Record.padel");
   const [success, setSuccess] = useState(false);
   const saveSummaryId = useId();
+  const clubHintId = useId();
 
   const playerNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -517,6 +522,10 @@ export default function RecordPadelPage() {
   };
 
   const dateExample = useMemo(() => getDateExample(locale), [locale]);
+  const datePlaceholder = useMemo(
+    () => getDatePlaceholder(locale),
+    [locale],
+  );
   const uses24HourTime = useMemo(
     () => usesTwentyFourHourClock(locale),
     [locale],
@@ -592,6 +601,10 @@ export default function RecordPadelPage() {
       const playedAt = buildPlayedAtISOString(date, time);
       if (playedAt) {
         payload.playedAt = playedAt;
+      }
+      const trimmedClubId = clubId.trim();
+      if (trimmedClubId) {
+        payload.clubId = trimmedClubId;
       }
       if (location) {
         payload.location = location;
@@ -672,6 +685,7 @@ export default function RecordPadelPage() {
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 lang={locale}
+                placeholder={datePlaceholder}
                 aria-describedby={`padel-date-format ${dateLocaleHintId}`}
               />
               <span id="padel-date-format" className="form-hint">
@@ -700,6 +714,23 @@ export default function RecordPadelPage() {
                 {timeHintText}
               </span>
             </label>
+          </div>
+          <div className="form-field">
+            <label className="form-label" htmlFor="padel-club-select">
+              {recordT("fields.club.label")}
+            </label>
+            <ClubSelect
+              value={clubId}
+              onChange={setClubId}
+              placeholder={recordT("fields.club.placeholder")}
+              searchInputId="padel-club-search"
+              selectId="padel-club-select"
+              searchLabel={recordT("fields.club.searchLabel")}
+              describedById={clubHintId}
+            />
+            <p id={clubHintId} className="form-hint">
+              {recordT("fields.club.hint")}
+            </p>
           </div>
           <label className="form-field" htmlFor="padel-location">
             <span className="form-label">{recordT("fields.location.label")}</span>

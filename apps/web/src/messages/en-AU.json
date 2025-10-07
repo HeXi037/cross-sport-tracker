@@ -120,6 +120,12 @@
       "addSet": "Add Set"
     },
     "fields": {
+      "club": {
+        "label": "Played at club",
+        "placeholder": "Example: Nordic Padel",
+        "hint": "Select the club where the match was played, or leave blank if it wasn't at a club.",
+        "searchLabel": "Played at club"
+      },
       "location": {
         "label": "Location",
         "placeholder": "Location"

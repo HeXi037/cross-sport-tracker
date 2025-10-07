@@ -849,6 +849,31 @@ textarea {
   color: var(--color-accent-red);
 }
 
+@media (prefers-color-scheme: dark) {
+  .notification-panel__header,
+  .notification-panel__footer {
+    background: rgba(148, 163, 184, 0.12);
+  }
+
+  .notification-panel__item {
+    background: rgba(148, 163, 184, 0.12);
+  }
+
+  .notification-panel__item--unread {
+    background: rgba(248, 113, 113, 0.18);
+    border-color: rgba(248, 113, 113, 0.45);
+  }
+
+  .notification-panel__body {
+    color: rgba(226, 232, 240, 0.85);
+  }
+
+  .notification-panel__timestamp,
+  .notification-panel__status {
+    color: rgba(148, 163, 184, 0.75);
+  }
+}
+
 @media (max-width: 600px) {
   .nav-notifications {
     width: 100%;

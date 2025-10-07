@@ -732,6 +732,10 @@ export async function markNotificationRead(notificationId: string): Promise<void
   await apiFetch(`/v0/notifications/${notificationId}/read`, { method: "POST" });
 }
 
+export async function markAllNotificationsRead(): Promise<void> {
+  await apiFetch("/v0/notifications/read-all", { method: "POST" });
+}
+
 export async function updatePlayerLocation(
   playerId: string,
   data: PlayerLocationPayload

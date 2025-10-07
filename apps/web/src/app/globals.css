@@ -771,6 +771,14 @@ textarea {
   overflow-y: auto;
 }
 
+.notification-panel__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
 .notification-panel__list {
   list-style: none;
   margin: 0;

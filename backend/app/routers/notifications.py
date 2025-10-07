@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, Response
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -245,6 +245,30 @@ async def mark_notification_read(
         if notification.read_at is None:
             notification.read_at = func.now()
             await session.commit()
+    except SQLAlchemyError as exc:
+        await _rollback_if_active(session)
+        if is_missing_table_error(exc):
+            return Response(status_code=204)
+        raise
+
+    return Response(status_code=204)
+
+
+@router.post("/read-all", status_code=204)
+async def mark_all_notifications_read(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    try:
+        await session.execute(
+            update(Notification)
+            .where(
+                Notification.user_id == user.id,
+                Notification.read_at.is_(None),
+            )
+            .values(read_at=func.now())
+        )
+        await session.commit()
     except SQLAlchemyError as exc:
         await _rollback_if_active(session)
         if is_missing_table_error(exc):

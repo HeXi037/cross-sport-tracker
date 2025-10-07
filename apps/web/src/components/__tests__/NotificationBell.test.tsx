@@ -8,6 +8,7 @@ import NotificationBell from "../NotificationBell";
 const apiMocks = vi.hoisted(() => ({
   listNotifications: vi.fn(),
   markNotificationRead: vi.fn(),
+  markAllNotificationsRead: vi.fn(),
 }));
 
 vi.mock("next/link", () => ({
@@ -27,6 +28,7 @@ vi.mock("../../lib/api", async () => {
     ...actual,
     listNotifications: apiMocks.listNotifications,
     markNotificationRead: apiMocks.markNotificationRead,
+    markAllNotificationsRead: apiMocks.markAllNotificationsRead,
   };
 });
 
@@ -44,8 +46,10 @@ describe("NotificationBell", () => {
   beforeEach(() => {
     apiMocks.listNotifications.mockReset();
     apiMocks.markNotificationRead.mockReset();
+    apiMocks.markAllNotificationsRead.mockReset();
     apiMocks.listNotifications.mockResolvedValue({ items: [], unreadCount: 0 });
     apiMocks.markNotificationRead.mockResolvedValue(undefined);
+    apiMocks.markAllNotificationsRead.mockResolvedValue(undefined);
   });
 
   it("shows unread counts and notification details", async () => {
@@ -173,5 +177,25 @@ describe("NotificationBell", () => {
         "Failed to mark notification as read. Please try again.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("clears phantom unread counts when no notifications are returned", async () => {
+    apiMocks.listNotifications.mockResolvedValue({ items: [], unreadCount: 5 });
+
+    renderBell();
+
+    const button = await screen.findByRole("button", { name: "Notifications" });
+    await act(async () => {
+      fireEvent.click(button);
+    });
+
+    const clearButton = await screen.findByRole("button", { name: "Clear badge" });
+    await act(async () => {
+      fireEvent.click(clearButton);
+    });
+
+    await waitFor(() => {
+      expect(apiMocks.markAllNotificationsRead).toHaveBeenCalledTimes(1);
+    });
   });
 });

@@ -137,7 +137,7 @@ async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
 @pytest.mark.anyio
 async def test_create_match_rejects_duplicate_players(tmp_path):
   from app import db
-  from app.models import Match, MatchParticipant, Player, Sport, User
+  from app.models import Club, Match, MatchParticipant, Player, Sport, User
   from app.schemas import MatchCreate, Participant
   from app.routers.matches import create_match
 
@@ -150,6 +150,7 @@ async def test_create_match_rejects_duplicate_players(tmp_path):
         tables=[
             Sport.__table__,
             Stage.__table__,
+            Club.__table__,
             Match.__table__,
             MatchParticipant.__table__,
         ],
@@ -168,6 +169,54 @@ async def test_create_match_rejects_duplicate_players(tmp_path):
       await create_match(body, session, user=admin)
     assert exc.value.status_code == 400
     assert exc.value.detail == "duplicate players"
+
+
+@pytest.mark.anyio
+async def test_create_match_rejects_unknown_club(tmp_path):
+  from app import db
+  from app.models import Club, Match, MatchParticipant, Player, Sport, User
+  from app.schemas import MatchCreate, Participant
+  from app.routers.matches import create_match
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+      db.Base.metadata.create_all,
+      tables=[
+        Sport.__table__,
+        Player.__table__,
+        Club.__table__,
+        Stage.__table__,
+        Match.__table__,
+        MatchParticipant.__table__,
+      ],
+    )
+
+  async with db.AsyncSessionLocal() as session:
+    session.add_all([
+      Sport(id="padel", name="Padel"),
+      Player(id="p1", name="alice"),
+      Player(id="p2", name="bob"),
+    ])
+    await session.commit()
+
+    body = MatchCreate(
+      sport="padel",
+      participants=[
+        Participant(side="A", playerIds=["p1"]),
+        Participant(side="B", playerIds=["p2"]),
+      ],
+      clubId="club-unknown",
+    )
+    admin = User(id="u1", username="admin", password_hash="", is_admin=True)
+    with pytest.raises(HTTPException) as exc:
+      await create_match(body, session, user=admin)
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail == "unknown club: club-unknown"
+    assert getattr(exc.value, "code", "") == "match_unknown_club"
 
 
 @pytest.mark.anyio

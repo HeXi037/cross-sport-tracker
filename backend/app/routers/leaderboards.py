@@ -62,6 +62,8 @@ async def leaderboard(
     # Fetch all rows so we can compute ranks and previous ranks.
     all_rows = (await session.execute(stmt)).all()
     total = len(all_rows) if all_rows is not None else 0
+    if not isinstance(total, int):
+        total = int(total or 0)
     # Map player_id -> current rank and rating
     current_rank_map = {
         row.Rating.player_id: i + 1 for i, row in enumerate(all_rows)
@@ -267,6 +269,8 @@ async def master_leaderboard(
     )
     all_rows = (await session.execute(stmt)).all()
     total = len(all_rows) if all_rows is not None else 0
+    if not isinstance(total, int):
+        total = int(total or 0)
     rows = all_rows[offset : offset + limit]
 
     leaders = []

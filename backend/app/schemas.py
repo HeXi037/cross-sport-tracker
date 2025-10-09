@@ -171,25 +171,28 @@ class PlayerCreate(BaseModel):
         trimmed = value.strip()
         return trimmed or None
 
-    @model_validator(mode="after")
-    def _normalize_location(cls, model: "PlayerCreate") -> "PlayerCreate":
-        (
-            model.location,
-            model.country_code,
-            model.region_code,
-        ) = normalize_location_fields(
-            model.location,
-            model.country_code,
-            model.region_code,
+    @model_validator(mode="before")
+    def _normalize_location(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        location, country_code, region_code = normalize_location_fields(
+            data.get("location"),
+            data.get("country_code"),
+            data.get("region_code"),
             raise_on_invalid=True,
         )
-        if model.country_code:
-            model.location = model.country_code
-            model.region_code = continent_for_country(model.country_code)
+
+        if country_code:
+            data["location"] = country_code
+            data["country_code"] = country_code
+            data["region_code"] = continent_for_country(country_code)
         else:
-            model.location = None
-            model.region_code = None
-        return model
+            data["location"] = None
+            data["region_code"] = None
+            data["country_code"] = None
+
+        return data
 
 
 class PlayerLocationUpdate(BaseModel):
@@ -219,27 +222,28 @@ class PlayerLocationUpdate(BaseModel):
         trimmed = value.strip()
         return trimmed or None
 
-    @model_validator(mode="after")
-    def _normalize_location(
-        cls, model: "PlayerLocationUpdate"
-    ) -> "PlayerLocationUpdate":
-        (
-            model.location,
-            model.country_code,
-            model.region_code,
-        ) = normalize_location_fields(
-            model.location,
-            model.country_code,
-            model.region_code,
+    @model_validator(mode="before")
+    def _normalize_location(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        location, country_code, region_code = normalize_location_fields(
+            data.get("location"),
+            data.get("country_code"),
+            data.get("region_code"),
             raise_on_invalid=True,
         )
-        if model.country_code:
-            model.location = model.country_code
-            model.region_code = continent_for_country(model.country_code)
+
+        if country_code:
+            data["location"] = country_code
+            data["country_code"] = country_code
+            data["region_code"] = continent_for_country(country_code)
         else:
-            model.location = None
-            model.region_code = None
-        return model
+            data["location"] = None
+            data["region_code"] = None
+            data["country_code"] = None
+
+        return data
 
 
 class PlayerOut(BaseModel):
@@ -259,24 +263,27 @@ class PlayerOut(BaseModel):
     social_links: List[PlayerSocialLinkOut] = Field(default_factory=list)
     match_summary: Optional["MatchSummary"] = None
 
-    @model_validator(mode="after")
-    def _sync_location_fields(cls, model: "PlayerOut") -> "PlayerOut":
-        (
-            model.location,
-            model.country_code,
-            model.region_code,
-        ) = normalize_location_fields(
-            model.location,
-            model.country_code,
-            model.region_code,
+    @model_validator(mode="before")
+    def _sync_location_fields(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        location, country_code, region_code = normalize_location_fields(
+            data.get("location"),
+            data.get("country_code"),
+            data.get("region_code"),
         )
-        if model.country_code:
-            model.location = model.country_code
-            model.region_code = continent_for_country(model.country_code)
+
+        if country_code:
+            data["location"] = country_code
+            data["country_code"] = country_code
+            data["region_code"] = continent_for_country(country_code)
         else:
-            model.location = None
-            model.region_code = None
-        return model
+            data["location"] = None
+            data["region_code"] = None
+            data["country_code"] = None
+
+        return data
 
 class PlayerNameOut(BaseModel):
     id: str
@@ -510,13 +517,16 @@ class EventIn(BaseModel):
     hole: Optional[int] = None
     strokes: Optional[int] = None
 
-    @model_validator(mode="after")
+    @model_validator(mode="before")
     def _validate_hole(cls, values):
-        if values.type == "HOLE":
+        if not isinstance(values, dict):
+            return values
+
+        if values.get("type") == "HOLE":
             missing = [
                 field
                 for field in ("side", "hole", "strokes")
-                if getattr(values, field) is None
+                if values.get(field) is None
             ]
             if missing:
                 raise ValueError(
@@ -590,16 +600,27 @@ class AdminPasswordResetRequest(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    @model_validator(mode="after")
-    def _ensure_identifier(self) -> "AdminPasswordResetRequest":
-        if not self.user_id and not self.username:
+    @model_validator(mode="before")
+    def _ensure_identifier(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        user_id = data.get("user_id")
+        if user_id is None and "userId" in data:
+            user_id = data.get("userId")
+
+        username = data.get("username")
+
+        if not user_id and username is None:
             raise ValueError("user_id or username is required")
-        if self.username is not None:
-            trimmed = self.username.strip().lower()
+
+        if username is not None:
+            trimmed = username.strip().lower()
             if not trimmed:
                 raise ValueError("username must not be empty")
-            self.username = trimmed
-        return self
+            data["username"] = trimmed
+
+        return data
 
 
 class AdminPasswordResetOut(BaseModel):

@@ -6,6 +6,7 @@ import * as bowlingSummary from "../../../lib/bowlingSummary";
 import * as LocaleContext from "../../../lib/LocaleContext";
 import { rememberLoginRedirect } from "../../../lib/loginRedirect";
 import * as NotificationCache from "../../../lib/useNotifications";
+import * as MatchCache from "../../../lib/useApiSWR";
 import { useSessionSnapshot } from "../../../lib/useSessionSnapshot";
 import {
   getDateExample,
@@ -14,8 +15,24 @@ import {
 } from "../../../lib/i18n";
 import RecordSportForm from "./RecordSportForm";
 import { resolveRecordSportRoute } from "./resolveRecordSportRoute";
+import enMessages from "../../../messages/en-GB.json";
 
 const router = { push: vi.fn() };
+
+function translate(namespace: string | undefined, key: string): string {
+  const path = namespace ? `${namespace}.${key}` : key;
+  return path.split(".").reduce((acc: unknown, segment) => {
+    if (typeof acc !== "object" || acc === null) {
+      return undefined;
+    }
+    return (acc as Record<string, unknown>)[segment];
+  }, enMessages as unknown) as string | undefined;
+}
+
+vi.mock("next-intl", () => ({
+  useTranslations: (namespace?: string) =>
+    (key: string) => translate(namespace, key) ?? `${namespace ? `${namespace}.` : ""}${key}`,
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
@@ -109,6 +126,11 @@ describe("resolveRecordSportRoute", () => {
 });
 
 describe("RecordSportForm", () => {
+  let fetchClubsSpy: vi.SpyInstance<
+    [init?: Api.ApiRequestInit | undefined],
+    Promise<Api.ClubSummary[]>
+  >;
+
   beforeEach(() => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     mockedUseSessionSnapshot.mockReset();
@@ -118,10 +140,13 @@ describe("RecordSportForm", () => {
       userId: "user-1",
     });
     mockedRememberLoginRedirect.mockReset();
+    fetchClubsSpy = vi.spyOn(Api, "fetchClubs").mockResolvedValue([]);
   });
 
   afterEach(() => {
     router.push.mockReset();
+    fetchClubsSpy.mockRestore();
+    window.localStorage.clear();
     vi.clearAllMocks();
   });
 
@@ -479,6 +504,133 @@ describe("RecordSportForm", () => {
     expect(screen.queryByLabelText(/doubles/i)).not.toBeInTheDocument();
     expect(screen.getByLabelText(/team a player 2/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/team b player 2/i)).toBeInTheDocument();
+  });
+
+  it("stores padel Americano session details and keeps them after saving", async () => {
+    const players = [
+      { id: "1", name: "Alice" },
+      { id: "2", name: "Bob" },
+      { id: "3", name: "Cara" },
+      { id: "4", name: "Dan" },
+    ];
+    const clubs = [
+      { id: "club-1", name: "Centre Court" },
+      { id: "club-2", name: "City Club" },
+    ];
+
+    fetchClubsSpy.mockResolvedValue(clubs);
+
+    const fetchMock = vi.fn().mockImplementation(
+      (input: RequestInfo, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input?.toString();
+        if (url?.includes("/v0/players")) {
+          return Promise.resolve({ ok: true, json: async () => ({ players }) });
+        }
+        if (url?.includes("/v0/matches/by-name")) {
+          return Promise.resolve({ ok: true, json: async () => ({}) });
+        }
+        throw new Error(`Unexpected fetch call: ${url}`);
+      },
+    );
+    const originalFetch = global.fetch;
+    global.fetch = fetchMock as typeof fetch;
+
+    const matchesCacheSpy = vi
+      .spyOn(MatchCache, "invalidateMatchesCache")
+      .mockResolvedValue();
+    const notificationsSpy = vi
+      .spyOn(NotificationCache, "invalidateNotificationsCache")
+      .mockResolvedValue();
+
+    try {
+      render(<RecordSportForm sportId="padel_americano" />);
+
+      await screen.findAllByText("Alice");
+
+      const dateInput = screen.getByLabelText(/date/i) as HTMLInputElement;
+      fireEvent.change(dateInput, { target: { value: "2024-08-10" } });
+      const timeInput = screen.getByLabelText(/start time/i) as HTMLInputElement;
+      fireEvent.change(timeInput, { target: { value: "18:30" } });
+      const locationInput = screen.getByLabelText(/location/i) as HTMLInputElement;
+      fireEvent.change(locationInput, { target: { value: "Court 5" } });
+      const friendlyCheckbox = screen.getByLabelText(/mark as friendly/i);
+      fireEvent.click(friendlyCheckbox);
+
+      const clubSelect = screen.getByLabelText("Played at club", {
+        selector: "select",
+      }) as HTMLSelectElement;
+      await waitFor(() => expect(clubSelect.options.length).toBeGreaterThan(1));
+      fireEvent.change(clubSelect, { target: { value: "club-1" } });
+
+      const selects = screen.getAllByRole("combobox").filter((element) =>
+        element.id.startsWith("record-player"),
+      );
+      fireEvent.change(selects[0], { target: { value: "1" } });
+      fireEvent.change(selects[1], { target: { value: "2" } });
+      fireEvent.change(selects[2], { target: { value: "3" } });
+      fireEvent.change(selects[3], { target: { value: "4" } });
+
+      fireEvent.change(screen.getByLabelText(/team a score/i), {
+        target: { value: "32" },
+      });
+      fireEvent.change(screen.getByLabelText(/team b score/i), {
+        target: { value: "20" },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+      expect(
+        await screen.findByText(
+          "Padel Americano tie saved. Update the players and scores to record the next tie.",
+        ),
+      ).toBeInTheDocument();
+
+      expect(router.push).not.toHaveBeenCalledWith("/matches");
+
+      expect(clubSelect).toHaveValue("club-1");
+      expect(dateInput.value).toBe("2024-08-10");
+      expect(timeInput.value).toBe("18:30");
+      expect(locationInput.value).toBe("Court 5");
+      expect(screen.getByLabelText(/mark as friendly/i)).toBeChecked();
+      expect(screen.getByLabelText(/team a player 1/i)).toHaveValue("");
+      expect(screen.getByLabelText(/team a player 2/i)).toHaveValue("");
+      expect(screen.getByLabelText(/team b player 1/i)).toHaveValue("");
+      expect(screen.getByLabelText(/team b player 2/i)).toHaveValue("");
+      expect(screen.getByLabelText(/team a score/i)).toHaveValue(0);
+      expect(screen.getByLabelText(/team b score/i)).toHaveValue(0);
+
+      const stored = window.localStorage.getItem(
+        "record:padel-americano:defaults",
+      );
+      expect(stored).not.toBeNull();
+      const parsed = JSON.parse(stored ?? "{}");
+      expect(parsed).toMatchObject({
+        date: "2024-08-10",
+        time: "18:30",
+        location: "Court 5",
+        isFriendly: true,
+        clubId: "club-1",
+      });
+
+      const payloadCall = fetchMock.mock.calls.find(([request]) =>
+        (typeof request === "string" ? request : request.toString()).includes(
+          "/v0/matches/by-name",
+        ),
+      );
+      expect(payloadCall).toBeDefined();
+      const body = payloadCall?.[1]?.body;
+      expect(typeof body).toBe("string");
+      const submitted = JSON.parse(body as string);
+      expect(submitted.clubId).toBe("club-1");
+      expect(submitted.location).toBe("Court 5");
+
+      expect(matchesCacheSpy).toHaveBeenCalled();
+      expect(notificationsSpy).toHaveBeenCalled();
+    } finally {
+      global.fetch = originalFetch;
+      matchesCacheSpy.mockRestore();
+      notificationsSpy.mockRestore();
+    }
   });
 
   it("submits numeric scores", async () => {

@@ -139,7 +139,8 @@
       "save": "Guarda cuando cada lado tenga al menos un jugador y se hayan introducido los sets completados necesarios."
     },
     "messages": {
-      "matchRecorded": "¡Partido registrado!"
+      "matchRecorded": "¡Partido registrado!",
+      "padelAmericanoSaved": "Encuentro de pádel Americano guardado. Actualiza a los jugadores y los marcadores para registrar el siguiente enfrentamiento."
     },
     "padel": {
       "hints": {

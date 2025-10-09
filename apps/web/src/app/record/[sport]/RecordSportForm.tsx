@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { apiFetch, type ApiError } from "../../../lib/api";
+import ClubSelect from "../../../components/ClubSelect";
 import { invalidateMatchesCache } from "../../../lib/useApiSWR";
 import { invalidateNotificationsCache } from "../../../lib/useNotifications";
 import { useLocale } from "../../../lib/LocaleContext";
@@ -22,6 +23,7 @@ import { rememberLoginRedirect } from "../../../lib/loginRedirect";
 import { useSessionSnapshot } from "../../../lib/useSessionSnapshot";
 import {
   getDateExample,
+  getDatePlaceholder,
   getTimeExample,
   usesTwentyFourHourClock,
 } from "../../../lib/i18n";
@@ -51,6 +53,8 @@ const MAX_BOWLING_PLAYERS = 6;
 
 const DUPLICATE_PLAYERS_ERROR_CODE = "match_duplicate_players";
 const DUPLICATE_PLAYERS_REGEX = /duplicate players:\s*(.+)/i;
+
+const PADEL_AMERICANO_STORAGE_KEY = "record:padel-americano:defaults";
 
 function parseDuplicatePlayerNames(message?: string | null): string[] {
   if (typeof message !== "string") {
@@ -723,6 +727,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const duplicatePlayersHintId = useId();
   const bowlingInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const pendingBowlingFocusRef = useRef<string | null>(null);
+  const hasLoadedPadelAmericanoDefaults = useRef(false);
   const [scoreA, setScoreA] = useState("0");
   const [scoreB, setScoreB] = useState("0");
   const [error, setError] = useState<string | null>(null);
@@ -731,6 +736,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
   const [isFriendly, setIsFriendly] = useState(false);
+  const [clubId, setClubId] = useState("");
   const [doubles, setDoubles] = useState(isPadel);
   const [submitting, setSubmitting] = useState(false);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
@@ -773,6 +779,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const commonT = useTranslations("Common");
   const recordT = useTranslations("Record");
   const dateExample = useMemo(() => getDateExample(locale), [locale]);
+  const datePlaceholder = useMemo(() => getDatePlaceholder(locale), [locale]);
   const uses24HourTime = useMemo(
     () => usesTwentyFourHourClock(locale),
     [locale],
@@ -804,6 +811,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     () => `${sport || "record"}-friendly-hint`,
     [sport],
   );
+  const clubHintId = useId();
   const timeHintText = useMemo(() => {
     const base = sportCopy.timeHint?.trim() ?? "";
     const exampleSuffix = uses24HourTime
@@ -823,10 +831,80 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const duplicateHintId = duplicateHintActive ? duplicatePlayersHintId : undefined;
   const gameSeriesHintId = useId();
   const gameSeriesStatusId = useId();
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setGameScores(createGameScoreRows(maxGames));
   }, [maxGames]);
+
+  useEffect(() => {
+    if (!isPadelAmericano) {
+      return;
+    }
+    if (hasLoadedPadelAmericanoDefaults.current) {
+      return;
+    }
+    if (typeof window === "undefined") {
+      return;
+    }
+    hasLoadedPadelAmericanoDefaults.current = true;
+    const raw = window.localStorage.getItem(PADEL_AMERICANO_STORAGE_KEY);
+    if (!raw) {
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw) as {
+        date?: string;
+        time?: string;
+        location?: string;
+        isFriendly?: boolean;
+        clubId?: string;
+      } | null;
+      if (parsed && typeof parsed === "object") {
+        if (typeof parsed.date === "string") {
+          setDate(parsed.date);
+        }
+        if (typeof parsed.time === "string") {
+          setTime(parsed.time);
+        }
+        if (typeof parsed.location === "string") {
+          setLocation(parsed.location);
+        }
+        if (typeof parsed.isFriendly === "boolean") {
+          setIsFriendly(parsed.isFriendly);
+        }
+        if (typeof parsed.clubId === "string") {
+          setClubId(parsed.clubId);
+        }
+      }
+    } catch (err) {
+      // Ignore malformed stored data
+    }
+  }, [isPadelAmericano]);
+
+  useEffect(() => {
+    if (!isPadelAmericano) {
+      return;
+    }
+    if (typeof window === "undefined") {
+      return;
+    }
+    const payload = {
+      date,
+      time,
+      location,
+      isFriendly,
+      clubId,
+    };
+    try {
+      window.localStorage.setItem(
+        PADEL_AMERICANO_STORAGE_KEY,
+        JSON.stringify(payload),
+      );
+    } catch (err) {
+      // Ignore persistence failures (e.g. private mode)
+    }
+  }, [clubId, date, isFriendly, isPadelAmericano, location, time]);
 
   const gameSeriesSummary = useMemo(() => {
     let winsA = 0;
@@ -864,6 +942,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const handleGameScoreChange = useCallback(
     (index: number, side: "A" | "B", value: string) => {
       setError(null);
+      setSuccessMessage(null);
       setGameScores((prev) => {
         if (index < 0 || index >= prev.length) {
           return prev;
@@ -886,11 +965,13 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const handleScoreAChange = useCallback((value: string) => {
     setScoreA(value);
     setError(null);
+    setSuccessMessage(null);
   }, []);
 
   const handleScoreBChange = useCallback((value: string) => {
     setScoreB(value);
     setError(null);
+    setSuccessMessage(null);
   }, []);
 
   const setBowlingFieldError = useCallback(
@@ -1007,6 +1088,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     setIds((prev) => ({ ...prev, [key]: value }));
     setError(null);
     setDuplicatePlayerNames([]);
+    setSuccessMessage(null);
   };
 
   const handleBowlingPlayerChange = (index: number, value: string) => {
@@ -1016,6 +1098,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       ),
     );
     setError(null);
+    setSuccessMessage(null);
     setBowlingValidationErrors((prev) => {
       const next = prev.slice();
       if (index >= next.length) {
@@ -1297,6 +1380,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     setError(null);
     setDuplicatePlayerNames([]);
     setDoubles(next);
+    setSuccessMessage(null);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -1309,6 +1393,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     setHasAttemptedSubmit(true);
     setError(null);
     setDuplicatePlayerNames([]);
+    setSuccessMessage(null);
 
     if (!sport) {
       setError("Select a sport");
@@ -1522,6 +1607,10 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         ...(location ? { location } : {}),
         ...(isFriendly ? { isFriendly: true } : {}),
       };
+      const trimmedClubId = clubId.trim();
+      if (trimmedClubId) {
+        (payload as { clubId: string }).clubId = trimmedClubId;
+      }
 
       await apiFetch(`/v0/matches/by-name`, {
         method: "POST",
@@ -1538,7 +1627,19 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       } catch (notificationErr) {
         console.error("Failed to refresh notifications", notificationErr);
       }
-      router.push(`/matches`);
+      if (isPadelAmericano) {
+        setIds({ a1: "", a2: "", b1: "", b2: "" });
+        setScoreA("0");
+        setScoreB("0");
+        if (usesGameSeries) {
+          setGameScores(createGameScoreRows(maxGames));
+        }
+        setHasAttemptedSubmit(false);
+        setDuplicatePlayerNames([]);
+        setSuccessMessage(recordT("messages.padelAmericanoSaved"));
+      } else {
+        router.push(`/matches`);
+      }
     } catch (err) {
       console.error(err);
       const apiError = err instanceof Error ? (err as ApiError) : null;
@@ -1654,6 +1755,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 lang={locale}
+                placeholder={datePlaceholder}
                 aria-describedby={`record-date-format ${dateLocaleHintId}`}
               />
               <span id="record-date-format" className="form-hint">
@@ -1683,6 +1785,25 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
               </span>
             </label>
           </div>
+          {isPadelAmericano && (
+            <div className="form-field">
+              <label className="form-label" htmlFor="record-club-select">
+                {recordT("fields.club.label")}
+              </label>
+              <ClubSelect
+                value={clubId}
+                onChange={setClubId}
+                placeholder={recordT("fields.club.placeholder")}
+                searchInputId="record-club-search"
+                selectId="record-club-select"
+                searchLabel={recordT("fields.club.searchLabel")}
+                describedById={clubHintId}
+              />
+              <p id={clubHintId} className="form-hint">
+                {recordT("fields.club.hint")}
+              </p>
+            </div>
+          )}
           <label className="form-field" htmlFor="record-location">
             <span className="form-label">{recordT("fields.location.label")}</span>
             <input
@@ -2223,6 +2344,12 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         {error && (
           <p role="alert" className="error" aria-live="assertive">
             {error}
+          </p>
+        )}
+
+        {successMessage && (
+          <p role="status" className="success" aria-live="polite">
+            {successMessage}
           </p>
         )}
 

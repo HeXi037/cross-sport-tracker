@@ -310,6 +310,10 @@ class LeaderboardEntryOut(BaseModel):
     setsWon: int
     setsLost: int
     setDiff: int
+    matchesPlayed: int | None = None
+    highestScore: float | None = None
+    averageScore: float | None = None
+    standardDeviation: float | None = None
 
 class LeaderboardOut(BaseModel):
     sport: str

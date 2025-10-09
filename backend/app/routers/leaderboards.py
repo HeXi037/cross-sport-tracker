@@ -1,5 +1,6 @@
 from collections import defaultdict
-from typing import Optional, Annotated
+from statistics import mean, pstdev
+from typing import Optional, Annotated, Any
 
 from fastapi import APIRouter, Query, Depends
 from sqlalchemy import select, func, or_
@@ -59,8 +60,11 @@ async def leaderboard(
         conditions.append(Player.club_id == club_id)
     stmt = stmt.where(*conditions).order_by(Rating.value.desc())
     # Fetch all rows so we can compute ranks and previous ranks.
-    all_rows = (await session.execute(stmt)).all()
-    total = len(all_rows)
+    all_rows_result = await session.execute(stmt)
+    all_rows = list(all_rows_result.all() or [])
+    total_entries = len(all_rows) if all_rows is not None else 0
+    if not isinstance(total_entries, int):
+        total_entries = int(total_entries or 0)
     # Map player_id -> current rank and rating
     current_rank_map = {
         row.Rating.player_id: i + 1 for i, row in enumerate(all_rows)
@@ -99,6 +103,65 @@ async def leaderboard(
                 if pid in set_stats:
                     set_stats[pid]["won"] += won
                     set_stats[pid]["lost"] += lost
+
+    bowling_stats: dict[str, dict[str, Any]] = {}
+    if base_sport_id == "bowling" and player_ids:
+        interim: dict[str, dict[str, Any]] = {
+            pid: {"scores": [], "matches": 0} for pid in player_ids
+        }
+        stmt = (
+            select(MatchParticipant, Match)
+            .join(Match, Match.id == MatchParticipant.match_id)
+            .where(Match.sport_id == base_sport_id, Match.deleted_at.is_(None))
+        )
+        mp_rows = (await session.execute(stmt)).all()
+        for mp, match in mp_rows:
+            player_list = mp.player_ids if isinstance(mp.player_ids, list) else []
+            participants = [pid for pid in player_list if pid in interim]
+            if not participants:
+                continue
+            details = match.details if isinstance(match.details, dict) else {}
+            players_payload = details.get("players")
+            totals_by_player: dict[str, float] = {}
+            if isinstance(players_payload, list):
+                for entry in players_payload:
+                    if not isinstance(entry, dict):
+                        continue
+                    pid = entry.get("id")
+                    total_score = entry.get("total")
+                    if (
+                        isinstance(pid, str)
+                        and pid in interim
+                        and isinstance(total_score, (int, float))
+                    ):
+                        totals_by_player[pid] = float(total_score)
+            recorded_players: list[str] = []
+            for pid in participants:
+                player_total = totals_by_player.get(pid)
+                if player_total is None:
+                    continue
+                data = interim[pid]
+                scores = data.setdefault("scores", [])
+                if isinstance(scores, list):
+                    scores.append(float(player_total))
+                    recorded_players.append(pid)
+            for pid in recorded_players:
+                matches_played = interim[pid].get("matches", 0)
+                interim[pid]["matches"] = matches_played + 1
+        for pid, data in interim.items():
+            scores = data.get("scores")
+            if not isinstance(scores, list) or not scores:
+                continue
+            matches_played = int(data.get("matches", 0))
+            highest_score = max(scores)
+            avg_score = mean(scores)
+            std_dev = pstdev(scores) if len(scores) > 1 else 0.0
+            bowling_stats[pid] = {
+                "matches_played": matches_played,
+                "highest_score": float(highest_score),
+                "average_score": float(avg_score),
+                "standard_deviation": float(std_dev),
+            }
 
     # Build rating history for the sport using RATING score events
     rating_stmt = (
@@ -150,6 +213,19 @@ async def leaderboard(
         lost = stats["lost"]
         curr_rank = current_rank_map[pid]
         prev_rank = prev_rank_map.get(pid, curr_rank)
+        bowling = bowling_stats.get(pid) if base_sport_id == "bowling" else None
+        matches_played = (
+            bowling.get("matches_played") if isinstance(bowling, dict) else None
+        )
+        highest_score = (
+            bowling.get("highest_score") if isinstance(bowling, dict) else None
+        )
+        average_score = (
+            bowling.get("average_score") if isinstance(bowling, dict) else None
+        )
+        std_dev = (
+            bowling.get("standard_deviation") if isinstance(bowling, dict) else None
+        )
         leaders.append(
             LeaderboardEntryOut(
                 rank=curr_rank,
@@ -161,11 +237,21 @@ async def leaderboard(
                 setsWon=won,
                 setsLost=lost,
                 setDiff=won - lost,
+                matchesPlayed=int(matches_played)
+                if isinstance(matches_played, (int, float)) and matches_played > 0
+                else None,
+                highestScore=highest_score,
+                averageScore=average_score,
+                standardDeviation=std_dev,
             )
         )
 
     return LeaderboardOut(
-        sport=sport, leaders=leaders, total=total, limit=limit, offset=offset
+        sport=sport,
+        leaders=leaders,
+        total=total_entries,
+        limit=limit,
+        offset=offset,
     )
 
 
@@ -186,8 +272,11 @@ async def master_leaderboard(
         .where(Player.deleted_at.is_(None))
         .order_by(MasterRating.value.desc())
     )
-    all_rows = (await session.execute(stmt)).all()
-    total = len(all_rows)
+    master_rows_result = await session.execute(stmt)
+    all_rows = list(master_rows_result.all() or [])
+    total_entries = len(all_rows) if all_rows is not None else 0
+    if not isinstance(total_entries, int):
+        total_entries = int(total_entries or 0)
     rows = all_rows[offset : offset + limit]
 
     leaders = []
@@ -207,5 +296,9 @@ async def master_leaderboard(
         )
 
     return LeaderboardOut(
-        sport="master", leaders=leaders, total=total, limit=limit, offset=offset
+        sport="master",
+        leaders=leaders,
+        total=total_entries,
+        limit=limit,
+        offset=offset,
     )

@@ -69,6 +69,7 @@ def setup_db():
         async with db.AsyncSessionLocal() as session:
             sport = Sport(id="padel", name="Padel")
             session.add(sport)
+            session.add(Sport(id="bowling", name="Bowling"))
             session.add_all(
                 [
                     Club(id="club-a", name="Club A"),
@@ -82,10 +83,20 @@ def setup_db():
             session.add_all([p1, p2, p3, p4])
             session.add_all(
                 [
+                    Player(id="b1", name="Bowler One"),
+                    Player(id="b2", name="Bowler Two"),
+                    Player(id="b3", name="Bowler Three"),
+                ]
+            )
+            session.add_all(
+                [
                     Rating(id="r1", player_id="p1", sport_id="padel", value=1005),
                     Rating(id="r2", player_id="p2", sport_id="padel", value=1001),
                     Rating(id="r3", player_id="p3", sport_id="padel", value=990),
                     Rating(id="r4", player_id="p4", sport_id="padel", value=980),
+                    Rating(id="br1", player_id="b1", sport_id="bowling", value=1010),
+                    Rating(id="br2", player_id="b2", sport_id="bowling", value=1000),
+                    Rating(id="br3", player_id="b3", sport_id="bowling", value=990),
                 ]
             )
             base = datetime(2024, 1, 1)
@@ -122,6 +133,71 @@ def setup_db():
                             ),
                         ]
                     )
+            await session.commit()
+
+            bowling_matches = [
+                (
+                    "bm1",
+                    {
+                        "players": [
+                            {"id": "b1", "side": "A", "total": 220},
+                            {"id": "b2", "side": "B", "total": 180},
+                        ],
+                        "score": {"A": 220, "B": 180},
+                    },
+                ),
+                (
+                    "bm2",
+                    {
+                        "players": [
+                            {"id": "b1", "side": "A", "total": 210},
+                            {"id": "b3", "side": "B", "total": 190},
+                        ],
+                        "score": {"A": 210, "B": 190},
+                    },
+                ),
+            ]
+
+            for idx, (mid, details) in enumerate(bowling_matches):
+                session.add(Match(id=mid, sport_id="bowling", details=details))
+                session.add_all(
+                    [
+                        ScoreEvent(
+                            id=f"be{idx}a",
+                            match_id=mid,
+                            created_at=base + timedelta(hours=idx),
+                            type="RATING",
+                            payload={"playerId": "b1", "rating": 1005 + idx},
+                        ),
+                        ScoreEvent(
+                            id=f"be{idx}b",
+                            match_id=mid,
+                            created_at=base + timedelta(hours=idx, minutes=30),
+                            type="RATING",
+                            payload={
+                                "playerId": "b2" if idx == 0 else "b3",
+                                "rating": 995 - idx,
+                            },
+                        ),
+                    ]
+                )
+
+            session.add_all(
+                [
+                    MatchParticipant(
+                        id="bmp1", match_id="bm1", side="A", player_ids=["b1"]
+                    ),
+                    MatchParticipant(
+                        id="bmp2", match_id="bm1", side="B", player_ids=["b2"]
+                    ),
+                    MatchParticipant(
+                        id="bmp3", match_id="bm2", side="A", player_ids=["b1"]
+                    ),
+                    MatchParticipant(
+                        id="bmp4", match_id="bm2", side="B", player_ids=["b3"]
+                    ),
+                ]
+            )
             await session.commit()
 
     asyncio.run(init_models())
@@ -216,4 +292,24 @@ def test_master_leaderboard_excludes_deleted_players():
         data = resp.json()
         leaders = data["leaders"]
         assert "p4" not in [entry["playerId"] for entry in leaders]
-        assert data["total"] == len(leaders) == 3
+        assert data["total"] == len(leaders) == 6
+
+
+def test_bowling_leaderboard_includes_score_stats():
+    with TestClient(app) as client:
+        resp = client.get("/leaderboards", params={"sport": "bowling"})
+        assert resp.status_code == 200
+        data = resp.json()
+        leaders = {entry["playerId"]: entry for entry in data["leaders"]}
+        assert leaders["b1"]["matchesPlayed"] == 2
+        assert leaders["b1"]["highestScore"] == 220
+        assert leaders["b1"]["averageScore"] == pytest.approx(215.0)
+        assert leaders["b1"]["standardDeviation"] == pytest.approx(5.0)
+        assert leaders["b2"]["matchesPlayed"] == 1
+        assert leaders["b2"]["highestScore"] == 180
+        assert leaders["b2"]["averageScore"] == pytest.approx(180.0)
+        assert leaders["b2"]["standardDeviation"] == pytest.approx(0.0)
+        assert leaders["b3"]["matchesPlayed"] == 1
+        assert leaders["b3"]["highestScore"] == 190
+        assert leaders["b3"]["averageScore"] == pytest.approx(190.0)
+        assert leaders["b3"]["standardDeviation"] == pytest.approx(0.0)

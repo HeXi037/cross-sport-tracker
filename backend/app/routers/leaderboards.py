@@ -60,10 +60,11 @@ async def leaderboard(
         conditions.append(Player.club_id == club_id)
     stmt = stmt.where(*conditions).order_by(Rating.value.desc())
     # Fetch all rows so we can compute ranks and previous ranks.
-    all_rows = (await session.execute(stmt)).all()
-    total = len(all_rows) if all_rows is not None else 0
-    if not isinstance(total, int):
-        total = int(total or 0)
+    all_rows_result = await session.execute(stmt)
+    all_rows = list(all_rows_result.all() or [])
+    total_entries = len(all_rows) if all_rows is not None else 0
+    if not isinstance(total_entries, int):
+        total_entries = int(total_entries or 0)
     # Map player_id -> current rank and rating
     current_rank_map = {
         row.Rating.player_id: i + 1 for i, row in enumerate(all_rows)
@@ -127,22 +128,22 @@ async def leaderboard(
                     if not isinstance(entry, dict):
                         continue
                     pid = entry.get("id")
-                    total = entry.get("total")
+                    total_score = entry.get("total")
                     if (
                         isinstance(pid, str)
                         and pid in interim
-                        and isinstance(total, (int, float))
+                        and isinstance(total_score, (int, float))
                     ):
-                        totals_by_player[pid] = float(total)
+                        totals_by_player[pid] = float(total_score)
             recorded_players: list[str] = []
             for pid in participants:
-                total = totals_by_player.get(pid)
-                if total is None:
+                player_total = totals_by_player.get(pid)
+                if player_total is None:
                     continue
                 data = interim[pid]
                 scores = data.setdefault("scores", [])
                 if isinstance(scores, list):
-                    scores.append(float(total))
+                    scores.append(float(player_total))
                     recorded_players.append(pid)
             for pid in recorded_players:
                 matches_played = interim[pid].get("matches", 0)
@@ -246,7 +247,11 @@ async def leaderboard(
         )
 
     return LeaderboardOut(
-        sport=sport, leaders=leaders, total=total, limit=limit, offset=offset
+        sport=sport,
+        leaders=leaders,
+        total=total_entries,
+        limit=limit,
+        offset=offset,
     )
 
 
@@ -267,10 +272,11 @@ async def master_leaderboard(
         .where(Player.deleted_at.is_(None))
         .order_by(MasterRating.value.desc())
     )
-    all_rows = (await session.execute(stmt)).all()
-    total = len(all_rows) if all_rows is not None else 0
-    if not isinstance(total, int):
-        total = int(total or 0)
+    master_rows_result = await session.execute(stmt)
+    all_rows = list(master_rows_result.all() or [])
+    total_entries = len(all_rows) if all_rows is not None else 0
+    if not isinstance(total_entries, int):
+        total_entries = int(total_entries or 0)
     rows = all_rows[offset : offset + limit]
 
     leaders = []
@@ -290,5 +296,9 @@ async def master_leaderboard(
         )
 
     return LeaderboardOut(
-        sport="master", leaders=leaders, total=total, limit=limit, offset=offset
+        sport="master",
+        leaders=leaders,
+        total=total_entries,
+        limit=limit,
+        offset=offset,
     )

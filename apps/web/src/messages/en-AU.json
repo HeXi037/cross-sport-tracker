@@ -139,7 +139,8 @@
       "save": "Save once each side has at least one player and completed sets are entered as needed."
     },
     "messages": {
-      "matchRecorded": "Match recorded!"
+      "matchRecorded": "Match recorded!",
+      "padelAmericanoSaved": "Padel Americano tie saved. Update the players and scores to record the next tie."
     },
     "padel": {
       "hints": {

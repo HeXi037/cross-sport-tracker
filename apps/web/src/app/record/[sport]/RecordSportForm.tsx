@@ -1597,6 +1597,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       setSubmitting(true);
       const playedAt = buildPlayedAtISOString(date, time);
 
+      const trimmedClubId = clubId.trim();
       const payload = {
         sport,
         createMissing: true,
@@ -1606,11 +1607,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         ...(playedAt ? { playedAt } : {}),
         ...(location ? { location } : {}),
         ...(isFriendly ? { isFriendly: true } : {}),
+        ...(trimmedClubId ? { clubId: trimmedClubId } : {}),
       };
-      const trimmedClubId = clubId.trim();
-      if (trimmedClubId) {
-        (payload as { clubId: string }).clubId = trimmedClubId;
-      }
 
       await apiFetch(`/v0/matches/by-name`, {
         method: "POST",

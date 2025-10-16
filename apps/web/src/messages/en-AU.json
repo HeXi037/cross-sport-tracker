@@ -152,6 +152,13 @@
         "placeholderTeamA": "Tie-break A",
         "placeholderTeamB": "Tie-break B"
       }
+    },
+    "padelAmericano": {
+      "tieTargetLabel": "Tie target (total points)",
+      "tieTargetHint": "Total points on offer in the tie. Common picks: 16 (four serves each pair), 24 (six serves), or 32 (eight serves).",
+      "tieTargetRequired": "Pop in a positive tie target before saving your padel Americano tie.",
+      "tieTargetMismatchPrefix": "Padel Americano totals need to match your tie target of",
+      "tieTargetMismatchSuffix": "points. Tweak the scores."
     }
   }
 }

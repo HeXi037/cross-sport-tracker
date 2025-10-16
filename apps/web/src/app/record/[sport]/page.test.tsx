@@ -571,10 +571,10 @@ describe("RecordSportForm", () => {
       fireEvent.change(selects[3], { target: { value: "4" } });
 
       fireEvent.change(screen.getByLabelText(/team a score/i), {
-        target: { value: "32" },
+        target: { value: "24" },
       });
       fireEvent.change(screen.getByLabelText(/team b score/i), {
-        target: { value: "20" },
+        target: { value: "8" },
       });
 
       fireEvent.click(screen.getByRole("button", { name: /save/i }));
@@ -610,6 +610,7 @@ describe("RecordSportForm", () => {
         location: "Court 5",
         isFriendly: true,
         clubId: "club-1",
+        tieTarget: "32",
       });
 
       const payloadCall = fetchMock.mock.calls.find(([request]) =>
@@ -631,6 +632,100 @@ describe("RecordSportForm", () => {
       matchesCacheSpy.mockRestore();
       notificationsSpy.mockRestore();
     }
+  });
+
+  it("allows adjusting the padel Americano tie target", async () => {
+    const players = [
+      { id: "1", name: "Alice" },
+      { id: "2", name: "Bob" },
+      { id: "3", name: "Cara" },
+      { id: "4", name: "Dan" },
+    ];
+
+    const originalFetch = global.fetch;
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ players }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordSportForm sportId="padel_americano" />);
+
+    await screen.findAllByText("Alice");
+
+    fireEvent.change(screen.getByLabelText(/tie target/i), {
+      target: { value: "16" },
+    });
+
+    const selects = screen
+      .getAllByRole("combobox")
+      .filter((element) => element.id.startsWith("record-player"));
+    fireEvent.change(selects[0], { target: { value: "1" } });
+    fireEvent.change(selects[1], { target: { value: "2" } });
+    fireEvent.change(selects[2], { target: { value: "3" } });
+    fireEvent.change(selects[3], { target: { value: "4" } });
+
+    fireEvent.change(screen.getByLabelText(/team a score/i), {
+      target: { value: "11" },
+    });
+    fireEvent.change(screen.getByLabelText(/team b score/i), {
+      target: { value: "5" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const payload = JSON.parse(fetchMock.mock.calls[1][1].body as string);
+    expect(payload.sets).toEqual([[11, 5]]);
+
+    global.fetch = originalFetch;
+  });
+
+  it("shows an error when padel Americano totals do not match the tie target", async () => {
+    const players = [
+      { id: "1", name: "Alice" },
+      { id: "2", name: "Bob" },
+      { id: "3", name: "Cara" },
+      { id: "4", name: "Dan" },
+    ];
+
+    const originalFetch = global.fetch;
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ players }) });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordSportForm sportId="padel_americano" />);
+
+    await screen.findAllByText("Alice");
+
+    const selects = screen
+      .getAllByRole("combobox")
+      .filter((element) => element.id.startsWith("record-player"));
+    fireEvent.change(selects[0], { target: { value: "1" } });
+    fireEvent.change(selects[1], { target: { value: "2" } });
+    fireEvent.change(selects[2], { target: { value: "3" } });
+    fireEvent.change(selects[3], { target: { value: "4" } });
+
+    fireEvent.change(screen.getByLabelText(/team a score/i), {
+      target: { value: "10" },
+    });
+    fireEvent.change(screen.getByLabelText(/team b score/i), {
+      target: { value: "4" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+
+    expect(
+      await screen.findByText(
+        /totals must match your tie target of 32 points/i,
+      ),
+    ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    global.fetch = originalFetch;
   });
 
   it("submits numeric scores", async () => {

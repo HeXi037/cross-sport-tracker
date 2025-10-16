@@ -55,6 +55,7 @@ const DUPLICATE_PLAYERS_ERROR_CODE = "match_duplicate_players";
 const DUPLICATE_PLAYERS_REGEX = /duplicate players:\s*(.+)/i;
 
 const PADEL_AMERICANO_STORAGE_KEY = "record:padel-americano:defaults";
+const DEFAULT_PADEL_AMERICANO_TARGET = "32";
 
 function parseDuplicatePlayerNames(message?: string | null): string[] {
   if (typeof message !== "string") {
@@ -730,6 +731,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const hasLoadedPadelAmericanoDefaults = useRef(false);
   const [scoreA, setScoreA] = useState("0");
   const [scoreB, setScoreB] = useState("0");
+  const [padelAmericanoTarget, setPadelAmericanoTarget] = useState(
+    DEFAULT_PADEL_AMERICANO_TARGET,
+  );
   const [error, setError] = useState<string | null>(null);
   const [duplicatePlayerNames, setDuplicatePlayerNames] = useState<string[]>([]);
   const [date, setDate] = useState("");
@@ -812,6 +816,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     [sport],
   );
   const clubHintId = useId();
+  const padelAmericanoTargetHintId = useId();
   const timeHintText = useMemo(() => {
     const base = sportCopy.timeHint?.trim() ?? "";
     const exampleSuffix = uses24HourTime
@@ -859,6 +864,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         location?: string;
         isFriendly?: boolean;
         clubId?: string;
+        tieTarget?: string;
       } | null;
       if (parsed && typeof parsed === "object") {
         if (typeof parsed.date === "string") {
@@ -875,6 +881,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         }
         if (typeof parsed.clubId === "string") {
           setClubId(parsed.clubId);
+        }
+        if (typeof parsed.tieTarget === "string") {
+          setPadelAmericanoTarget(parsed.tieTarget);
         }
       }
     } catch (err) {
@@ -895,6 +904,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       location,
       isFriendly,
       clubId,
+      tieTarget: padelAmericanoTarget,
     };
     try {
       window.localStorage.setItem(
@@ -904,7 +914,15 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     } catch (err) {
       // Ignore persistence failures (e.g. private mode)
     }
-  }, [clubId, date, isFriendly, isPadelAmericano, location, time]);
+  }, [
+    clubId,
+    date,
+    isFriendly,
+    isPadelAmericano,
+    location,
+    padelAmericanoTarget,
+    time,
+  ]);
 
   const gameSeriesSummary = useMemo(() => {
     let winsA = 0;
@@ -1564,11 +1582,15 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       }
 
       if (isPadelAmericano) {
+        const targetValue = parseNonNegativeInteger(padelAmericanoTarget);
+        if (targetValue === null || targetValue <= 0) {
+          setError(recordT("padelAmericano.tieTargetRequired"));
+          return;
+        }
         const total = parsedA + parsedB;
-        if (total === 0) {
-          setError(
-            "Padel Americano totals must add up to your tie target. Enter the points earned by each pair.",
-          );
+        if (total !== targetValue) {
+          const message = `${recordT("padelAmericano.tieTargetMismatchPrefix")} ${targetValue} ${recordT("padelAmericano.tieTargetMismatchSuffix")}`;
+          setError(message);
           return;
         }
       } else if (isStandardPadel) {
@@ -1783,6 +1805,29 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
               </span>
             </label>
           </div>
+          {isPadelAmericano && (
+            <label className="form-field" htmlFor="padel-americano-target">
+              <span className="form-label">
+                {recordT("padelAmericano.tieTargetLabel")}
+              </span>
+              <input
+                id="padel-americano-target"
+                type="number"
+                min={1}
+                max={99}
+                step="1"
+                value={padelAmericanoTarget}
+                onChange={(event) =>
+                  setPadelAmericanoTarget(event.target.value)
+                }
+                aria-describedby={padelAmericanoTargetHintId}
+                inputMode="numeric"
+              />
+              <span id={padelAmericanoTargetHintId} className="form-hint">
+                {recordT("padelAmericano.tieTargetHint")}
+              </span>
+            </label>
+          )}
           {isPadelAmericano && (
             <div className="form-field">
               <label className="form-label" htmlFor="record-club-select">

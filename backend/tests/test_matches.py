@@ -1880,3 +1880,126 @@ async def test_match_audit_returns_entries(tmp_path):
     assert data[1]["actor"] is None
     assert data[0]["metadata"] == {"note": "first"}
     assert data[0]["createdAt"].startswith("2024-01-01T12:00:00")
+
+
+@pytest.mark.anyio
+async def test_match_audit_feed_requires_admin(tmp_path):
+  from fastapi import FastAPI
+  from fastapi.testclient import TestClient
+  from slowapi.errors import RateLimitExceeded
+  from app import db
+  from app.models import Match, MatchAuditLog, Sport, User
+  from app.routers import auth, matches
+  from app.routers.auth import get_current_user
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+      db.Base.metadata.create_all,
+      tables=[Sport.__table__, Match.__table__, MatchAuditLog.__table__, User.__table__],
+    )
+
+  async with db.AsyncSessionLocal() as session:
+    session.add_all([
+      Sport(id="padel", name="Padel"),
+      User(id="viewer", username="viewer", password_hash="x", is_admin=False),
+      Match(id="m-history", sport_id="padel", is_friendly=True),
+      MatchAuditLog(
+        id="log-history",
+        match_id="m-history",
+        actor_user_id=None,
+        action="created",
+        created_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+      ),
+    ])
+    await session.commit()
+
+  app = FastAPI()
+  app.state.limiter = auth.limiter
+  app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
+  app.include_router(matches.router)
+  app.dependency_overrides[get_current_user] = lambda: User(
+    id="viewer", username="viewer", password_hash="x", is_admin=False
+  )
+
+  with TestClient(app) as client:
+    resp = client.get("/matches/audit")
+    assert resp.status_code == 403
+    assert resp.json()["detail"] == "forbidden"
+
+
+@pytest.mark.anyio
+async def test_match_audit_feed_returns_paginated_entries(tmp_path):
+  from fastapi import FastAPI
+  from fastapi.testclient import TestClient
+  from slowapi.errors import RateLimitExceeded
+  from app import db
+  from app.models import Match, MatchAuditLog, Sport, User
+  from app.routers import auth, matches
+  from app.routers.auth import get_current_user
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+      db.Base.metadata.create_all,
+      tables=[Sport.__table__, Match.__table__, MatchAuditLog.__table__, User.__table__],
+    )
+
+  async with db.AsyncSessionLocal() as session:
+    admin = User(id="admin", username="admin", password_hash="x", is_admin=True)
+    actor = User(id="actor", username="alice", password_hash="x", is_admin=False)
+    session.add_all([
+      Sport(id="padel", name="Padel"),
+      admin,
+      actor,
+      Match(id="m-history", sport_id="padel", is_friendly=True),
+      Match(id="m-history-2", sport_id="padel", is_friendly=False),
+      MatchAuditLog(
+        id="log-a",
+        match_id="m-history",
+        actor_user_id="actor",
+        action="created",
+        payload={"note": "first"},
+        created_at=datetime(2024, 1, 1, 10, tzinfo=timezone.utc),
+      ),
+      MatchAuditLog(
+        id="log-b",
+        match_id="m-history-2",
+        actor_user_id="admin",
+        action="deleted",
+        payload=None,
+        created_at=datetime(2024, 1, 2, 11, tzinfo=timezone.utc),
+      ),
+    ])
+    await session.commit()
+
+  app = FastAPI()
+  app.state.limiter = auth.limiter
+  app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
+  app.include_router(matches.router)
+  app.dependency_overrides[get_current_user] = lambda: User(
+    id="admin", username="admin", password_hash="x", is_admin=True
+  )
+
+  with TestClient(app) as client:
+    resp = client.get("/matches/audit", params={"limit": 1})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["hasMore"] is True
+    assert data["nextOffset"] == 1
+    assert data["items"][0]["action"] == "deleted"
+    assert data["items"][0]["matchId"] == "m-history-2"
+    assert data["items"][0]["matchSport"] == "padel"
+    assert data["items"][0]["matchIsFriendly"] is False
+
+    resp2 = client.get("/matches/audit", params={"limit": 2, "offset": data["nextOffset"]})
+    assert resp2.status_code == 200
+    data2 = resp2.json()
+    assert data2["hasMore"] is False
+    assert data2["nextOffset"] is None
+    assert [item["action"] for item in data2["items"]] == ["created"]
+    assert data2["items"][0]["actor"]["username"] == "alice"

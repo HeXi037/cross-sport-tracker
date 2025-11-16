@@ -865,6 +865,25 @@ class MatchAuditLogEntryOut(BaseModel):
     metadata: Dict[str, Any] | None = None
 
 
+class MatchAuditLogEntryWithMatchOut(MatchAuditLogEntryOut):
+    """Audit log entry that also includes contextual match metadata."""
+
+    matchId: str
+    matchSport: str | None = None
+    matchPlayedAt: datetime | None = None
+    matchIsFriendly: bool | None = None
+
+
+class MatchAuditLogPageOut(BaseModel):
+    """Paginated audit log response with navigation metadata."""
+
+    items: List[MatchAuditLogEntryWithMatchOut] = Field(default_factory=list)
+    limit: int
+    offset: int
+    hasMore: bool = False
+    nextOffset: Optional[int] = None
+
+
 class MatchOut(BaseModel):
     """Detailed match information returned by the API."""
 

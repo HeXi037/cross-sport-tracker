@@ -146,6 +146,16 @@ export default function Header() {
               </li>
               <li>
                 <Link
+                  href={ensureTrailingSlash('/admin/match-history')}
+                  className={linkClassName('/admin/match-history')}
+                  aria-current={linkAriaCurrent('/admin/match-history')}
+                  onClick={() => setOpen(false)}
+                >
+                  {headerT('links.adminMatchHistory')}
+                </Link>
+              </li>
+              <li>
+                <Link
                   href={ensureTrailingSlash('/admin/clubs')}
                   className={linkClassName('/admin/clubs')}
                   aria-current={linkAriaCurrent('/admin/clubs')}

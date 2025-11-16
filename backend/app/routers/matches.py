@@ -37,6 +37,8 @@ from ..schemas import (
     ParticipantOut,
     ScoreEventOut,
     MatchAuditLogEntryOut,
+    MatchAuditLogEntryWithMatchOut,
+    MatchAuditLogPageOut,
     UserOut,
 )
 from .streams import broadcast
@@ -903,6 +905,73 @@ async def create_match_by_name_route(
     user: User = Depends(get_current_user),
 ) -> MatchIdOut:
     return await create_match_by_name(body, session, user)
+
+# GET /api/v0/matches/audit
+@router.get("/audit", response_model=MatchAuditLogPageOut)
+async def list_all_match_audit_entries(
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    if not user.is_admin:
+        raise http_problem(
+            status_code=403,
+            detail="forbidden",
+            code="match_forbidden",
+        )
+
+    rows = (
+        await session.execute(
+            select(MatchAuditLog, Match, User)
+            .join(Match, MatchAuditLog.match_id == Match.id)
+            .join(User, MatchAuditLog.actor_user_id == User.id, isouter=True)
+            .order_by(MatchAuditLog.created_at.desc(), MatchAuditLog.id.desc())
+            .offset(offset)
+            .limit(limit + 1)
+        )
+    ).all()
+
+    has_more = len(rows) > limit
+    if has_more:
+        rows = rows[:-1]
+
+    entries: list[MatchAuditLogEntryWithMatchOut] = []
+    for log_entry, match, actor in rows:
+        actor_summary = (
+            UserOut(
+                id=actor.id,
+                username=actor.username,
+                is_admin=actor.is_admin,
+                photo_url=actor.photo_url,
+            )
+            if actor
+            else None
+        )
+        entries.append(
+            MatchAuditLogEntryWithMatchOut(
+                id=log_entry.id,
+                action=log_entry.action,
+                actor=actor_summary,
+                createdAt=_coerce_utc(log_entry.created_at),
+                metadata=log_entry.payload,
+                matchId=log_entry.match_id,
+                matchSport=match.sport_id,
+                matchPlayedAt=_coerce_utc(match.played_at),
+                matchIsFriendly=match.is_friendly,
+            )
+        )
+
+    next_offset = offset + len(rows) if has_more else None
+
+    return MatchAuditLogPageOut(
+        items=entries,
+        limit=limit,
+        offset=offset,
+        hasMore=has_more,
+        nextOffset=next_offset,
+    )
+
 
 # GET /api/v0/matches/{mid}
 @router.get("/{mid}", response_model=MatchOut)

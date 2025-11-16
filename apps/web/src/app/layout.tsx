@@ -355,6 +355,9 @@ const NAVIGATION_TRACKER_SCRIPT = `(() => {
 export const metadata = {
   title: 'cross-sport-tracker',
   description: 'Ongoing self-hosted project',
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default async function RootLayout({

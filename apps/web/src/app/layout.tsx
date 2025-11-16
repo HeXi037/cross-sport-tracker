@@ -8,6 +8,7 @@ import LocalizedMessagesProvider from '../components/LocalizedMessagesProvider';
 import { cookies } from 'next/headers';
 import { createTranslator } from 'use-intl';
 import Script from 'next/script';
+import type { Metadata } from 'next';
 import type enMessages from '../messages/en-GB.json';
 import { LocaleProvider } from '../lib/LocaleContext';
 import { resolveServerLocale } from '../lib/server-locale';
@@ -352,11 +353,18 @@ const NAVIGATION_TRACKER_SCRIPT = `(() => {
   update();
 })();`;
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'cross-sport-tracker',
   description: 'Ongoing self-hosted project',
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      {
+        rel: 'icon',
+        url: '/favicon.ico',
+        type: 'image/x-icon',
+      },
+    ],
+    shortcut: ['/favicon.ico'],
   },
 };
 

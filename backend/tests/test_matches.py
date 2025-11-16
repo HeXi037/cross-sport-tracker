@@ -1774,3 +1774,109 @@ async def test_delete_match_writes_audit_log(tmp_path, monkeypatch):
     ).scalars().all()
     assert len(logs) == 1
     assert logs[0].actor_user_id == admin.id
+
+
+@pytest.mark.anyio
+async def test_match_audit_requires_admin(tmp_path):
+  from fastapi import FastAPI
+  from fastapi.testclient import TestClient
+  from slowapi.errors import RateLimitExceeded
+  from app import db
+  from app.models import Match, MatchAuditLog, Sport, User
+  from app.routers import auth, matches
+  from app.routers.auth import get_current_user
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+      db.Base.metadata.create_all,
+      tables=[Sport.__table__, Match.__table__, MatchAuditLog.__table__, User.__table__],
+    )
+
+  async with db.AsyncSessionLocal() as session:
+    session.add_all([
+      Sport(id="padel", name="Padel"),
+      User(id="viewer", username="viewer", password_hash="x", is_admin=False),
+      Match(id="m-audit", sport_id="padel", is_friendly=True),
+    ])
+    await session.commit()
+
+  app = FastAPI()
+  app.state.limiter = auth.limiter
+  app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
+  app.include_router(matches.router)
+  app.dependency_overrides[get_current_user] = lambda: User(
+    id="viewer", username="viewer", password_hash="x", is_admin=False
+  )
+
+  with TestClient(app) as client:
+    resp = client.get("/matches/m-audit/audit")
+    assert resp.status_code == 403
+    assert resp.json()["detail"] == "forbidden"
+
+
+@pytest.mark.anyio
+async def test_match_audit_returns_entries(tmp_path):
+  from fastapi import FastAPI
+  from fastapi.testclient import TestClient
+  from slowapi.errors import RateLimitExceeded
+  from app import db
+  from app.models import Match, MatchAuditLog, Sport, User
+  from app.routers import auth, matches
+  from app.routers.auth import get_current_user
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+      db.Base.metadata.create_all,
+      tables=[Sport.__table__, Match.__table__, MatchAuditLog.__table__, User.__table__],
+    )
+
+  async with db.AsyncSessionLocal() as session:
+    admin = User(id="admin", username="admin", password_hash="x", is_admin=True)
+    actor = User(id="actor", username="alice", password_hash="x", is_admin=False)
+    session.add_all([
+      Sport(id="padel", name="Padel"),
+      admin,
+      actor,
+      Match(id="m-audit", sport_id="padel", is_friendly=True),
+      MatchAuditLog(
+        id="log1",
+        match_id="m-audit",
+        actor_user_id="actor",
+        action="created",
+        payload={"note": "first"},
+        created_at=datetime(2024, 1, 1, 12, tzinfo=timezone.utc),
+      ),
+      MatchAuditLog(
+        id="log2",
+        match_id="m-audit",
+        actor_user_id=None,
+        action="system_update",
+        payload=None,
+        created_at=datetime(2024, 1, 2, 12, tzinfo=timezone.utc),
+      ),
+    ])
+    await session.commit()
+
+  app = FastAPI()
+  app.state.limiter = auth.limiter
+  app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
+  app.include_router(matches.router)
+  app.dependency_overrides[get_current_user] = lambda: User(
+    id="admin", username="admin", password_hash="x", is_admin=True
+  )
+
+  with TestClient(app) as client:
+    resp = client.get("/matches/m-audit/audit")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert [entry["action"] for entry in data] == ["created", "system_update"]
+    assert data[0]["actor"]["username"] == "alice"
+    assert data[1]["actor"] is None
+    assert data[0]["metadata"] == {"note": "first"}
+    assert data[0]["createdAt"].startswith("2024-01-01T12:00:00")

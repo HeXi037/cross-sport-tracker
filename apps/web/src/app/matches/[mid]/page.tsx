@@ -7,6 +7,7 @@ import LiveSummary from "./live-summary";
 import MatchParticipants from "../../../components/MatchParticipants";
 import { PlayerInfo } from "../../../components/PlayerName";
 import ShareMatchButton from "./ShareMatchButton";
+import MatchAuditHistory from "./MatchAuditHistory";
 import { formatDate, formatDateTime, resolveTimeZone } from "../../../lib/i18n";
 import { hasTimeComponent } from "../../../lib/datetime";
 import { ensureTrailingSlash, recordPathForSport } from "../../../lib/routes";
@@ -1031,6 +1032,11 @@ export default async function MatchDetailPage({
             ))}
           </dl>
         </section>
+        <MatchAuditHistory
+          mid={params.mid}
+          locale={locale}
+          timeZone={timeZone}
+        />
       </div>
       <LiveSummary
         mid={params.mid}

@@ -330,6 +330,7 @@ async def test_normal_user_can_delete_own_americano():
     from sqlalchemy import select
     from app.models import (
         Match,
+        MatchAuditLog,
         MatchParticipant,
         ScoreEvent,
         Sport,
@@ -353,6 +354,7 @@ async def test_normal_user_can_delete_own_americano():
                 Stage.__table__,
                 StageStanding.__table__,
                 Match.__table__,
+                MatchAuditLog.__table__,
                 MatchParticipant.__table__,
                 ScoreEvent.__table__,
                 User.__table__,
@@ -448,6 +450,7 @@ async def test_normal_user_cannot_delete_other_users_tournament():
     from app import db
     from app.models import (
         Match,
+        MatchAuditLog,
         MatchParticipant,
         ScoreEvent,
         Sport,
@@ -471,6 +474,7 @@ async def test_normal_user_cannot_delete_other_users_tournament():
                 Stage.__table__,
                 StageStanding.__table__,
                 Match.__table__,
+                MatchAuditLog.__table__,
                 MatchParticipant.__table__,
                 ScoreEvent.__table__,
                 User.__table__,
@@ -700,6 +704,7 @@ async def test_admin_can_delete_user_tournament():
     from app import db
     from app.models import (
         Match,
+        MatchAuditLog,
         MatchParticipant,
         ScoreEvent,
         Sport,
@@ -723,6 +728,7 @@ async def test_admin_can_delete_user_tournament():
                 Stage.__table__,
                 StageStanding.__table__,
                 Match.__table__,
+                MatchAuditLog.__table__,
                 MatchParticipant.__table__,
                 ScoreEvent.__table__,
                 User.__table__,
@@ -784,6 +790,7 @@ async def test_owner_can_schedule_their_americano_stage(monkeypatch):
     from app import db
     from app.models import (
         Match,
+        MatchAuditLog,
         MatchParticipant,
         Player,
         RuleSet,
@@ -810,6 +817,7 @@ async def test_owner_can_schedule_their_americano_stage(monkeypatch):
                 Player.__table__,
                 RuleSet.__table__,
                 Match.__table__,
+                MatchAuditLog.__table__,
                 MatchParticipant.__table__,
                 StageStanding.__table__,
                 ScoreEvent.__table__,
@@ -888,6 +896,7 @@ async def test_stage_schedule_rejects_invalid_type(monkeypatch):
         Player,
         RuleSet,
         Match,
+        MatchAuditLog,
         MatchParticipant,
         StageStanding,
         ScoreEvent,
@@ -910,6 +919,7 @@ async def test_stage_schedule_rejects_invalid_type(monkeypatch):
                 Player.__table__,
                 RuleSet.__table__,
                 Match.__table__,
+                MatchAuditLog.__table__,
                 MatchParticipant.__table__,
                 StageStanding.__table__,
                 ScoreEvent.__table__,
@@ -989,6 +999,7 @@ async def test_stage_schedule_and_standings_flow(monkeypatch):
         Player,
         RuleSet,
         Match,
+        MatchAuditLog,
         MatchParticipant,
         StageStanding,
         ScoreEvent,
@@ -1011,6 +1022,7 @@ async def test_stage_schedule_and_standings_flow(monkeypatch):
                 Player.__table__,
                 RuleSet.__table__,
                 Match.__table__,
+                MatchAuditLog.__table__,
                 MatchParticipant.__table__,
                 StageStanding.__table__,
                 ScoreEvent.__table__,
@@ -1130,6 +1142,7 @@ async def test_americano_match_events_trigger_rating(monkeypatch):
         Player,
         RuleSet,
         Match,
+        MatchAuditLog,
         MatchParticipant,
         StageStanding,
         ScoreEvent,
@@ -1156,6 +1169,7 @@ async def test_americano_match_events_trigger_rating(monkeypatch):
                 Player.__table__,
                 RuleSet.__table__,
                 Match.__table__,
+                MatchAuditLog.__table__,
                 MatchParticipant.__table__,
                 StageStanding.__table__,
                 ScoreEvent.__table__,
@@ -1269,6 +1283,7 @@ async def test_schedule_americano_balances_odd_roster():
     from app import db
     from app.models import (
         Match,
+        MatchAuditLog,
         MatchParticipant,
         Player,
         RuleSet,
@@ -1292,6 +1307,7 @@ async def test_schedule_americano_balances_odd_roster():
                 Player.__table__,
                 RuleSet.__table__,
                 Match.__table__,
+                MatchAuditLog.__table__,
                 MatchParticipant.__table__,
                 StageStanding.__table__,
             ],
@@ -1351,6 +1367,7 @@ async def test_list_stage_matches_filters_and_includes_stage_id():
         Tournament,
         Stage,
         Match,
+        MatchAuditLog,
         MatchParticipant,
         ScoreEvent,
         Player,
@@ -1368,6 +1385,7 @@ async def test_list_stage_matches_filters_and_includes_stage_id():
                 Tournament.__table__,
                 Stage.__table__,
                 Match.__table__,
+                MatchAuditLog.__table__,
                 MatchParticipant.__table__,
                 ScoreEvent.__table__,
                 Player.__table__,

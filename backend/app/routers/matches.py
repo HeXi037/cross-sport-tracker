@@ -15,6 +15,7 @@ from ..cache import player_stats_cache
 from ..models import (
     Club,
     Match,
+    MatchAuditLog,
     MatchParticipant,
     Player,
     ScoreEvent,
@@ -507,6 +508,15 @@ async def create_match(
         is_friendly=body.isFriendly,
     )
     session.add(match)
+    session.add(
+        MatchAuditLog(
+            id=uuid.uuid4().hex,
+            match_id=mid,
+            actor_user_id=user.id,
+            action="created",
+            payload={"payload": body.model_dump(mode="json")},
+        )
+    )
 
     player_sides: dict[str, str] = {}
     side_players: dict[str, list[str]] = {}
@@ -982,6 +992,15 @@ async def delete_match(
     sport_id = m.sport_id
     stage_id = m.stage_id
     m.deleted_at = func.now()
+    session.add(
+        MatchAuditLog(
+            id=uuid.uuid4().hex,
+            match_id=mid,
+            actor_user_id=user.id,
+            action="deleted",
+            payload=None,
+        )
+    )
     await session.flush()
     if stage_id:
         await recompute_stage_standings(stage_id, session)
@@ -1145,6 +1164,15 @@ async def append_event(
         payload=payload,
     )
     session.add(e)
+    session.add(
+        MatchAuditLog(
+            id=uuid.uuid4().hex,
+            match_id=mid,
+            actor_user_id=user.id,
+            action="recorded",
+            payload={"event": payload},
+        )
+    )
     m.details = engine.summary(state)
     summary = m.details if isinstance(m.details, dict) else None
 

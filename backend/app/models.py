@@ -153,6 +153,21 @@ class ScoreEvent(Base):
     type = Column(String, nullable=False)
     payload = Column(JSON, nullable=False)
 
+
+class MatchAuditLog(Base):
+    __tablename__ = "match_audit_log"
+
+    id = Column(String, primary_key=True)
+    match_id = Column(String, ForeignKey("match.id", ondelete="CASCADE"), nullable=False)
+    actor_user_id = Column(String, ForeignKey("user.id"), nullable=True)
+    action = Column(String, nullable=False)
+    payload = Column("metadata", JSON().with_variant(JSONB, "postgresql"), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_match_audit_log_match_id", "match_id"),
+    )
+
 class Rating(Base):
     __tablename__ = "rating"
     id = Column(String, primary_key=True)

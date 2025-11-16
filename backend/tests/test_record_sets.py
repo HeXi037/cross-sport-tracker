@@ -17,6 +17,7 @@ from sqlalchemy import select
 from backend.app.db import Base, get_session
 from backend.app.models import (
     Match,
+    MatchAuditLog,
     Sport,
     ScoreEvent,
     MatchParticipant,
@@ -47,6 +48,7 @@ def client_and_session():
         async with engine.begin() as conn:
             await conn.run_sync(Sport.__table__.create)
             await conn.run_sync(Match.__table__.create)
+            await conn.run_sync(MatchAuditLog.__table__.create)
             await conn.run_sync(MatchParticipant.__table__.create)
             await conn.run_sync(ScoreEvent.__table__.create)
             await conn.run_sync(Player.__table__.create)

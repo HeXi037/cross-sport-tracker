@@ -15,7 +15,15 @@ from sqlalchemy import select
 from sqlalchemy.dialects.sqlite import JSON
 
 from backend.app.db import Base, get_session
-from backend.app.models import Match, Sport, ScoreEvent, MatchParticipant, Player, User
+from backend.app.models import (
+    Match,
+    MatchAuditLog,
+    Sport,
+    ScoreEvent,
+    MatchParticipant,
+    Player,
+    User,
+)
 from backend.app.routers import matches, auth
 from backend.app.scoring import disc_golf
 from backend.app.routers.auth import get_current_user
@@ -36,6 +44,7 @@ def client_and_session():
         async with engine.begin() as conn:
             await conn.run_sync(Sport.__table__.create)
             await conn.run_sync(Match.__table__.create)
+            await conn.run_sync(MatchAuditLog.__table__.create)
             await conn.run_sync(ScoreEvent.__table__.create)
             # MatchParticipant uses ARRAY which SQLite doesn't support; patch to JSON
             MatchParticipant.__table__.columns["player_ids"].type = JSON()

@@ -10,7 +10,7 @@ from sqlalchemy import select, text
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from app.models import Stage
+from app.models import MatchAuditLog, Stage
 
 
 @pytest.fixture
@@ -153,6 +153,7 @@ async def test_create_match_rejects_duplicate_players(tmp_path):
             Club.__table__,
             Match.__table__,
             MatchParticipant.__table__,
+        MatchAuditLog.__table__,
         ],
     )
 
@@ -191,6 +192,7 @@ async def test_create_match_rejects_unknown_club(tmp_path):
         Stage.__table__,
         Match.__table__,
         MatchParticipant.__table__,
+        MatchAuditLog.__table__,
       ],
     )
 
@@ -238,6 +240,7 @@ async def test_create_match_friendly_skips_stat_updates(tmp_path, monkeypatch):
         Stage.__table__,
         Match.__table__,
         MatchParticipant.__table__,
+        MatchAuditLog.__table__,
         ScoreEvent.__table__,
       ],
     )
@@ -308,6 +311,7 @@ async def test_create_match_by_name_is_case_insensitive(tmp_path):
         Stage.__table__,
         Match.__table__,
         MatchParticipant.__table__,
+        MatchAuditLog.__table__,
       ],
     )
 
@@ -351,6 +355,7 @@ async def test_create_match_by_name_trims_whitespace(tmp_path):
         Stage.__table__,
         Match.__table__,
         MatchParticipant.__table__,
+        MatchAuditLog.__table__,
       ],
     )
 
@@ -398,6 +403,7 @@ async def test_create_match_with_sets(tmp_path):
         Stage.__table__,
         Match.__table__,
         MatchParticipant.__table__,
+        MatchAuditLog.__table__,
       ],
     )
 
@@ -445,6 +451,7 @@ async def test_create_match_with_details(tmp_path):
         Stage.__table__,
         Match.__table__,
         MatchParticipant.__table__,
+        MatchAuditLog.__table__,
       ],
     )
 
@@ -627,6 +634,7 @@ async def test_create_match_with_draw_updates_ratings(tmp_path):
         Player.__table__,
         Match.__table__,
         MatchParticipant.__table__,
+        MatchAuditLog.__table__,
         Rating.__table__,
         GlickoRating.__table__,
         PlayerMetric.__table__,
@@ -688,6 +696,7 @@ async def test_create_match_by_name_with_sets(tmp_path):
         Stage.__table__,
         Match.__table__,
         MatchParticipant.__table__,
+        MatchAuditLog.__table__,
       ],
     )
 
@@ -734,6 +743,7 @@ async def test_create_match_by_name_accepts_list_of_set_pairs(tmp_path, monkeypa
         Stage.__table__,
         Match.__table__,
         MatchParticipant.__table__,
+        MatchAuditLog.__table__,
         ScoreEvent.__table__,
       ],
     )
@@ -795,6 +805,7 @@ async def test_create_match_normalizes_timezone(tmp_path):
         Stage.__table__,
         Match.__table__,
         MatchParticipant.__table__,
+        MatchAuditLog.__table__,
       ],
     )
 
@@ -853,6 +864,7 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
             Stage.__table__,
             Match.__table__,
             MatchParticipant.__table__,
+        MatchAuditLog.__table__,
             Player.__table__,
         ],
     )
@@ -930,6 +942,7 @@ async def test_list_matches_upcoming_filter(tmp_path):
             Stage.__table__,
             Match.__table__,
             MatchParticipant.__table__,
+        MatchAuditLog.__table__,
             Player.__table__,
         ],
     )
@@ -985,6 +998,7 @@ async def test_list_matches_omits_soft_deleted_player_details(tmp_path):
             Stage.__table__,
             Match.__table__,
             MatchParticipant.__table__,
+        MatchAuditLog.__table__,
             Player.__table__,
         ],
     )
@@ -1075,6 +1089,7 @@ def test_list_matches_filters_by_player(tmp_path):
               Stage.__table__,
               Match.__table__,
               MatchParticipant.__table__,
+        MatchAuditLog.__table__,
           ],
       )
 
@@ -1142,6 +1157,7 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
 
   async with engine.begin() as conn:
     await conn.run_sync(Match.__table__.create)
+    await conn.run_sync(MatchAuditLog.__table__.create)
     await conn.run_sync(ScoreEvent.__table__.create)
     await conn.run_sync(User.__table__.create)
     await conn.run_sync(Player.__table__.create)
@@ -1225,6 +1241,7 @@ async def test_delete_match_missing_returns_404(tmp_path):
 
   async with engine.begin() as conn:
     await conn.run_sync(Match.__table__.create)
+    await conn.run_sync(MatchAuditLog.__table__.create)
     await conn.run_sync(User.__table__.create)
     await conn.run_sync(Player.__table__.create)
     await conn.run_sync(RefreshToken.__table__.create)
@@ -1287,6 +1304,7 @@ async def test_delete_match_updates_ratings_and_leaderboard(tmp_path):
             GlickoRating.__table__,
             Stage.__table__,
             Match.__table__,
+            MatchAuditLog.__table__,
             ScoreEvent.__table__,
         ],
     )
@@ -1394,6 +1412,7 @@ async def test_score_totals_influence_multi_side_rankings(tmp_path):
             GlickoRating.__table__,
             Stage.__table__,
             Match.__table__,
+            MatchAuditLog.__table__,
             ScoreEvent.__table__,
         ],
     )
@@ -1472,6 +1491,7 @@ async def test_create_match_rejects_naive_date(tmp_path):
             Sport.__table__,
             Stage.__table__,
             Match.__table__,
+            MatchAuditLog.__table__,
         ],
     )
 
@@ -1518,6 +1538,7 @@ async def test_user_with_multiple_player_records_can_modify_match(tmp_path):
             Stage.__table__,
             Match.__table__,
             MatchParticipant.__table__,
+        MatchAuditLog.__table__,
             ScoreEvent.__table__,
             Player.__table__,
         ],
@@ -1551,3 +1572,205 @@ async def test_user_with_multiple_player_records_can_modify_match(tmp_path):
         await session.execute(select(Match.deleted_at).where(Match.id == "m1"))
     ).scalar_one()
     assert deleted_at is not None
+
+
+@pytest.mark.anyio
+async def test_create_match_writes_audit_log(tmp_path, monkeypatch):
+  from app import db
+  from app.models import Match, MatchParticipant, Player, ScoreEvent, Sport, User
+  from app.routers import matches
+  from app.schemas import MatchCreate, Participant
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+      db.Base.metadata.create_all,
+      tables=[
+        Sport.__table__,
+        Player.__table__,
+        Stage.__table__,
+        Match.__table__,
+        MatchParticipant.__table__,
+        ScoreEvent.__table__,
+        MatchAuditLog.__table__,
+      ],
+    )
+
+  async def noop(*args, **kwargs):  # type: ignore[no-untyped-def]
+    return None
+
+  monkeypatch.setattr(matches, "broadcast", noop)
+  monkeypatch.setattr(matches, "notify_match_recorded", noop)
+  monkeypatch.setattr(
+    matches.player_stats_cache,
+    "invalidate_players",
+    noop,
+  )
+
+  async with db.AsyncSessionLocal() as session:
+    session.add_all([
+      Sport(id="padel", name="Padel"),
+      Player(id="pa", name="Alice"),
+      Player(id="pb", name="Bob"),
+    ])
+    await session.commit()
+
+    body = MatchCreate(
+      sport="padel",
+      participants=[
+        Participant(side="A", playerIds=["pa"]),
+        Participant(side="B", playerIds=["pb"]),
+      ],
+      sets=[[6, 0], [6, 0]],
+      isFriendly=True,
+    )
+    admin = User(id="admin", username="admin", password_hash="", is_admin=True)
+    resp = await matches.create_match(body, session, user=admin)
+
+    logs = (
+      await session.execute(
+        select(MatchAuditLog)
+        .where(MatchAuditLog.match_id == resp.id)
+        .order_by(MatchAuditLog.created_at)
+      )
+    ).scalars().all()
+    assert [log.action for log in logs] == ["created"]
+    assert logs[0].actor_user_id == admin.id
+    assert logs[0].payload and logs[0].payload["payload"]["sport"] == "padel"
+
+
+@pytest.mark.anyio
+async def test_append_event_writes_audit_log(tmp_path, monkeypatch):
+  from app import db
+  from app.models import Match, MatchParticipant, Player, ScoreEvent, Sport, User
+  from app.routers import matches
+  from app.schemas import EventIn
+  from app.scoring import padel as padel_engine
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+      db.Base.metadata.create_all,
+      tables=[
+        Sport.__table__,
+        Player.__table__,
+        Stage.__table__,
+        Match.__table__,
+        MatchParticipant.__table__,
+        ScoreEvent.__table__,
+        MatchAuditLog.__table__,
+      ],
+    )
+
+  async def noop(*args, **kwargs):  # type: ignore[no-untyped-def]
+    return None
+
+  monkeypatch.setattr(matches, "broadcast", noop)
+  monkeypatch.setattr(
+    matches.player_stats_cache,
+    "invalidate_players",
+    noop,
+  )
+  monkeypatch.setattr(matches.importlib, "import_module", lambda *args, **kwargs: padel_engine)
+
+  async with db.AsyncSessionLocal() as session:
+    session.add_all([
+      Sport(id="padel", name="Padel"),
+      Player(id="pa", name="Alice"),
+      Player(id="pb", name="Bob"),
+      Match(id="m1", sport_id="padel"),
+      MatchParticipant(id="mpa", match_id="m1", side="A", player_ids=["pa"]),
+      MatchParticipant(id="mpb", match_id="m1", side="B", player_ids=["pb"]),
+    ])
+    await session.commit()
+
+    admin = User(id="admin", username="admin", password_hash="", is_admin=True)
+    await matches.append_event(
+      "m1",
+      EventIn(type="POINT", by="A"),
+      session=session,
+      user=admin,
+    )
+
+    logs = (
+      await session.execute(
+        select(MatchAuditLog).where(
+          MatchAuditLog.match_id == "m1",
+          MatchAuditLog.action == "recorded",
+        )
+      )
+    ).scalars().all()
+    assert len(logs) == 1
+    assert logs[0].actor_user_id == admin.id
+    expected_event = {
+      "type": "POINT",
+      "by": "A",
+      "pins": None,
+      "side": None,
+      "hole": None,
+      "strokes": None,
+    }
+    assert logs[0].payload == {"event": expected_event}
+
+
+@pytest.mark.anyio
+async def test_delete_match_writes_audit_log(tmp_path, monkeypatch):
+  from app import db
+  from app.models import Match, MatchParticipant, Player, Rating, Sport, User
+  from app.routers import matches
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+      db.Base.metadata.create_all,
+      tables=[
+        Sport.__table__,
+        Player.__table__,
+        Stage.__table__,
+        Match.__table__,
+        MatchParticipant.__table__,
+        Rating.__table__,
+        MatchAuditLog.__table__,
+      ],
+    )
+
+  async def noop(*args, **kwargs):  # type: ignore[no-untyped-def]
+    return None
+
+  monkeypatch.setattr(matches, "update_ratings", noop)
+  monkeypatch.setattr(
+    matches.player_stats_cache,
+    "invalidate_players",
+    noop,
+  )
+
+  async with db.AsyncSessionLocal() as session:
+    session.add_all([
+      Sport(id="padel", name="Padel"),
+      Player(id="pa", name="Alice"),
+      Player(id="pb", name="Bob"),
+      Match(id="m1", sport_id="padel"),
+      MatchParticipant(id="mpa", match_id="m1", side="A", player_ids=["pa"]),
+      MatchParticipant(id="mpb", match_id="m1", side="B", player_ids=["pb"]),
+    ])
+    await session.commit()
+
+    admin = User(id="admin", username="admin", password_hash="", is_admin=True)
+    await matches.delete_match("m1", session=session, user=admin)
+
+    logs = (
+      await session.execute(
+        select(MatchAuditLog).where(
+          MatchAuditLog.match_id == "m1",
+          MatchAuditLog.action == "deleted",
+        )
+      )
+    ).scalars().all()
+    assert len(logs) == 1
+    assert logs[0].actor_user_id == admin.id

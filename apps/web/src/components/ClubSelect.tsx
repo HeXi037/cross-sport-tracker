@@ -12,6 +12,14 @@ import {
 
 import { fetchClubs, type ClubSummary } from "../lib/api";
 
+function normalizeSearchText(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s\p{P}_]+/gu, "");
+}
+
 interface ClubSelectProps {
   value: string;
   onChange: (clubId: string) => void;
@@ -111,12 +119,24 @@ export default function ClubSelect({
 
   const optionList = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
+    const normalizedQuery = normalizeSearchText(query);
     let filtered = options;
     if (query) {
       filtered = options.filter((club) => {
         const name = club.name.toLowerCase();
         const id = club.id.toLowerCase();
-        return name.includes(query) || id.includes(query);
+        if (name.includes(query) || id.includes(query)) {
+          return true;
+        }
+        if (!normalizedQuery) {
+          return false;
+        }
+        const normalizedName = normalizeSearchText(name);
+        const normalizedId = normalizeSearchText(id);
+        return (
+          normalizedName.includes(normalizedQuery) ||
+          normalizedId.includes(normalizedQuery)
+        );
       });
     }
     if (value) {

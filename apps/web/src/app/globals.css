@@ -1542,12 +1542,13 @@ textarea {
 .match-detail-info__term {
   font-weight: 600;
   font-size: 0.9rem;
+  color: var(--color-text);
 }
 
 .match-detail-info__description {
   margin: 0;
   font-size: 0.95rem;
-  color: rgba(10, 31, 68, 0.75);
+  color: var(--color-text-muted);
 }
 
 .auth-form {

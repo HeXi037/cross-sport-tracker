@@ -263,6 +263,45 @@ export function ensureAbsoluteApiUrl(
   return apiUrl(path);
 }
 
+type NormalizePhotoUrlOptions = {
+  cacheBustToken?: string | number | null | undefined;
+};
+
+export function normalizePhotoUrl(
+  value: string | null | undefined,
+  options?: NormalizePhotoUrlOptions
+): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  let trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  trimmed = trimmed.replace(/\s*undefined$/i, '').trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const absolute = ensureAbsoluteApiUrl(trimmed);
+  if (absolute == null) {
+    return null;
+  }
+
+  const token = options?.cacheBustToken;
+  if (token == null) {
+    return absolute;
+  }
+
+  const serializedToken = `${token}`.trim();
+  if (!serializedToken) {
+    return absolute;
+  }
+
+  const separator = absolute.includes('?') ? '&' : '?';
+  return `${absolute}${separator}t=${encodeURIComponent(serializedToken)}`;
+}
+
 export function withAbsolutePhotoUrl<T extends { photo_url?: string | null }>(
   entity: T
 ): T {

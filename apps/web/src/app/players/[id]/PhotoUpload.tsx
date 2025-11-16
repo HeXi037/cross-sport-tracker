@@ -5,8 +5,8 @@ import {
   SESSION_ENDED_EVENT,
   apiFetch,
   currentUserId,
-  ensureAbsoluteApiUrl,
   isLoggedIn,
+  normalizePhotoUrl,
 } from '../../../lib/api';
 
 interface Props {
@@ -25,7 +25,9 @@ export default function PhotoUpload({
   playerName,
   initialUrl,
 }: Props) {
-  const [url, setUrl] = useState<string | null | undefined>(initialUrl);
+  const [url, setUrl] = useState<string | null>(() =>
+    normalizePhotoUrl(initialUrl)
+  );
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState<
     | { type: 'idle'; message: null }
@@ -35,6 +37,10 @@ export default function PhotoUpload({
     loggedIn: isLoggedIn(),
     userId: currentUserId(),
   }));
+
+  useEffect(() => {
+    setUrl(normalizePhotoUrl(initialUrl));
+  }, [initialUrl]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -110,9 +116,7 @@ export default function PhotoUpload({
       }
       const data = (await r.json()) as { photo_url?: string };
       setUrl(
-        typeof data.photo_url === 'string' && data.photo_url
-          ? ensureAbsoluteApiUrl(data.photo_url)
-          : null
+        normalizePhotoUrl(data.photo_url, { cacheBustToken: Date.now() })
       );
       setStatus({ type: 'success', message: 'Photo updated successfully.' });
     } catch (error) {

@@ -1,4 +1,5 @@
-import { ensureAbsoluteApiUrl } from '../lib/api';
+import { normalizePhotoUrl } from '../lib/api';
+import { getInitials } from '../lib/names';
 
 export type PlayerInfo = {
   id: string;
@@ -7,13 +8,14 @@ export type PlayerInfo = {
 };
 
 export default function PlayerName({ player }: { player: PlayerInfo }) {
-  const photoUrl =
-    typeof player.photo_url === 'string' && player.photo_url
-      ? ensureAbsoluteApiUrl(player.photo_url)
-      : null;
+  const photoUrl = normalizePhotoUrl(player.photo_url);
+  const initials = getInitials(player.name);
+  const placeholderLabel = player.name.trim()
+    ? `${player.name} avatar placeholder`
+    : 'Player avatar placeholder';
   return (
     <span className="player-name">
-      {photoUrl && (
+      {photoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={photoUrl}
@@ -22,6 +24,14 @@ export default function PlayerName({ player }: { player: PlayerInfo }) {
           height={24}
           className="player-name__avatar"
         />
+      ) : (
+        <span
+          className="player-name__avatar player-name__avatar--initials"
+          role="img"
+          aria-label={placeholderLabel}
+        >
+          {initials}
+        </span>
       )}
       {player.name}
     </span>

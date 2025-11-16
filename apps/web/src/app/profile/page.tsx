@@ -23,7 +23,6 @@ import {
   type PlayerSocialLink,
   type PlayerMe,
   type UserMe,
-  ensureAbsoluteApiUrl,
   persistSession,
   fetchNotificationPreferences,
   updateNotificationPreferences,
@@ -31,6 +30,7 @@ import {
   deletePushSubscriptions,
   type NotificationPreferences,
   type NotificationPreferenceUpdatePayload,
+  normalizePhotoUrl,
 } from "../../lib/api";
 import { ensureTrailingSlash } from "../../lib/routes";
 import type { PlayerLocationPayload } from "../../lib/api";
@@ -67,6 +67,7 @@ import {
   MIN_PASSWORD_LENGTH,
   PASSWORD_GUIDELINES,
 } from "../../lib/passwordGuidelines";
+import { getInitials } from "../../lib/names";
 
 const INVALID_SOCIAL_URL_MESSAGE =
   "Enter a valid URL that starts with http:// or https:// and includes a hostname.";
@@ -258,6 +259,7 @@ export default function ProfilePage() {
     useState(false);
   const [notificationFeedback, setNotificationFeedback] =
     useState<SaveFeedback>(null);
+  const profileInitials = useMemo(() => getInitials(username), [username]);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushError, setPushError] = useState<string | null>(null);
 
@@ -313,10 +315,7 @@ export default function ProfilePage() {
         const me: UserMe = await fetchMe();
         if (!active) return;
         setUsername(me.username);
-        const normalizedPhoto =
-          typeof me.photo_url === "string" && me.photo_url
-            ? ensureAbsoluteApiUrl(me.photo_url)
-            : null;
+        const normalizedPhoto = normalizePhotoUrl(me.photo_url);
         setPhotoUrl(normalizedPhoto);
         try {
           const player = await fetchMyPlayer();
@@ -450,13 +449,9 @@ export default function ProfilePage() {
         body: form,
       });
       const data = (await res.json()) as UserMe;
-      const normalizedPhoto =
-        typeof data.photo_url === "string" && data.photo_url
-          ? ensureAbsoluteApiUrl(data.photo_url)
-          : null;
-      const cacheBustedPhoto = normalizedPhoto
-        ? `${normalizedPhoto}${normalizedPhoto.includes("?") ? "&" : "?"}t=${Date.now()}`
-        : null;
+      const cacheBustedPhoto = normalizePhotoUrl(data.photo_url, {
+        cacheBustToken: Date.now(),
+      });
       setPhotoUrl(cacheBustedPhoto);
       setMessage("Profile photo updated");
     } catch {
@@ -475,11 +470,8 @@ export default function ProfilePage() {
     try {
       const res = await apiFetch("/v0/auth/me/photo", { method: "DELETE" });
       const data = (await res.json()) as UserMe;
-      const normalizedPhoto =
-        typeof data.photo_url === "string" && data.photo_url
-          ? ensureAbsoluteApiUrl(data.photo_url)
-          : null;
-      setPhotoUrl(normalizedPhoto ?? null);
+      const normalizedPhoto = normalizePhotoUrl(data.photo_url);
+      setPhotoUrl(normalizedPhoto);
       setMessage("Profile photo removed");
     } catch {
       setError("Failed to remove profile photo");
@@ -823,6 +815,9 @@ export default function ProfilePage() {
     initialPreferences,
   );
   const preferencesInputsDisabled = !preferencesLoaded || preferencesSaving;
+  const profilePhotoPlaceholderLabel = username.trim()
+    ? `${username} profile photo placeholder`
+    : "Profile photo placeholder";
 
   if (loading) {
     return <ProfileSkeleton />;
@@ -832,15 +827,27 @@ export default function ProfilePage() {
     <main className="container">
       <h1 className="heading">Profile</h1>
       <div className="auth-form">
-        {photoUrl && (
+        {photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={photoUrl}
             alt={username ? `${username} profile photo` : "Profile photo"}
             width={120}
             height={120}
-            style={{ borderRadius: "50%", objectFit: "cover", marginBottom: 8 }}
+            style={{
+              borderRadius: "50%",
+              objectFit: "cover",
+              marginBottom: 8,
+            }}
           />
+        ) : (
+          <div
+            className="profile-photo-placeholder"
+            role="img"
+            aria-label={profilePhotoPlaceholderLabel}
+          >
+            {profileInitials}
+          </div>
         )}
         <label htmlFor="profile-photo-input">Profile photo</label>
         <input

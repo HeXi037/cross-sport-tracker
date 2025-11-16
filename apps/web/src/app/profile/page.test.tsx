@@ -164,6 +164,43 @@ describe("ProfilePage", () => {
     expect(img).toHaveAttribute("src", "/api/media/photos/me.png");
   });
 
+  it("drops trailing undefined fragments from profile photo URLs", async () => {
+    apiMocks.fetchMe.mockResolvedValue({
+      id: "user-broken",
+      username: "broken",
+      is_admin: false,
+      photo_url: "/static/users/avatar.png undefined",
+    });
+
+    await act(async () => {
+      renderWithProviders(<ProfilePage />);
+    });
+
+    const img = await screen.findByAltText("broken profile photo");
+    expect(img).toHaveAttribute("src", "/api/static/users/avatar.png");
+  });
+
+  it("falls back to an initials placeholder when the photo URL is invalid", async () => {
+    apiMocks.fetchMe.mockResolvedValue({
+      id: "user-invalid",
+      username: "broken-user",
+      is_admin: false,
+      photo_url: "   undefined   ",
+    });
+
+    await act(async () => {
+      renderWithProviders(<ProfilePage />);
+    });
+
+    expect(
+      screen.queryByAltText("broken-user profile photo"),
+    ).not.toBeInTheDocument();
+    const placeholder = await screen.findByRole("img", {
+      name: "broken-user profile photo placeholder",
+    });
+    expect(placeholder).toHaveTextContent("BR");
+  });
+
   it("uploads a new profile photo and refreshes the preview", async () => {
     const file = new File(["dummy"], "avatar.png", { type: "image/png" });
     apiMocks.apiFetch.mockResolvedValue({
@@ -485,7 +522,7 @@ describe("ProfilePage", () => {
       renderWithProviders(<ProfilePage />);
     });
 
-    const passwordInput = await screen.findByLabelText("New password");
+    const passwordInput = await screen.findByLabelText(/^New password/i);
     const confirmInput = await screen.findByLabelText("Confirm new password");
 
     fireEvent.change(passwordInput, {

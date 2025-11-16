@@ -12,6 +12,14 @@ import {
 
 import { fetchClubs, type ClubSummary } from "../lib/api";
 
+function normalizeSearchText(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s\p{P}_]+/gu, "");
+}
+
 interface ClubSelectProps {
   value: string;
   onChange: (clubId: string) => void;
@@ -109,16 +117,29 @@ export default function ClubSelect({
     []
   );
 
-  const optionList = useMemo(() => {
+  const { matchingOptions, selectOptions } = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
+    const normalizedQuery = normalizeSearchText(query);
     let filtered = options;
     if (query) {
       filtered = options.filter((club) => {
         const name = club.name.toLowerCase();
         const id = club.id.toLowerCase();
-        return name.includes(query) || id.includes(query);
+        if (name.includes(query) || id.includes(query)) {
+          return true;
+        }
+        if (!normalizedQuery) {
+          return false;
+        }
+        const normalizedName = normalizeSearchText(name);
+        const normalizedId = normalizeSearchText(id);
+        return (
+          normalizedName.includes(normalizedQuery) ||
+          normalizedId.includes(normalizedQuery)
+        );
       });
     }
+    const matching = [...filtered];
     if (value) {
       const selected = options.find((club) => club.id === value);
       if (selected) {
@@ -128,11 +149,12 @@ export default function ClubSelect({
       }
     }
     const seen = new Set<string>();
-    return filtered.filter((club) => {
+    const selectList = filtered.filter((club) => {
       if (seen.has(club.id)) return false;
       seen.add(club.id);
       return true;
     });
+    return { matchingOptions: matching, selectOptions: selectList };
   }, [options, searchTerm, value]);
 
   useEffect(() => {
@@ -178,6 +200,18 @@ export default function ClubSelect({
     [ariaLabel]
   );
 
+  const suggestionListId = `${reactId}-club-suggestions`;
+
+  const handleSuggestionSelect = useCallback(
+    (club: ClubSummary) => {
+      if (disabled) return;
+      setDirtySearch(false);
+      setSearchTerm(club.name);
+      onChange(club.id);
+    },
+    [disabled, onChange]
+  );
+
   return (
     <div className={className} style={{ display: "grid", gap: "0.5rem" }}>
       <div style={{ display: "flex", gap: "0.5rem" }}>
@@ -192,6 +226,7 @@ export default function ClubSelect({
           onFocus={handleFocus}
           placeholder={placeholder}
           aria-describedby={ariaDescribedBy}
+          aria-controls={searchTerm.trim() ? suggestionListId : undefined}
           disabled={disabled}
           autoComplete="off"
           style={{ flex: 1 }}
@@ -207,6 +242,42 @@ export default function ClubSelect({
           Clear
         </button>
       </div>
+      {searchTerm.trim() && matchingOptions.length ? (
+        <ul
+          id={suggestionListId}
+          role="listbox"
+          aria-label="Club suggestions"
+          style={{
+            listStyle: "none",
+            margin: 0,
+            padding: 0,
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: "0.5rem",
+            maxHeight: "12rem",
+            overflowY: "auto",
+          }}
+        >
+          {matchingOptions.slice(0, 5).map((club) => (
+            <li key={club.id}>
+              <button
+                type="button"
+                onClick={() => handleSuggestionSelect(club)}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "0.5rem 0.75rem",
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+                aria-label={`Select ${club.name}`}
+              >
+                {club.name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <select
         id={selectId}
         value={value}
@@ -219,8 +290,8 @@ export default function ClubSelect({
         {...invalidAttributes}
       >
         <option value="">No club selected</option>
-        {optionList.length ? (
-          optionList.map((club) => (
+        {selectOptions.length ? (
+          selectOptions.map((club) => (
             <option key={club.id} value={club.id}>
               {club.name}
             </option>

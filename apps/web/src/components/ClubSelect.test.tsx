@@ -59,4 +59,50 @@ describe("ClubSelect", () => {
     });
     expect(matchingOption).toBeInTheDocument();
   });
+
+  it("shows inline suggestions as the user types", async () => {
+    fetchClubsMock.mockResolvedValue([
+      { id: "club-1", name: "Nordic Padel" },
+      { id: "club-2", name: "Padel Club" },
+    ]);
+
+    render(<ClubSelect value="" onChange={() => {}} />);
+
+    await waitFor(() => expect(fetchClubsMock).toHaveBeenCalled());
+
+    const user = userEvent.setup();
+    const searchInput = screen.getByLabelText("Search clubs");
+    await user.clear(searchInput);
+    await user.type(searchInput, "nord");
+
+    const suggestionList = await screen.findByRole("listbox", {
+      name: "Club suggestions",
+    });
+    expect(suggestionList).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Select Nordic Padel" })
+    ).toBeVisible();
+  });
+
+  it("selects a club when a suggestion is chosen", async () => {
+    fetchClubsMock.mockResolvedValue([
+      { id: "club-5", name: "Nordic Padel" },
+    ]);
+    const handleChange = vi.fn();
+
+    render(<ClubSelect value="" onChange={handleChange} />);
+
+    await waitFor(() => expect(fetchClubsMock).toHaveBeenCalled());
+
+    const user = userEvent.setup();
+    const searchInput = screen.getByLabelText("Search clubs");
+    await user.type(searchInput, "nord");
+
+    const suggestionButton = await screen.findByRole("button", {
+      name: "Select Nordic Padel",
+    });
+    await user.click(suggestionButton);
+
+    expect(handleChange).toHaveBeenCalledWith("club-5");
+  });
 });

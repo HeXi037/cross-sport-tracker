@@ -83,6 +83,7 @@ const GAME_TOOLTIP_TEXT =
 describe("MatchDetailPage", () => {
   afterEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
   });
 
   it("renders date-only match consistently across time zones", async () => {
@@ -770,5 +771,56 @@ describe("MatchDetailPage", () => {
     const heading = screen.getByRole("heading", { level: 1 });
     expect(heading).toHaveTextContent(/unknown vs unknown/i);
     expect(heading).toHaveAccessibleName(/unknown versus unknown/i);
+  });
+
+  it("renders the admin match history when the viewer is an admin", async () => {
+    const match = {
+      id: "m-admin",
+      sport: "padel",
+      rulesetId: null,
+      status: "Completed",
+      playedAt: "2024-01-01T00:00:00Z",
+      participants: [],
+      summary: {},
+    };
+
+    const auditEntries = [
+      {
+        id: "log-1",
+        action: "created",
+        actor: { id: "admin", username: "Admin", is_admin: true },
+        createdAt: "2024-01-01T00:00:00Z",
+        metadata: null,
+      },
+    ];
+
+    apiFetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => match })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] })
+      .mockResolvedValueOnce({ ok: true, json: async () => auditEntries });
+
+    window.localStorage.setItem(
+      "token",
+      "x.eyJpc19hZG1pbiI6dHJ1ZX0.y",
+    );
+
+    render(await MatchDetailPage({ params: { mid: "m-admin" } }));
+
+    const heading = await screen.findByRole("heading", {
+      name: /admin · match history/i,
+      level: 2,
+    });
+    expect(heading).toBeInTheDocument();
+    const panel = heading.closest("section");
+    expect(panel).not.toBeNull();
+    const items = await within(panel as HTMLElement).findAllByRole("listitem");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toHaveTextContent(/created/i);
+    expect(items[0]).toHaveTextContent(/admin/i);
+    expect(apiFetchMock).toHaveBeenNthCalledWith(
+      4,
+      "/v0/matches/m-admin/audit",
+    );
   });
 });

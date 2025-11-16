@@ -36,6 +36,8 @@ from ..schemas import (
     MatchOut,
     ParticipantOut,
     ScoreEventOut,
+    MatchAuditLogEntryOut,
+    UserOut,
 )
 from .streams import broadcast
 from ..scoring import padel as padel_engine, tennis as tennis_engine
@@ -951,6 +953,63 @@ async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
         ],
         summary=m.details,
     )
+
+
+@router.get("/{mid}/audit", response_model=list[MatchAuditLogEntryOut])
+async def list_match_audit_log(
+    mid: str,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Return audit entries ordered chronologically (oldest first)."""
+
+    if not user.is_admin:
+        raise http_problem(
+            status_code=403,
+            detail="forbidden",
+            code="match_forbidden",
+        )
+
+    match = await session.get(Match, mid)
+    if not match or match.deleted_at is not None:
+        raise http_problem(
+            status_code=404,
+            detail="match not found",
+            code="match_not_found",
+        )
+
+    rows = (
+        await session.execute(
+            select(MatchAuditLog, User)
+                .join(User, MatchAuditLog.actor_user_id == User.id, isouter=True)
+                .where(MatchAuditLog.match_id == mid)
+                .order_by(MatchAuditLog.created_at, MatchAuditLog.id)
+        )
+    ).all()
+
+    entries: list[MatchAuditLogEntryOut] = []
+    for log_entry, actor in rows:
+        actor_summary = (
+            UserOut(
+                id=actor.id,
+                username=actor.username,
+                is_admin=actor.is_admin,
+                photo_url=actor.photo_url,
+            )
+            if actor
+            else None
+        )
+        entries.append(
+            MatchAuditLogEntryOut(
+                id=log_entry.id,
+                action=log_entry.action,
+                actor=actor_summary,
+                createdAt=_coerce_utc(log_entry.created_at),
+                metadata=log_entry.payload,
+            )
+        )
+
+    return entries
 
 # DELETE /api/v0/matches/{mid}
 @router.delete("/{mid}", status_code=204)

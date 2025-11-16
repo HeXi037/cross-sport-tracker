@@ -855,6 +855,16 @@ class ScoreEventOut(BaseModel):
     createdAt: datetime
 
 
+class MatchAuditLogEntryOut(BaseModel):
+    """Serialized audit log entry for a match."""
+
+    id: str
+    action: str
+    actor: UserOut | None = None
+    createdAt: datetime
+    metadata: Dict[str, Any] | None = None
+
+
 class MatchOut(BaseModel):
     """Detailed match information returned by the API."""
 

@@ -17,6 +17,10 @@ Environment Variables
 | `DATABASE_URL` | Yes | SQLAlchemy database URL for Postgres (async driver recommended). Contains database credentials—handle securely. | `DATABASE_URL=postgresql+asyncpg://postgres:supersecret@db:5432/crosssport` |
 | `REDIS_URL` | No (defaults to `redis://localhost:6379`) | Connection string for the Redis instance that backs WebSocket fan-out. Include credentials if your Redis deployment requires them. | `REDIS_URL=redis://cache:6379/0` |
 | `API_PREFIX` | No (defaults to `/api`) | Base path mounted by the FastAPI application. Update if reverse-proxying the API under a different prefix. | `API_PREFIX=/api` |
+| `SENTRY_DSN` | No | Sentry project DSN. When provided, the API initializes Sentry error and performance reporting. | `SENTRY_DSN=https://public@o0.ingest.sentry.io/0` |
+| `SENTRY_ENVIRONMENT` | No | Environment label attached to Sentry events (e.g., `production`, `staging`). | `SENTRY_ENVIRONMENT=production` |
+| `SENTRY_TRACES_SAMPLE_RATE` | No (defaults to `0.0`) | Fraction between 0.0 and 1.0 controlling how many requests to send as performance traces. | `SENTRY_TRACES_SAMPLE_RATE=0.25` |
+| `SENTRY_PROFILES_SAMPLE_RATE` | No (defaults to `0.0`) | Fraction between 0.0 and 1.0 controlling how many traced requests also include profiling data. | `SENTRY_PROFILES_SAMPLE_RATE=0.1` |
 
 > !!!Secrets such as `JWT_SECRET`, `ADMIN_SECRET`, and database credentials in `DATABASE_URL` should be stored in a secure secrets manager or environment configuration outside of version control!!!
 

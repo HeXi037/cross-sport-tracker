@@ -28,6 +28,14 @@
   --color-nav-control-bg: rgba(248, 250, 252, 0.12);
   --color-nav-control-bg-hover: rgba(248, 250, 252, 0.18);
   --color-nav-control-border: rgba(248, 250, 252, 0.45);
+  --color-hero-bg: linear-gradient(135deg, #f3f6ff, #ffffff);
+  --color-hero-accent: radial-gradient(circle at 20% 20%, #f8d7da, #ffffff 35%),
+    linear-gradient(135deg, #e6f0ff, #ffffff);
+  --color-hero-border: rgba(10, 31, 68, 0.08);
+  --color-card-border: rgba(10, 31, 68, 0.08);
+  --color-card-shadow: 0 10px 30px rgba(10, 31, 68, 0.08);
+  --color-feature-bg: var(--color-surface);
+  --color-muted-strong: rgba(10, 31, 68, 0.8);
   --leaderboard-table-header-bg: var(--color-surface);
   --color-surface-elevated: #ffffff;
   --color-text-muted: #3f4f67;
@@ -92,6 +100,18 @@ html.theme-dark {
   --color-nav-control-bg: rgba(148, 163, 184, 0.18);
   --color-nav-control-bg-hover: rgba(148, 163, 184, 0.28);
   --color-nav-control-border: rgba(148, 163, 184, 0.5);
+  --color-hero-bg: linear-gradient(135deg, #111827, #0b1220);
+  --color-hero-accent: radial-gradient(
+      circle at 20% 20%,
+      rgba(248, 215, 218, 0.08),
+      #0f172a 35%
+    ),
+    linear-gradient(135deg, #0f172a, #0b1120);
+  --color-hero-border: rgba(148, 163, 184, 0.18);
+  --color-card-border: rgba(148, 163, 184, 0.18);
+  --color-card-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --color-feature-bg: var(--color-surface-elevated);
+  --color-muted-strong: rgba(226, 232, 240, 0.85);
   --leaderboard-table-header-bg: var(--color-surface-elevated);
   --color-surface-elevated: #16213f;
   --color-text-muted: #cbd5f5;
@@ -148,6 +168,18 @@ html.theme-dark {
     --color-nav-control-bg: rgba(148, 163, 184, 0.18);
     --color-nav-control-bg-hover: rgba(148, 163, 184, 0.28);
     --color-nav-control-border: rgba(148, 163, 184, 0.5);
+    --color-hero-bg: linear-gradient(135deg, #111827, #0b1220);
+    --color-hero-accent: radial-gradient(
+        circle at 20% 20%,
+        rgba(248, 215, 218, 0.08),
+        #0f172a 35%
+      ),
+      linear-gradient(135deg, #0f172a, #0b1120);
+    --color-hero-border: rgba(148, 163, 184, 0.18);
+    --color-card-border: rgba(148, 163, 184, 0.18);
+    --color-card-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    --color-feature-bg: var(--color-surface-elevated);
+    --color-muted-strong: rgba(226, 232, 240, 0.85);
     --leaderboard-table-header-bg: var(--color-surface-elevated);
     --color-surface-elevated: #16213f;
     --color-text-muted: #cbd5f5;
@@ -536,27 +568,27 @@ textarea {
 .card {
   margin-top: 16px;
   padding: clamp(12px, 3vw, 16px);
-  background: var(--color-surface);
+  background: var(--color-feature-bg);
   border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--color-card-border);
+  box-shadow: var(--color-card-shadow);
 }
 
 .hero {
   margin: 16px 0;
   padding: clamp(16px, 4vw, 28px);
-  background: linear-gradient(135deg, #f3f6ff, #ffffff);
-  border: 1px solid rgba(10, 31, 68, 0.08);
+  background: var(--color-hero-bg);
+  border: 1px solid var(--color-hero-border);
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(10, 31, 68, 0.08);
+  box-shadow: var(--color-card-shadow);
 }
 
 .hero--accent {
-  background: radial-gradient(circle at 20% 20%, #f8d7da, #ffffff 35%),
-    linear-gradient(135deg, #e6f0ff, #ffffff);
+  background: var(--color-hero-accent);
 }
 
 .hero--subtle {
-  background: linear-gradient(135deg, #f8fbff, #ffffff);
+  background: var(--color-hero-bg);
 }
 
 .hero__content {
@@ -569,7 +601,7 @@ textarea {
   margin: 0;
   font-size: 0.9rem;
   letter-spacing: 0.04em;
-  color: rgba(10, 31, 68, 0.75);
+  color: var(--color-text-muted);
   text-transform: uppercase;
   font-weight: 600;
 }
@@ -582,7 +614,7 @@ textarea {
 .hero__subtitle {
   margin: 0;
   font-size: 1.05rem;
-  color: rgba(10, 31, 68, 0.8);
+  color: var(--color-muted-strong);
   line-height: 1.5;
 }
 
@@ -596,7 +628,7 @@ textarea {
 
 .hero__supporting {
   margin: 0;
-  color: rgba(10, 31, 68, 0.75);
+  color: var(--color-text-muted);
 }
 
 .hero__cta {
@@ -606,11 +638,11 @@ textarea {
 .button--ghost {
   background: transparent;
   color: var(--color-text);
-  border: 1px solid rgba(10, 31, 68, 0.2);
+  border: 1px solid var(--color-card-border);
 }
 
 .button--ghost:hover {
-  background: rgba(10, 31, 68, 0.05);
+  background: rgba(148, 163, 184, 0.08);
 }
 
 .feature-grid,
@@ -622,11 +654,11 @@ textarea {
 }
 
 .feature-card {
-  background: var(--color-surface);
-  border: 1px solid rgba(10, 31, 68, 0.08);
+  background: var(--color-feature-bg);
+  border: 1px solid var(--color-card-border);
   border-radius: 10px;
   padding: 14px;
-  box-shadow: 0 8px 20px rgba(10, 31, 68, 0.06);
+  box-shadow: var(--color-card-shadow);
 }
 
 .feature-card__eyebrow {
@@ -643,13 +675,13 @@ textarea {
 
 .feature-card__body {
   margin: 0;
-  color: rgba(10, 31, 68, 0.8);
+  color: var(--color-muted-strong);
   line-height: 1.45;
 }
 
 .feature-card__meta {
   margin: 6px 0 0 0;
-  color: rgba(10, 31, 68, 0.6);
+  color: var(--color-text-muted);
 }
 
 .feature-list {
@@ -657,7 +689,7 @@ textarea {
   padding-left: 20px;
   display: grid;
   gap: 6px;
-  color: rgba(10, 31, 68, 0.85);
+  color: var(--color-muted-strong);
 }
 
 .demo-status {
@@ -678,9 +710,9 @@ textarea {
   justify-content: space-between;
   align-items: center;
   padding: 10px 12px;
-  border: 1px solid rgba(10, 31, 68, 0.08);
+  border: 1px solid var(--color-card-border);
   border-radius: 8px;
-  background: #f9fbff;
+  background: var(--color-feature-bg);
 }
 
 .leaderboard-list__name {
@@ -690,7 +722,7 @@ textarea {
 
 .leaderboard-list__meta {
   margin: 2px 0 0 0;
-  color: rgba(10, 31, 68, 0.65);
+  color: var(--color-text-muted);
 }
 
 .leaderboard-list__streak {
@@ -840,6 +872,17 @@ textarea {
 .nav .nav-link.is-active:hover {
   background: var(--color-nav-link-active-bg);
   text-decoration: none;
+}
+
+.nav .nav-link--quiet {
+  opacity: 0.85;
+  font-weight: 500;
+}
+
+.nav .nav-link--quiet:hover,
+.nav .nav-link--quiet:focus-visible {
+  opacity: 1;
+  background: transparent;
 }
 .nav a:focus-visible {
   outline: 3px solid var(--color-focus-ring);

@@ -172,7 +172,9 @@ export default function PlayersPage() {
 
       if (!message) {
         if (typeof apiError?.status === "number") {
-          if (apiError.status === 403) {
+          if (apiError.status === 0) {
+            message = PLAYERS_NETWORK_ERROR_MESSAGE;
+          } else if (apiError.status === 403) {
             message = PLAYERS_FORBIDDEN_MESSAGE;
           } else if (apiError.status >= 500) {
             message = PLAYERS_SERVER_ERROR_MESSAGE;

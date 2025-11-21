@@ -1,4 +1,7 @@
-import os, sys, asyncio
+import asyncio
+import logging
+import os
+import sys
 from typing import Tuple
 
 # Ensure the app package is importable and the DB URL is set for module import
@@ -6,13 +9,14 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 from backend.app.db import Base, get_session
 from backend.app.models import (
@@ -30,6 +34,7 @@ from backend.app.routers import matches, auth
 from backend.app.scoring import padel
 from backend.app.routers.admin import require_admin
 from backend.app.routers.auth import get_current_user
+from backend.app.schemas import MatchCreate, Participant
 
 
 @pytest.fixture()
@@ -162,6 +167,81 @@ def test_record_sets_tiebreak_updates_summary_and_ratings(client_and_session):
     assert rating_map["pa"] > rating_map["pb"]
     assert rating_map["pa"] > 1000
     assert rating_map["pb"] < 1000
+
+
+class DummyDBError(SQLAlchemyError):
+    """Test-only SQLAlchemy exception."""
+
+
+async def _raise_db_error(*args, **kwargs):
+    raise DummyDBError("boom")
+
+
+def test_record_sets_logs_and_returns_error_on_rating_failure(
+    client_and_session, monkeypatch, caplog
+):
+    client, session_maker = client_and_session
+    mid = "m_rating_fail"
+    seed_match(session_maker, mid)
+
+    async def seed_players():
+        async with session_maker() as session:
+            session.add_all(
+                [
+                    Player(id="pra", name="Player A"),
+                    Player(id="prb", name="Player B"),
+                    MatchParticipant(id="mpa", match_id=mid, side="A", player_ids=["pra"]),
+                    MatchParticipant(id="mpb", match_id=mid, side="B", player_ids=["prb"]),
+                ]
+            )
+            await session.commit()
+
+    asyncio.run(seed_players())
+    monkeypatch.setattr(matches, "update_ratings", _raise_db_error)
+
+    with caplog.at_level(logging.ERROR):
+        resp = client.post(f"/matches/{mid}/sets", json={"sets": [[6, 4], [6, 4]]})
+
+    assert resp.status_code == 500
+    assert resp.json()["detail"] == "failed to update match ratings"
+    assert any("recording sets" in record.message for record in caplog.records)
+
+
+def test_create_match_logs_and_returns_error_on_rating_failure(
+    client_and_session, monkeypatch, caplog
+):
+    _, session_maker = client_and_session
+    monkeypatch.setattr(matches, "update_ratings", _raise_db_error)
+
+    async def attempt_create() -> HTTPException:
+        async with session_maker() as session:
+            session.add_all(
+                [
+                    Sport(id="padel", name="Padel"),
+                    Player(id="ca", name="Player A"),
+                    Player(id="cb", name="Player B"),
+                ]
+            )
+            await session.commit()
+
+            body = MatchCreate(
+                sport="padel",
+                participants=[
+                    Participant(side="A", playerIds=["ca"]),
+                    Participant(side="B", playerIds=["cb"]),
+                ],
+                sets=[[6, 4], [6, 4]],
+            )
+            admin = User(id="admin", username="admin", password_hash="", is_admin=True)
+            with caplog.at_level(logging.ERROR):
+                with pytest.raises(HTTPException) as excinfo:
+                    await matches.create_match(body, session, admin)
+            return excinfo.value
+
+    exc = asyncio.run(attempt_create())
+    assert exc.status_code == 500
+    assert exc.detail == "failed to update match ratings"
+    assert any("update ratings for match" in record.message for record in caplog.records)
 
 
 def test_record_sets_invalid(client_and_session):

@@ -504,6 +504,23 @@ export default function HomePageClient({
         <p>{commonT('appTagline')}</p>
       </section>
 
+      <section className="hero hero--subtle">
+        <div className="hero__content">
+          <p className="hero__eyebrow">{homeT('hero.eyebrow')}</p>
+          <h2 className="hero__title">{homeT('hero.title')}</h2>
+          <p className="hero__subtitle">{homeT('hero.subtitle')}</p>
+          <div className="hero__actions">
+            <Link href="/landing" className="button hero__cta">
+              {homeT('hero.primaryCta')}
+            </Link>
+            <Link href="/demo" className="button button--ghost hero__secondary">
+              {homeT('hero.secondaryCta')}
+            </Link>
+          </div>
+          <p className="hero__supporting">{homeT('hero.supportingCopy')}</p>
+        </div>
+      </section>
+
       <section className="section">
         <h2 className="heading">{homeT('sportsHeading')}</h2>
         {sportsStatusVisible ? (

@@ -35,6 +35,14 @@
     }
   },
   "Home": {
+    "hero": {
+      "eyebrow": "New here?",
+      "title": "Track scores across multiple sports, run tournaments, and crown the Master of All",
+      "subtitle": "See how Cross Sport Tracker keeps every league organised with one set of tools.",
+      "primaryCta": "Explore the landing page",
+      "secondaryCta": "Try the demo",
+      "supportingCopy": "Jump into the story, then launch a demo sandbox to explore without setting anything up."
+    },
     "sportsHeading": "Sports",
     "matchesHeading": "Recent Matches",
     "sportsError": "Unable to load sports. Check connection.",
@@ -94,6 +102,7 @@
   "Header": {
     "links": {
       "home": "Home",
+      "demo": "Demo",
       "players": "Players",
       "matches": "Matches",
       "record": "Record",
@@ -116,6 +125,61 @@
         "en-AU": "English (Australia)",
         "es-ES": "Spanish"
       }
+    }
+  },
+  "Landing": {
+    "eyebrow": "Introducing Cross Sport Tracker",
+    "title": "Track scores across multiple sports, run tournaments, and crown the Master of All",
+    "subtitle": "Unify match recording, rankings, and tournaments with a single toolkit that your club can run in an afternoon.",
+    "primaryCta": "Try it now",
+    "secondaryCta": "Record a match",
+    "tertiaryCta": "Browse tournaments",
+    "supportingCopy": "Purpose-built for clubs that juggle padel, bowling, tennis, disc golf, and more.",
+    "featureHeading": "Why teams choose Cross Sport Tracker",
+    "features": {
+      "multiSport": {
+        "title": "Truly multi-sport",
+        "body": "Padel on Monday, disc golf on Friday. Configure formats, rulesets, and scoring to fit every code."
+      },
+      "tournaments": {
+        "title": "Run brackets and ladders",
+        "body": "Spin up tournaments with elimination brackets, bronze finals, and rolling ladders without spreadsheets."
+      },
+      "leaderboards": {
+        "title": "Crown the Master of All",
+        "body": "Blend results across sports, keep rivalries alive, and reward all-rounders with shared leaderboards."
+      },
+      "notifications": {
+        "title": "Keep everyone synced",
+        "body": "Localized emails, reminders, and status updates make sure no one misses their next showdown."
+      }
+    },
+    "workflowHeading": "From first serve to season champion",
+    "workflowBody": "Cross Sport Tracker captures every rally, keeps tournaments on time, and celebrates the all-rounder who conquers every bracket.",
+    "workflowItems": {
+      "capture": "Record multi-sport results with guardrails for rulesets and tiebreaks.",
+      "manage": "Coordinate brackets, bronze finals, and ladders without manual spreadsheets.",
+      "share": "Publish leaderboards instantly so everyone knows who is chasing Master of All."
+    }
+  },
+  "Demo": {
+    "title": "Jump into the demo",
+    "subtitle": "We preloaded a fictional club so you can explore matches, ladders, and leaderboards instantly.",
+    "loading": "Loading demo data…",
+    "loaded": "Demo data loaded. Scroll through tournaments, matches, and leaders below.",
+    "reload": "Reload demo data",
+    "learnMore": "See the overview",
+    "supportingCopy": "Refresh the sandbox anytime to explore a new set of fictional results.",
+    "sportBlurb": "Configured rules, players, and formats so you can preview the experience.",
+    "sections": {
+      "sports": "Sports in this sandbox",
+      "tournaments": "Mini tournaments",
+      "matches": "Recent results",
+      "leaders": "Master of All leaderboard"
+    },
+    "cta": {
+      "record": "Record your own match",
+      "tournaments": "Go to tournaments"
     }
   },
   "NotFound": {

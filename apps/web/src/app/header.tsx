@@ -81,6 +81,16 @@ export default function Header() {
           </li>
           <li>
             <Link
+              href={ensureTrailingSlash('/demo')}
+              className={linkClassName('/demo')}
+              aria-current={linkAriaCurrent('/demo')}
+              onClick={() => setOpen(false)}
+            >
+              {headerT('links.demo')}
+            </Link>
+          </li>
+          <li>
+            <Link
               href={ensureTrailingSlash('/players')}
               className={linkClassName('/players')}
               aria-current={linkAriaCurrent('/players')}

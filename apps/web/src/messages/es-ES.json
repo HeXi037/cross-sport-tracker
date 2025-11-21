@@ -35,6 +35,14 @@
     }
   },
   "Home": {
+    "hero": {
+      "eyebrow": "¿Eres nuevo?",
+      "title": "Sigue marcadores en varios deportes, organiza torneos y corona al Maestro de Todos",
+      "subtitle": "Descubre cómo Cross Sport Tracker mantiene cada liga organizada con un solo conjunto de herramientas.",
+      "primaryCta": "Visita la página de producto",
+      "secondaryCta": "Prueba la demo",
+      "supportingCopy": "Lee la historia y abre un sandbox de demostración sin configurar nada."
+    },
     "sportsHeading": "Deportes",
     "matchesHeading": "Partidos recientes",
     "sportsError": "No se pueden cargar los deportes. Comprueba la conexión.",
@@ -94,6 +102,7 @@
   "Header": {
     "links": {
       "home": "Inicio",
+      "demo": "Demo",
       "players": "Jugadores",
       "matches": "Partidos",
       "record": "Registro",
@@ -116,6 +125,61 @@
         "en-AU": "Inglés (Australia)",
         "es-ES": "Español"
       }
+    }
+  },
+  "Landing": {
+    "eyebrow": "Presentamos Cross Sport Tracker",
+    "title": "Sigue marcadores en varios deportes, organiza torneos y corona al Maestro de Todos",
+    "subtitle": "Unifica el registro de partidos, clasificaciones y torneos con un kit que tu club puede ejecutar en una tarde.",
+    "primaryCta": "Pruébalo ahora",
+    "secondaryCta": "Registrar un partido",
+    "tertiaryCta": "Ver torneos",
+    "supportingCopy": "Diseñado para clubes que combinan pádel, bolos, tenis, disc golf y más.",
+    "featureHeading": "Por qué los equipos eligen Cross Sport Tracker",
+    "features": {
+      "multiSport": {
+        "title": "Realmente multideporte",
+        "body": "Pádel el lunes, disc golf el viernes. Configura formatos, reglas y puntuaciones para cada disciplina."
+      },
+      "tournaments": {
+        "title": "Gestiona cuadros y escaleras",
+        "body": "Crea torneos con eliminación, finales de bronce y escaleras continuas sin hojas de cálculo."
+      },
+      "leaderboards": {
+        "title": "Corona al Maestro de Todos",
+        "body": "Combina resultados entre deportes, alimenta las rivalidades y premia a los todoterreno con clasificaciones compartidas."
+      },
+      "notifications": {
+        "title": "Mantén a todos sincronizados",
+        "body": "Correos localizados, recordatorios y actualizaciones de estado para que nadie se pierda su próximo enfrentamiento."
+      }
+    },
+    "workflowHeading": "De la primera jugada al campeón de la temporada",
+    "workflowBody": "Cross Sport Tracker captura cada punto, mantiene los torneos a tiempo y celebra al todoterreno que conquista cada cuadro.",
+    "workflowItems": {
+      "capture": "Registra resultados multideporte con controles para reglas y desempates.",
+      "manage": "Coordina cuadros eliminatorios, finales de bronce y escaleras sin hojas de cálculo.",
+      "share": "Publica clasificaciones al instante para que todos sepan quién persigue al Maestro de Todos."
+    }
+  },
+  "Demo": {
+    "title": "Entra en la demo",
+    "subtitle": "Precargamos un club ficticio para que explores partidos, escaleras y clasificaciones al instante.",
+    "loading": "Cargando datos de demostración…",
+    "loaded": "Datos cargados. Recorre torneos, partidos y líderes abajo.",
+    "reload": "Recargar datos de demo",
+    "learnMore": "Ver la descripción",
+    "supportingCopy": "Actualiza el sandbox en cualquier momento para explorar un nuevo conjunto de resultados ficticios.",
+    "sportBlurb": "Reglas, jugadores y formatos configurados para que previsualices la experiencia.",
+    "sections": {
+      "sports": "Deportes de este sandbox",
+      "tournaments": "Mini torneos",
+      "matches": "Resultados recientes",
+      "leaders": "Tabla Maestro de Todos"
+    },
+    "cta": {
+      "record": "Registra tu propio partido",
+      "tournaments": "Ir a torneos"
     }
   },
   "NotFound": {

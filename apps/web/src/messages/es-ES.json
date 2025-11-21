@@ -41,6 +41,12 @@
     "noSports": "No se encontraron deportes.",
     "matchesError": "No se pueden cargar los partidos. Comprueba la conexión.",
     "noMatches": "Todavía no hay partidos registrados.",
+    "matchDateLabel": "Fecha y hora",
+    "matchLocationLabel": "Ubicación",
+    "matchFormatLabel": "Formato",
+    "scoreLabel": "Marcador",
+    "scorePending": "Marcador pendiente",
+    "locationTbd": "Ubicación por determinar",
     "icons": {
       "padel": "Icono de pelota de pádel",
       "padel_americano": "Icono de ábaco de Pádel Americano",

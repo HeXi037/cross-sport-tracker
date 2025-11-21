@@ -21,3 +21,21 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: DATABASE_URL=sqlite+aiosqlite:///./ci.db pytest -q
+
+  web-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - name: Install frontend dependencies
+        run: pnpm install --filter @cst/web --frozen-lockfile
+      - name: Run web tests
+        env:
+          CI: true
+        run: pnpm test -- --runInBand --watch=false

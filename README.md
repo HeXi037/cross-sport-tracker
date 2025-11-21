@@ -24,6 +24,18 @@ Environment Variables
 
 > !!!Secrets such as `JWT_SECRET`, `ADMIN_SECRET`, and database credentials in `DATABASE_URL` should be stored in a secure secrets manager or environment configuration outside of version control!!!
 
+### Verify Sentry setup
+
+1. Set `SENTRY_DSN` (and optional environment/sample-rate variables) in your `.env`.
+2. Start the API (`docker compose up backend` or `uvicorn backend.app.main:app`).
+3. Trigger a test event:
+
+   ```bash
+   curl -X POST http://localhost:8000/api/sentry-test
+   ```
+
+   A successful setup returns JSON with an `eventId`; the event should appear in your Sentry project within a minute. If `SENTRY_DSN` is missing, the endpoint responds with HTTP 400.
+
 
 Status & Scope
 

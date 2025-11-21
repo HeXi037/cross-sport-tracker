@@ -184,15 +184,34 @@ async function getMatches(
 ): Promise<EnrichedMatch[]> {
   const params = new URLSearchParams({
     playerId,
+    limit: upcoming ? "20" : "100",
   });
   if (upcoming) {
     params.set("upcoming", "true");
   }
 
-  const response = await apiFetch(
-    `/v0/matches?${params.toString()}`,
-    PLAYER_MATCH_LIST_FETCH_OPTIONS
-  );
+  const response = await (async () => {
+    try {
+      return await apiFetch(
+        `/v0/matches?${params.toString()}`,
+        PLAYER_MATCH_LIST_FETCH_OPTIONS,
+      );
+    } catch (err) {
+      if (params.has("limit")) {
+        const fallbackParams = new URLSearchParams(params);
+        fallbackParams.delete("limit");
+        try {
+          return await apiFetch(
+            `/v0/matches?${fallbackParams.toString()}`,
+            PLAYER_MATCH_LIST_FETCH_OPTIONS,
+          );
+        } catch {
+          // fall through to original error
+        }
+      }
+      throw err;
+    }
+  })();
   if (!response.ok) {
     return [];
   }

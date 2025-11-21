@@ -439,7 +439,11 @@ export default function PlayersPage() {
                       >
                         <div className="player-list__row">
                           <span className="player-list__name">
-                            <PlayerName player={p} />
+                            <PlayerName
+                              player={p}
+                              showInitialsText={false}
+                              decorativeAvatar
+                            />
                           </span>
                           <span className="player-list__stats">
                             {(() => {

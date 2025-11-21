@@ -282,6 +282,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     [backLinkT],
   );
 
+  const locationSignature =
+    typeof window === "undefined" ? "" : window.location.href;
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -328,7 +331,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     });
 
     previousUrlRef.current = currentUrl;
-  }, [getBackLinkLabel, pathname, searchParamsString]);
+  }, [getBackLinkLabel, pathname, searchParamsString, locationSignature]);
   const [preferencesApplied, setPreferencesApplied] = useState(false);
 
   const countryCodes = useMemo(

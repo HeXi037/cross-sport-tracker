@@ -3,7 +3,7 @@ from statistics import mean, pstdev
 from typing import Optional, Annotated, Any
 
 from fastapi import APIRouter, Query, Depends
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session

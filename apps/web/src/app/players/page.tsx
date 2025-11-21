@@ -172,7 +172,9 @@ export default function PlayersPage() {
 
       if (!message) {
         if (typeof apiError?.status === "number") {
-          if (apiError.status === 403) {
+          if (apiError.status === 0) {
+            message = PLAYERS_NETWORK_ERROR_MESSAGE;
+          } else if (apiError.status === 403) {
             message = PLAYERS_FORBIDDEN_MESSAGE;
           } else if (apiError.status >= 500) {
             message = PLAYERS_SERVER_ERROR_MESSAGE;
@@ -437,7 +439,11 @@ export default function PlayersPage() {
                       >
                         <div className="player-list__row">
                           <span className="player-list__name">
-                            <PlayerName player={p} />
+                            <PlayerName
+                              player={p}
+                              showInitialsText={false}
+                              decorativeAvatar
+                            />
                           </span>
                           <span className="player-list__stats">
                             {(() => {

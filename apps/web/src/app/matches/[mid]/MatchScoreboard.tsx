@@ -10,6 +10,7 @@ import {
   normalizeSportId,
   isRecord,
   RACKET_SPORTS_WITHOUT_GAME_TOTALS,
+  normalizeSetScoreEntry,
 } from "../../../lib/match-summary";
 
 const BOWLING_FRAME_COUNT = 10;
@@ -70,14 +71,33 @@ function renderRacketSummary(
     ? (points as Record<string, unknown>)
     : undefined;
 
+  const setScoreSides = setScores.flatMap(
+    (set) => normalizeSetScoreEntry(set)?.sides ?? []
+  );
   const sides = Array.from(
     new Set([
       ...Object.keys((setsRecord as Record<string, number>) ?? {}),
       ...Object.keys((gamesRecord as Record<string, number>) ?? {}),
       ...Object.keys((pointsRecord as Record<string, number>) ?? {}),
-      ...setScores.flatMap((set) => Object.keys((set as Record<string, number>) ?? {})),
+      ...setScoreSides,
     ])
   ).sort();
+
+  const formatSetScore = (set: Record<string, unknown> | null | undefined, side: string) => {
+    if (!set) return "—";
+    const normalized = normalizeSetScoreEntry(set);
+    const baseValue = normalized?.scores?.[side];
+    const baseText =
+      typeof baseValue === "number" && Number.isFinite(baseValue)
+        ? `${baseValue}`
+        : formatValue(set[side]);
+
+    const tiebreakValue = normalized?.tiebreak?.[side];
+    if (typeof tiebreakValue === "number" && Number.isFinite(tiebreakValue)) {
+      return `${baseText} (${tiebreakValue})`;
+    }
+    return baseText;
+  };
 
   return (
     <table className="scoreboard-table" aria-label="Racket scoreboard">
@@ -104,7 +124,7 @@ function renderRacketSummary(
           <tr key={side}>
             <th scope="row">{side}</th>
             {setScores.map((set, idx) => (
-              <td key={`set-${idx}`}>{formatValue((set as Record<string, unknown>)[side])}</td>
+              <td key={`set-${idx}`}>{formatSetScore(set, side)}</td>
             ))}
             {showSetsColumn ? (
               <td>{formatValue(setsRecord?.[side])}</td>

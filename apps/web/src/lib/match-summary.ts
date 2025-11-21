@@ -50,6 +50,12 @@ export type SummaryData =
   | null
   | undefined;
 
+export type NormalizedSetScoreEntry = {
+  sides: string[];
+  scores: NumericRecord;
+  tiebreak?: NumericRecord;
+};
+
 export type ScoreEventPayload = {
   type?: string | null;
   by?: string | null;
@@ -104,6 +110,29 @@ export function getNumericEntries(record: unknown): Array<[string, number]> {
     }
   }
   return entries;
+}
+
+function extractTiebreak(set: Record<string, unknown>): NumericRecord | undefined {
+  const candidate =
+    set.tieBreak ??
+    (set as { tiebreak?: unknown }).tiebreak ??
+    (set as { tie_break?: unknown }).tie_break;
+  if (!candidate || typeof candidate !== "object") return undefined;
+  const entries = getNumericEntries(candidate);
+  if (!entries.length) return undefined;
+  return Object.fromEntries(entries);
+}
+
+export function normalizeSetScoreEntry(set: unknown): NormalizedSetScoreEntry | null {
+  if (!set || typeof set !== "object") return null;
+  const numericEntries = getNumericEntries(set);
+  if (!numericEntries.length) return null;
+
+  const scores = Object.fromEntries(numericEntries);
+  const sides = Object.keys(scores).sort();
+  const tiebreak = extractTiebreak(set as Record<string, unknown>);
+
+  return { sides, scores, tiebreak };
 }
 
 export function hasPositiveValues(record: unknown): boolean {

@@ -18,6 +18,7 @@ import {
   createSportDisplayNameLookup,
   fetchSportsCatalog,
 } from "../../lib/sports";
+import { normalizeSetScoreEntry } from "../../lib/match-summary";
 
 export const dynamic = "force-dynamic";
 
@@ -84,18 +85,21 @@ function formatSummary(
   if (Array.isArray(s.set_scores) && s.set_scores.length) {
     const formatted = s.set_scores
       .map((set) => {
-        if (!set || typeof set !== "object") return null;
-        const entries = Object.entries(set);
-        if (!entries.length) return null;
-        const values = entries
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([, value]) =>
-            typeof value === "number" && Number.isFinite(value)
-              ? value.toString()
-              : null
-          );
-        if (values.some((v) => v === null)) return null;
-        return values.join("-");
+        const normalized = normalizeSetScoreEntry(set);
+        if (!normalized) return null;
+
+        const setScores = normalized.sides.map((side) => normalized.scores[side]);
+        const hasAllScores = setScores.every((value) => typeof value === "number");
+        if (!hasAllScores) return null;
+
+        const tiebreakValues = normalized.tiebreak
+          ? normalized.sides.map((side) => normalized.tiebreak?.[side])
+          : null;
+        const hasTiebreak =
+          tiebreakValues?.every((value) => typeof value === "number") ?? false;
+
+        const base = setScores.join("-");
+        return hasTiebreak ? `${base} (${tiebreakValues?.join("-")})` : base;
       })
       .filter((val): val is string => Boolean(val));
     if (formatted.length) {

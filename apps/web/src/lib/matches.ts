@@ -1,16 +1,10 @@
+import type { MatchSummaryData } from "./match-summary";
+export type { MatchSummaryData } from "./match-summary";
+
 export type PlayerInfo = {
   id: string;
   name: string;
   photo_url?: string | null;
-};
-
-export type MatchSummaryData = {
-  sets?: Record<string, number>;
-  games?: Record<string, number>;
-  points?: Record<string, number>;
-  set_scores?: Array<Record<string, number>>;
-  score?: Record<string, number>;
-  [key: string]: unknown;
 };
 
 export type MatchParticipantSummary = {

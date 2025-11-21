@@ -19,7 +19,12 @@ import {
   createSportDisplayNameLookup,
 } from '../lib/sports';
 import { useTranslations } from 'next-intl';
-import { normalizeSetScoreEntry, type MatchSummaryData } from '../lib/match-summary';
+import {
+  getNumericEntries,
+  isRecord,
+  normalizeSetScoreEntry,
+  type MatchSummaryData,
+} from '../lib/match-summary';
 
 interface Sport {
   id: string;
@@ -105,9 +110,25 @@ function formatSummary(
     return `${label} ${parts.join('-')}`;
   };
 
-  if (summary.sets) return render(summary.sets, labels.sets);
-  if (summary.games) return render(summary.games, labels.games);
-  if (summary.points) return render(summary.points, labels.points);
+  const renderIfNumericRecord = (
+    candidate: unknown,
+    label: string,
+  ): string | null => {
+    if (!isRecord(candidate)) return null;
+    const numericEntries = getNumericEntries(candidate);
+    if (!numericEntries.length) return null;
+    return render(Object.fromEntries(numericEntries), label);
+  };
+
+  const renderedSets = renderIfNumericRecord(summary.sets, labels.sets);
+  if (renderedSets) return renderedSets;
+
+  const renderedGames = renderIfNumericRecord(summary.games, labels.games);
+  if (renderedGames) return renderedGames;
+
+  const renderedPoints = renderIfNumericRecord(summary.points, labels.points);
+  if (renderedPoints) return renderedPoints;
+
   return '';
 }
 

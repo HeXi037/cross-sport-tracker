@@ -199,63 +199,85 @@ async function getMatches(
   }
   const rows = (await response.json()) as MatchRow[];
 
-  return rows.map((row) => {
-    let playerSide: string | null = null;
-    const participants: Participant[] = [];
-    const playersBySide: Record<string, PlayerInfo[]> = {};
+  const matches = await Promise.all(
+    rows.map(async (row) => {
+      let participantsFromRow = row.participants ?? [];
+      let summary: MatchSummaryScores | undefined = row.summary ?? undefined;
 
-    for (const participant of row.participants ?? []) {
-      const ids = (participant.playerIds ?? []).map((id) => String(id));
-      participants.push({ side: participant.side, playerIds: ids });
-      if (ids.includes(playerId)) {
-        playerSide = participant.side;
-      }
-      const resolvedPlayers = (participant.players ?? []).map((player, index) => {
-        const fallbackId = ids[index] ?? player?.id ?? "";
-        const name =
-          typeof player?.name === "string" && player.name.trim().length > 0
-            ? player.name
-            : fallbackId || "Unknown";
-        return {
-          id: player?.id ?? fallbackId,
-          name,
-          photo_url: player?.photo_url ?? null,
-        } satisfies PlayerInfo;
-      });
-      playersBySide[participant.side] = resolvedPlayers;
-    }
-
-    const sanitizedPlayers = sanitizePlayersBySide(playersBySide);
-    const summary = row.summary ?? undefined;
-    let playerWon: boolean | undefined;
-    if (playerSide && summary) {
-      const metric = summary.sets || summary.games || summary.points;
-      if (metric && playerSide in metric) {
-        const myScore = metric[playerSide];
-        const others = Object.entries(metric).filter(([side]) => side !== playerSide);
-        if (typeof myScore === "number" && others.length) {
-          playerWon = others.every(([, value]) =>
-            typeof value === "number" ? myScore > value : false
-          );
+      if (!participantsFromRow.length) {
+        try {
+          const detailResponse = await apiFetch(`/v0/matches/${row.id}`);
+          if (detailResponse.ok) {
+            const detail = (await detailResponse.json()) as Partial<{
+              participants: MatchParticipantSummary[];
+              summary: MatchSummaryScores;
+            }>;
+            participantsFromRow = detail.participants ?? participantsFromRow;
+            summary = detail.summary ?? summary;
+          }
+        } catch (err) {
+          console.warn(`Failed to load match ${row.id} details`, err);
         }
       }
-    }
 
-    return {
-      id: row.id,
-      sport: row.sport,
-      stageId: row.stageId,
-      bestOf: row.bestOf,
-      playedAt: row.playedAt,
-      location: row.location,
-      isFriendly: row.isFriendly,
-      players: sanitizedPlayers,
-      participants,
-      summary,
-      playerSide,
-      playerWon,
-    };
-  });
+      let playerSide: string | null = null;
+      const participants: Participant[] = [];
+      const playersBySide: Record<string, PlayerInfo[]> = {};
+
+      for (const participant of participantsFromRow) {
+        const ids = (participant.playerIds ?? []).map((id) => String(id));
+        participants.push({ side: participant.side, playerIds: ids });
+        if (ids.includes(playerId)) {
+          playerSide = participant.side;
+        }
+        const resolvedPlayers = (participant.players ?? []).map((player, index) => {
+          const fallbackId = ids[index] ?? player?.id ?? "";
+          const name =
+            typeof player?.name === "string" && player.name.trim().length > 0
+              ? player.name
+              : fallbackId || "Unknown";
+          return {
+            id: player?.id ?? fallbackId,
+            name,
+            photo_url: player?.photo_url ?? null,
+          } satisfies PlayerInfo;
+        });
+        playersBySide[participant.side] = resolvedPlayers;
+      }
+
+      const sanitizedPlayers = sanitizePlayersBySide(playersBySide);
+      let playerWon: boolean | undefined;
+      if (playerSide && summary) {
+        const metric = summary.sets || summary.games || summary.points;
+        if (metric && playerSide in metric) {
+          const myScore = metric[playerSide];
+          const others = Object.entries(metric).filter(([side]) => side !== playerSide);
+          if (typeof myScore === "number" && others.length) {
+            playerWon = others.every(([, value]) =>
+              typeof value === "number" ? myScore > value : false
+            );
+          }
+        }
+      }
+
+      return {
+        id: row.id,
+        sport: row.sport,
+        stageId: row.stageId,
+        bestOf: row.bestOf,
+        playedAt: row.playedAt,
+        location: row.location,
+        isFriendly: row.isFriendly,
+        players: sanitizedPlayers,
+        participants,
+        summary,
+        playerSide,
+        playerWon,
+      };
+    })
+  );
+
+  return matches;
 }
 
 async function getUpcomingMatches(playerId: string): Promise<EnrichedMatch[]> {

@@ -118,6 +118,12 @@
     "actions": {
       "logout": "Cerrar sesión"
     },
+    "theme": {
+      "light": "Modo claro",
+      "dark": "Modo oscuro",
+      "switchToLight": "Cambiar a modo claro",
+      "switchToDark": "Cambiar a modo oscuro"
+    },
     "locale": {
       "label": "Idioma",
       "options": {

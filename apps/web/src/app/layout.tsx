@@ -5,6 +5,7 @@ import ChunkErrorReload from '../components/ChunkErrorReload';
 import ToastProvider from '../components/ToastProvider';
 import SessionBanner from '../components/SessionBanner';
 import LocalizedMessagesProvider from '../components/LocalizedMessagesProvider';
+import { ThemeProvider } from '../components/ThemeProvider';
 import { cookies } from 'next/headers';
 import { createTranslator } from 'use-intl';
 import Script from 'next/script';
@@ -295,6 +296,46 @@ const LOCALE_DETECTION_SCRIPT = `(() => {
   }
 })();`;
 
+const THEME_BOOTSTRAP_SCRIPT = `(() => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return;
+  }
+
+  const storageKey = 'cst-theme-preference';
+  const classNames = ['theme-light', 'theme-dark'];
+  const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+
+  const applyTheme = (theme) => {
+    const className = theme === 'dark' ? 'theme-dark' : 'theme-light';
+    const colorScheme = theme === 'dark' ? 'dark' : 'light';
+    const targets = [document.documentElement, document.body];
+
+    for (const target of targets) {
+      if (!target) continue;
+      target.classList.remove('theme-light', 'theme-dark');
+      target.classList.add(className);
+      target.style.colorScheme = colorScheme;
+    }
+  };
+
+  const readStored = () => {
+    try {
+      return window.localStorage.getItem(storageKey);
+    } catch {
+      return null;
+    }
+  };
+
+  const storedValue = readStored();
+  const theme = classNames.includes(storedValue ?? '')
+    ? storedValue
+    : prefersDark
+      ? 'dark'
+      : 'light';
+
+  applyTheme(theme);
+})();`;
+
 const NAVIGATION_TRACKER_SCRIPT = `(() => {
   if (typeof window === 'undefined' || typeof history === 'undefined') {
     return;
@@ -392,6 +433,11 @@ export default async function RootLayout({
     <html lang={resolvedLocale}>
       <head>
         <Script
+          id="cst-theme-bootstrap"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }}
+        />
+        <Script
           id="cst-locale-detection"
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: LOCALE_DETECTION_SCRIPT }}
@@ -406,25 +452,27 @@ export default async function RootLayout({
         <a className="skip-link" href="#main-content">
           {translator('Common.nav.skipToContent')}
         </a>
-        <LocaleProvider
-          locale={locale}
-          acceptLanguage={acceptLanguage}
-          timeZone={preferredTimeZone}
-        >
-          <LocalizedMessagesProvider
-            initialLocale={resolvedLocale}
-            initialMessages={messages}
+        <ThemeProvider>
+          <LocaleProvider
+            locale={locale}
+            acceptLanguage={acceptLanguage}
+            timeZone={preferredTimeZone}
           >
-            <ToastProvider>
-              <ChunkErrorReload />
-              <Header />
-              <SessionBanner />
-              <div id="main-content" tabIndex={-1} className="skip-target">
-                {children}
-              </div>
-            </ToastProvider>
-          </LocalizedMessagesProvider>
-        </LocaleProvider>
+            <LocalizedMessagesProvider
+              initialLocale={resolvedLocale}
+              initialMessages={messages}
+            >
+              <ToastProvider>
+                <ChunkErrorReload />
+                <Header />
+                <SessionBanner />
+                <div id="main-content" tabIndex={-1} className="skip-target">
+                  {children}
+                </div>
+              </ToastProvider>
+            </LocalizedMessagesProvider>
+          </LocaleProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

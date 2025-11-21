@@ -7,7 +7,6 @@ import {
   enrichMatches,
   extractMatchPagination,
   type EnrichedMatch,
-  type MatchSummaryData,
   type MatchRow,
 } from '../lib/matches';
 import MatchParticipants from '../components/MatchParticipants';

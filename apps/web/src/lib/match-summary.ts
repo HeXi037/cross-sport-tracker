@@ -50,6 +50,10 @@ export type SummaryData =
   | null
   | undefined;
 
+// Temporary alias kept for backward compatibility with modules that import
+// MatchSummaryData from this file. Prefer using SummaryData directly.
+export type MatchSummaryData = SummaryData;
+
 export type NormalizedSetScoreEntry = {
   sides: string[];
   scores: NumericRecord;

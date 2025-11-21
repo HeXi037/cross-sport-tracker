@@ -375,7 +375,23 @@ async function executeFetch(
     }
   }
 
-  const res = await fetch(apiUrl(path), { ...init, headers });
+  let res: Response | undefined;
+  try {
+    res = await fetch(apiUrl(path), { ...init, headers });
+  } catch (err) {
+    const apiErr: ApiError =
+      err instanceof Error ? err : new Error("Network request failed");
+    if (apiErr.status === undefined) {
+      apiErr.status = 0;
+    }
+    throw apiErr;
+  }
+
+  if (!res) {
+    const err: ApiError = new Error("No response received from API");
+    err.status = 0;
+    throw err;
+  }
 
   if (res.status === 401 && typeof window !== "undefined" && attempt === 0) {
     try {

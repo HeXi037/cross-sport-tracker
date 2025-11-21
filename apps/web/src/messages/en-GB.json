@@ -41,6 +41,12 @@
     "noSports": "No sports found.",
     "matchesError": "Unable to load matches. Check connection.",
     "noMatches": "No matches recorded yet.",
+    "matchDateLabel": "Date & time",
+    "matchLocationLabel": "Location",
+    "matchFormatLabel": "Format",
+    "scoreLabel": "Score",
+    "scorePending": "Scores pending",
+    "locationTbd": "Location to be determined",
     "icons": {
       "padel": "Padel tennis ball icon",
       "padel_americano": "Padel Americano abacus icon",

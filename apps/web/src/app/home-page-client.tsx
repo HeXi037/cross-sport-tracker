@@ -19,6 +19,7 @@ import {
   createSportDisplayNameLookup,
 } from '../lib/sports';
 import { useTranslations } from 'next-intl';
+import { normalizeSetScoreEntry, type MatchSummaryData } from '../lib/match-summary';
 
 interface Sport {
   id: string;
@@ -63,6 +64,51 @@ function formatMatchMetadata(parts: Array<string | null | undefined>): string {
   }
 
   return metadata;
+}
+
+function formatSummary(
+  summary: MatchSummaryData | null | undefined,
+  labels: { sets: string; games: string; points: string },
+): string {
+  if (!summary) return '';
+
+  if (Array.isArray(summary.set_scores) && summary.set_scores.length) {
+    const formatted = summary.set_scores
+      .map((set) => {
+        const normalized = normalizeSetScoreEntry(set);
+        if (!normalized) return null;
+
+        const setScores = normalized.sides.map((side) => normalized.scores[side]);
+        const hasAllScores = setScores.every((value) => typeof value === 'number');
+        if (!hasAllScores) return null;
+
+        const tiebreakValues = normalized.tiebreak
+          ? normalized.sides.map((side) => normalized.tiebreak?.[side])
+          : null;
+        const hasTiebreak =
+          tiebreakValues?.every((value) => typeof value === 'number') ?? false;
+
+        const base = setScores.join('-');
+        return hasTiebreak ? `${base} (${tiebreakValues?.join('-')})` : base;
+      })
+      .filter((val): val is string => Boolean(val));
+
+    if (formatted.length) {
+      return formatted.join(', ');
+    }
+  }
+
+  const render = (scores: Record<string, number>, label: string) => {
+    const parts = Object.keys(scores)
+      .sort()
+      .map((key) => scores[key]);
+    return `${label} ${parts.join('-')}`;
+  };
+
+  if (summary.sets) return render(summary.sets, labels.sets);
+  if (summary.games) return render(summary.games, labels.games);
+  if (summary.points) return render(summary.points, labels.points);
+  return '';
 }
 
 type MatchWithOptionalRuleset = EnrichedMatch & {
@@ -250,6 +296,7 @@ export default function HomePageClient({
     localeFromContext || initialLocale || NEUTRAL_FALLBACK_LOCALE;
   const commonT = useTranslations('Common');
   const homeT = useTranslations('Home');
+  const matchesT = useTranslations('Matches');
   const formatMatchDate = useMemo(
     () => (value: Date | string | number | null | undefined) =>
       formatDateTime(value, activeLocale, 'compact', timeZone),
@@ -470,7 +517,22 @@ export default function HomePageClient({
             <ul className="sport-list">
               {Array.from({ length: 3 }).map((_, i) => (
                 <li key={`sport-skeleton-${i}`} className="sport-item">
-                  <div className="skeleton" style={{ width: '100%', height: '1em' }} />
+                  <div className="sport-card sport-card--loading" aria-hidden>
+                    <div
+                      className="skeleton"
+                      style={{ width: '48px', height: '48px', borderRadius: '12px' }}
+                    />
+                    <div className="sport-card__content">
+                      <div
+                        className="skeleton"
+                        style={{ width: '60%', height: '1em', marginBottom: '6px' }}
+                      />
+                      <div
+                        className="skeleton"
+                        style={{ width: '40%', height: '0.9em' }}
+                      />
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -514,17 +576,22 @@ export default function HomePageClient({
                 ) ?? homeT('sportsHeading');
               return (
                 <li key={s.id} className="sport-item">
-                  <Link href={href} className="sport-link">
-                    {icon ? (
-                      <span
-                        className="sport-icon"
-                        role="img"
-                        aria-label={iconAriaLabel}
-                      >
-                        {icon.glyph}
-                      </span>
-                    ) : null}
-                    <span className="sport-name">{displayName}</span>
+                  <Link href={href} className="sport-card">
+                    <div className="sport-card__icon" aria-hidden={!icon}>
+                      {icon ? (
+                        <span
+                          className="sport-icon"
+                          role="img"
+                          aria-label={iconAriaLabel}
+                        >
+                          {icon.glyph}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="sport-card__content">
+                      <h3 className="sport-card__name">{displayName}</h3>
+                      <p className="sport-card__cta">{homeT('matchesHeading')}</p>
+                    </div>
                   </Link>
                 </li>
               );
@@ -546,12 +613,27 @@ export default function HomePageClient({
             <ul className="match-list">
               {Array.from({ length: 3 }).map((_, i) => (
                 <li key={`match-skeleton-${i}`} className="match-list__item">
-                  <div className="card match-item" aria-hidden>
-                    <div
-                      className="skeleton"
-                      style={{ width: '60%', height: '1em', marginBottom: '4px' }}
-                    />
-                    <div className="skeleton" style={{ width: '40%', height: '0.8em' }} />
+                  <div className="match-card match-card--loading" aria-hidden>
+                    <div className="match-card__content">
+                      <div className="match-card__header">
+                        <div
+                          className="skeleton"
+                          style={{ width: '70%', height: '1em', marginBottom: '6px' }}
+                        />
+                        <div
+                          className="skeleton"
+                          style={{ width: '40%', height: '0.9em', marginBottom: '10px' }}
+                        />
+                      </div>
+                      <div className="match-card__details">
+                        <div className="match-card__detail">
+                          <div className="skeleton" style={{ width: '80%', height: '0.85em' }} />
+                        </div>
+                        <div className="match-card__detail">
+                          <div className="skeleton" style={{ width: '60%', height: '0.85em' }} />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </li>
               ))}
@@ -577,29 +659,72 @@ export default function HomePageClient({
             {matches.map((m) => {
               const matchWithRuleset = m as MatchWithOptionalRuleset;
               const rulesetLabel = resolveRulesetLabel(matchWithRuleset);
+              const playedAtText = formatMatchDate(matchWithRuleset.playedAt);
+              const locationText =
+                matchWithRuleset.location?.trim() || homeT('locationTbd');
+              const summaryLabels = {
+                sets: matchesT('summary.sets'),
+                games: matchesT('summary.games'),
+                points: matchesT('summary.points'),
+              };
+              const summaryText = formatSummary(m.summary, summaryLabels);
               const metadataText = formatMatchMetadata([
-                getSportName(matchWithRuleset.sport),
                 matchWithRuleset.bestOf != null
                   ? commonT('match.bestOf', { count: matchWithRuleset.bestOf })
                   : null,
                 rulesetLabel,
-                formatMatchDate(matchWithRuleset.playedAt),
-                matchWithRuleset.location,
               ]);
+              const matchTitleId = `match-${m.id}-heading`;
 
               return (
                 <li key={m.id} className="match-list__item">
                   <Link
                     href={ensureTrailingSlash(`/matches/${m.id}`)}
-                    className="card match-item match-item--link"
-                    tabIndex={0}
+                    className="match-card"
+                    aria-labelledby={matchTitleId}
                   >
-                    <MatchParticipants
-                      sides={Object.values(m.players)}
-                      style={{ fontWeight: 500 }}
-                    />
-                    <div className="match-meta">{metadataText || '—'}</div>
-                    <span className="match-item__cta">{commonT('match.details')}</span>
+                    <article className="match-card__content">
+                      <header className="match-card__header">
+                        <p className="match-card__eyebrow">
+                          {getSportName(matchWithRuleset.sport)}
+                        </p>
+                        <h3 id={matchTitleId} className="match-card__heading">
+                          <MatchParticipants
+                            sides={Object.values(m.players)}
+                            className="match-card__participants"
+                          />
+                        </h3>
+                        <p className="match-card__score" aria-label={homeT('scoreLabel')}>
+                          {summaryText || homeT('scorePending')}
+                        </p>
+                      </header>
+                      <section
+                        className="match-card__details"
+                        aria-label={commonT('match.details')}
+                      >
+                        <div className="match-card__detail">
+                          <p className="match-card__detail-label">
+                            {homeT('matchDateLabel')}
+                          </p>
+                          <p className="match-card__detail-value">{playedAtText || '—'}</p>
+                        </div>
+                        <div className="match-card__detail">
+                          <p className="match-card__detail-label">
+                            {homeT('matchLocationLabel')}
+                          </p>
+                          <p className="match-card__detail-value">{locationText}</p>
+                        </div>
+                        {metadataText ? (
+                          <div className="match-card__detail">
+                            <p className="match-card__detail-label">
+                              {homeT('matchFormatLabel')}
+                            </p>
+                            <p className="match-card__detail-value">{metadataText}</p>
+                          </div>
+                        ) : null}
+                      </section>
+                      <span className="match-card__cta">{commonT('match.details')}</span>
+                    </article>
                   </Link>
                 </li>
               );

@@ -946,40 +946,41 @@ textarea {
   padding-left: 0;
   margin: 0;
   display: grid;
-  gap: 0.75rem;
+  gap: clamp(0.75rem, 2vw, 1rem);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 
 .sport-item {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  align-items: stretch;
 }
 
-.sport-link {
+.sport-card {
   display: inline-flex;
+  flex: 1;
   align-items: center;
   gap: 0.75rem;
-  color: var(--color-accent-blue);
-  text-decoration: underline;
-  text-decoration-color: rgba(26, 115, 232, 0.45);
-  text-decoration-thickness: 2px;
-  text-underline-offset: 0.2em;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
-  transition: background-color 0.2s ease, color 0.2s ease,
-    text-decoration-color 0.2s ease;
+  padding: clamp(0.85rem, 2.5vw, 1.1rem);
+  background: var(--color-surface);
+  border-radius: 12px;
+  border: 1px solid var(--color-border-subtle);
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 6px 18px rgba(10, 31, 68, 0.08);
+  transition: transform 0.18s ease, box-shadow 0.18s ease,
+    border-color 0.18s ease;
 }
 
-.sport-link:hover,
-.sport-link:focus-visible {
-  background-color: rgba(26, 115, 232, 0.12);
-  color: var(--color-text);
-  text-decoration-color: currentColor;
+.sport-card:hover {
+  box-shadow: 0 8px 20px rgba(10, 31, 68, 0.12);
+  border-color: rgba(10, 31, 68, 0.25);
+  transform: translateY(-2px);
 }
 
-.sport-link:focus-visible {
-  outline: 2px solid var(--color-accent-blue);
+.sport-card:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
   outline-offset: 3px;
+  box-shadow: 0 0 0 4px var(--color-focus-ring-soft);
 }
 
 .sport-icon {
@@ -987,8 +988,36 @@ textarea {
   line-height: 1;
 }
 
-.sport-name {
-  font-weight: 600;
+.sport-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: rgba(26, 115, 232, 0.08);
+  color: var(--color-accent-blue);
+}
+
+.sport-card__content {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.sport-card__name {
+  font-weight: 700;
+  margin: 0;
+}
+
+.sport-card__cta {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+}
+
+.sport-card--loading {
+  box-shadow: none;
+  border-style: dashed;
 }
 
 /* Match list */
@@ -997,11 +1026,118 @@ textarea {
   padding-left: 0;
   margin: 0;
   display: grid;
-  gap: 0.75rem;
+  gap: clamp(0.75rem, 2vw, 1.25rem);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
 .match-list__item {
   list-style: none;
+}
+
+.match-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: clamp(0.9rem, 2.5vw, 1.2rem);
+  background: var(--color-surface);
+  border-radius: 12px;
+  border: 1px solid var(--color-border-subtle);
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 10px 24px rgba(10, 31, 68, 0.08);
+  height: 100%;
+  transition: transform 0.18s ease, box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.match-card:hover {
+  box-shadow: 0 12px 26px rgba(10, 31, 68, 0.12);
+  border-color: rgba(10, 31, 68, 0.25);
+  transform: translateY(-2px);
+}
+
+.match-card:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px var(--color-focus-ring-soft);
+}
+
+.match-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  height: 100%;
+}
+
+.match-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.match-card__eyebrow {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}
+
+.match-card__heading {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.match-card__participants {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-weight: 700;
+}
+
+.match-card__score {
+  margin: 0;
+  font-weight: 700;
+  color: var(--color-heading);
+}
+
+.match-card__details {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.match-card__detail {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.match-card__detail-label {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.match-card__detail-value {
+  margin: 0;
+  font-weight: 600;
+}
+
+.match-card__cta {
+  margin-top: auto;
+  font-weight: 600;
+  color: var(--color-accent-blue);
+  text-decoration: underline;
+}
+
+.match-card__cta:hover {
+  text-decoration: none;
+}
+
+.match-card--loading {
+  pointer-events: none;
+  box-shadow: none;
+  border-style: dashed;
 }
 
 .player-detail__view-nav {

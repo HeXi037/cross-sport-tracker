@@ -184,7 +184,6 @@ async function getMatches(
 ): Promise<EnrichedMatch[]> {
   const params = new URLSearchParams({
     playerId,
-    limit: upcoming ? "20" : "100",
   });
   if (upcoming) {
     params.set("upcoming", "true");
@@ -203,6 +202,7 @@ async function getMatches(
     rows.map(async (row) => {
       let participantsFromRow = row.participants ?? [];
       let summary: MatchSummaryScores | undefined = row.summary ?? undefined;
+      const missingPlayerIds = new Set<string>();
 
       if (!participantsFromRow.length) {
         try {
@@ -230,19 +230,46 @@ async function getMatches(
         if (ids.includes(playerId)) {
           playerSide = participant.side;
         }
-        const resolvedPlayers = (participant.players ?? []).map((player, index) => {
-          const fallbackId = ids[index] ?? player?.id ?? "";
-          const name =
-            typeof player?.name === "string" && player.name.trim().length > 0
-              ? player.name
-              : fallbackId || "Unknown";
-          return {
-            id: player?.id ?? fallbackId,
-            name,
-            photo_url: player?.photo_url ?? null,
-          } satisfies PlayerInfo;
-        });
+        const resolvedPlayers =
+          participant.players && participant.players.length
+            ? participant.players.map((player, index) => {
+                const fallbackId = ids[index] ?? player?.id ?? "";
+                const name =
+                  typeof player?.name === "string" && player.name.trim().length > 0
+                    ? player.name
+                    : fallbackId || "Unknown";
+                return {
+                  id: player?.id ?? fallbackId,
+                  name,
+                  photo_url: player?.photo_url ?? null,
+                } satisfies PlayerInfo;
+              })
+            : ids.map((id) => {
+                missingPlayerIds.add(id);
+                return { id, name: id, photo_url: null } satisfies PlayerInfo;
+              });
         playersBySide[participant.side] = resolvedPlayers;
+      }
+
+      if (missingPlayerIds.size) {
+        try {
+          const lookupParams = new URLSearchParams({
+            ids: Array.from(missingPlayerIds).join(','),
+          });
+          const lookupResponse = await apiFetch(
+            `/v0/players/by-ids?${lookupParams.toString()}`,
+          );
+          if (lookupResponse.ok) {
+            const lookupPlayers = (await lookupResponse.json()) as PlayerInfo[];
+            const lookupMap = new Map(lookupPlayers.map((p) => [String(p.id), p]));
+
+            for (const [side, players] of Object.entries(playersBySide)) {
+              playersBySide[side] = players.map((p) => lookupMap.get(p.id) ?? p);
+            }
+          }
+        } catch (err) {
+          console.warn(`Failed to load player names for match ${row.id}`, err);
+        }
       }
 
       const sanitizedPlayers = sanitizePlayersBySide(playersBySide);

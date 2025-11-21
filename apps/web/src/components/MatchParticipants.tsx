@@ -50,7 +50,7 @@ export default function MatchParticipants<
           if (playerIndex === 0) {
             renderedSide.push(
               <span key={player.id} className="match-participants__entry">
-                <PlayerName player={player} />
+                <PlayerName player={player} showInitialsText={false} />
               </span>
             );
             return;
@@ -68,7 +68,7 @@ export default function MatchParticipants<
                 {visualSeparator}
               </span>
               <span className="match-participants__entry">
-                <PlayerName player={player} />
+                <PlayerName player={player} showInitialsText={false} />
               </span>
             </span>
           );

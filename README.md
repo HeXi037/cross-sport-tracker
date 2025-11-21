@@ -79,6 +79,15 @@ Timezone: Store UTC; render client TZ (default Australia/Melbourne). API accepts
 
 Testing targets: Engines ≥ 90% coverage; Playwright E2E for core flows
 
+### Frontend tests
+
+Use pnpm from the repository root (workspace config includes `apps/web`):
+
+```
+pnpm install --filter @cst/web --frozen-lockfile
+pnpm test -- --runInBand --watch=false
+```
+
 Deploy: Single VPS with Docker Compose; Caddy for HTTPS; nightly pg_dump backups
 
 Monorepo Layout

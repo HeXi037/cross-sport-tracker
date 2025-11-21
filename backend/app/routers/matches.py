@@ -1,4 +1,5 @@
 # backend/app/routers/matches.py
+import logging
 import uuid
 import importlib
 from collections import Counter
@@ -8,6 +9,7 @@ from typing import Any, Dict, List, Optional, Sequence, NamedTuple
 import jwt
 from fastapi import APIRouter, Depends, Query, Response, Request
 from sqlalchemy import select, func, or_
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
@@ -61,6 +63,7 @@ from ..time_utils import coerce_utc
 
 # Resource-only prefix; versioning is added in main.py
 router = APIRouter(prefix="/matches", tags=["matches"])
+logger = logging.getLogger(__name__)
 
 DEFAULT_SCORE_LIMIT = 1000
 SPORT_SCORE_LIMITS = {
@@ -657,11 +660,18 @@ async def create_match(
                 detail=str(e),
                 code="match_validation_error",
             )
-        except Exception:
+        except (TypeError, ValueError) as exc:
             raise http_problem(
                 status_code=422,
-                detail="Invalid set scores provided.",
+                detail=str(exc) or "Invalid set scores provided.",
                 code="match_invalid_set_scores",
+            )
+        except Exception:
+            logger.exception("Unexpected error normalizing set scores for match %s", mid)
+            raise http_problem(
+                status_code=500,
+                detail="unexpected error validating set scores",
+                code="match_set_validation_failed",
             )
 
         set_pairs = [(int(s["A"]), int(s["B"])) for s in normalized_sets]
@@ -789,8 +799,22 @@ async def create_match(
                                 lower_tier,
                                 match_id=None,
                             )
+            except SQLAlchemyError:
+                await session.rollback()
+                logger.exception("Failed to update ratings for match %s", mid)
+                raise http_problem(
+                    status_code=500,
+                    detail="failed to update match ratings",
+                    code="match_rating_update_failed",
+                )
             except Exception:
-                pass
+                await session.rollback()
+                logger.exception("Unexpected error updating ratings for match %s", mid)
+                raise http_problem(
+                    status_code=500,
+                    detail="unexpected error updating match ratings",
+                    code="match_rating_update_failed",
+                )
             await update_player_metrics(
                 session, rating_sport_id, winners, losers, draws or None
             )
@@ -1101,8 +1125,22 @@ async def delete_match(
                 select(MatchParticipant).where(MatchParticipant.match_id == mid)
             )
         ).scalars().all()
+    except SQLAlchemyError:
+        await session.rollback()
+        logger.exception("Failed to load match participants for deletion: %s", mid)
+        raise http_problem(
+            status_code=500,
+            detail="failed to load match participants",
+            code="match_participant_load_failed",
+        )
     except Exception:
-        parts = []
+        await session.rollback()
+        logger.exception("Unexpected error loading match participants for %s", mid)
+        raise http_problem(
+            status_code=500,
+            detail="unexpected error loading match participants",
+            code="match_participant_load_failed",
+        )
     match_player_ids = {pid for p in parts for pid in (p.player_ids or [])}
     stage = await _get_match_stage(session, m)
     rating_sport_id = _rating_sport_id_for_stage(m.sport_id, stage)
@@ -1210,9 +1248,22 @@ async def delete_match(
                 match_id=match.id,
             )
         await session.commit()
+    except SQLAlchemyError:
+        await session.rollback()
+        logger.exception("Failed to rebuild ratings after deleting match %s", mid)
+        raise http_problem(
+            status_code=500,
+            detail="failed to rebuild ratings after deletion",
+            code="match_rating_rebuild_failed",
+        )
     except Exception:
-        # Ignore errors (e.g., rating tables may not exist in some tests)
-        pass
+        await session.rollback()
+        logger.exception("Unexpected error rebuilding ratings after deleting match %s", mid)
+        raise http_problem(
+            status_code=500,
+            detail="unexpected error rebuilding ratings",
+            code="match_rating_rebuild_failed",
+        )
 
     await player_stats_cache.invalidate_players(match_player_ids)
     return Response(status_code=204)
@@ -1366,8 +1417,22 @@ async def append_event(
                 draws=draws or None,
                 match_id=mid,
             )
+        except SQLAlchemyError:
+            await session.rollback()
+            logger.exception("Failed to update ratings while appending event for %s", mid)
+            raise http_problem(
+                status_code=500,
+                detail="failed to update match ratings",
+                code="match_rating_update_failed",
+            )
         except Exception:
-            pass
+            await session.rollback()
+            logger.exception("Unexpected error updating ratings while appending event for %s", mid)
+            raise http_problem(
+                status_code=500,
+                detail="unexpected error updating match ratings",
+                code="match_rating_update_failed",
+            )
         await update_player_metrics(
             session, rating_sport_id, winners, losers, draws
         )
@@ -1420,8 +1485,22 @@ async def record_sets_endpoint(
                 select(MatchParticipant).where(MatchParticipant.match_id == mid)
             )
         ).scalars().all()
+    except SQLAlchemyError:
+        await session.rollback()
+        logger.exception("Failed to load match participants for %s", mid)
+        raise http_problem(
+            status_code=500,
+            detail="failed to load match participants",
+            code="match_participant_load_failed",
+        )
     except Exception:
-        parts = []
+        await session.rollback()
+        logger.exception("Unexpected error loading match participants for %s", mid)
+        raise http_problem(
+            status_code=500,
+            detail="unexpected error loading match participants",
+            code="match_participant_load_failed",
+        )
     stage = await _get_match_stage(session, m)
     rating_sport_id = _rating_sport_id_for_stage(m.sport_id, stage)
     if not user.is_admin:
@@ -1490,6 +1569,21 @@ async def record_sets_endpoint(
             detail=str(e),
             code="match_validation_error",
         )
+    except (TypeError, ValueError) as exc:
+        raise http_problem(
+            status_code=422,
+            detail=str(exc) or "Invalid set scores provided.",
+            code="match_invalid_set_scores",
+        )
+    except Exception:
+        logger.exception(
+            "Unexpected error validating set scores while recording sets for %s", mid
+        )
+        raise http_problem(
+            status_code=500,
+            detail="unexpected error validating set scores",
+            code="match_set_validation_failed",
+        )
 
     existing = (
         await session.execute(
@@ -1551,8 +1645,27 @@ async def record_sets_endpoint(
                     draws=draws,
                     match_id=mid,
                 )
+            except SQLAlchemyError:
+                await session.rollback()
+                logger.exception(
+                    "Failed to update ratings while recording drawn sets for %s", mid
+                )
+                raise http_problem(
+                    status_code=500,
+                    detail="failed to update match ratings",
+                    code="match_rating_update_failed",
+                )
             except Exception:
-                pass
+                await session.rollback()
+                logger.exception(
+                    "Unexpected error updating ratings while recording drawn sets for %s",
+                    mid,
+                )
+                raise http_problem(
+                    status_code=500,
+                    detail="unexpected error updating match ratings",
+                    code="match_rating_update_failed",
+                )
             await update_player_metrics(
                 session, rating_sport_id, [], [], draws
             )
@@ -1564,8 +1677,27 @@ async def record_sets_endpoint(
                 await update_ratings(
                     session, rating_sport_id, winners, losers, match_id=mid
                 )
+            except SQLAlchemyError:
+                await session.rollback()
+                logger.exception(
+                    "Failed to update ratings while recording sets for %s", mid
+                )
+                raise http_problem(
+                    status_code=500,
+                    detail="failed to update match ratings",
+                    code="match_rating_update_failed",
+                )
             except Exception:
-                pass
+                await session.rollback()
+                logger.exception(
+                    "Unexpected error updating ratings while recording sets for %s",
+                    mid,
+                )
+                raise http_problem(
+                    status_code=500,
+                    detail="unexpected error updating match ratings",
+                    code="match_rating_update_failed",
+                )
             await update_player_metrics(
                 session, rating_sport_id, winners, losers
             )

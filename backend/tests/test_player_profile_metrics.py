@@ -15,11 +15,13 @@ from sqlalchemy.dialects.sqlite import JSON as SQLiteJSON
 
 from backend.app.db import get_session
 from backend.app.models import (
+    GlickoRating,
     Player,
     Match,
     MatchParticipant,
     Sport,
     PlayerMetric,
+    Rating,
     ScoreEvent,
     User,
 )
@@ -49,6 +51,8 @@ def client_and_session():
             await conn.run_sync(MatchParticipant.__table__.create)
             await conn.run_sync(ScoreEvent.__table__.create)
             await conn.run_sync(PlayerMetric.__table__.create)
+            await conn.run_sync(Rating.__table__.create)
+            await conn.run_sync(GlickoRating.__table__.create)
 
     asyncio.run(init_models())
 

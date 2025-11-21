@@ -1104,7 +1104,7 @@ textarea {
 
 .player-list__stats {
   font-size: 0.9rem;
-  color: rgba(10, 31, 68, 0.7);
+  color: var(--color-text-muted);
 }
 
 .player-list__stats-loading {
@@ -1487,7 +1487,7 @@ textarea {
 .match-detail-empty {
   margin: 0;
   font-size: 0.95rem;
-  color: rgba(10, 31, 68, 0.7);
+  color: var(--color-text-muted);
 }
 
 .match-history {
@@ -1504,7 +1504,7 @@ textarea {
 
 .match-history__item {
   padding: 12px 0;
-  border-bottom: 1px solid rgba(10, 31, 68, 0.08);
+  border-bottom: 1px solid var(--color-border-subtle);
   display: grid;
   gap: 4px;
 }
@@ -1531,12 +1531,12 @@ textarea {
 }
 
 .match-history__actor {
-  color: rgba(10, 31, 68, 0.7);
+  color: var(--color-text-muted);
 }
 
 .match-history__timestamp {
   font-size: 0.9rem;
-  color: rgba(10, 31, 68, 0.7);
+  color: var(--color-text-muted);
 }
 
 .match-history__match {

@@ -9,6 +9,7 @@ import { rememberLoginRedirect } from '../lib/loginRedirect';
 import NotificationBell from '../components/NotificationBell';
 import LanguageSelector from '../components/LanguageSelector';
 import { useTranslations } from 'next-intl';
+import { useTheme } from '../components/ThemeProvider';
 
 export default function Header() {
   const [open, setOpen] = useState(false);
@@ -23,6 +24,7 @@ export default function Header() {
     () => ensureTrailingSlash(pathname ?? '/'),
     [pathname]
   );
+  const { theme, toggleTheme } = useTheme();
 
   const isActivePath = (targetPath: string) => {
     const normalizedTarget = ensureTrailingSlash(targetPath);
@@ -69,6 +71,34 @@ export default function Header() {
       </button>
       <nav id="nav-menu" className={`nav-links ${open ? 'open' : ''}`}>
         <ul>
+          <li>
+            <button
+              type="button"
+              className="nav-theme-toggle__button"
+              onClick={() => {
+                toggleTheme();
+                setOpen(false);
+              }}
+              aria-pressed={theme === 'dark'}
+              aria-label={
+                theme === 'dark'
+                  ? headerT('theme.switchToLight')
+                  : headerT('theme.switchToDark')
+              }
+            >
+              <span aria-hidden="true" className="nav-theme-toggle__icon">
+                {theme === 'dark' ? '🌙' : '☀️'}
+              </span>
+              <span className="nav-theme-toggle__text">
+                {theme === 'dark'
+                  ? headerT('theme.dark')
+                  : headerT('theme.light')}
+              </span>
+            </button>
+          </li>
+          <li className="nav-language-item">
+            <LanguageSelector />
+          </li>
           <li>
             <Link
               href="/"
@@ -138,6 +168,31 @@ export default function Header() {
             >
               {headerT('links.leaderboards')}
             </Link>
+          </li>
+          <li>
+            <button
+              type="button"
+              className="nav-theme-toggle__button"
+              onClick={() => {
+                toggleTheme();
+                setOpen(false);
+              }}
+              aria-pressed={theme === 'dark'}
+              aria-label={
+                theme === 'dark'
+                  ? headerT('theme.switchToLight')
+                  : headerT('theme.switchToDark')
+              }
+            >
+              <span aria-hidden="true" className="nav-theme-toggle__icon">
+                {theme === 'dark' ? '🌙' : '☀️'}
+              </span>
+              <span className="nav-theme-toggle__text">
+                {theme === 'dark'
+                  ? headerT('theme.dark')
+                  : headerT('theme.light')}
+              </span>
+            </button>
           </li>
           <li className="nav-language-item">
             <LanguageSelector />

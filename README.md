@@ -260,6 +260,21 @@ cd ../apps/web
 npm install
 ```
 
+Progressive Web App (PWA)
+
+- The web app ships as a PWA using `next-pwa` and the existing `public/site.webmanifest` + icon set. A production build outputs
+  `public/sw.js` along with precache manifests, so offline score entry keeps working after the first load.
+- Development mode disables the service worker; to test the PWA locally run a production build and start the server:
+
+  ```bash
+  cd apps/web
+  npm run build
+  npm run start
+  ```
+
+- Install prompts follow your browser's "Add to Home Screen"/"Install app" flow. Cached pages, scripts, and same-origin API
+  responses use network-first strategies with fallbacks so live scoring remains available even with flaky connectivity.
+
 ### Run backend & frontend together
 Start the API and UI in separate terminals:
 

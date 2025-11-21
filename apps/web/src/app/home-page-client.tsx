@@ -7,6 +7,7 @@ import {
   enrichMatches,
   extractMatchPagination,
   type EnrichedMatch,
+  type MatchSummaryData,
   type MatchRow,
 } from '../lib/matches';
 import MatchParticipants from '../components/MatchParticipants';
@@ -19,7 +20,7 @@ import {
   createSportDisplayNameLookup,
 } from '../lib/sports';
 import { useTranslations } from 'next-intl';
-import { normalizeSetScoreEntry, type MatchSummaryData } from '../lib/match-summary';
+import { normalizeSetScoreEntry } from '../lib/match-summary';
 
 interface Sport {
   id: string;

@@ -111,16 +111,6 @@ export default function Header() {
           </li>
           <li>
             <Link
-              href={ensureTrailingSlash('/demo')}
-              className={linkClassName('/demo')}
-              aria-current={linkAriaCurrent('/demo')}
-              onClick={() => setOpen(false)}
-            >
-              {headerT('links.demo')}
-            </Link>
-          </li>
-          <li>
-            <Link
               href={ensureTrailingSlash('/players')}
               className={linkClassName('/players')}
               aria-current={linkAriaCurrent('/players')}
@@ -170,32 +160,14 @@ export default function Header() {
             </Link>
           </li>
           <li>
-            <button
-              type="button"
-              className="nav-theme-toggle__button"
-              onClick={() => {
-                toggleTheme();
-                setOpen(false);
-              }}
-              aria-pressed={theme === 'dark'}
-              aria-label={
-                theme === 'dark'
-                  ? headerT('theme.switchToLight')
-                  : headerT('theme.switchToDark')
-              }
+            <Link
+              href={ensureTrailingSlash('/demo')}
+              className={`${linkClassName('/demo')} nav-link--quiet`}
+              aria-current={linkAriaCurrent('/demo')}
+              onClick={() => setOpen(false)}
             >
-              <span aria-hidden="true" className="nav-theme-toggle__icon">
-                {theme === 'dark' ? '🌙' : '☀️'}
-              </span>
-              <span className="nav-theme-toggle__text">
-                {theme === 'dark'
-                  ? headerT('theme.dark')
-                  : headerT('theme.light')}
-              </span>
-            </button>
-          </li>
-          <li className="nav-language-item">
-            <LanguageSelector />
+              {headerT('links.demo')}
+            </Link>
           </li>
           {admin && (
             <>

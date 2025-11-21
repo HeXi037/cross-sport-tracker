@@ -18,7 +18,11 @@ import {
   createSportDisplayNameLookup,
   fetchSportsCatalog,
 } from "../../lib/sports";
-import { normalizeSetScoreEntry } from "../../lib/match-summary";
+import {
+  getNumericEntries,
+  isRecord,
+  normalizeSetScoreEntry,
+} from "../../lib/match-summary";
 
 export const dynamic = "force-dynamic";
 
@@ -112,9 +116,24 @@ function formatSummary(
       .map((k) => scores[k]);
     return `${label} ${parts.join("-")}`;
   };
-  if (s.sets) return render(s.sets, labels.sets);
-  if (s.games) return render(s.games, labels.games);
-  if (s.points) return render(s.points, labels.points);
+  const renderIfNumericRecord = (
+    candidate: unknown,
+    label: string,
+  ): string | null => {
+    if (!isRecord(candidate)) return null;
+    const numericEntries = getNumericEntries(candidate);
+    if (!numericEntries.length) return null;
+    return render(Object.fromEntries(numericEntries), label);
+  };
+
+  const renderedSets = renderIfNumericRecord(s.sets, labels.sets);
+  if (renderedSets) return renderedSets;
+
+  const renderedGames = renderIfNumericRecord(s.games, labels.games);
+  if (renderedGames) return renderedGames;
+
+  const renderedPoints = renderIfNumericRecord(s.points, labels.points);
+  if (renderedPoints) return renderedPoints;
   return "";
 }
 

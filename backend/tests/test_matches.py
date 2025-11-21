@@ -387,7 +387,7 @@ async def test_create_match_by_name_trims_whitespace(tmp_path):
 @pytest.mark.anyio
 async def test_create_match_with_sets(tmp_path):
   from app import db
-  from app.models import Match, MatchParticipant, Player, Sport, User
+  from app.models import GlickoRating, Match, MatchParticipant, Player, Rating, ScoreEvent, Sport, User
   from app.schemas import MatchCreate, Participant
   from app.routers.matches import create_match
 
@@ -404,6 +404,9 @@ async def test_create_match_with_sets(tmp_path):
         Match.__table__,
         MatchParticipant.__table__,
         MatchAuditLog.__table__,
+        ScoreEvent.__table__,
+        Rating.__table__,
+        GlickoRating.__table__,
       ],
     )
 
@@ -680,7 +683,7 @@ async def test_create_match_with_draw_updates_ratings(tmp_path):
 @pytest.mark.anyio
 async def test_create_match_by_name_with_sets(tmp_path):
   from app import db
-  from app.models import Match, MatchParticipant, Player, Sport, User
+  from app.models import GlickoRating, Match, MatchParticipant, Player, Rating, ScoreEvent, Sport, User
   from app.schemas import MatchCreateByName, ParticipantByName
   from app.routers.matches import create_match_by_name
 
@@ -697,6 +700,9 @@ async def test_create_match_by_name_with_sets(tmp_path):
         Match.__table__,
         MatchParticipant.__table__,
         MatchAuditLog.__table__,
+        ScoreEvent.__table__,
+        Rating.__table__,
+        GlickoRating.__table__,
       ],
     )
 
@@ -1148,7 +1154,7 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
   from fastapi.testclient import TestClient
   from slowapi.errors import RateLimitExceeded
   from app import db
-  from app.models import Match, ScoreEvent, User, Player, RefreshToken
+  from app.models import GlickoRating, Match, Rating, ScoreEvent, Sport, Stage, User, Player, RefreshToken
   from app.routers import matches, auth
 
   db.engine = None
@@ -1161,6 +1167,10 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
     await conn.run_sync(ScoreEvent.__table__.create)
     await conn.run_sync(User.__table__.create)
     await conn.run_sync(Player.__table__.create)
+    await conn.run_sync(Stage.__table__.create)
+    await conn.run_sync(Sport.__table__.create)
+    await conn.run_sync(Rating.__table__.create)
+    await conn.run_sync(GlickoRating.__table__.create)
     await conn.run_sync(RefreshToken.__table__.create)
     await conn.exec_driver_sql(
         "CREATE TABLE match_participant (id TEXT PRIMARY KEY, match_id TEXT, side TEXT, player_ids TEXT)"
@@ -1168,6 +1178,7 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
 
   async with db.AsyncSessionLocal() as session:
     mid = "m1"
+    session.add(Sport(id="padel", name="Padel"))
     session.add(Match(id=mid, sport_id="padel"))
     await session.execute(
         text(
@@ -1523,7 +1534,7 @@ async def test_create_match_rejects_naive_date(tmp_path):
 @pytest.mark.anyio
 async def test_user_with_multiple_player_records_can_modify_match(tmp_path):
   from app import db
-  from app.models import Match, MatchParticipant, Player, ScoreEvent, User
+  from app.models import GlickoRating, Match, MatchParticipant, Player, Rating, ScoreEvent, Sport, User
   from app.schemas import EventIn
   from app.routers import matches
   from app.scoring import padel
@@ -1535,12 +1546,15 @@ async def test_user_with_multiple_player_records_can_modify_match(tmp_path):
     await conn.run_sync(
         db.Base.metadata.create_all,
         tables=[
-            Stage.__table__,
-            Match.__table__,
-            MatchParticipant.__table__,
+          Stage.__table__,
+          Match.__table__,
+          MatchParticipant.__table__,
         MatchAuditLog.__table__,
-            ScoreEvent.__table__,
-            Player.__table__,
+          ScoreEvent.__table__,
+          Player.__table__,
+          Sport.__table__,
+          Rating.__table__,
+          GlickoRating.__table__,
         ],
     )
 
@@ -1552,6 +1566,7 @@ async def test_user_with_multiple_player_records_can_modify_match(tmp_path):
 
   async with db.AsyncSessionLocal() as session:
     user = User(id="u1", username="user", password_hash="", is_admin=False)
+    session.add(Sport(id="padel", name="Padel"))
     session.add_all(
         [
             Player(id="p1", user_id="u1", name="P1"),

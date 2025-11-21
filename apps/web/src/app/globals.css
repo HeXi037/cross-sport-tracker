@@ -1694,6 +1694,10 @@ textarea {
   text-transform: uppercase;
 }
 
+.player-name__avatar--initials::before {
+  content: attr(data-initials);
+}
+
 .match-participants {
   display: flex;
   flex-wrap: wrap;

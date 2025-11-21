@@ -29,13 +29,13 @@ export default function PlayerName({ player }: { player: PlayerInfo }) {
           className="player-name__avatar"
         />
       ) : (
-        // Initials are visual only — hide them from the accessibility tree.
+        // Initials are visual only — hide them from the accessibility tree and
+        // render via CSS to keep them out of the DOM text content.
         <span
           className="player-name__avatar player-name__avatar--initials"
           aria-hidden="true"
-        >
-          {initials}
-        </span>
+          data-initials={initials}
+        />
       )}
       <span className="player-name__text">{player.name}</span>
     </span>

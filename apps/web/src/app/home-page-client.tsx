@@ -761,10 +761,7 @@ export default function HomePageClient({
                           </div>
                         ) : null}
                       </section>
-                      <span
-                        className="match-card__cta"
-                        href={`/matches/${m.id}`}
-                      >
+                      <span className="match-card__cta">
                         {commonT('match.details')}
                       </span>
                     </article>

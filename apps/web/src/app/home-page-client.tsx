@@ -716,12 +716,8 @@ export default function HomePageClient({
 
               return (
                 <li key={m.id} className="match-list__item">
-                  <Link
-                    href={ensureTrailingSlash(`/matches/${m.id}`)}
-                    className="match-card"
-                    aria-labelledby={matchTitleId}
-                  >
-                    <article className="match-card__content">
+                  <article className="match-card" aria-labelledby={matchTitleId}>
+                    <div className="match-card__content">
                       <header className="match-card__header">
                         <p className="match-card__eyebrow">
                           {getSportName(matchWithRuleset.sport)}
@@ -761,11 +757,14 @@ export default function HomePageClient({
                           </div>
                         ) : null}
                       </section>
-                      <span className="match-card__cta">
-                        {commonT('match.details')}
-                      </span>
-                    </article>
-                  </Link>
+                    </div>
+                    <Link
+                      href={ensureTrailingSlash(`/matches/${m.id}`)}
+                      className="match-card__cta"
+                    >
+                      {commonT('match.details')}
+                    </Link>
+                  </article>
                 </li>
               );
             })}

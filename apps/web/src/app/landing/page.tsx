@@ -29,15 +29,11 @@ export default function LandingPage() {
     <main className="page landing-page">
       <section className="hero hero--accent">
         <div className="hero__content">
-          <p className="hero__eyebrow">{t('eyebrow')}</p>
           <h1 className="hero__title">{t('title')}</h1>
           <p className="hero__subtitle">{t('subtitle')}</p>
           <div className="hero__actions">
             <Link href="/demo" className="button hero__cta">
               {t('primaryCta')}
-            </Link>
-            <Link href="/record" className="button button--ghost hero__secondary">
-              {t('secondaryCta')}
             </Link>
           </div>
           <p className="hero__supporting">{t('supportingCopy')}</p>
@@ -68,9 +64,6 @@ export default function LandingPage() {
           <div className="hero__actions">
             <Link href="/demo" className="button hero__cta">
               {t('primaryCta')}
-            </Link>
-            <Link href="/tournaments" className="button button--ghost hero__secondary">
-              {t('tertiaryCta')}
             </Link>
           </div>
         </div>

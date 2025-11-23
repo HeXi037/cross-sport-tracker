@@ -227,7 +227,7 @@ describe("MatchesPage", () => {
     const page = await MatchesPage({ searchParams: {} });
     const { container } = render(page);
 
-    const metadataElements = container.querySelectorAll(".match-meta");
+    const metadataElements = container.querySelectorAll(".match-card__meta");
     expect(metadataElements).toHaveLength(matches.length);
 
     const metadataTexts = Array.from(metadataElements).map(

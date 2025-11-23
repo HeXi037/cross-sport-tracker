@@ -227,29 +227,48 @@ export default async function MatchesPage(
                 m.bestOf != null
                   ? commonT('match.bestOf', { count: m.bestOf })
                   : null,
-                playedAtText,
                 m.location,
               ]);
               const participantSides = Object.entries(m.players)
                 .sort(([a], [b]) => a.localeCompare(b))
                 .map(([, players]) => players);
+              const [teamA = [], teamB = []] = participantSides;
+              const playedAtDisplay = playedAtText || "—";
+              const scoreDisplay = summaryText || "—";
 
               return (
                 <li key={m.id} className="match-list__item">
                   <Link
                     href={ensureTrailingSlash(`/matches/${m.id}`)}
-                    className="card match-item match-item--link"
+                    className="match-card match-card--simple"
                     tabIndex={0}
                   >
-                    <MatchParticipants sides={participantSides} />
-                    <div className="match-meta">
-                      {summaryText}
-                      {summaryText && metadataText ? " · " : ""}
-                      {metadataText}
+                    <div className="match-card__time-row">
+                      <span className="match-card__time">{playedAtDisplay}</span>
+                      {metadataText ? (
+                        <span className="match-card__meta">{metadataText}</span>
+                      ) : null}
                     </div>
-                    <span className="match-item__cta">
-                      {commonT('actions.moreInfo')}
-                    </span>
+
+                    <div className="match-card__teams-row">
+                      <MatchParticipants
+                        as="div"
+                        sides={[teamA]}
+                        className="match-card__team"
+                        separatorSymbol="&"
+                      />
+                      <span className="match-card__divider">vs</span>
+                      <MatchParticipants
+                        as="div"
+                        sides={[teamB]}
+                        className="match-card__team match-card__team--right"
+                        separatorSymbol="&"
+                      />
+                    </div>
+
+                    <div className="match-card__score-row">
+                      <span className="match-card__score">{scoreDisplay}</span>
+                    </div>
                   </Link>
                 </li>
               );

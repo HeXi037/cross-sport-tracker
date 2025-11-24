@@ -265,19 +265,15 @@ export default async function MatchesPage(
                         as="div"
                         sides={[teamA]}
                         className="match-card__team"
-                        separatorSymbol="&"
                       />
-                      <span className="match-card__divider">vs</span>
+                      <span className="match-card__score match-card__score--inline">
+                        {scoreDisplay}
+                      </span>
                       <MatchParticipants
                         as="div"
                         sides={[teamB]}
                         className="match-card__team match-card__team--right"
-                        separatorSymbol="&"
                       />
-                    </div>
-
-                    <div className="match-card__score-row">
-                      <span className="match-card__score">{scoreDisplay}</span>
                     </div>
                   </Link>
                 </li>

@@ -15,10 +15,6 @@ import { ensureTrailingSlash } from "../../lib/routes";
 import { resolveServerLocale } from "../../lib/server-locale";
 import { enrichMatches, type MatchRow, type MatchSummaryData } from "../../lib/matches";
 import {
-  createSportDisplayNameLookup,
-  fetchSportsCatalog,
-} from "../../lib/sports";
-import {
   getNumericEntries,
   isRecord,
   normalizeSetScoreEntry,
@@ -137,27 +133,6 @@ function formatSummary(
   return "";
 }
 
-const PLACEHOLDER_VALUES = new Set(["", "—", "Best of —"]);
-
-function formatMatchMetadata(parts: Array<string | null | undefined>): string {
-  let metadata = "";
-
-  for (const part of parts) {
-    if (typeof part !== "string") {
-      continue;
-    }
-
-    const normalized = part.trim();
-    if (!normalized || PLACEHOLDER_VALUES.has(normalized)) {
-      continue;
-    }
-
-    metadata = metadata ? `${metadata} · ${normalized}` : normalized;
-  }
-
-  return metadata;
-}
-
 export default async function MatchesPage(
   props: {
     searchParams?: Record<string, string | string[] | undefined>;
@@ -177,13 +152,9 @@ export default async function MatchesPage(
     games: matchesT('summary.games'),
     points: matchesT('summary.points'),
   };
-  const friendlyLabel = commonT('match.friendly');
 
   try {
-    const [matchPage, sports] = await Promise.all([
-      getMatches(limit, offset),
-      fetchSportsCatalog(),
-    ]);
+    const matchPage = await getMatches(limit, offset);
     const { rows, hasMore, nextOffset, totalCount } = matchPage;
     rows.sort((a, b) => {
       if (!a.playedAt) return 1;
@@ -191,7 +162,6 @@ export default async function MatchesPage(
       return new Date(b.playedAt).getTime() - new Date(a.playedAt).getTime();
     });
     const matches = await enrichMatches(rows);
-    const getSportName = createSportDisplayNameLookup(sports);
     const prevOffset = Math.max(offset - limit, 0);
     const disablePrev = offset <= 0;
     const resolvedNextOffset =
@@ -221,14 +191,6 @@ export default async function MatchesPage(
                       preferredDateOptions,
                       timeZone,
                     );
-              const metadataText = formatMatchMetadata([
-                m.isFriendly ? friendlyLabel : null,
-                getSportName(m.sport),
-                m.bestOf != null
-                  ? commonT('match.bestOf', { count: m.bestOf })
-                  : null,
-                m.location,
-              ]);
               const participantSides = Object.entries(m.players)
                 .sort(([a], [b]) => a.localeCompare(b))
                 .map(([, players]) => players);
@@ -245,9 +207,6 @@ export default async function MatchesPage(
                   >
                     <div className="match-card__time-row">
                       <span className="match-card__time">{playedAtDisplay}</span>
-                      {metadataText ? (
-                        <span className="match-card__meta">{metadataText}</span>
-                      ) : null}
                     </div>
 
                     <div className="match-card__teams-row">

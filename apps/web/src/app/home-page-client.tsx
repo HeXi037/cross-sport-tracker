@@ -31,46 +31,6 @@ interface Sport {
   name: string;
 }
 
-const PLACEHOLDER_META_VALUES = new Set([
-  '',
-  '-',
-  '–',
-  '—',
-  'n/a',
-  'na',
-  'best of —',
-]);
-
-function normalizeMetadataSegment(value: unknown): string | undefined {
-  if (value === null || value === undefined) return undefined;
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? `${value}` : undefined;
-  }
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  const normalized = trimmed.toLowerCase();
-  if (PLACEHOLDER_META_VALUES.has(normalized)) {
-    return undefined;
-  }
-  return trimmed;
-}
-
-function formatMatchMetadata(parts: Array<string | null | undefined>): string {
-  let metadata = '';
-
-  for (const part of parts) {
-    const normalized = normalizeMetadataSegment(part);
-    if (!normalized) {
-      continue;
-    }
-
-    metadata = metadata ? `${metadata} · ${normalized}` : normalized;
-  }
-
-  return metadata;
-}
-
 function formatSummary(
   summary: MatchSummaryData | null | undefined,
   labels: { sets: string; games: string; points: string },
@@ -130,41 +90,6 @@ function formatSummary(
   if (renderedPoints) return renderedPoints;
 
   return '';
-}
-
-type MatchWithOptionalRuleset = EnrichedMatch & {
-  rulesetName?: string | null;
-  rulesetLabel?: string | null;
-  ruleset?: unknown;
-};
-
-function resolveRulesetLabel(match: MatchWithOptionalRuleset): string | undefined {
-  const directName = normalizeMetadataSegment(match.rulesetName);
-  if (directName) return directName;
-
-  const directLabel = normalizeMetadataSegment(match.rulesetLabel);
-  if (directLabel) return directLabel;
-
-  const { ruleset } = match;
-  if (!ruleset) return undefined;
-
-  if (typeof ruleset === 'string') {
-    return normalizeMetadataSegment(ruleset);
-  }
-
-  if (typeof ruleset === 'object' && !Array.isArray(ruleset)) {
-    const record = ruleset as Record<string, unknown>;
-    const candidateKeys = ['shortName', 'short_name', 'name', 'label', 'title'];
-    for (const key of candidateKeys) {
-      const value = record[key];
-      const normalized = normalizeMetadataSegment(value);
-      if (normalized) {
-        return normalized;
-      }
-    }
-  }
-
-  return undefined;
 }
 
 const sportIcons: Record<string, { glyph: string; labelKey: string }> = {
@@ -527,14 +452,10 @@ export default function HomePageClient({
 
       <section className="hero hero--subtle">
         <div className="hero__content">
-          <p className="hero__eyebrow">{homeT('hero.eyebrow')}</p>
           <h2 className="hero__title">{homeT('hero.title')}</h2>
           <p className="hero__subtitle">{homeT('hero.subtitle')}</p>
           <div className="hero__actions">
-            <Link href="/landing" className="button hero__cta">
-              {homeT('hero.primaryCta')}
-            </Link>
-            <Link href="/demo" className="button button--ghost hero__secondary">
+            <Link href="/demo" className="button hero__cta">
               {homeT('hero.secondaryCta')}
             </Link>
           </div>
@@ -652,26 +573,13 @@ export default function HomePageClient({
               {Array.from({ length: 3 }).map((_, i) => (
                 <li key={`match-skeleton-${i}`} className="match-list__item">
                   <div className="match-card match-card--loading" aria-hidden>
-                    <div className="match-card__content">
-                      <div className="match-card__header">
-                        <div
-                          className="skeleton"
-                          style={{ width: '70%', height: '1em', marginBottom: '6px' }}
-                        />
-                        <div
-                          className="skeleton"
-                          style={{ width: '40%', height: '0.9em', marginBottom: '10px' }}
-                        />
-                      </div>
-                      <div className="match-card__details">
-                        <div className="match-card__detail">
-                          <div className="skeleton" style={{ width: '80%', height: '0.85em' }} />
-                        </div>
-                        <div className="match-card__detail">
-                          <div className="skeleton" style={{ width: '60%', height: '0.85em' }} />
-                        </div>
-                      </div>
+                    <div className="skeleton" style={{ width: '60%', height: '0.9em' }} />
+                    <div className="match-card__teams-row">
+                      <div className="skeleton" style={{ width: '45%', height: '0.85em' }} />
+                      <div className="skeleton" style={{ width: '14%', height: '0.85em' }} />
+                      <div className="skeleton" style={{ width: '45%', height: '0.85em' }} />
                     </div>
+                    <div className="skeleton" style={{ width: '40%', height: '0.9em' }} />
                   </div>
                 </li>
               ))}
@@ -695,76 +603,51 @@ export default function HomePageClient({
         ) : (
           <ul className="match-list" role="list">
             {matches.map((m) => {
-              const matchWithRuleset = m as MatchWithOptionalRuleset;
-              const rulesetLabel = resolveRulesetLabel(matchWithRuleset);
-              const playedAtText = formatMatchDate(matchWithRuleset.playedAt);
-              const locationText =
-                matchWithRuleset.location?.trim() || homeT('locationTbd');
+              const playedAtText = formatMatchDate(m.playedAt);
               const summaryLabels = {
                 sets: matchesT('summary.sets'),
                 games: matchesT('summary.games'),
                 points: matchesT('summary.points'),
               };
               const summaryText = formatSummary(m.summary, summaryLabels);
-              const metadataText = formatMatchMetadata([
-                matchWithRuleset.bestOf != null
-                  ? commonT('match.bestOf', { count: matchWithRuleset.bestOf })
-                  : null,
-                rulesetLabel,
-              ]);
-              const matchTitleId = `match-${m.id}-heading`;
+              const participantSides = Object.entries(m.players)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([, players]) => players);
+              const [teamA = [], teamB = []] = participantSides;
+              const playedAtDisplay = playedAtText || '—';
+              const scoreDisplay = summaryText || homeT('scorePending');
 
               return (
                 <li key={m.id} className="match-list__item">
-                  <article className="match-card" aria-labelledby={matchTitleId}>
-                    <div className="match-card__content">
-                      <header className="match-card__header">
-                        <p className="match-card__eyebrow">
-                          {getSportName(matchWithRuleset.sport)}
-                        </p>
-                        <h3 id={matchTitleId} className="match-card__heading">
-                          <MatchParticipants
-                            sides={Object.values(m.players)}
-                            className="match-card__participants"
-                          />
-                        </h3>
-                        <p className="match-card__score" aria-label={homeT('scoreLabel')}>
-                          {summaryText || homeT('scorePending')}
-                        </p>
-                      </header>
-                      <section
-                        className="match-card__details"
-                        aria-label={commonT('match.details')}
-                      >
-                        <div className="match-card__detail">
-                          <p className="match-card__detail-label">
-                            {homeT('matchDateLabel')}
-                          </p>
-                          <p className="match-card__detail-value">{playedAtText || '—'}</p>
-                        </div>
-                        <div className="match-card__detail">
-                          <p className="match-card__detail-label">
-                            {homeT('matchLocationLabel')}
-                          </p>
-                          <p className="match-card__detail-value">{locationText}</p>
-                        </div>
-                        {metadataText ? (
-                          <div className="match-card__detail">
-                            <p className="match-card__detail-label">
-                              {homeT('matchFormatLabel')}
-                            </p>
-                            <p className="match-card__detail-value">{metadataText}</p>
-                          </div>
-                        ) : null}
-                      </section>
+                  <Link
+                    href={ensureTrailingSlash(`/matches/${m.id}`)}
+                    className="match-card match-card--simple"
+                  >
+                    <div className="match-card__time-row">
+                      <span className="match-card__time">{playedAtDisplay}</span>
+                      <span className="match-card__meta">{getSportName(m.sport)}</span>
                     </div>
-                    <Link
-                      href={ensureTrailingSlash(`/matches/${m.id}`)}
-                      className="match-card__cta"
-                    >
-                      {commonT('match.details')}
-                    </Link>
-                  </article>
+
+                    <div className="match-card__teams-row">
+                      <MatchParticipants
+                        as="div"
+                        sides={[teamA]}
+                        className="match-card__team"
+                        separatorSymbol="&"
+                      />
+                      <span className="match-card__divider">vs</span>
+                      <MatchParticipants
+                        as="div"
+                        sides={[teamB]}
+                        className="match-card__team match-card__team--right"
+                        separatorSymbol="&"
+                      />
+                    </div>
+
+                    <div className="match-card__score-row">
+                      <span className="match-card__score">{scoreDisplay}</span>
+                    </div>
+                  </Link>
                 </li>
               );
             })}

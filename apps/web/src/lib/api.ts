@@ -143,7 +143,9 @@ async function refreshAccessToken(): Promise<string | null> {
     }
     let response: Response;
     try {
-      response = await fetch(apiUrl("/v0/auth/refresh"), {
+      // Use globalThis.fetch so tests that set global.fetch are honored.
+      const activeFetch = (globalThis as any).fetch ?? fetch;
+      response = await activeFetch(apiUrl("/v0/auth/refresh"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh_token: refreshToken }),
@@ -263,7 +265,7 @@ export function ensureAbsoluteApiUrl(
   return apiUrl(path);
 }
 
-type NormalizePhotoUrlOptions = {
+export type NormalizePhotoUrlOptions = {
   cacheBustToken?: string | number | null | undefined;
 };
 
@@ -377,7 +379,9 @@ async function executeFetch(
 
   let res: Response | undefined;
   try {
-    res = await fetch(apiUrl(path), { ...init, headers });
+    // Use globalThis.fetch to ensure test-time global.fetch replacement is used.
+    const activeFetch = (globalThis as any).fetch ?? fetch;
+    res = await activeFetch(apiUrl(path), { ...init, headers });
   } catch (err) {
     const apiErr: ApiError =
       err instanceof Error ? err : new Error("Network request failed");
@@ -1011,4 +1015,3 @@ export async function listStageMatches(
   );
   return res.json();
 }
-

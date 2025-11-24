@@ -1404,14 +1404,49 @@ textarea {
 
 .match-card__team {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 0.4rem;
   flex-wrap: wrap;
+  text-align: left;
 }
 
 .match-card__team--right {
   justify-content: flex-end;
   text-align: right;
+}
+
+.match-card__team .match-participants {
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.match-card__team--right .match-participants {
+  align-items: flex-end;
+}
+
+.match-card__team .match-participants__side-wrapper {
+  width: 100%;
+}
+
+.match-card__team .match-participants__side {
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.match-card__team--right .match-participants__side {
+  align-items: flex-end;
+}
+
+.match-card__team .match-participants__entry-group {
+  flex-wrap: nowrap;
+}
+
+.match-card__team .match-participants__entry {
+  gap: 0.3rem;
 }
 
 .match-card__divider {

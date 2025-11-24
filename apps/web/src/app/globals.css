@@ -1398,7 +1398,7 @@ textarea {
 .match-card__teams-row {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
-  align-items: center;
+  align-items: start;
   gap: clamp(0.75rem, 2vw, 1.15rem);
   min-width: 0;
 }

@@ -576,10 +576,9 @@ export default function HomePageClient({
                     <div className="skeleton" style={{ width: '60%', height: '0.9em' }} />
                     <div className="match-card__teams-row">
                       <div className="skeleton" style={{ width: '45%', height: '0.85em' }} />
-                      <div className="skeleton" style={{ width: '14%', height: '0.85em' }} />
+                      <div className="skeleton" style={{ width: '16%', height: '0.95em' }} />
                       <div className="skeleton" style={{ width: '45%', height: '0.85em' }} />
                     </div>
-                    <div className="skeleton" style={{ width: '40%', height: '0.9em' }} />
                   </div>
                 </li>
               ))}
@@ -631,19 +630,15 @@ export default function HomePageClient({
                         as="div"
                         sides={[teamA]}
                         className="match-card__team"
-                        separatorSymbol="&"
                       />
-                      <span className="match-card__divider">vs</span>
+                      <span className="match-card__score match-card__score--inline">
+                        {scoreDisplay}
+                      </span>
                       <MatchParticipants
                         as="div"
                         sides={[teamB]}
                         className="match-card__team match-card__team--right"
-                        separatorSymbol="&"
                       />
-                    </div>
-
-                    <div className="match-card__score-row">
-                      <span className="match-card__score">{scoreDisplay}</span>
                     </div>
                   </Link>
                   <Link href={matchHref} className="sr-only">

@@ -186,7 +186,6 @@ export default async function MatchesPage(
   const preferredDateOptions = getPreferredDateOptions(locale);
   const matchesT = await getTranslations('Matches');
   const commonT = await getTranslations('Common');
-  const sportsCatalog = await getSportsCatalog();
   const summaryLabels = {
     sets: matchesT('summary.sets'),
     games: matchesT('summary.games'),
@@ -194,6 +193,7 @@ export default async function MatchesPage(
   };
 
   try {
+    const sportsCatalog = await getSportsCatalog();
     const matchPage = await getMatches(limit, offset);
     const { rows, hasMore, nextOffset, totalCount } = matchPage;
     rows.sort((a, b) => {

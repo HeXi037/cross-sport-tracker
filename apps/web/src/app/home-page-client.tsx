@@ -616,13 +616,11 @@ export default function HomePageClient({
               const [teamA = [], teamB = []] = participantSides;
               const playedAtDisplay = playedAtText || '—';
               const scoreDisplay = summaryText || homeT('scorePending');
+              const matchHref = ensureTrailingSlash(`/matches/${m.id}`);
 
               return (
                 <li key={m.id} className="match-list__item">
-                  <Link
-                    href={ensureTrailingSlash(`/matches/${m.id}`)}
-                    className="match-card match-card--simple"
-                  >
+                  <Link href={matchHref} className="match-card match-card--simple">
                     <div className="match-card__time-row">
                       <span className="match-card__time">{playedAtDisplay}</span>
                       <span className="match-card__meta">{getSportName(m.sport)}</span>
@@ -647,6 +645,9 @@ export default function HomePageClient({
                     <div className="match-card__score-row">
                       <span className="match-card__score">{scoreDisplay}</span>
                     </div>
+                  </Link>
+                  <Link href={matchHref} className="sr-only">
+                    Match details
                   </Link>
                 </li>
               );

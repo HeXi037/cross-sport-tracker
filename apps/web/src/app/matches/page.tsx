@@ -77,6 +77,45 @@ async function getMatches(limit: number, offset: number): Promise<MatchPage> {
   return { rows, hasMore, nextOffset, totalCount };
 }
 
+async function getSportsCatalog(): Promise<Record<string, string>> {
+  const res = await apiFetch("/v0/sports", { next: { revalidate: 300 } });
+  if (!res.ok) throw new Error(`Failed to load sports: ${res.status}`);
+
+  const sports = (await res.json()) as Array<{ id?: string; name?: string }>;
+  const catalog: Record<string, string> = {};
+
+  sports.forEach((sport) => {
+    if (!sport?.id) return;
+    catalog[sport.id] = sport.name ?? sport.id;
+  });
+
+  return catalog;
+}
+
+function formatMetadata(
+  match: MatchRow,
+  labels: { friendly: string; bestOf: (count: number) => string },
+  sportsCatalog: Record<string, string>,
+): string {
+  const parts: string[] = [];
+  const sportName = sportsCatalog[match.sport] ?? match.sport;
+  if (sportName) parts.push(sportName);
+
+  if (typeof match.bestOf === "number") {
+    parts.push(labels.bestOf(match.bestOf));
+  }
+
+  if (match.isFriendly) {
+    parts.push(labels.friendly);
+  }
+
+  if (match.location && match.location.trim().length > 0) {
+    parts.push(match.location.trim());
+  }
+
+  return parts.join(" · ");
+}
+
 function formatSummary(
   s: MatchSummaryData | null | undefined,
   labels: { sets: string; games: string; points: string },
@@ -147,6 +186,7 @@ export default async function MatchesPage(
   const preferredDateOptions = getPreferredDateOptions(locale);
   const matchesT = await getTranslations('Matches');
   const commonT = await getTranslations('Common');
+  const sportsCatalog = await getSportsCatalog();
   const summaryLabels = {
     sets: matchesT('summary.sets'),
     games: matchesT('summary.games'),
@@ -197,6 +237,14 @@ export default async function MatchesPage(
               const [teamA = [], teamB = []] = participantSides;
               const playedAtDisplay = playedAtText || "—";
               const scoreDisplay = summaryText || "—";
+              const metadataText = formatMetadata(
+                m,
+                {
+                  friendly: commonT('match.friendly'),
+                  bestOf: (count) => commonT('match.bestOf', { count }),
+                },
+                sportsCatalog,
+              );
 
               return (
                 <li key={m.id} className="match-list__item">
@@ -207,6 +255,9 @@ export default async function MatchesPage(
                   >
                     <div className="match-card__time-row">
                       <span className="match-card__time">{playedAtDisplay}</span>
+                      {metadataText && (
+                        <span className="match-card__meta">{metadataText}</span>
+                      )}
                     </div>
 
                     <div className="match-card__teams-row">

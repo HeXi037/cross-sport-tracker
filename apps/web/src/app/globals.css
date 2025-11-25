@@ -1403,6 +1403,13 @@ textarea {
   min-width: 0;
 }
 
+.match-card__teams-row--multi {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .match-card__team {
   display: flex;
   flex-direction: column;
@@ -1485,11 +1492,26 @@ textarea {
   display: none;
 }
 
+.match-card__participants-chain {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.match-card__participants--chain {
+  justify-content: center;
+  text-align: center;
+}
+
 .match-card__score-row {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 0.35rem;
+}
+
+.match-card__score-row--separate {
+  width: 100%;
 }
 
 .match-card__eyebrow {

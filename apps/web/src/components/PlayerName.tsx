@@ -1,4 +1,5 @@
 // apps/web/src/components/PlayerName.tsx (update)
+import { useEffect, useState } from 'react';
 import { normalizePhotoUrl } from '../lib/api';
 import { getInitials } from '../lib/names';
 
@@ -24,11 +25,16 @@ export default function PlayerName({
   decorativeAvatar = false,
 }: PlayerNameProps) {
   const photoUrl = normalizePhotoUrl(player.photo_url);
+  const [showPhoto, setShowPhoto] = useState(Boolean(photoUrl));
   const initials = getInitials(player.name);
+
+  useEffect(() => {
+    setShowPhoto(Boolean(photoUrl));
+  }, [photoUrl]);
 
   return (
     <span className="player-name">
-      {photoUrl ? (
+      {photoUrl && showPhoto ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={photoUrl}
@@ -37,6 +43,7 @@ export default function PlayerName({
           width={24}
           height={24}
           className="player-name__avatar"
+          onError={() => setShowPhoto(false)}
         />
       ) : (
         <span

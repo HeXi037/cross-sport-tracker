@@ -1397,8 +1397,8 @@ textarea {
 
 .match-card__teams-row {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: stretch;
   gap: clamp(0.75rem, 2vw, 1.15rem);
   min-width: 0;
 }
@@ -1417,11 +1417,17 @@ textarea {
   text-align: right;
 }
 
+
 .match-card__team .match-participants {
+  display: grid;
   width: 100%;
-  flex-direction: column;
-  align-items: flex-start;
   gap: 0.4rem;
+  align-items: start;
+  justify-items: start;
+}
+
+.match-card__team--right .match-participants {
+  justify-items: end;
 }
 
 .match-card__team--right .match-participants {
@@ -1430,12 +1436,13 @@ textarea {
 
 .match-card__team .match-participants__side-wrapper {
   width: 100%;
+  display: grid;
+  gap: 0.35rem;
 }
 
 .match-card__team .match-participants__side {
   width: 100%;
-  flex-direction: column;
-  align-items: flex-start;
+  display: grid;
   gap: 0.35rem;
   min-width: 0;
 }
@@ -1444,7 +1451,9 @@ textarea {
   align-items: flex-end;
 }
 
+
 .match-card__team .match-participants__entry-group {
+  display: flex;
   flex-wrap: nowrap;
   flex-shrink: 1;
   min-width: 0;
@@ -1454,7 +1463,21 @@ textarea {
 .match-card__team .match-participants__entry {
   gap: 0.3rem;
   min-width: 0;
-  overflow-wrap: anywhere;
+  width: 100%;
+  overflow: hidden;
+}
+
+.match-card__team .player-name {
+  width: 100%;
+  min-width: 0;
+}
+
+.match-card__team .player-name__text {
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .match-card__team .match-participants__separator,

@@ -79,6 +79,7 @@ type SaveFeedback = { type: "success" | "error"; message: string } | null;
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 const PREFERENCES_LOCALE_HINT_ID = "preferences-locale-hint";
 const PREFERENCES_TIME_ZONE_HINT_ID = "preferences-time-zone-hint";
+const PREFERENCES_TIME_FORMAT_HINT_ID = "preferences-time-format-hint";
 const LOCALE_SUGGESTIONS = [
   { value: "en-GB", label: "English (United Kingdom)" },
   { value: "en-US", label: "English (United States)" },
@@ -1243,6 +1244,52 @@ export default function ProfilePage() {
             <option key={zone} value={zone} />
           ))}
         </datalist>
+        <fieldset className="form-field" aria-describedby={PREFERENCES_TIME_FORMAT_HINT_ID}>
+          <legend className="form-label">Preferred time format</legend>
+          <div className="radio-group" style={{ flexWrap: "wrap", gap: "1rem" }}>
+            <label className="radio" style={{ display: "flex", gap: "0.5rem" }}>
+              <input
+                type="radio"
+                name="preferences-time-format"
+                value="24-hour"
+                checked={preferences.preferredTimeFormat !== "am-pm"}
+                onChange={() => {
+                  setPreferencesFeedback(null);
+                  setMessage(null);
+                  setError(null);
+                  setPreferences((prev) => ({
+                    ...prev,
+                    preferredTimeFormat: "24-hour",
+                  }));
+                }}
+                disabled={preferencesInputsDisabled}
+              />
+              <span>24-hour (default)</span>
+            </label>
+            <label className="radio" style={{ display: "flex", gap: "0.5rem" }}>
+              <input
+                type="radio"
+                name="preferences-time-format"
+                value="am-pm"
+                checked={preferences.preferredTimeFormat === "am-pm"}
+                onChange={() => {
+                  setPreferencesFeedback(null);
+                  setMessage(null);
+                  setError(null);
+                  setPreferences((prev) => ({
+                    ...prev,
+                    preferredTimeFormat: "am-pm",
+                  }));
+                }}
+                disabled={preferencesInputsDisabled}
+              />
+              <span>AM/PM</span>
+            </label>
+          </div>
+        </fieldset>
+        <span id={PREFERENCES_TIME_FORMAT_HINT_ID} className="form-hint">
+          Military time is used by default. Choose AM/PM if you prefer 12-hour clocks.
+        </span>
         <label
           className="form-field"
           htmlFor="preferences-weekly-summary"

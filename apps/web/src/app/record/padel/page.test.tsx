@@ -7,8 +7,8 @@ import { createRequire } from "node:module";
 import {
   getDateExample,
   getTimeExample,
-  usesTwentyFourHourClock,
 } from "../../../lib/i18n";
+import { saveUserSettings } from "../../user-settings";
 
 const router = { push: vi.fn() };
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -216,11 +216,38 @@ describe("RecordPadelPage", () => {
           content.includes(`Example: ${expectedTimeExample}`)
         )
       ).toBeInTheDocument();
-      if (!usesTwentyFourHourClock("en-AU")) {
-        expect(
-          screen.getByText((content) => content.includes("include AM or PM"))
-        ).toBeInTheDocument();
-      }
+      expect(
+        screen.getByText((content) =>
+          content.includes(`Example: ${expectedTimeExample}`) &&
+          !content.includes("include AM or PM")
+        )
+      ).toBeInTheDocument();
+    } finally {
+      localeSpy.mockRestore();
+    }
+  });
+
+  it("shows AM/PM guidance when time format preference is set", async () => {
+    saveUserSettings({ preferredTimeFormat: "am-pm" });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ players: [] }) });
+    global.fetch = fetchMock as typeof fetch;
+
+    const localeSpy = vi
+      .spyOn(LocaleContext, "useLocale")
+      .mockReturnValue("en-AU");
+
+    try {
+      render(<RecordPadelPage />);
+
+      const expectedTimeExample = getTimeExample("en-AU", "am-pm");
+      expect(
+        screen.getByText((content) =>
+          content.includes(`Example: ${expectedTimeExample}`) &&
+          content.includes("include AM or PM")
+        )
+      ).toBeInTheDocument();
     } finally {
       localeSpy.mockRestore();
     }
@@ -266,14 +293,12 @@ describe("RecordPadelPage", () => {
           content.includes(`Example: ${expectedTimeExample}`)
         )
       ).toBeInTheDocument();
-      if (usesTwentyFourHourClock("fr-FR")) {
-        expect(
-          screen.getByText((content) =>
-            content.includes(`Example: ${expectedTimeExample}`) &&
-            !content.includes("include AM or PM")
-          )
-        ).toBeInTheDocument();
-      }
+      expect(
+        screen.getByText((content) =>
+          content.includes(`Example: ${expectedTimeExample}`) &&
+          !content.includes("include AM or PM")
+        )
+      ).toBeInTheDocument();
     } finally {
       localeSpy.mockRestore();
     }

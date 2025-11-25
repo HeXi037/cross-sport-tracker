@@ -1,6 +1,8 @@
 export const NEUTRAL_FALLBACK_LOCALE = 'en-GB';
 export const DEFAULT_TIME_ZONE = 'UTC';
 
+export type TimeFormatPreference = '' | '24-hour' | 'am-pm';
+
 type LocalePreference = {
   locale: string;
   quality: number;
@@ -611,7 +613,17 @@ export function getDatePlaceholder(
 
 export function usesTwentyFourHourClock(
   locale: string | null | undefined,
+  preferredTimeFormat: TimeFormatPreference = '',
 ): boolean {
+  if (preferredTimeFormat === 'am-pm') {
+    return false;
+  }
+  if (preferredTimeFormat === '24-hour') {
+    return true;
+  }
+  if (!preferredTimeFormat) {
+    return true;
+  }
   const normalized = normalizeLocale(locale);
   try {
     const formatter = new Intl.DateTimeFormat(normalized, {
@@ -772,11 +784,12 @@ export function formatDateTime(
   if (typeof options === 'string') {
     const preset = DATE_TIME_PRESETS[options];
     const preferredDate = getPreferredDateOptions(locale, preset.dateStyle);
-    resolvedOptions = { ...preset, ...preferredDate };
+    resolvedOptions = { ...preset, ...preferredDate, hour12: false };
   } else {
     const fallback = {
       ...getPreferredDateOptions(locale, DATE_TIME_PRESETS.default.dateStyle),
       timeStyle: DATE_TIME_PRESETS.default.timeStyle,
+      hour12: false,
     } satisfies Intl.DateTimeFormatOptions;
     resolvedOptions = ensureOptions(options, fallback);
   }
@@ -789,7 +802,7 @@ export function formatTime(
   options: Intl.DateTimeFormatOptions = { timeStyle: 'short' },
   preferredTimeZone?: string | null,
 ): string {
-  const resolvedOptions = ensureOptions(options, { timeStyle: 'short' });
+  const resolvedOptions = ensureOptions(options, { timeStyle: 'short', hour12: false });
   return formatDate(value, locale, resolvedOptions, preferredTimeZone);
 }
 
@@ -802,6 +815,14 @@ export function getDateExample(locale: string, preset: DateTimePreset = 'default
   return formatDate(SAMPLE_DISPLAY_MOMENT, locale, options);
 }
 
-export function getTimeExample(locale: string): string {
-  return formatTime(SAMPLE_TIME, locale);
+export function getTimeExample(
+  locale: string,
+  preferredTimeFormat: TimeFormatPreference = '',
+): string {
+  const shouldUseAmPm = preferredTimeFormat === 'am-pm';
+  const options: Intl.DateTimeFormatOptions = {
+    timeStyle: 'short',
+    hour12: shouldUseAmPm ? true : false,
+  };
+  return formatTime(SAMPLE_TIME, locale, options);
 }

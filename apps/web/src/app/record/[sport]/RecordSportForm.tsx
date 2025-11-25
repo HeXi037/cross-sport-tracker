@@ -34,6 +34,7 @@ import {
   type BowlingSummaryResult,
 } from "../../../lib/bowlingSummary";
 import { getSportCopy } from "../../../lib/sportCopy";
+import { usePreferredTimeFormat } from "../../../lib/usePreferredTimeFormat";
 
 interface Player {
   id: string;
@@ -780,15 +781,19 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     [playerNameById, duplicateNameSet],
   );
   const locale = useLocale();
+  const preferredTimeFormat = usePreferredTimeFormat();
   const commonT = useTranslations("Common");
   const recordT = useTranslations("Record");
   const dateExample = useMemo(() => getDateExample(locale), [locale]);
   const datePlaceholder = useMemo(() => getDatePlaceholder(locale), [locale]);
   const uses24HourTime = useMemo(
-    () => usesTwentyFourHourClock(locale),
-    [locale],
+    () => usesTwentyFourHourClock(locale, preferredTimeFormat),
+    [locale, preferredTimeFormat],
   );
-  const timeExample = useMemo(() => getTimeExample(locale), [locale]);
+  const timeExample = useMemo(
+    () => getTimeExample(locale, preferredTimeFormat),
+    [locale, preferredTimeFormat],
+  );
   const sportCopy = useMemo(
     () => getSportCopy(sport, locale),
     [locale, sport],

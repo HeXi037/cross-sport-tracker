@@ -814,6 +814,7 @@ export default async function MatchDetailPage({
   const shareParticipants = participantsWithSides.map((participant) => ({
     label: participant.label,
     players: participant.players.map((player) => player.name),
+    sideKey: participant.sideKey,
   }));
 
   const shareSummaryColumns = summaryColumns.map((column) => ({
@@ -829,6 +830,7 @@ export default async function MatchDetailPage({
     return {
       label: row.label,
       values,
+      sideKey: row.sideKey,
     };
   });
 

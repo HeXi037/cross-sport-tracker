@@ -2,20 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type ShareParticipant = {
-  label: string;
-  players: string[];
-};
-
-type ShareSummaryColumn = {
-  key: string;
-  label: string;
-};
-
-type ShareSummaryRow = {
-  label: string;
-  values: Record<string, number | null>;
-};
+import {
+  buildPrefilledShareLinks,
+  buildShareSummaryPayload,
+  type ShareParticipant,
+  type ShareSummaryColumn,
+  type ShareSummaryRow,
+} from "./share-summary";
 
 type ShareMatchButtonProps = {
   matchId: string;
@@ -56,6 +49,7 @@ export default function ShareMatchButton({
   const [shareUrl, setShareUrl] = useState<string>(sharePath);
   const [menuOpen, setMenuOpen] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [canUseNativeShare, setCanUseNativeShare] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -64,6 +58,11 @@ export default function ShareMatchButton({
     }
     setShareUrl(window.location.href);
   }, [sharePath]);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined") return;
+    setCanUseNativeShare(typeof navigator.share === "function");
+  }, []);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -100,21 +99,56 @@ export default function ShareMatchButton({
     };
   }, [feedback]);
 
-  const matchMetaLines = useMemo(() => {
-    const lines: string[] = [];
-    if (status) lines.push(`Status: ${status}`);
-    if (playedAt) lines.push(`Date & time: ${playedAt}`);
-    if (location) lines.push(`Location: ${location}`);
-    meta.forEach((entry) => {
-      if (!lines.includes(entry)) {
-        lines.push(entry);
+  const reportShareTelemetry = useCallback(
+    (outcome: string, channel: string) => {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("share:result", {
+            detail: { matchId, channel, outcome },
+          })
+        );
       }
-    });
-    return lines;
-  }, [status, playedAt, location, meta]);
+      console.info("[share]", { matchId, channel, outcome });
+    },
+    [matchId]
+  );
+
+  const resolvedUrl = shareUrl || sharePath;
+  const sharePayload = useMemo(
+    () =>
+      buildShareSummaryPayload({
+        matchTitle,
+        matchUrl: resolvedUrl,
+        participants,
+        summaryColumns,
+        summaryRows,
+        meta,
+        status,
+        playedAt,
+        location,
+      }),
+    [
+      location,
+      matchTitle,
+      meta,
+      participants,
+      playedAt,
+      resolvedUrl,
+      status,
+      summaryColumns,
+      summaryRows,
+    ]
+  );
+
+  const prefilledLinks = useMemo(
+    () => buildPrefilledShareLinks(sharePayload),
+    [sharePayload]
+  );
+
+  const matchMetaLines = sharePayload.metaLines;
 
   const handleCopyLink = useCallback(async () => {
-    const url = shareUrl || sharePath;
+    const url = resolvedUrl;
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(url);
@@ -130,13 +164,76 @@ export default function ShareMatchButton({
         document.body.removeChild(textarea);
       }
       setFeedback("Match link copied to clipboard");
+      reportShareTelemetry("success", "copy-link");
     } catch (error) {
       console.error("Unable to copy match link", error);
       setFeedback("Unable to copy match link. Try copying the URL manually.");
+      reportShareTelemetry("error", "copy-link");
     } finally {
       setMenuOpen(false);
     }
-  }, [shareUrl, sharePath]);
+  }, [reportShareTelemetry, resolvedUrl]);
+
+  const handleCopySummary = useCallback(async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(sharePayload.shareText);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = sharePayload.shareText;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "absolute";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setFeedback("Match summary copied to clipboard");
+      reportShareTelemetry("success", "copy-summary");
+    } catch (error) {
+      console.error("Unable to copy match summary", error);
+      setFeedback("Unable to copy summary. Try copying the URL manually.");
+      reportShareTelemetry("error", "copy-summary");
+    } finally {
+      setMenuOpen(false);
+    }
+  }, [reportShareTelemetry, sharePayload.shareText]);
+
+  const handleNativeShare = useCallback(async () => {
+    if (!canUseNativeShare) {
+      setFeedback("Device sharing is not available in this browser.");
+      reportShareTelemetry("fallback", "native");
+      return;
+    }
+
+    try {
+      await navigator.share({
+        title: matchTitle,
+        text: sharePayload.shareText,
+        url: sharePayload.matchUrl,
+      });
+      setFeedback("Share sheet opened successfully");
+      reportShareTelemetry("success", "native");
+    } catch (error) {
+      if (error && typeof error === "object" && "name" in error && (error as { name?: string }).name === "AbortError") {
+        setFeedback("Share cancelled");
+        reportShareTelemetry("cancel", "native");
+      } else {
+        console.error("Unable to open native share", error);
+        setFeedback("Unable to open native share. Try another option.");
+        reportShareTelemetry("error", "native");
+      }
+    } finally {
+      setMenuOpen(false);
+    }
+  }, [
+    canUseNativeShare,
+    matchTitle,
+    reportShareTelemetry,
+    sharePayload.matchUrl,
+    sharePayload.shareText,
+  ]);
 
   const buildCsvContent = useCallback(() => {
     const lines: string[] = [];
@@ -149,6 +246,15 @@ export default function ShareMatchButton({
         lines.push(`Detail,${escapeCsvValue(line)}`);
       }
     });
+
+    if (sharePayload.cards.length) {
+      lines.push("");
+      sharePayload.cards.forEach((card) => {
+        lines.push(
+          `${escapeCsvValue(card.title)},${escapeCsvValue(card.body)}`
+        );
+      });
+    }
 
     if (participants.length) {
       lines.push("");
@@ -177,7 +283,7 @@ export default function ShareMatchButton({
     }
 
     return `${lines.join("\n")}\n`;
-  }, [matchTitle, matchMetaLines, participants, summaryColumns, summaryRows]);
+  }, [matchMetaLines, matchTitle, participants, sharePayload.cards, summaryColumns, summaryRows]);
 
   const handleDownloadCsv = useCallback(() => {
     try {
@@ -192,13 +298,15 @@ export default function ShareMatchButton({
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       setFeedback("CSV exported successfully");
+      reportShareTelemetry("success", "export-csv");
     } catch (error) {
       console.error("Unable to export match CSV", error);
       setFeedback("Unable to export CSV. Please try again.");
+      reportShareTelemetry("error", "export-csv");
     } finally {
       setMenuOpen(false);
     }
-  }, [buildCsvContent, matchId]);
+  }, [buildCsvContent, matchId, reportShareTelemetry]);
 
   const handleDownloadPdf = useCallback(async () => {
     try {
@@ -235,6 +343,14 @@ export default function ShareMatchButton({
         cursorY += 4;
       }
 
+      if (sharePayload.cards.length) {
+        doc.setFontSize(12);
+        sharePayload.cards.forEach((card) => {
+          writeLines(`${card.title}: ${card.body}`);
+        });
+        cursorY += 4;
+      }
+
       if (participants.length) {
         doc.setFontSize(14);
         writeLines("Participants");
@@ -260,13 +376,24 @@ export default function ShareMatchButton({
 
       doc.save(`match-${matchId}.pdf`);
       setFeedback("PDF exported successfully");
+      reportShareTelemetry("success", "export-pdf");
     } catch (error) {
       console.error("Unable to export match PDF", error);
       setFeedback("Unable to export PDF. Please try again.");
+      reportShareTelemetry("error", "export-pdf");
     } finally {
       setMenuOpen(false);
     }
-  }, [matchId, matchMetaLines, matchTitle, participants, summaryColumns, summaryRows]);
+  }, [
+    matchId,
+    matchMetaLines,
+    matchTitle,
+    participants,
+    reportShareTelemetry,
+    sharePayload.cards,
+    summaryColumns,
+    summaryRows,
+  ]);
 
   return (
     <div className="share-match" ref={containerRef}>
@@ -280,7 +407,30 @@ export default function ShareMatchButton({
         Share match
       </button>
       {menuOpen ? (
-        <div className="share-match__menu" role="menu">
+        <div className="share-match__menu" role="menu" aria-label="Share options">
+          <button
+            type="button"
+            className="share-match__menu-item"
+            role="menuitem"
+            onClick={handleNativeShare}
+            aria-disabled={!canUseNativeShare}
+            disabled={!canUseNativeShare}
+          >
+            Share via device
+          </button>
+          {!canUseNativeShare ? (
+            <p className="share-match__menu-note" role="note">
+              Native sharing is unavailable in this browser. Try the options below.
+            </p>
+          ) : null}
+          <button
+            type="button"
+            className="share-match__menu-item"
+            role="menuitem"
+            onClick={handleCopySummary}
+          >
+            Copy summary text
+          </button>
           <button
             type="button"
             className="share-match__menu-item"
@@ -289,6 +439,56 @@ export default function ShareMatchButton({
           >
             Copy link
           </button>
+          <a
+            className="share-match__menu-item"
+            role="menuitem"
+            href={prefilledLinks.x}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => {
+              reportShareTelemetry("prefilled", "x");
+              setMenuOpen(false);
+            }}
+          >
+            Share on X (Twitter)
+          </a>
+          <a
+            className="share-match__menu-item"
+            role="menuitem"
+            href={prefilledLinks.whatsapp}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => {
+              reportShareTelemetry("prefilled", "whatsapp");
+              setMenuOpen(false);
+            }}
+          >
+            Share on WhatsApp
+          </a>
+          <a
+            className="share-match__menu-item"
+            role="menuitem"
+            href={prefilledLinks.telegram}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => {
+              reportShareTelemetry("prefilled", "telegram");
+              setMenuOpen(false);
+            }}
+          >
+            Share on Telegram
+          </a>
+          <a
+            className="share-match__menu-item"
+            role="menuitem"
+            href={prefilledLinks.sms}
+            onClick={() => {
+              reportShareTelemetry("prefilled", "sms");
+              setMenuOpen(false);
+            }}
+          >
+            Send via SMS/DM
+          </a>
           <button
             type="button"
             className="share-match__menu-item"

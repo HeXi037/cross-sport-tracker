@@ -1,3 +1,5 @@
+"use client";
+
 // apps/web/src/components/PlayerName.tsx (update)
 import { useEffect, useState } from 'react';
 import { normalizePhotoUrl } from '../lib/api';

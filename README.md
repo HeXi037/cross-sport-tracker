@@ -57,7 +57,7 @@ Multi-tenancy: Club-scoped (club_id on entities)
 
 Event sourcing: Append-only score_event; compute summaries on read (optionally cache snapshot in match.metadata)
 
-API: REST under /api/v0, Problem+JSON (RFC 7807) errors, OpenAPI docs at /docs
+API: REST under the `/api` prefix (versioned at `/api/v0`), Problem+JSON (RFC 7807) errors, OpenAPI docs at /docs
 
 Realtime: WebSocket /api/v0/matches/{id}/stream (in-memory broadcast for MVP)
 
@@ -163,7 +163,7 @@ def init_state(config: dict) -> dict: ...
 def apply(event, state) -> dict: ...
 def summary(state) -> dict: ...
 
-API (v0)
+API (v0, under /api prefix)
 GET  /api/v0/sports
 GET  /api/v0/rulesets?sport=padel
 POST /api/v0/players

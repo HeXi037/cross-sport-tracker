@@ -18,8 +18,10 @@ from ..models import (
     Club,
     Match,
     MatchAuditLog,
+    MatchComment,
     MatchParticipant,
     Player,
+    ChatMessage,
     ScoreEvent,
     Stage,
     User,
@@ -42,6 +44,12 @@ from ..schemas import (
     MatchAuditLogEntryWithMatchOut,
     MatchAuditLogPageOut,
     UserOut,
+    MatchCommentCreate,
+    MatchCommentOut,
+    MatchCommentListOut,
+    ChatMessageCreate,
+    ChatMessageOut,
+    ChatMessageListOut,
 )
 from .streams import broadcast
 from ..scoring import padel as padel_engine, tennis as tennis_engine
@@ -58,7 +66,13 @@ from ..services import (
 )
 from ..services.notifications import notify_match_recorded
 from ..exceptions import http_problem
-from .auth import get_current_user, limiter, get_jwt_secret, JWT_ALG
+from .auth import (
+    get_current_user,
+    limiter,
+    get_jwt_secret,
+    JWT_ALG,
+    get_current_user_with_csrf,
+)
 from ..time_utils import coerce_utc
 
 # Resource-only prefix; versioning is added in main.py
@@ -1046,6 +1060,247 @@ async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
         ],
         summary=m.details,
     )
+
+
+async def _ensure_match_exists(session: AsyncSession, mid: str) -> Match:
+    match = await session.get(Match, mid)
+    if not match or match.deleted_at is not None:
+        raise http_problem(
+            status_code=404,
+            detail="match not found",
+            code="match_not_found",
+        )
+    return match
+
+
+def _build_comment_tree(rows: list[tuple[MatchComment, str]]) -> list[MatchCommentOut]:
+    by_id: dict[str, MatchCommentOut] = {}
+    roots: list[MatchCommentOut] = []
+
+    for comment, username in rows:
+        node = MatchCommentOut(
+            id=comment.id,
+            matchId=comment.match_id,
+            userId=comment.user_id,
+            username=username,
+            content=comment.content,
+            createdAt=_coerce_utc(comment.created_at),
+            parentId=comment.parent_id,
+            replies=[],
+        )
+        by_id[comment.id] = node
+
+    for node in by_id.values():
+        if node.parentId and node.parentId in by_id:
+            by_id[node.parentId].replies.append(node)
+        else:
+            roots.append(node)
+
+    return roots
+
+
+@router.get("/{mid}/comments", response_model=MatchCommentListOut)
+async def list_match_comments(
+    mid: str,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    session: AsyncSession = Depends(get_session),
+):
+    await _ensure_match_exists(session, mid)
+
+    filters = (MatchComment.match_id == mid, MatchComment.deleted_at.is_(None))
+    total = (
+        await session.execute(select(func.count()).select_from(MatchComment).where(*filters))
+    ).scalar_one()
+
+    rows = (
+        await session.execute(
+            select(MatchComment, User.username)
+            .join(User, MatchComment.user_id == User.id)
+            .where(*filters)
+            .order_by(MatchComment.created_at)
+            .limit(limit)
+            .offset(offset)
+        )
+    ).all()
+
+    tree = _build_comment_tree(rows)
+    return MatchCommentListOut(items=tree, total=total, limit=limit, offset=offset)
+
+
+@router.post("/{mid}/comments", response_model=MatchCommentOut)
+async def add_match_comment(
+    mid: str,
+    body: MatchCommentCreate,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user_with_csrf),
+):
+    await _ensure_match_exists(session, mid)
+    if body.parent_id:
+        parent = await session.get(MatchComment, body.parent_id)
+        if not parent or parent.match_id != mid or parent.deleted_at is not None:
+            raise http_problem(
+                status_code=404,
+                detail="parent comment not found",
+                code="match_comment_not_found",
+            )
+
+    comment = MatchComment(
+        id=uuid.uuid4().hex,
+        match_id=mid,
+        user_id=user.id,
+        parent_id=body.parent_id,
+        content=body.content,
+    )
+    session.add(comment)
+    await session.commit()
+    await session.refresh(comment)
+
+    payload = MatchCommentOut(
+        id=comment.id,
+        matchId=comment.match_id,
+        userId=comment.user_id,
+        username=user.username,
+        content=comment.content,
+        createdAt=_coerce_utc(comment.created_at),
+        parentId=comment.parent_id,
+        replies=[],
+    )
+    await broadcast(
+        mid, {"type": "match_comment.created", "data": payload.model_dump(mode="json")}
+    )
+    return payload
+
+
+@router.delete("/{mid}/comments/{comment_id}", status_code=204)
+async def delete_match_comment(
+    mid: str,
+    comment_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user_with_csrf),
+):
+    comment = await session.get(MatchComment, comment_id)
+    if not comment or comment.match_id != mid or comment.deleted_at is not None:
+        raise http_problem(
+            status_code=404,
+            detail="comment not found",
+            code="match_comment_not_found",
+        )
+    if comment.user_id != user.id and not user.is_admin:
+        raise http_problem(
+            status_code=403,
+            detail="forbidden",
+            code="match_comment_forbidden",
+        )
+    comment.deleted_at = func.now()
+    await session.commit()
+    await broadcast(mid, {"type": "match_comment.deleted", "data": {"id": comment_id}})
+    return Response(status_code=204)
+
+
+@router.get("/{mid}/chat", response_model=ChatMessageListOut)
+async def list_chat_messages(
+    mid: str,
+    channel: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    session: AsyncSession = Depends(get_session),
+):
+    await _ensure_match_exists(session, mid)
+    filters = [ChatMessage.match_id == mid, ChatMessage.deleted_at.is_(None)]
+    if channel:
+        filters.append(func.lower(ChatMessage.channel) == channel.lower())
+
+    total = (
+        await session.execute(select(func.count()).select_from(ChatMessage).where(*filters))
+    ).scalar_one()
+
+    rows = (
+        await session.execute(
+            select(ChatMessage, User.username)
+            .join(User, ChatMessage.user_id == User.id)
+            .where(*filters)
+            .order_by(ChatMessage.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+    ).all()
+
+    items = [
+        ChatMessageOut(
+            id=msg.id,
+            matchId=msg.match_id,
+            userId=msg.user_id,
+            username=username,
+            content=msg.content,
+            channel=msg.channel or "general",
+            createdAt=_coerce_utc(msg.created_at),
+        )
+        for msg, username in rows
+    ]
+
+    return ChatMessageListOut(items=items, total=total, limit=limit, offset=offset)
+
+
+@router.post("/{mid}/chat", response_model=ChatMessageOut)
+async def post_chat_message(
+    mid: str,
+    body: ChatMessageCreate,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user_with_csrf),
+):
+    await _ensure_match_exists(session, mid)
+    channel = (body.channel or "general").strip() or "general"
+    message = ChatMessage(
+        id=uuid.uuid4().hex,
+        match_id=mid,
+        user_id=user.id,
+        channel=channel,
+        content=body.content,
+    )
+    session.add(message)
+    await session.commit()
+    await session.refresh(message)
+
+    payload = ChatMessageOut(
+        id=message.id,
+        matchId=message.match_id,
+        userId=message.user_id,
+        username=user.username,
+        content=message.content,
+        channel=message.channel or "general",
+        createdAt=_coerce_utc(message.created_at),
+    )
+    await broadcast(
+        mid, {"type": "chat_message.created", "data": payload.model_dump(mode="json")}
+    )
+    return payload
+
+
+@router.delete("/{mid}/chat/{message_id}", status_code=204)
+async def delete_chat_message(
+    mid: str,
+    message_id: str,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user_with_csrf),
+):
+    message = await session.get(ChatMessage, message_id)
+    if not message or message.match_id != mid or message.deleted_at is not None:
+        raise http_problem(
+            status_code=404,
+            detail="message not found",
+            code="chat_message_not_found",
+        )
+    if message.user_id != user.id and not user.is_admin:
+        raise http_problem(
+            status_code=403,
+            detail="forbidden",
+            code="chat_message_forbidden",
+        )
+    message.deleted_at = func.now()
+    await session.commit()
+    await broadcast(mid, {"type": "chat_message.deleted", "data": {"id": message_id}})
+    return Response(status_code=204)
 
 
 @router.get("/{mid}/audit", response_model=list[MatchAuditLogEntryOut])

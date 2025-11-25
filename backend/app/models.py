@@ -168,6 +168,52 @@ class MatchAuditLog(Base):
         Index("ix_match_audit_log_match_id", "match_id"),
     )
 
+
+class MatchComment(Base):
+    __tablename__ = "match_comment"
+
+    id = Column(String, primary_key=True)
+    match_id = Column(String, ForeignKey("match.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String, ForeignKey("user.id"), nullable=False)
+    parent_id = Column(String, ForeignKey("match_comment.id", ondelete="CASCADE"), nullable=True)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship("User")
+    replies = relationship(
+        "MatchComment",
+        cascade="all, delete-orphan",
+        order_by="MatchComment.created_at",
+        backref="parent",
+        remote_side=[id],
+        single_parent=True,
+    )
+
+    __table_args__ = (
+        Index("ix_match_comment_match_id", "match_id"),
+        Index("ix_match_comment_parent_id", "parent_id"),
+    )
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_message"
+
+    id = Column(String, primary_key=True)
+    match_id = Column(String, ForeignKey("match.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String, ForeignKey("user.id"), nullable=False)
+    channel = Column(String, nullable=False, default="general", server_default="general")
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship("User")
+
+    __table_args__ = (
+        Index("ix_chat_message_match_id", "match_id"),
+        Index("ix_chat_message_channel", "channel"),
+    )
+
 class Rating(Base):
     __tablename__ = "rating"
     id = Column(String, primary_key=True)

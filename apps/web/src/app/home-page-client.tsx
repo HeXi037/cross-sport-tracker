@@ -612,6 +612,7 @@ export default function HomePageClient({
               const participantSides = Object.entries(m.players)
                 .sort(([a], [b]) => a.localeCompare(b))
                 .map(([, players]) => players);
+              const isMultiSideMatch = participantSides.length > 2;
               const [teamA = [], teamB = []] = participantSides;
               const playedAtDisplay = playedAtText || '—';
               const scoreDisplay = summaryText || homeT('scorePending');
@@ -625,20 +626,43 @@ export default function HomePageClient({
                       <span className="match-card__meta">{getSportName(m.sport)}</span>
                     </div>
 
-                    <div className="match-card__teams-row">
-                      <MatchParticipants
-                        as="div"
-                        sides={[teamA]}
-                        className="match-card__team"
-                      />
-                      <span className="match-card__score match-card__score--inline">
-                        {scoreDisplay}
-                      </span>
-                      <MatchParticipants
-                        as="div"
-                        sides={[teamB]}
-                        className="match-card__team match-card__team--right"
-                      />
+                    <div
+                      className={`match-card__teams-row${
+                        isMultiSideMatch ? ' match-card__teams-row--multi' : ''
+                      }`}
+                    >
+                      {isMultiSideMatch ? (
+                        <>
+                          <div className="match-card__participants-chain">
+                            <MatchParticipants
+                              as="div"
+                              sides={participantSides}
+                              className="match-card__participants match-card__participants--chain"
+                            />
+                          </div>
+                          <div className="match-card__score-row match-card__score-row--separate">
+                            <span className="match-card__score match-card__score--inline">
+                              {scoreDisplay}
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <MatchParticipants
+                            as="div"
+                            sides={[teamA]}
+                            className="match-card__team"
+                          />
+                          <span className="match-card__score match-card__score--inline">
+                            {scoreDisplay}
+                          </span>
+                          <MatchParticipants
+                            as="div"
+                            sides={[teamB]}
+                            className="match-card__team match-card__team--right"
+                          />
+                        </>
+                      )}
                     </div>
                   </Link>
                   <Link href={matchHref} className="sr-only">

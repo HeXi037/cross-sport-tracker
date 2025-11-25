@@ -20,6 +20,7 @@ export interface UserSettings {
   weeklySummaryEmails: boolean;
   preferredLocale: string;
   preferredTimeZone: string;
+  preferredTimeFormat: '' | '24-hour' | 'am-pm';
 }
 
 export const DEFAULT_USER_SETTINGS: UserSettings = {
@@ -28,6 +29,7 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   weeklySummaryEmails: true,
   preferredLocale: "",
   preferredTimeZone: "",
+  preferredTimeFormat: "",
 };
 
 export function getDefaultUserSettings(): UserSettings {
@@ -92,6 +94,12 @@ function sanitizePreferredTimeZone(value: unknown): string {
   return normalized;
 }
 
+function sanitizePreferredTimeFormat(value: unknown): UserSettings["preferredTimeFormat"] {
+  if (value === "24-hour") return "24-hour";
+  if (value === "am-pm") return "am-pm";
+  return DEFAULT_USER_SETTINGS.preferredTimeFormat;
+}
+
 export type PartialUserSettings = Partial<UserSettings> | null | undefined;
 
 export function normalizeUserSettings(value: PartialUserSettings): UserSettings {
@@ -108,6 +116,7 @@ export function normalizeUserSettings(value: PartialUserSettings): UserSettings 
     ),
     preferredLocale: sanitizePreferredLocale(record.preferredLocale),
     preferredTimeZone: sanitizePreferredTimeZone(record.preferredTimeZone),
+    preferredTimeFormat: sanitizePreferredTimeFormat(record.preferredTimeFormat),
   };
 }
 
@@ -154,7 +163,8 @@ export function areUserSettingsEqual(
     a.defaultLeaderboardCountry === b.defaultLeaderboardCountry &&
     a.weeklySummaryEmails === b.weeklySummaryEmails &&
     a.preferredLocale === b.preferredLocale &&
-    a.preferredTimeZone === b.preferredTimeZone
+    a.preferredTimeZone === b.preferredTimeZone &&
+    a.preferredTimeFormat === b.preferredTimeFormat
   );
 }
 

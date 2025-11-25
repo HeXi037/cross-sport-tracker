@@ -17,6 +17,7 @@ import {
 import { buildPlayedAtISOString } from "../../../lib/datetime";
 import { rememberLoginRedirect } from "../../../lib/loginRedirect";
 import ClubSelect from "../../../components/ClubSelect";
+import { usePreferredTimeFormat } from "../../../lib/usePreferredTimeFormat";
 
 interface Player {
   id: string;
@@ -345,6 +346,7 @@ export default function RecordPadelPage() {
   const [saving, setSaving] = useState(false);
   const [showSummaryValidation, setShowSummaryValidation] = useState(false);
   const locale = useLocale();
+  const preferredTimeFormat = usePreferredTimeFormat();
   const commonT = useTranslations("Common");
   const recordT = useTranslations("Record");
   const recordPadelT = useTranslations("Record.padel");
@@ -527,10 +529,13 @@ export default function RecordPadelPage() {
     [locale],
   );
   const uses24HourTime = useMemo(
-    () => usesTwentyFourHourClock(locale),
-    [locale],
+    () => usesTwentyFourHourClock(locale, preferredTimeFormat),
+    [locale, preferredTimeFormat],
   );
-  const timeExample = useMemo(() => getTimeExample(locale), [locale]);
+  const timeExample = useMemo(
+    () => getTimeExample(locale, preferredTimeFormat),
+    [locale, preferredTimeFormat],
+  );
   const dateLocaleHintId = useMemo(() => 'padel-date-locale-note', []);
   const timeHintId = useMemo(() => 'padel-time-hint', []);
   const timeHintText = useMemo(() => {

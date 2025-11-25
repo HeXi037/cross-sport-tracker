@@ -33,7 +33,7 @@ async def save_photo_upload(
     The uploaded file is streamed to disk to avoid loading large files into
     memory. Only PNG and JPEG images are accepted. The caller can override the
     chunk size, maximum file size, and allowed content types to customize the
-    behaviour for a specific endpoint.
+    behavior for a specific endpoint.
     """
 
     if file.content_type not in allowed_content_types:

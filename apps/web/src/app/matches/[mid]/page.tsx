@@ -32,6 +32,8 @@ import {
   getRecordSportMetaById,
 } from "../../../lib/recording";
 import { resolveServerLocale } from "../../../lib/server-locale";
+import CommentsPanel from "./CommentsPanel";
+import ChatPanel from "./ChatPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -1037,6 +1039,8 @@ export default async function MatchDetailPage({
           locale={locale}
           timeZone={timeZone}
         />
+        <CommentsPanel matchId={params.mid} />
+        <ChatPanel matchId={params.mid} />
       </div>
       <LiveSummary
         mid={params.mid}

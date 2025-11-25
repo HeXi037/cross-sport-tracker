@@ -675,6 +675,60 @@ class CommentListOut(BaseModel):
     offset: int
 
 
+class MatchCommentCreate(BaseModel):
+    """Schema for creating a match comment."""
+
+    content: str = Field(..., min_length=1, max_length=1000)
+    parent_id: str | None = Field(default=None, alias="parentId")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class MatchCommentOut(BaseModel):
+    id: str
+    matchId: str
+    userId: str
+    username: str
+    content: str
+    createdAt: datetime
+    parentId: str | None = None
+    replies: List["MatchCommentOut"] = Field(default_factory=list)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class MatchCommentListOut(BaseModel):
+    items: List[MatchCommentOut]
+    total: int
+    limit: int
+    offset: int
+
+
+class ChatMessageCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=1000)
+    channel: str | None = None
+
+
+class ChatMessageOut(BaseModel):
+    id: str
+    matchId: str
+    userId: str
+    username: str
+    content: str
+    channel: str
+    createdAt: datetime
+
+
+class ChatMessageListOut(BaseModel):
+    items: List[ChatMessageOut]
+    total: int
+    limit: int
+    offset: int
+
+
+MatchCommentOut.model_rebuild()
+
+
 class PushSubscriptionKeys(BaseModel):
     p256dh: str
     auth: str

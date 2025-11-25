@@ -178,6 +178,9 @@ DELETE /api/v0/matches/{id}  # admin, soft delete
 POST /api/v0/matches/{id}/events
 POST /api/v0/matches/{id}/sets
 GET  /api/v0/leaderboards?sport=padel
+    - Each entry includes `winProbabilities` (Elo-based odds vs other returned players) and aggregates expose `ratingDistribution` (histogram + 10/25/50/75/90th percentiles) for the filtered sport.
+GET  /api/v0/leaderboards/master
+    - Aggregated multi-sport leaderboard with the same probability + distribution fields.
 WS   /api/v0/matches/{id}/stream
 
 Create an admin user

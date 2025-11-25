@@ -217,11 +217,20 @@ def test_leaderboard_rank_and_sets():
         assert p1["rankChange"] == 1
         assert p1["setsWon"] == 2
         assert p1["setsLost"] == 1
+        assert set(p1["winProbabilities"].keys()) == {"p2", "p3", "p4"}
+        assert p1["winProbabilities"]["p2"] == pytest.approx(
+            leaderboards._elo_win_probability(1005, 1001)
+        )
         p2 = leaders["p2"]
         assert p2["rank"] == 2
         assert p2["rankChange"] == -1
         assert p2["setsWon"] == 1
         assert p2["setsLost"] == 2
+        assert data["ratingDistribution"]["minimum"] == 980
+        assert data["ratingDistribution"]["maximum"] == 1005
+        assert data["ratingDistribution"]["percentiles"]["50"] == pytest.approx(
+            995.5
+        )
 
 
 def test_leaderboard_ignores_deleted_match_events():
@@ -293,6 +302,9 @@ def test_master_leaderboard_excludes_deleted_players():
         leaders = data["leaders"]
         assert "p4" not in [entry["playerId"] for entry in leaders]
         assert data["total"] == len(leaders) == 6
+        assert 0 <= data["ratingDistribution"]["minimum"] <= 1000
+        assert data["ratingDistribution"]["maximum"] <= 1000
+        assert leaders[0]["winProbabilities"]
 
 
 def test_bowling_leaderboard_includes_score_stats():
@@ -313,3 +325,7 @@ def test_bowling_leaderboard_includes_score_stats():
         assert leaders["b3"]["highestScore"] == 190
         assert leaders["b3"]["averageScore"] == pytest.approx(190.0)
         assert leaders["b3"]["standardDeviation"] == pytest.approx(0.0)
+        assert data["ratingDistribution"]["maximum"] == 1010
+        assert leaders["b1"]["winProbabilities"]["b2"] == pytest.approx(
+            leaderboards._elo_win_probability(1010, 1000)
+        )

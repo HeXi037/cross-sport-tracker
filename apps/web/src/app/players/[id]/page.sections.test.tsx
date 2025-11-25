@@ -90,7 +90,17 @@ describe("PlayerPage optional sections", () => {
           return makeResponse({
             id: "player-rich",
             name: "Riley Ace",
-            badges: [{ id: "badge-1", name: "Club MVP" }],
+            badges: [
+              {
+                id: "badge-1",
+                name: "Club MVP",
+                icon: "🏅",
+                category: "special",
+                rarity: "epic",
+                description: "Awarded for club-wide excellence",
+                sport_id: null,
+              },
+            ],
             social_links: [],
           });
         case "/v0/matches?playerId=player-rich&limit=100":

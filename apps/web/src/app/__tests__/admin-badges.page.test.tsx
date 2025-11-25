@@ -96,8 +96,8 @@ describe('AdminBadgesPage', () => {
     mockedIsAdmin.mockReturnValue(true);
     mockedApiFetch.mockResolvedValueOnce(
       jsonResponse([
-        { id: 'b1', name: 'Alpha', icon: null },
-        { id: 'b2', name: 'Beta', icon: '🔥' },
+        { id: 'b1', name: 'Alpha', icon: null, category: 'skill', rarity: 'common' },
+        { id: 'b2', name: 'Beta', icon: '🔥', category: 'special', rarity: 'rare' },
       ])
     );
 
@@ -117,7 +117,18 @@ describe('AdminBadgesPage', () => {
       .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(emptyResponse())
       .mockResolvedValueOnce(
-        jsonResponse([{ id: 'b2', name: 'Legend', icon: '🏆' }])
+        jsonResponse([
+          {
+            id: 'b2',
+            name: 'Legend',
+            icon: '🏆',
+            category: 'special',
+            rarity: 'common',
+            description: '',
+            sport_id: null,
+            rule: null,
+          },
+        ])
       );
 
     render(<AdminBadgesPage />);
@@ -125,9 +136,13 @@ describe('AdminBadgesPage', () => {
     const form = screen.getByRole('form', { name: /create badge/i });
     const nameInput = within(form).getByLabelText('Name');
     const iconInput = within(form).getByLabelText('Icon');
+    const descriptionInput = within(form).getByLabelText('Description');
+    const ruleInput = within(form).getByLabelText(/Rule JSON/i);
 
     fireEvent.change(nameInput, { target: { value: 'Legend' } });
     fireEvent.change(iconInput, { target: { value: '🏆' } });
+    fireEvent.change(descriptionInput, { target: { value: 'Earned something great' } });
+    fireEvent.change(ruleInput, { target: { value: '{"type":"matches_played_at_least","threshold":50}' } });
     fireEvent.submit(form);
 
     await waitFor(() => {
@@ -139,6 +154,11 @@ describe('AdminBadgesPage', () => {
     expect(JSON.parse(postCall[1]?.body as string)).toEqual({
       name: 'Legend',
       icon: '🏆',
+      category: 'special',
+      rarity: 'common',
+      description: 'Earned something great',
+      sport_id: null,
+      rule: { type: 'matches_played_at_least', threshold: 50 },
     });
     expect(await screen.findByText('Badge created.')).toBeInTheDocument();
   });
@@ -147,11 +167,33 @@ describe('AdminBadgesPage', () => {
     mockedIsAdmin.mockReturnValue(true);
     mockedApiFetch
       .mockResolvedValueOnce(
-        jsonResponse([{ id: 'b1', name: 'Starter', icon: null }])
+        jsonResponse([
+          {
+            id: 'b1',
+            name: 'Starter',
+            icon: null,
+            category: 'milestone',
+            rarity: 'rare',
+            description: 'First step',
+            sport_id: 'padel',
+            rule: { type: 'matches_played_at_least', threshold: 5 },
+          },
+        ])
       )
       .mockResolvedValueOnce(emptyResponse())
       .mockResolvedValueOnce(
-        jsonResponse([{ id: 'b1', name: 'Starter Updated', icon: '🔥' }])
+        jsonResponse([
+          {
+            id: 'b1',
+            name: 'Starter Updated',
+            icon: '🔥',
+            category: 'milestone',
+            rarity: 'rare',
+            description: 'First step',
+            sport_id: 'padel',
+            rule: { type: 'matches_played_at_least', threshold: 5 },
+          },
+        ])
       );
 
     render(<AdminBadgesPage />);
@@ -160,10 +202,14 @@ describe('AdminBadgesPage', () => {
     const row = nameInput.closest('li');
     if (!row) throw new Error('Expected badge row');
     const iconInput = within(row).getByLabelText('Icon');
+    const categorySelect = within(row).getByLabelText('Category');
+    const ruleInput = within(row).getByLabelText('Rule JSON');
     const saveButton = within(row).getByRole('button', { name: 'Save' });
 
     fireEvent.change(nameInput, { target: { value: 'Starter Updated' } });
     fireEvent.change(iconInput, { target: { value: '🔥' } });
+    fireEvent.change(categorySelect, { target: { value: 'special' } });
+    fireEvent.change(ruleInput, { target: { value: '{"type":"matches_played_at_least","threshold":5}' } });
     fireEvent.click(saveButton);
 
     await waitFor(() => {
@@ -175,6 +221,11 @@ describe('AdminBadgesPage', () => {
     expect(JSON.parse(patchCall[1]?.body as string)).toEqual({
       name: 'Starter Updated',
       icon: '🔥',
+      category: 'special',
+      rarity: 'rare',
+      description: 'First step',
+      sport_id: 'padel',
+      rule: { type: 'matches_played_at_least', threshold: 5 },
     });
     expect(await screen.findByText('Badge updated.')).toBeInTheDocument();
   });

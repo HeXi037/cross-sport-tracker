@@ -65,6 +65,11 @@ class Badge(Base):
     id = Column(String, primary_key=True)
     name = Column(String, nullable=False, unique=True)
     icon = Column(String, nullable=True)
+    category = Column(String, nullable=False, default="special", server_default="special")
+    rarity = Column(String, nullable=False, default="common", server_default="common")
+    description = Column(Text, nullable=True)
+    sport_id = Column(String, ForeignKey("sport.id"), nullable=True)
+    rule = Column(JSON, nullable=True)
 
 
 class PlayerBadge(Base):
@@ -72,6 +77,9 @@ class PlayerBadge(Base):
     id = Column(String, primary_key=True)
     player_id = Column(String, ForeignKey("player.id"), nullable=False)
     badge_id = Column(String, ForeignKey("badge.id"), nullable=False)
+    earned_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), default=func.now()
+    )
 
     __table_args__ = (
         UniqueConstraint(

@@ -236,29 +236,31 @@ export function ensureAbsoluteApiUrl(
   if (path.startsWith('//')) return path;
   if (ABSOLUTE_URL_REGEX.test(path)) return path;
 
-  if (path.startsWith('/')) {
-    const base = apiBase();
+  const base = apiBase();
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
 
-    if (!ABSOLUTE_URL_REGEX.test(base)) {
-      const normalizedBase = base.endsWith('/') ? base : `${base}/`;
-      if (path.startsWith(normalizedBase)) {
-        return path;
+  if (ABSOLUTE_URL_REGEX.test(base)) {
+    try {
+      const baseUrl = new URL(base);
+      const basePath = baseUrl.pathname.endsWith('/')
+        ? baseUrl.pathname.slice(0, -1)
+        : baseUrl.pathname;
+      if (basePath && normalizedPath.startsWith(`${basePath}/`)) {
+        return normalizedPath;
       }
-    } else {
-      try {
-        const baseUrl = new URL(base);
-        const pathnameWithTrailingSlash = baseUrl.pathname.endsWith('/')
-          ? baseUrl.pathname
-          : `${baseUrl.pathname}/`;
-        if (
-          baseUrl.pathname === '/' ||
-          path.startsWith(pathnameWithTrailingSlash)
-        ) {
-          return `${baseUrl.origin}${path}`;
-        }
-      } catch {
-        // If the base URL cannot be parsed, fall through to the default logic.
+      if (!basePath || basePath === '/') {
+        return normalizedPath;
       }
+      return `${basePath}${normalizedPath}`;
+    } catch {
+      // If the base URL cannot be parsed, fall through to the default logic.
+    }
+  }
+
+  if (!ABSOLUTE_URL_REGEX.test(base)) {
+    const normalizedBase = base.endsWith('/') ? base : `${base}/`;
+    if (normalizedPath.startsWith(normalizedBase)) {
+      return normalizedPath;
     }
   }
 

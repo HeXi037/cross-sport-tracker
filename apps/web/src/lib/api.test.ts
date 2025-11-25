@@ -1,11 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   apiFetch,
+  ensureAbsoluteApiUrl,
   isAdmin,
   logout,
   persistSession,
   SESSION_ENDED_STORAGE_KEY,
 } from './api';
+
+const ORIGINAL_API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+afterEach(() => {
+  process.env.NEXT_PUBLIC_API_BASE_URL = ORIGINAL_API_BASE;
+});
 
 function buildToken(payload: Record<string, unknown>): string {
   const json = JSON.stringify(payload);
@@ -34,6 +41,24 @@ describe('isAdmin', () => {
   it('returns false for malformed token', () => {
     window.localStorage.setItem('token', 'bad.token');
     expect(isAdmin()).toBe(false);
+  });
+});
+
+describe('ensureAbsoluteApiUrl', () => {
+  it('keeps API-hosted paths relative when the base URL is absolute', () => {
+    process.env.NEXT_PUBLIC_API_BASE_URL = 'https://backend:8000/api';
+
+    expect(
+      ensureAbsoluteApiUrl('/api/static/users/example.jpg')
+    ).toBe('/api/static/users/example.jpg');
+  });
+
+  it('prefixes relative paths with the API base path without leaking the origin', () => {
+    process.env.NEXT_PUBLIC_API_BASE_URL = 'https://backend:8000/api';
+
+    expect(ensureAbsoluteApiUrl('static/users/example.jpg')).toBe(
+      '/api/static/users/example.jpg'
+    );
   });
 });
 

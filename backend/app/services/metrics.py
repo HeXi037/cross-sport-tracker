@@ -47,6 +47,8 @@ async def update_player_metrics(
                     milestones.append("firstWin")
             elif pid in losers:
                 metrics["losses"] = metrics.get("losses", 0) + 1
+            elif pid in draws:
+                metrics["draws"] = metrics.get("draws", 0) + 1
             pm.metrics = metrics
             pm.milestones = milestones
     except SQLAlchemyError as exc:

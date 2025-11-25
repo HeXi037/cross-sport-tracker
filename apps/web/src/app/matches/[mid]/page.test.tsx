@@ -794,11 +794,37 @@ describe("MatchDetailPage", () => {
       },
     ];
 
-    apiFetchMock
-      .mockResolvedValueOnce({ ok: true, json: async () => match })
-      .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockResolvedValueOnce({ ok: true, json: async () => [] })
-      .mockResolvedValueOnce({ ok: true, json: async () => auditEntries });
+    apiFetchMock.mockReset();
+    apiFetchMock.mockImplementation((path: string) => {
+      if (path === "/v0/matches/m-admin") {
+        return Promise.resolve({ ok: true, json: async () => match });
+      }
+      if (path.startsWith("/v0/players/by-ids")) {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      if (path.startsWith("/v0/sports")) {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      if (path.startsWith("/v0/rulesets")) {
+        return Promise.resolve({ ok: true, json: async () => [] });
+      }
+      if (path.includes("/comments")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ items: [], total: 0, limit: 50, offset: 0 }),
+        });
+      }
+      if (path.includes("/chat")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ items: [], total: 0, limit: 50, offset: 0 }),
+        });
+      }
+      if (path.endsWith("/audit")) {
+        return Promise.resolve({ ok: true, json: async () => auditEntries });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
 
     window.localStorage.setItem(
       "token",
@@ -818,8 +844,7 @@ describe("MatchDetailPage", () => {
     expect(items).toHaveLength(1);
     expect(items[0]).toHaveTextContent(/created/i);
     expect(items[0]).toHaveTextContent(/admin/i);
-    expect(apiFetchMock).toHaveBeenNthCalledWith(
-      4,
+    expect(apiFetchMock).toHaveBeenCalledWith(
       "/v0/matches/m-admin/audit",
     );
   });

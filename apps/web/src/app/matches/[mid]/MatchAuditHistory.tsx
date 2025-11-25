@@ -52,11 +52,18 @@ export default function MatchAuditHistory({
       try {
         const res = (await apiFetch(
           `/v0/matches/${encodeURIComponent(mid)}/audit`,
-        )) as Response;
+        )) as Response | undefined;
+        if (!res || typeof res.ok !== "boolean") {
+          throw new Error("Invalid audit response");
+        }
         if (!res.ok) {
           throw new Error(`Failed to load audit entries (${res.status})`);
         }
-        const data = (await res.json()) as AuditEntry[];
+        const json = (res as Response).json;
+        if (typeof json !== "function") {
+          throw new Error("Invalid audit response payload");
+        }
+        const data = (await json.call(res)) as AuditEntry[];
         if (!cancelled) {
           setState({ status: "loaded", items: data });
         }

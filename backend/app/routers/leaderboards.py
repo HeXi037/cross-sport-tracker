@@ -1,5 +1,5 @@
 from collections import defaultdict
-from statistics import mean, pstdev
+from statistics import mean, pstdev, quantiles
 from typing import Optional, Annotated, Any
 
 from fastapi import APIRouter, Query, Depends
@@ -17,7 +17,7 @@ from ..models import (
     Stage,
 )
 from ..services.master_rating import update_master_ratings
-from ..schemas import LeaderboardEntryOut, LeaderboardOut
+from ..schemas import LeaderboardEntryOut, LeaderboardOut, RatingDistributionOut
 
 # Resource-only prefix; no /api or /api/v0 here
 router = APIRouter(prefix="/leaderboards", tags=["leaderboards"])
@@ -25,6 +25,50 @@ router = APIRouter(prefix="/leaderboards", tags=["leaderboards"])
 
 AMERICANO_STAGE_TYPE = "americano"
 AMERICANO_RATING_SUFFIX = "_americano"
+
+
+def _elo_win_probability(rating_a: float, rating_b: float) -> float:
+    return 1 / (1 + 10 ** ((rating_b - rating_a) / 400))
+
+
+def _rating_distribution(values: list[float], bucket_count: int = 5) -> RatingDistributionOut | None:
+    if not values:
+        return None
+
+    minimum = min(values)
+    maximum = max(values)
+    avg = mean(values)
+    if maximum == minimum:
+        bucket_width = 1
+    else:
+        bucket_width = (maximum - minimum) / bucket_count
+
+    histogram: list[dict[str, float | int]] = []
+    for idx in range(bucket_count):
+        start = minimum + idx * bucket_width
+        end = start + bucket_width
+        histogram.append({"start": start, "end": end, "count": 0})
+
+    for value in values:
+        if bucket_width == 0:
+            bucket_index = 0
+        else:
+            bucket_index = int((value - minimum) / bucket_width)
+        if bucket_index >= bucket_count:
+            bucket_index = bucket_count - 1
+        histogram[bucket_index]["count"] = int(histogram[bucket_index]["count"]) + 1
+
+    percentile_marks = [10, 25, 50, 75, 90]
+    q = quantiles(values, n=100, method="inclusive") if len(values) > 1 else [minimum] * 99
+    percentiles = {str(mark): q[mark - 1] for mark in percentile_marks}
+
+    return RatingDistributionOut(
+        minimum=minimum,
+        maximum=maximum,
+        average=avg,
+        histogram=histogram,
+        percentiles=percentiles,
+    )
 
 
 def _resolve_leaderboard_context(sport: str) -> tuple[str, bool]:
@@ -73,6 +117,7 @@ async def leaderboard(
         row.Rating.player_id: row.Rating.value for row in all_rows
     }
     rows = all_rows[offset : offset + limit]
+    distribution = _rating_distribution([row.Rating.value for row in all_rows])
 
     # Precompute set stats for players returned by the ranking query.
     player_ids = [r.Rating.player_id for r in rows]
@@ -206,6 +251,7 @@ async def leaderboard(
     prev_rank_map = {pid: i + 1 for i, (pid, _) in enumerate(prev_sorted)}
 
     leaders = []
+    current_subset_ratings = {row.Rating.player_id: row.Rating.value for row in rows}
     for r in rows:
         pid = r.Rating.player_id
         stats = set_stats.get(pid, {"won": 0, "lost": 0})
@@ -226,6 +272,12 @@ async def leaderboard(
         std_dev = (
             bowling.get("standard_deviation") if isinstance(bowling, dict) else None
         )
+        win_probabilities = {}
+        for opp_id, opp_rating in current_subset_ratings.items():
+            if opp_id == pid:
+                continue
+            win_probabilities[opp_id] = _elo_win_probability(r.Rating.value, opp_rating)
+
         leaders.append(
             LeaderboardEntryOut(
                 rank=curr_rank,
@@ -243,6 +295,7 @@ async def leaderboard(
                 highestScore=highest_score,
                 averageScore=average_score,
                 standardDeviation=std_dev,
+                winProbabilities=win_probabilities if win_probabilities else None,
             )
         )
 
@@ -252,6 +305,7 @@ async def leaderboard(
         total=total_entries,
         limit=limit,
         offset=offset,
+        ratingDistribution=distribution,
     )
 
 
@@ -280,7 +334,17 @@ async def master_leaderboard(
     rows = all_rows[offset : offset + limit]
 
     leaders = []
+    distribution = _rating_distribution([row.MasterRating.value for row in all_rows])
     for i, r in enumerate(rows):
+        win_probabilities = {}
+        for opponent in rows:
+            if opponent.MasterRating.player_id == r.MasterRating.player_id:
+                continue
+            win_probabilities[
+                opponent.MasterRating.player_id
+            ] = _elo_win_probability(
+                r.MasterRating.value, opponent.MasterRating.value
+            )
         leaders.append(
             LeaderboardEntryOut(
                 rank=offset + i + 1,
@@ -292,6 +356,7 @@ async def master_leaderboard(
                 setsWon=0,
                 setsLost=0,
                 setDiff=0,
+                winProbabilities=win_probabilities if win_probabilities else None,
             )
         )
 
@@ -301,4 +366,5 @@ async def master_leaderboard(
         total=total_entries,
         limit=limit,
         offset=offset,
+        ratingDistribution=distribution,
     )

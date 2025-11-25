@@ -314,6 +314,16 @@ class LeaderboardEntryOut(BaseModel):
     highestScore: float | None = None
     averageScore: float | None = None
     standardDeviation: float | None = None
+    winProbabilities: Dict[str, float] | None = None
+
+
+class RatingDistributionOut(BaseModel):
+    minimum: float
+    maximum: float
+    average: float
+    histogram: List[Dict[str, float | int]]
+    percentiles: Dict[str, float]
+
 
 class LeaderboardOut(BaseModel):
     sport: str
@@ -321,6 +331,7 @@ class LeaderboardOut(BaseModel):
     total: int
     limit: int
     offset: int
+    ratingDistribution: RatingDistributionOut | None = None
 
 class Participant(BaseModel):
     side: Literal["A", "B", "C", "D", "E", "F"]

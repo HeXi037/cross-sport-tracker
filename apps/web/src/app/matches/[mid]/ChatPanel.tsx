@@ -161,7 +161,7 @@ export default function ChatPanel({ matchId }: { matchId: string }) {
             <div className="row space-between">
               <span className="text-muted">@{msg.username}</span>
               <span className="text-muted">
-                {formatDateTime(msg.createdAt, locale, timeZone)}
+                {formatDateTime(msg.createdAt, locale, "compact", timeZone)}
               </span>
             </div>
             <p>{msg.content}</p>

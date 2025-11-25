@@ -201,7 +201,7 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
             <div className="row space-between">
               <span className="text-muted">@{c.username}</span>
               <span className="text-muted">
-                {formatDateTime(c.createdAt, locale, timeZone)}
+                {formatDateTime(c.createdAt, locale, "compact", timeZone)}
               </span>
             </div>
             <p>{c.content}</p>

@@ -72,6 +72,7 @@ def setup_db():
         async with db.AsyncSessionLocal() as session:
             sport = Sport(id="padel", name="Padel")
             session.add(sport)
+            session.add(Sport(id="badminton", name="Badminton"))
             session.add(Sport(id="bowling", name="Bowling"))
             session.add_all(
                 [
@@ -83,7 +84,9 @@ def setup_db():
             p2 = Player(id="p2", name="P2", location="SE", club_id="club-b")
             p3 = Player(id="p3", name="P3", location="NO", club_id="club-a")
             p4 = Player(id="p4", name="P4", location="US")
-            session.add_all([p1, p2, p3, p4])
+            p5 = Player(id="ba1", name="BA1")
+            p6 = Player(id="ba2", name="BA2")
+            session.add_all([p1, p2, p3, p4, p5, p6])
             session.add_all(
                 [
                     Player(id="b1", name="Bowler One"),
@@ -97,6 +100,8 @@ def setup_db():
                     Rating(id="r2", player_id="p2", sport_id="padel", value=1001),
                     Rating(id="r3", player_id="p3", sport_id="padel", value=990),
                     Rating(id="r4", player_id="p4", sport_id="padel", value=980),
+                    Rating(id="bar1", player_id="ba1", sport_id="badminton", value=1008),
+                    Rating(id="bar2", player_id="ba2", sport_id="badminton", value=1002),
                     Rating(id="br1", player_id="b1", sport_id="bowling", value=1010),
                     Rating(id="br2", player_id="b2", sport_id="bowling", value=1000),
                     Rating(id="br3", player_id="b3", sport_id="bowling", value=990),
@@ -201,6 +206,32 @@ def setup_db():
                     ),
                 ]
             )
+
+            badminton_match_id = "badm1"
+            session.add(
+                Match(
+                    id=badminton_match_id,
+                    sport_id="badminton",
+                    details={
+                        "sets": {"A": 2, "B": 1},
+                        "set_scores": [
+                            {"A": 21, "B": 18},
+                            {"A": 18, "B": 21},
+                            {"A": 21, "B": 19},
+                        ],
+                    },
+                )
+            )
+            session.add_all(
+                [
+                    MatchParticipant(
+                        id="badmp1", match_id=badminton_match_id, side="A", player_ids=["ba1"]
+                    ),
+                    MatchParticipant(
+                        id="badmp2", match_id=badminton_match_id, side="B", player_ids=["ba2"]
+                    ),
+                ]
+            )
             await session.commit()
 
     asyncio.run(init_models())
@@ -234,6 +265,20 @@ def test_leaderboard_rank_and_sets():
         assert data["ratingDistribution"]["percentiles"]["50"] == pytest.approx(
             995.5
         )
+
+
+def test_badminton_leaderboard_captures_set_totals():
+    with TestClient(app) as client:
+        resp = client.get("/leaderboards", params={"sport": "badminton"})
+        assert resp.status_code == 200
+        data = resp.json()
+        leaders = {entry["playerId"]: entry for entry in data["leaders"]}
+        assert leaders["ba1"]["rank"] == 1
+        assert leaders["ba1"]["setsWon"] == 2
+        assert leaders["ba1"]["setsLost"] == 1
+        assert leaders["ba2"]["setsWon"] == 1
+        assert leaders["ba2"]["setsLost"] == 2
+        assert data["total"] == 2
 
 
 def test_leaderboard_ignores_deleted_match_events():
@@ -304,7 +349,7 @@ def test_master_leaderboard_excludes_deleted_players():
         data = resp.json()
         leaders = data["leaders"]
         assert "p4" not in [entry["playerId"] for entry in leaders]
-        assert data["total"] == len(leaders) == 6
+        assert data["total"] == len(leaders) == 8
         assert 0 <= data["ratingDistribution"]["minimum"] <= 1000
         assert data["ratingDistribution"]["maximum"] <= 1000
         assert leaders[0]["winProbabilities"]

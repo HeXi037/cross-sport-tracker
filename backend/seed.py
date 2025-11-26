@@ -19,6 +19,7 @@ async def main():
         existing = (await s.execute(select(Sport))).scalars().all()
         have = {x.id for x in existing}
         for sid, name in [
+            ("badminton", "Badminton"),
             ("padel", "Padel"),
             ("padel_americano", "Padel Americano"),
             ("bowling", "Bowling"),
@@ -36,6 +37,12 @@ async def main():
             x.id for x in (await s.execute(select(RuleSet))).scalars().all()
         }
         rulesets = [
+            RuleSet(
+                id="badminton-standard",
+                sport_id="badminton",
+                name="Badminton standard",
+                config={"pointsTo": 21, "winBy": 2, "bestOf": 3, "maxPoint": 30},
+            ),
             RuleSet(
                 id="padel-default",
                 sport_id="padel",

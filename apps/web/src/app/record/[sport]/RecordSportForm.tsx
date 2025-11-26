@@ -105,6 +105,7 @@ export type GameSeriesConfig = {
   maxPointsPerGame?: number;
   allowScoresBeyondMax?: boolean;
   requiredWinningMargin?: number;
+  overtimeCap?: number;
 };
 
 type NormalizedGameSeries = {
@@ -200,6 +201,16 @@ export function normalizeGameSeries(
     ) {
       throw new Error(
         `Game ${i + 1} must be won by at least ${config.requiredWinningMargin} points.`,
+      );
+    }
+
+    if (
+      allowsScoresBeyondMax &&
+      typeof config.overtimeCap === "number" &&
+      winningPoints > config.overtimeCap
+    ) {
+      throw new Error(
+        `Game ${i + 1} scores cannot exceed ${config.overtimeCap}.`,
       );
     }
 
@@ -675,12 +686,25 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const isStandardPadel = sport === "padel";
   const isPadel = sport === "padel" || sport === "padel_americano";
   const isPadelAmericano = sport === "padel_americano";
+  const isBadminton = sport === "badminton";
   const isPickleball = sport === "pickleball";
   const isTableTennis = sport === "table_tennis";
   const supportsSinglesOrDoubles =
-    isStandardPadel || isPickleball || isTableTennis;
+    isStandardPadel || isPickleball || isTableTennis || isBadminton;
   const isBowling = sport === "bowling";
   const gameSeriesConfig = useMemo<GameSeriesConfig | null>(() => {
+    if (isBadminton) {
+      return {
+        maxGames: 3,
+        gamesNeededOptions: [2],
+        invalidSeriesMessage:
+          "Badminton matches finish when a side wins two games (best of three). Adjust the game scores.",
+        maxPointsPerGame: 21,
+        allowScoresBeyondMax: true,
+        requiredWinningMargin: 2,
+        overtimeCap: 30,
+      };
+    }
     if (isPickleball) {
       return {
         maxGames: 3,
@@ -701,7 +725,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       };
     }
     return null;
-  }, [isPickleball, isTableTennis]);
+  }, [isBadminton, isPickleball, isTableTennis]);
   const usesGameSeries = Boolean(gameSeriesConfig);
   const maxGames = gameSeriesConfig?.maxGames ?? 0;
 

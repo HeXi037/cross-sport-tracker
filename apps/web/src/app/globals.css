@@ -2093,6 +2093,12 @@ textarea {
   margin-top: 0.75rem;
 }
 
+.badge-showcase__summary {
+  margin: 0.35rem 0 0.5rem;
+  color: #334155;
+  font-size: 0.95rem;
+}
+
 .badge-card {
   display: flex;
   gap: 0.75rem;
@@ -2134,6 +2140,12 @@ textarea {
   margin: 0.25rem 0 0;
   color: #1f2937;
   font-size: 0.95rem;
+}
+
+.badge-card__rule {
+  margin: 0.2rem 0 0;
+  color: #334155;
+  font-size: 0.85rem;
 }
 
 .badge-pill {

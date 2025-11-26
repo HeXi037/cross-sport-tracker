@@ -35,6 +35,16 @@ class BadgeDefinition:
 
 BADGE_DEFINITIONS: list[BadgeDefinition] = [
     BadgeDefinition(
+        id="first_win",
+        name="First trophy",
+        icon="🎉",
+        category="milestone",
+        rarity="common",
+        description="Celebrate the first recorded win on your profile.",
+        sport_id=None,
+        rule={"type": "milestone", "milestone": "firstWin"},
+    ),
+    BadgeDefinition(
         id="padel_800",
         name="Padel 800+",
         icon="🎾",
@@ -73,6 +83,16 @@ BADGE_DEFINITIONS: list[BadgeDefinition] = [
         description="Hit the 100 match milestone.",
         sport_id=None,
         rule={"type": "matches_played_at_least", "threshold": 100},
+    ),
+    BadgeDefinition(
+        id="matches_200",
+        name="Ironclad grinder",
+        icon="⏱️",
+        category="milestone",
+        rarity="epic",
+        description="Showed up for 200 matches across any sport.",
+        sport_id=None,
+        rule={"type": "matches_played_at_least", "threshold": 200},
     ),
     BadgeDefinition(
         id="tournament_debut",
@@ -124,6 +144,51 @@ BADGE_DEFINITIONS: list[BadgeDefinition] = [
         sport_id=None,
         rule={"type": "master_rating_at_least", "threshold": 1800},
     ),
+    BadgeDefinition(
+        id="padel_win_collector",
+        name="Padel win collector",
+        icon="🥎",
+        category="skill",
+        rarity="rare",
+        description="Stacked up 10 padel match wins.",
+        sport_id="padel",
+        rule={"type": "wins_at_least", "threshold": 10, "sport_id": "padel"},
+    ),
+    BadgeDefinition(
+        id="bowling_striker",
+        name="Bowling striker",
+        icon="🎳✨",
+        category="skill",
+        rarity="rare",
+        description="Notched 10 bowling victories.",
+        sport_id="bowling",
+        rule={"type": "wins_at_least", "threshold": 10, "sport_id": "bowling"},
+    ),
+    BadgeDefinition(
+        id="hot_hand",
+        name="Hot hand",
+        icon="🔥",
+        category="skill",
+        rarity="epic",
+        description="Kept a 65%+ win rate across 20+ matches.",
+        sport_id=None,
+        rule={"type": "win_rate_at_least", "threshold": 0.65, "minimum_matches": 20},
+    ),
+    BadgeDefinition(
+        id="padel_finisher",
+        name="Padel finisher",
+        icon="🎾🔥",
+        category="skill",
+        rarity="epic",
+        description="Won 60% of padel matches after playing 15.",
+        sport_id="padel",
+        rule={
+            "type": "win_rate_at_least",
+            "threshold": 0.6,
+            "sport_id": "padel",
+            "minimum_matches": 15,
+        },
+    ),
 ]
 
 
@@ -135,6 +200,9 @@ class PlayerBadgeSnapshot:
     ratings: dict[str, float]
     master_rating: float | None
     total_matches: int
+    total_wins: int
+    total_losses: int
+    total_draws: int
     played_tournament_match: bool
 
     @property
@@ -196,10 +264,16 @@ async def _collect_snapshot(session: AsyncSession, player_id: str) -> PlayerBadg
     metrics: dict[str, dict] = {}
     milestones: set[str] = set()
     total_matches = 0
+    total_wins = 0
+    total_losses = 0
+    total_draws = 0
     for row in metric_rows:
         metric_data = dict(row.metrics or {})
         metrics[row.sport_id] = metric_data
         total_matches += int(metric_data.get("matches", 0) or 0)
+        total_wins += int(metric_data.get("wins", 0) or 0)
+        total_losses += int(metric_data.get("losses", 0) or 0)
+        total_draws += int(metric_data.get("draws", 0) or 0)
         milestones.update(set(row.milestones or []))
 
     rating_rows = (
@@ -243,6 +317,9 @@ async def _collect_snapshot(session: AsyncSession, player_id: str) -> PlayerBadg
         ratings=ratings,
         master_rating=master_rating_row,
         total_matches=total_matches,
+        total_wins=total_wins,
+        total_losses=total_losses,
+        total_draws=total_draws,
         played_tournament_match=bool(tournament_play),
     )
 
@@ -273,6 +350,27 @@ def _rule_matches(rule: dict | None, snapshot: PlayerBadgeSnapshot) -> bool:
         return bool(milestone and milestone in snapshot.milestones)
     if rule_type == "tournament_debut":
         return snapshot.played_tournament_match
+    if rule_type == "wins_at_least":
+        threshold = int(rule.get("threshold") or 0)
+        sport_id = rule.get("sport_id")
+        if sport_id:
+            sport_wins = int(snapshot.metrics.get(sport_id, {}).get("wins", 0) or 0)
+            return sport_wins >= threshold
+        return snapshot.total_wins >= threshold
+    if rule_type == "win_rate_at_least":
+        threshold = float(rule.get("threshold") or 0)
+        minimum_matches = int(rule.get("minimum_matches") or 0)
+        sport_id = rule.get("sport_id")
+        if sport_id:
+            sport_metrics = snapshot.metrics.get(sport_id, {})
+            matches = int(sport_metrics.get("matches", 0) or 0)
+            wins = int(sport_metrics.get("wins", 0) or 0)
+        else:
+            matches = snapshot.total_matches
+            wins = snapshot.total_wins
+        if matches < minimum_matches or matches <= 0:
+            return False
+        return (wins / matches) >= threshold
     if rule_type == "master_rating_at_least":
         threshold = float(rule.get("threshold") or 0)
         return snapshot.master_rating is not None and snapshot.master_rating >= threshold

@@ -59,6 +59,7 @@ class BadgeRule(BaseModel):
     threshold: Optional[float] = None
     milestone: Optional[str] = None
     distinct_sports: Optional[int] = None
+    minimum_matches: Optional[int] = None
 
 
 class BadgeBase(BaseModel):

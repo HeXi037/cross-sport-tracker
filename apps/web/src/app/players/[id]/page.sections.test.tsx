@@ -278,9 +278,7 @@ describe("PlayerPage optional sections", () => {
     expect(
       screen.queryByRole("heading", { name: "Badges" })
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByText("No badges.")
-    ).toBeInTheDocument();
+    expect(screen.getByText((text) => text.startsWith("No badges yet."))).toBeInTheDocument();
 
     unmount();
 

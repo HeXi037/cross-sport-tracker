@@ -180,7 +180,7 @@ function formatSummary(
 function buildPredictionText(
   sides: Array<[string, PlayerInfo[]]>,
   prediction?: MatchRow["ratingPrediction"],
-  translate?: (key: string, values?: Record<string, unknown>) => string,
+  translate?: (key: string, values?: Record<string, string | number | Date>) => string,
 ): string | null {
   if (!prediction?.sides || !translate) return null;
   if (sides.length !== 2) return null;

@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -20,7 +21,7 @@ from sqlalchemy.orm import aliased
 from sqlalchemy.sql.elements import ColumnElement
 
 from ..db import get_session
-from ..db_errors import is_missing_table_error
+from ..db_errors import is_missing_column_error, is_missing_table_error
 from ..cache import player_stats_cache
 from ..models import (
     Player,
@@ -91,6 +92,8 @@ from .auth import get_current_user, get_current_user_with_csrf
 from ..location_utils import normalize_location_fields, continent_for_country
 from ..time_utils import coerce_utc
 
+
+logger = logging.getLogger(__name__)
 
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "static" / "players"
 UPLOAD_URL_PREFIX = f"{API_PREFIX}/static/players"
@@ -190,10 +193,21 @@ async def list_players(
             session, [p.id for p in rows], auto_award=True
         )
     except SQLAlchemyError as exc:
-        if is_missing_table_error(exc, Badge.__tablename__) or is_missing_table_error(
+        await _rollback_if_active(session)
+        handled = is_missing_table_error(exc, Badge.__tablename__) or is_missing_table_error(
             exc, PlayerBadge.__tablename__
-        ):
-            await session.rollback()
+        ) or is_missing_column_error(exc)
+        if handled:
+            try:
+                for player in rows:
+                    await session.refresh(player)
+            except SQLAlchemyError:
+                pass
+        if handled:
+            logger.warning(
+                "Badge tables or columns unavailable; returning players without badges",
+                exc_info=exc,
+            )
         else:
             raise
     players = [

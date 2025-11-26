@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from fastapi.responses import JSONResponse
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select, func
+from sqlalchemy.exc import SQLAlchemyError
 from app import db
 from app.routers import players, auth, badges
 from app.models import (
@@ -156,6 +157,37 @@ def test_list_players_pagination() -> None:
         assert data["offset"] == 1
         assert data["total"] == base_total + 5
         assert len(data["players"]) == 2
+
+
+def test_list_players_recovers_from_missing_badge_column(monkeypatch) -> None:
+    class FakeOrig:
+        sqlstate = "42703"
+
+        def __str__(self):
+            return "column badge.rule does not exist"
+
+    class FakeMissingColumnError(SQLAlchemyError):
+        def __init__(self):
+            super().__init__()
+            self.orig = FakeOrig()
+
+    async def raise_badge_error(*args, **kwargs):
+        raise FakeMissingColumnError()
+
+    monkeypatch.setattr(players, "ensure_badges_for_players", raise_badge_error)
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        token = admin_token(client)
+        client.post(
+            "/players",
+            json={"name": "BadgeLess"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        resp = client.get("/players")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["players"]
+        assert all(isinstance(p.get("badges"), list) for p in body["players"])
 
 def test_delete_player_requires_token() -> None:
     with TestClient(app) as client:

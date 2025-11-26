@@ -26,6 +26,10 @@ os.environ.setdefault("ADMIN_SECRET", "admintest")
 
 app = FastAPI()
 
+# Preserve the schema across tests in this module; the fixture below handles
+# its own drop/create cycle and seeds data that the tests rely on (e.g. match m1).
+pytestmark = pytest.mark.preserve_schema
+
 
 @app.exception_handler(DomainException)
 async def domain_exception_handler(request, exc):
@@ -95,6 +99,8 @@ def setup_db():
         db.AsyncSessionLocal = None
         engine = db.get_engine()
         async with engine.begin() as conn:
+            await conn.run_sync(db.Base.metadata.drop_all)
+            await conn.exec_driver_sql("DROP TABLE IF EXISTS match_participant")
             await conn.run_sync(
                 db.Base.metadata.create_all,
                 tables=[

@@ -46,6 +46,10 @@ def ensure_database():
 
 async def _reset_schema(engine) -> None:
     async with engine.begin() as conn:
+        # Drop auxiliary tables that aren't attached to the ORM metadata but
+        # can be created inside tests (e.g. match_participant) so the next test
+        # can recreate them without hitting "table already exists" errors.
+        await conn.exec_driver_sql("DROP TABLE IF EXISTS match_participant")
         await conn.run_sync(db.Base.metadata.drop_all)
         await conn.run_sync(db.Base.metadata.create_all)
 

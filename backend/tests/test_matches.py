@@ -145,6 +145,7 @@ async def test_create_match_rejects_duplicate_players(tmp_path):
   db.AsyncSessionLocal = None
   engine = db.get_engine()
   async with engine.begin() as conn:
+    await conn.exec_driver_sql("DROP TABLE IF EXISTS match_participant")
     await conn.run_sync(
         db.Base.metadata.create_all,
         tables=[
@@ -863,6 +864,7 @@ async def test_list_matches_returns_most_recent_first(tmp_path):
   db.AsyncSessionLocal = None
   engine = db.get_engine()
   async with engine.begin() as conn:
+    await conn.exec_driver_sql("DROP TABLE IF EXISTS match_participant")
     await conn.run_sync(
         db.Base.metadata.create_all,
         tables=[
@@ -1162,6 +1164,7 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
   engine = db.get_engine()
 
   async with engine.begin() as conn:
+    await conn.exec_driver_sql("DROP TABLE IF EXISTS match_participant")
     await conn.run_sync(create_table, Match.__table__)
     await conn.run_sync(create_table, MatchAuditLog.__table__)
     await conn.run_sync(create_table, ScoreEvent.__table__)
@@ -1306,6 +1309,7 @@ async def test_delete_match_updates_ratings_and_leaderboard(tmp_path):
   MatchParticipant.__table__.columns["player_ids"].type = JSON()
 
   async with engine.begin() as conn:
+    await conn.exec_driver_sql("DROP TABLE IF EXISTS match_participant")
     await conn.run_sync(
         db.Base.metadata.create_all,
         tables=[
@@ -1414,6 +1418,7 @@ async def test_score_totals_influence_multi_side_rankings(tmp_path):
   MatchParticipant.__table__.columns["player_ids"].type = JSON()
 
   async with engine.begin() as conn:
+    await conn.exec_driver_sql("DROP TABLE IF EXISTS match_participant")
     await conn.run_sync(
         db.Base.metadata.create_all,
         tables=[

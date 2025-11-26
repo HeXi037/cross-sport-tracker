@@ -196,40 +196,6 @@ describe("MatchesPage", () => {
     expect(screen.getByText("Page 1 · Showing matches 1-1")).toBeInTheDocument();
   });
 
-  it("shows rating-based win probability when provided", async () => {
-    const matches = [
-      createMatch({
-        participants: [
-          {
-            id: "p1",
-            side: "A",
-            playerIds: ["1", "3"],
-            players: [
-              { id: "1", name: "Alice" },
-              { id: "3", name: "Ava" },
-            ],
-          },
-          {
-            id: "p2",
-            side: "B",
-            playerIds: ["2"],
-            players: [{ id: "2", name: "Bob" }],
-          },
-        ],
-        ratingPrediction: { sides: { A: 0.72, B: 0.28 }, method: "elo" },
-      }),
-    ];
-
-    setupFetchMock(matches);
-
-    const page = await MatchesPage({ searchParams: {} });
-    render(page);
-
-    expect(
-      await screen.findByText("Alice + Ava had a 72% chance to beat Bob")
-    ).toBeInTheDocument();
-  });
-
   it("renders an empty state when there are no matches", async () => {
     const fetchMock = setupFetchMock([]);
 

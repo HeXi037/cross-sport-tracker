@@ -1084,6 +1084,62 @@ async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
         await session.execute(select(MatchParticipant).where(MatchParticipant.match_id == mid))
     ).scalars().all()
 
+    player_ids: set[str] = set()
+    for participant in parts:
+        for pid in participant.player_ids or []:
+            if pid:
+                player_ids.add(pid)
+
+    rating_rows: list[tuple[str, float]] = []
+    if player_ids:
+        rating_rows = (
+            await session.execute(
+                select(Rating.player_id, Rating.value)
+                .where(Rating.player_id.in_(player_ids))
+                .where(Rating.sport_id == m.sport_id)
+            )
+        ).all()
+
+    rating_lookup: dict[str, float] = {
+        pid: value for pid, value in rating_rows if isinstance(value, (int, float))
+    }
+
+    def _average_rating(player_ids_for_side: list[str]) -> float | None:
+        ratings = [rating_lookup.get(pid) for pid in player_ids_for_side if pid]
+        values = [val for val in ratings if isinstance(val, (int, float))]
+        if not values:
+            return None
+        return sum(values) / len(values)
+
+    def _prediction_for_match() -> MatchRatingPredictionOut | None:
+        if len(parts) < 2:
+            return None
+
+        sorted_parts = sorted(parts, key=lambda part: part.side)
+        side_groups: list[tuple[str, list[str]]] = []
+        for participant in sorted_parts:
+            ids = [pid for pid in participant.player_ids or [] if pid]
+            if ids:
+                side_groups.append((participant.side, ids))
+
+        if len(side_groups) != 2:
+            return None
+
+        (side_a, players_a), (side_b, players_b) = side_groups
+        rating_a = _average_rating(players_a)
+        rating_b = _average_rating(players_b)
+        if rating_a is None or rating_b is None:
+            return None
+
+        expected_a = 1 / (1 + 10 ** ((rating_b - rating_a) / 400))
+        expected_b = 1 - expected_a
+        return MatchRatingPredictionOut(
+            method="elo",
+            sides={side_a: expected_a, side_b: expected_b},
+        )
+
+    rating_prediction = _prediction_for_match()
+
     events = (
         await session.execute(
             select(ScoreEvent).where(ScoreEvent.match_id == mid).order_by(ScoreEvent.created_at)
@@ -1113,6 +1169,7 @@ async def get_match(mid: str, session: AsyncSession = Depends(get_session)):
             for e in events
         ],
         summary=m.details,
+        ratingPrediction=rating_prediction,
     )
 
 

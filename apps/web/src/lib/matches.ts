@@ -14,6 +14,11 @@ export type MatchParticipantSummary = {
   players?: Array<PlayerInfo | null | undefined> | null;
 };
 
+export type MatchRatingPrediction = {
+  method?: string | null;
+  sides?: Record<string, number> | null;
+} | null;
+
 export type MatchRow = {
   id: string;
   sport: string;
@@ -24,6 +29,7 @@ export type MatchRow = {
   isFriendly: boolean;
   participants: MatchParticipantSummary[];
   summary?: MatchSummaryData | null;
+  ratingPrediction?: MatchRatingPrediction;
 };
 
 export type EnrichedMatch = MatchRow & {

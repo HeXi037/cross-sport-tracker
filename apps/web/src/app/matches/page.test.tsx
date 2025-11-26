@@ -22,6 +22,10 @@ type MockMatch = {
     set_scores?: Array<Record<string, number>>;
     points?: Record<string, number>;
   } | null;
+  ratingPrediction?: {
+    method?: string;
+    sides?: Record<string, number> | null;
+  } | null;
 };
 
 function createMatch(overrides: Partial<MockMatch> = {}): MockMatch {
@@ -48,6 +52,7 @@ function createMatch(overrides: Partial<MockMatch> = {}): MockMatch {
       },
     ],
     summary: null,
+    ratingPrediction: null,
     ...overrides,
   };
 }
@@ -189,6 +194,40 @@ describe("MatchesPage", () => {
     expect(prev).toBeDisabled();
     expect(next).toBeDisabled();
     expect(screen.getByText("Page 1 · Showing matches 1-1")).toBeInTheDocument();
+  });
+
+  it("shows rating-based win probability when provided", async () => {
+    const matches = [
+      createMatch({
+        participants: [
+          {
+            id: "p1",
+            side: "A",
+            playerIds: ["1", "3"],
+            players: [
+              { id: "1", name: "Alice" },
+              { id: "3", name: "Ava" },
+            ],
+          },
+          {
+            id: "p2",
+            side: "B",
+            playerIds: ["2"],
+            players: [{ id: "2", name: "Bob" }],
+          },
+        ],
+        ratingPrediction: { sides: { A: 0.72, B: 0.28 }, method: "elo" },
+      }),
+    ];
+
+    setupFetchMock(matches);
+
+    const page = await MatchesPage({ searchParams: {} });
+    render(page);
+
+    expect(
+      await screen.findByText("Alice + Ava had a 72% chance to beat Bob")
+    ).toBeInTheDocument();
   });
 
   it("renders an empty state when there are no matches", async () => {

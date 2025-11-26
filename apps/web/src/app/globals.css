@@ -1526,6 +1526,10 @@ textarea {
   letter-spacing: 0.02em;
 }
 
+.match-card__prediction {
+  margin-top: 0.35rem;
+}
+
 .match-card__heading {
   margin: 0;
   font-size: 1.1rem;

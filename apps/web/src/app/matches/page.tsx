@@ -13,7 +13,12 @@ import {
 import { hasTimeComponent } from "../../lib/datetime";
 import { ensureTrailingSlash } from "../../lib/routes";
 import { resolveServerLocale } from "../../lib/server-locale";
-import { enrichMatches, type MatchRow, type MatchSummaryData } from "../../lib/matches";
+import {
+  enrichMatches,
+  type MatchRow,
+  type MatchSummaryData,
+  type PlayerInfo,
+} from "../../lib/matches";
 import {
   getNumericEntries,
   isRecord,
@@ -172,6 +177,42 @@ function formatSummary(
   return "";
 }
 
+function buildPredictionText(
+  sides: Array<[string, PlayerInfo[]]>,
+  prediction?: MatchRow["ratingPrediction"],
+  translate?: (key: string, values?: Record<string, unknown>) => string,
+): string | null {
+  if (!prediction?.sides || !translate) return null;
+  if (sides.length !== 2) return null;
+
+  const resolved = sides
+    .map(([side, players]) => {
+      const probability = prediction.sides?.[side];
+      if (typeof probability !== "number" || !Number.isFinite(probability)) {
+        return null;
+      }
+      const names = players
+        .map((player) => player?.name)
+        .filter((name): name is string => Boolean(name));
+      const label = names.length ? names.join(" + ") : side;
+      return { side, probability, label };
+    })
+    .filter((entry): entry is { side: string; probability: number; label: string } =>
+      Boolean(entry)
+    );
+
+  if (resolved.length !== 2) return null;
+  const [favored, opponent] = [...resolved].sort(
+    (a, b) => b.probability - a.probability
+  );
+  const percent = Math.round(favored.probability * 100);
+  return translate("prediction.favored", {
+    favorite: favored.label,
+    percent,
+    opponent: opponent.label,
+  });
+}
+
 export default async function MatchesPage(
   props: {
     searchParams?: Record<string, string | string[] | undefined>;
@@ -231,9 +272,10 @@ export default async function MatchesPage(
                       preferredDateOptions,
                       timeZone,
                     );
-              const participantSides = Object.entries(m.players)
-                .sort(([a], [b]) => a.localeCompare(b))
-                .map(([, players]) => players);
+              const participantEntries = Object.entries(m.players).sort(([a], [b]) =>
+                a.localeCompare(b)
+              );
+              const participantSides = participantEntries.map(([, players]) => players);
               const isMultiSideMatch = participantSides.length > 2;
               const [teamA = [], teamB = []] = participantSides;
               const playedAtDisplay = playedAtText || "—";
@@ -245,6 +287,11 @@ export default async function MatchesPage(
                   bestOf: (count) => commonT('match.bestOf', { count }),
                 },
                 sportsCatalog,
+              );
+              const predictionText = buildPredictionText(
+                participantEntries,
+                m.ratingPrediction,
+                matchesT,
               );
 
               return (
@@ -260,6 +307,11 @@ export default async function MatchesPage(
                         <span className="match-card__meta">{metadataText}</span>
                       )}
                     </div>
+                    {predictionText ? (
+                      <p className="match-card__eyebrow match-card__prediction">
+                        {predictionText}
+                      </p>
+                    ) : null}
 
                     <div
                       className={`match-card__teams-row${

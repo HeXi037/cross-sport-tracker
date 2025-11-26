@@ -620,6 +620,31 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     [locale],
   );
 
+  const computeExpectedWinProbability = useCallback(
+    (playerRating?: number | null, opponentRating?: number | null) => {
+      if (
+        typeof playerRating !== "number" ||
+        typeof opponentRating !== "number" ||
+        !Number.isFinite(playerRating) ||
+        !Number.isFinite(opponentRating)
+      ) {
+        return null;
+      }
+      const ratingDifference = opponentRating - playerRating;
+      const expected = 1 / (1 + 10 ** (ratingDifference / 400));
+      return expected;
+    },
+    [],
+  );
+
+  const formatWinProbability = useCallback(
+    (value: number | null) =>
+      value == null
+        ? "—"
+        : `${Math.round(value * 100).toLocaleString(locale)}%`,
+    [locale],
+  );
+
   const parseLeaderboardResponse = useCallback(
     (raw: unknown, fallbackOffset: number) => {
       if (Array.isArray(raw)) {
@@ -872,18 +897,40 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
 
   const columnDescription = useMemo(() => {
     if (sport === ALL_SPORTS) {
-      return "Columns display rank, player, sport, rating, wins, losses, matches, and win percentage.";
+      return "Columns display rank, player, sport, rating, win chance versus the #1 player, wins, losses, matches, and win percentage.";
     }
     if (isBowling) {
-      return "Columns display rank, player, rating, highest score, average score, matches played, and score standard deviation.";
+      return "Columns display rank, player, rating, win chance versus the #1 player, highest score, average score, matches played, and score standard deviation.";
     }
-    return "Columns display rank, player, rating, wins, losses, matches, and win percentage.";
+    return "Columns display rank, player, rating, win chance versus the #1 player, wins, losses, matches, and win percentage.";
   }, [isBowling, sport]);
 
   const captionText = useMemo(
     () => `${tableCaption} ${columnDescription}`,
     [columnDescription, tableCaption],
   );
+
+  const topRatedLeader = useMemo(() => {
+    let topByRank: { playerId: ID; rating: number } | null = null;
+    let topByRating: { playerId: ID; rating: number } | null = null;
+
+    leaders.forEach((leader) => {
+      const rating = leader.rating;
+      if (typeof rating !== "number" || !Number.isFinite(rating)) {
+        return;
+      }
+
+      if (leader.rank === 1) {
+        topByRank = { playerId: leader.playerId, rating };
+      }
+
+      if (!topByRating || rating > topByRating.rating) {
+        topByRating = { playerId: leader.playerId, rating };
+      }
+    });
+
+    return topByRank ?? topByRating;
+  }, [leaders]);
 
   const normalizedDraftCountry = normalizeCountry(draftCountry);
   const normalizedDraftClubId = normalizeClubId(draftClubId);
@@ -1511,6 +1558,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           </th>
         )}
         {renderSortableHeader("rating", "Rating", headerCellStyle)}
+        <th scope="col" style={headerCellStyle}>
+          Win chance vs #1
+        </th>
         {isBowling ? (
           <>
             <th scope="col" style={headerCellStyle}>
@@ -1907,6 +1957,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                   <td style={cellStyle}>
                     <div className="skeleton" style={{ width: "40px", height: "1em" }} />
                   </td>
+                  <td style={cellStyle}>
+                    <div className="skeleton" style={{ width: "110px", height: "1em" }} />
+                  </td>
                   {isBowling ? (
                     <>
                       <td style={cellStyle}>
@@ -2005,6 +2058,16 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                 const averageScore = row.averageScore ?? null;
                 const stdDeviation = row.standardDeviation ?? null;
                 const rowSportName = formatSportName(row.sport);
+                const winProbability =
+                  topRatedLeader &&
+                  typeof row.rating === "number" &&
+                  Number.isFinite(row.rating) &&
+                  row.playerId !== topRatedLeader.playerId
+                    ? computeExpectedWinProbability(
+                        row.rating,
+                        topRatedLeader.rating,
+                      )
+                    : null;
                 return (
                   <tr
                     key={`${row.rank}-${row.playerId}-${row.sport ?? ""}`}
@@ -2021,6 +2084,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                     >
                       {formatRating(row.rating)}
                     </td>
+                    <td style={cellStyle}>{formatWinProbability(winProbability)}</td>
                     {isBowling ? (
                       <>
                         <td style={cellStyle}>{formatInteger(highestScore)}</td>

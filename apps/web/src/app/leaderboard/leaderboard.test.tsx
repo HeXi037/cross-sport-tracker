@@ -787,7 +787,7 @@ describe("Leaderboard", () => {
     expect(table).toHaveAttribute("id", "leaderboard-results");
     expect(table).toHaveAttribute("aria-labelledby", "leaderboard-results-caption");
     expect(table).toHaveAccessibleName(
-      "Padel leaderboard results. Global results with no region filters. Columns display rank, player, rating, wins, losses, matches, and win percentage.",
+      "Padel leaderboard results. Global results with no region filters. Columns display rank, player, rating, win chance versus the #1 player, wins, losses, matches, and win percentage.",
     );
     expect(table).toHaveClass("leaderboard-table");
     expect(table.parentElement).toHaveClass("leaderboard-table-wrapper");

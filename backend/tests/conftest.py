@@ -39,10 +39,16 @@ def ensure_database():
     mp.undo()
 
 
-async def _create_schema(engine) -> None:
-    """Create all database tables for the given engine."""
+async def _rebuild_schema(engine) -> None:
+    """Drop and recreate all database tables for the given engine.
+
+    Dropping first ensures file-backed databases used in CI do not retain data
+    between test modules, preventing ``IntegrityError`` failures from duplicate
+    inserts (for example, on unique sport names or player IDs).
+    """
 
     async with engine.begin() as conn:
+        await conn.run_sync(db.Base.metadata.drop_all)
         await conn.run_sync(db.Base.metadata.create_all)
 
 
@@ -71,7 +77,7 @@ def ensure_schema(request, ensure_database):
         engine = db.engine
 
     if engine is not None:
-        asyncio.run(_create_schema(engine))
+        asyncio.run(_rebuild_schema(engine))
 
     yield
 

@@ -74,6 +74,17 @@ vi.mock("next/navigation", () => {
   return { notFound: notFoundMock };
 });
 
+vi.mock("next-intl/server", () => ({
+  getTranslations: vi.fn(async () =>
+    (key: string, values?: Record<string, string | number>) => {
+      if (key === "prediction.favored") {
+        return `${values?.favorite} had a ${values?.percent}% chance to beat ${values?.opponent}`;
+      }
+      return key;
+    }
+  ),
+}));
+
 import MatchDetailPage from "./page";
 import MatchNotFound from "./not-found";
 
@@ -247,6 +258,45 @@ describe("MatchDetailPage", () => {
     expect(meta).toHaveTextContent(
       "Padel · Premier Padel · In Progress"
     );
+  });
+
+  it("shows a rating-based prediction in the match details", async () => {
+    const match = {
+      id: "m7",
+      sport: "padel",
+      rulesetId: null,
+      playedAt: null,
+      participants: [
+        { side: "A", playerIds: ["p1"] },
+        { side: "B", playerIds: ["p2"] },
+      ],
+      ratingPrediction: { sides: { A: 0.66, B: 0.34 }, method: "elo" },
+      summary: {},
+    };
+
+    apiFetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => match })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: "p1", name: "Alice" },
+          { id: "p2", name: "Bob" },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: "padel", name: "Padel" }],
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] });
+
+    render(await MatchDetailPage({ params: { mid: "m7" } }));
+
+    const prediction = await screen.findByText(
+      "Alice had a 66% chance to beat Bob"
+    );
+    expect(prediction).toBeInTheDocument();
+    const term = prediction.closest("dd")?.previousElementSibling;
+    expect(term).toHaveTextContent("Prediction");
   });
 
   it("shows best-of metadata when available", async () => {

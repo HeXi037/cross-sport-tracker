@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { apiFetch, withAbsolutePhotoUrl } from "../../../lib/api";
 import LiveSummary from "./live-summary";
 import MatchParticipants from "../../../components/MatchParticipants";
@@ -34,6 +35,7 @@ import {
 import { resolveServerLocale } from "../../../lib/server-locale";
 import CommentsPanel from "./CommentsPanel";
 import ChatPanel from "./ChatPanel";
+import { type MatchRatingPrediction } from "../../../lib/matches";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +87,7 @@ type MatchDetail = {
   id: ID;
   sport?: string | null;
   sportName?: string | null;
+  ratingPrediction?: MatchRatingPrediction;
   rulesetId?: string | null;
   rulesetName?: string | null;
   rulesetLabel?: string | null;
@@ -126,6 +129,43 @@ const SUMMARY_COLUMN_CONFIG: Array<[SummaryColumnKey, string]> = [
 
 const GAME_TOTALS_TOOLTIP =
   "Game totals are only shown for sports that track them.";
+
+function buildPredictionText(
+  participants: ParticipantDisplay[],
+  prediction?: MatchRatingPrediction,
+  translate?: (key: string, values?: Record<string, string | number | Date>) => string,
+): string | null {
+  if (!prediction?.sides || !translate) return null;
+  if (participants.length < 2) return null;
+
+  const resolved = participants
+    .map((participant) => {
+      const probability = prediction.sides?.[participant.sideKey];
+      if (typeof probability !== "number" || !Number.isFinite(probability)) {
+        return null;
+      }
+      const names = participant.players
+        .map((player) => player?.name)
+        .filter((name): name is string => Boolean(name));
+      const label = names.length ? names.join(" + ") : participant.label;
+      return { side: participant.sideKey, probability, label };
+    })
+    .filter(
+      (entry): entry is { side: string; probability: number; label: string } =>
+        Boolean(entry)
+    );
+
+  if (resolved.length !== 2) return null;
+  const [favored, opponent] = [...resolved].sort(
+    (a, b) => b.probability - a.probability
+  );
+  const percent = Math.round(favored.probability * 100);
+  return translate("prediction.favored", {
+    favorite: favored.label,
+    percent,
+    opponent: opponent.label,
+  });
+}
 
 function toPositiveInteger(value: unknown): number | undefined {
   if (typeof value === "number") {
@@ -599,6 +639,7 @@ export default async function MatchDetailPage({
   const cookieStore = cookies();
   const { locale, preferredTimeZone } = resolveServerLocale({ cookieStore });
   const timeZone = resolveTimeZone(preferredTimeZone, locale);
+  const matchesT = await getTranslations("Matches");
 
   const parts = match.participants ?? [];
   const uniqueIds = Array.from(
@@ -714,6 +755,11 @@ export default async function MatchDetailPage({
   }
 
   const participantsWithSides = buildParticipantDisplays(parts, idToPlayer);
+  const predictionText = buildPredictionText(
+    participantsWithSides,
+    match.ratingPrediction,
+    matchesT,
+  );
   const summaryColumnConfig = SUMMARY_COLUMN_CONFIG.filter(
     ([key]) => key !== "games" || !hideGamesTotals
   );
@@ -794,6 +840,10 @@ export default async function MatchDetailPage({
     { term: "Date & time", description: playedAtLabel ?? "Not recorded" },
     { term: "Location", description: locationLabel ?? "Not provided" },
   ];
+
+  if (predictionText) {
+    infoItems.unshift({ term: "Prediction", description: predictionText });
+  }
 
   if (rulesetLabel) {
     infoItems.push({ term: "Ruleset", description: rulesetLabel });

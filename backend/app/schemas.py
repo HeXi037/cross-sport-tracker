@@ -999,6 +999,7 @@ class MatchOut(BaseModel):
     participants: List[ParticipantOut] = Field(default_factory=list)
     events: List[ScoreEventOut] = Field(default_factory=list)
     summary: Optional[Dict[str, Any]] = None
+    ratingPrediction: Optional["MatchRatingPredictionOut"] = None
 
 
 class TournamentCreate(BaseModel):

@@ -229,6 +229,21 @@ export default function AdminBadgesPage() {
   return (
     <main className="container">
       <h1 className="heading">Admin Badges</h1>
+      <p style={{ maxWidth: 720, color: '#334155' }}>
+        Badges use JSON rule definitions. Examples:
+        <code style={{ marginLeft: 4, marginRight: 4 }}>
+          {`{"type":"matches_played_at_least","threshold":50}`}
+        </code>
+        ,
+        <code style={{ marginLeft: 4, marginRight: 4 }}>
+          {`{"type":"wins_at_least","threshold":10,"sport_id":"padel"}`}
+        </code>
+        , or
+        <code style={{ marginLeft: 4 }}>
+          {`{"type":"win_rate_at_least","threshold":0.65,"minimum_matches":20}`}
+        </code>
+        . Sport-scoped rules should match the sport ID used throughout the site.
+      </p>
       {error && (
         <p className="error" role="alert">
           {error}

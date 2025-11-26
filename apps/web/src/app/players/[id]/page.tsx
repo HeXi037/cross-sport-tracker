@@ -195,6 +195,70 @@ const BADGE_RARITY_CLASS: Record<string, string> = {
   legendary: "badge-pill badge-pill--legendary",
 };
 
+function describeBadgeRule(rule: unknown): string | null {
+  if (!rule || typeof rule !== "object") return null;
+  const value = rule as Record<string, unknown>;
+  const sport = typeof value.sport_id === "string" ? value.sport_id : null;
+  const threshold =
+    typeof value.threshold === "number"
+      ? value.threshold
+      : typeof value.threshold === "string"
+        ? Number.parseFloat(value.threshold)
+        : null;
+  switch (value.type) {
+    case "rating_at_least":
+      return threshold
+        ? `Reach a ${sport ? `${sport} ` : ""}rating of ${threshold}+`
+        : null;
+    case "matches_played_at_least":
+      return threshold ? `Play ${threshold} matches` : null;
+    case "sport_matches_at_least":
+      return threshold && sport
+        ? `Play ${threshold} ${sport} matches`
+        : null;
+    case "distinct_rated_sports_at_least": {
+      const distinct =
+        typeof value.distinct_sports === "number"
+          ? value.distinct_sports
+          : typeof value.distinct_sports === "string"
+            ? Number.parseInt(value.distinct_sports, 10)
+            : null;
+      return distinct ? `Earn ratings in ${distinct} sports` : null;
+    }
+    case "milestone": {
+      if (value.milestone === "firstWin") return "Record your first win";
+      if (typeof value.milestone === "string") {
+        return `Hit the ${value.milestone} milestone`;
+      }
+      return null;
+    }
+    case "tournament_debut":
+      return "Play your first tournament match";
+    case "wins_at_least":
+      return threshold
+        ? `Win ${threshold}${sport ? ` ${sport}` : ""} matches`
+        : null;
+    case "win_rate_at_least": {
+      const minimumMatches =
+        typeof value.minimum_matches === "number"
+          ? value.minimum_matches
+          : typeof value.minimum_matches === "string"
+            ? Number.parseInt(value.minimum_matches, 10)
+            : 0;
+      const pct = threshold ? Math.round(threshold * 100) : null;
+      if (!pct) return null;
+      const base = `Hold a ${pct}% win rate${sport ? ` in ${sport}` : ""}`;
+      return minimumMatches > 0
+        ? `${base} after ${minimumMatches} matches`
+        : base;
+    }
+    case "master_rating_at_least":
+      return threshold ? `Finish with a master rating of ${threshold}+` : null;
+    default:
+      return null;
+  }
+}
+
 async function getMatches(
   playerId: string,
   upcoming = false
@@ -724,6 +788,19 @@ export default async function PlayerPage({
     const opponentRecords: VersusRecord[] = stats?.headToHeadRecords ?? [];
     const rollingWinPct = stats?.rollingWinPct ?? [];
     const ratingHistory = extractRatingHistory(stats);
+    const badgeShelf = [...player.badges].sort((a, b) => {
+      const aTime = a.earned_at ? new Date(a.earned_at).getTime() : 0;
+      const bTime = b.earned_at ? new Date(b.earned_at).getTime() : 0;
+      return bTime - aTime;
+    });
+    const standoutBadges = badgeShelf.filter((badge) => {
+      const rarity = (badge.rarity || "").toLowerCase();
+      return rarity === "rare" || rarity === "epic" || rarity === "legendary";
+    });
+    const legendaryBadges = badgeShelf.filter(
+      (badge) => (badge.rarity || "").toLowerCase() === "legendary"
+    );
+    const latestBadge = badgeShelf[0];
 
     return (
       <PlayerDetailErrorBoundary playerId={params.id}>
@@ -992,14 +1069,36 @@ export default async function PlayerPage({
           ) : (
             <p className="text-sm text-gray-600">No upcoming matches.</p>
           )}
-          {player.badges.length ? (
+          {badgeShelf.length ? (
             <section aria-label="Badge showcase" className="mt-4">
               <h2 className="heading">Badges</h2>
+              <p className="badge-showcase__summary">
+                Unlocked {badgeShelf.length} badge{badgeShelf.length === 1 ? "" : "s"}
+                {standoutBadges.length
+                  ? ` · ${standoutBadges.length} rare+ highlight${
+                      standoutBadges.length === 1 ? "" : "s"
+                    }`
+                  : ""}
+                {legendaryBadges.length
+                  ? ` · ${legendaryBadges.length} legendary brag${
+                      legendaryBadges.length === 1 ? "" : "s"
+                    }`
+                  : ""}
+                {latestBadge?.earned_at
+                  ? ` · Latest: ${latestBadge.name} on ${formatDate(
+                      latestBadge.earned_at,
+                      locale,
+                      preferredDateOptions,
+                      timeZone,
+                    )}`
+                  : ""}
+              </p>
               <ul className="badge-grid" aria-label="Unlocked badges">
-                {player.badges.map((b) => {
+                {badgeShelf.map((b) => {
                   const rarityClass =
                     BADGE_RARITY_CLASS[b.rarity?.toLowerCase() ?? ""] ??
                     BADGE_RARITY_CLASS.common;
+                  const ruleDescription = describeBadgeRule(b.rule);
                   return (
                     <li
                       key={b.id}
@@ -1028,6 +1127,9 @@ export default async function PlayerPage({
                         {b.description ? (
                           <p className="badge-card__description">{b.description}</p>
                         ) : null}
+                        {ruleDescription ? (
+                          <p className="badge-card__rule">{ruleDescription}</p>
+                        ) : null}
                       </div>
                     </li>
                   );
@@ -1035,7 +1137,10 @@ export default async function PlayerPage({
               </ul>
             </section>
           ) : (
-            <p className="mt-2 text-sm text-gray-600">No badges.</p>
+            <p className="mt-2 text-sm text-gray-600">
+              No badges yet. Play matches, chase milestones, and badges will start
+              filling in here.
+            </p>
           )}
         </aside>
       </main>

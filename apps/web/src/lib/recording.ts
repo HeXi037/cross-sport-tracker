@@ -13,7 +13,7 @@ const RECORD_SPORTS: Record<string, RecordSportMeta> = {
     id: "badminton",
     slug: "badminton",
     form: "dynamic",
-    implemented: false,
+    implemented: true,
   },
   bowling: {
     id: "bowling",

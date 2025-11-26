@@ -36,7 +36,7 @@ describe("RecordPage", () => {
     ).toHaveAttribute("href", "/record/table-tennis");
   });
 
-  it("includes disc golf and omits unimplemented sports", async () => {
+  it("includes disc golf and newly implemented sports", async () => {
     apiFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => [
@@ -52,8 +52,8 @@ describe("RecordPage", () => {
       screen.getByRole("link", { name: "Disc Golf" }),
     ).toHaveAttribute("href", "/record/disc-golf");
     expect(
-      screen.queryByRole("link", { name: "Badminton" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("link", { name: "Badminton" }),
+    ).toHaveAttribute("href", "/record/badminton");
     expect(screen.getByRole("link", { name: "Padel" })).toBeInTheDocument();
   });
 

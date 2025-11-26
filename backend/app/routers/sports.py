@@ -12,6 +12,7 @@ router = APIRouter(prefix="/sports", tags=["sports"])
 
 
 DEFAULT_SPORT_CATALOG: tuple[tuple[str, str], ...] = (
+    ("badminton", "Badminton"),
     ("padel", "Padel"),
     ("padel_americano", "Padel Americano"),
     ("bowling", "Bowling"),

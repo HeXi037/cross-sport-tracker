@@ -571,12 +571,16 @@ async def create_match(
             )
 
     mid = uuid.uuid4().hex
+    best_of = body.bestOf
+    if best_of is None and body.sport == "badminton":
+        best_of = 3
+
     match = Match(
         id=mid,
         sport_id=body.sport,
         ruleset_id=body.rulesetId,
         club_id=body.clubId,
-        best_of=body.bestOf,
+        best_of=best_of,
         played_at=body.playedAt,
         location=body.location,
         details=None,
@@ -714,7 +718,8 @@ async def create_match(
                 raise ValidationError("Set scores must include values for sides A and B.")
             for pair in candidate_pairs:
                 normalized_sets.append({"A": pair[0], "B": pair[1]})
-            is_racket_sport = match.sport_id in ("padel", "tennis")
+            racket_sports = {"badminton", "padel", "pickleball", "table_tennis", "tennis"}
+            is_racket_sport = match.sport_id in racket_sports
             max_sets = match.best_of if match.best_of else (5 if is_racket_sport else None)
             validate_set_scores(
                 normalized_sets,

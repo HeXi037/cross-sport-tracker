@@ -63,6 +63,7 @@ def validate_set_scores(
 
 
 SPORT_RULES: dict[str, dict[str, object]] = {
+    "badminton": {"team_sizes": {1, 2}, "min_sides": 2, "max_sides": 2},
     "padel": {"team_sizes": {1, 2}, "min_sides": 2, "max_sides": 2},
     "padel_americano": {"team_sizes": {2}, "min_sides": 2, "max_sides": 2},
     "tennis": {"team_sizes": {1, 2}, "min_sides": 2, "max_sides": 2},

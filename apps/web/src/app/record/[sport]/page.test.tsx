@@ -54,19 +54,13 @@ describe("resolveRecordSportRoute", () => {
     router.push.mockReset();
   });
 
-  it("redirects to the coming soon page when a sport is not implemented", () => {
+  it("renders implemented racket sports like badminton", () => {
     const result = resolveRecordSportRoute({
       params: { sport: "badminton" },
       searchParams: { mid: "123" },
     });
 
-    expect(result.type).toBe("redirect");
-    if (result.type === "redirect") {
-      const url = new URL(result.destination, "https://example.com");
-      expect(url.pathname).toBe("/record/coming-soon");
-      expect(url.searchParams.get("sport")).toBe("badminton");
-      expect(url.searchParams.get("mid")).toBe("123");
-    }
+    expect(result).toEqual({ type: "render", sportId: "badminton" });
   });
 
   it("redirects to the canonical slug when underscores are used, preserving query params", () => {

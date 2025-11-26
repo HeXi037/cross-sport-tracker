@@ -910,7 +910,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     [columnDescription, tableCaption],
   );
 
-  const topRatedLeader = useMemo(() => {
+  const topRatedLeader = useMemo<{ playerId: ID; rating: number } | null>(() => {
     let topByRank: { playerId: ID; rating: number } | null = null;
     let topByRating: { playerId: ID; rating: number } | null = null;
 
@@ -2048,61 +2048,65 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             </caption>
             <TableHeader />
             <tbody>
-              {sortedLeaders.map((row, index) => {
-                const won = row.setsWon ?? 0;
-                const lost = row.setsLost ?? 0;
-                const total = won + lost;
-                const winPct = !isBowling && total > 0 ? Math.round((won / total) * 100) : null;
-                const matchesPlayed = row.matchesPlayed ?? row.sets ?? null;
-                const highestScore = row.highestScore ?? null;
-                const averageScore = row.averageScore ?? null;
-                const stdDeviation = row.standardDeviation ?? null;
-                const rowSportName = formatSportName(row.sport);
-                const winProbability =
-                  topRatedLeader &&
-                  typeof row.rating === "number" &&
-                  Number.isFinite(row.rating) &&
-                  row.playerId !== topRatedLeader.playerId
-                    ? computeExpectedWinProbability(
-                        row.rating,
-                        topRatedLeader.rating,
-                      )
-                    : null;
-                return (
-                  <tr
-                    key={`${row.rank}-${row.playerId}-${row.sport ?? ""}`}
-                    style={{ borderTop: "1px solid var(--color-border-subtle)" }}
-                  >
-                    <td style={cellStyle}>{sortState ? index + 1 : row.rank}</td>
-                    <td style={cellStyle}>{row.playerName}</td>
-                    {sport === ALL_SPORTS && (
-                      <td style={cellStyle}>{rowSportName}</td>
-                    )}
-                    <td
-                      style={cellStyle}
-                      title={row.rating != null ? row.rating.toString() : undefined}
+              {(() => {
+                const topRatedPlayerId = topRatedLeader?.playerId;
+                const topRatedRating = topRatedLeader?.rating;
+
+                return sortedLeaders.map((row, index) => {
+                  const won = row.setsWon ?? 0;
+                  const lost = row.setsLost ?? 0;
+                  const total = won + lost;
+                  const winPct = !isBowling && total > 0 ? Math.round((won / total) * 100) : null;
+                  const matchesPlayed = row.matchesPlayed ?? row.sets ?? null;
+                  const highestScore = row.highestScore ?? null;
+                  const averageScore = row.averageScore ?? null;
+                  const stdDeviation = row.standardDeviation ?? null;
+                  const rowSportName = formatSportName(row.sport);
+                  const winProbability =
+                    typeof topRatedRating === "number" &&
+                    Number.isFinite(topRatedRating) &&
+                    topRatedPlayerId != null &&
+                    typeof row.rating === "number" &&
+                    Number.isFinite(row.rating) &&
+                    row.playerId !== topRatedPlayerId
+                      ? computeExpectedWinProbability(row.rating, topRatedRating)
+                      : null;
+                  return (
+                    <tr
+                      key={`${row.rank}-${row.playerId}-${row.sport ?? ""}`}
+                      style={{ borderTop: "1px solid var(--color-border-subtle)" }}
                     >
-                      {formatRating(row.rating)}
-                    </td>
-                    <td style={cellStyle}>{formatWinProbability(winProbability)}</td>
-                    {isBowling ? (
-                      <>
-                        <td style={cellStyle}>{formatInteger(highestScore)}</td>
-                        <td style={cellStyle}>{formatDecimal(averageScore)}</td>
-                        <td style={cellStyle}>{formatInteger(matchesPlayed)}</td>
-                        <td style={lastCellStyle}>{formatDecimal(stdDeviation)}</td>
-                      </>
-                    ) : (
-                      <>
-                        <td style={cellStyle}>{row.setsWon ?? "—"}</td>
-                        <td style={cellStyle}>{row.setsLost ?? "—"}</td>
-                        <td style={cellStyle}>{total || "—"}</td>
-                        <td style={lastCellStyle}>{winPct != null ? `${winPct}%` : "—"}</td>
-                      </>
-                    )}
-                  </tr>
-                );
-              })}
+                      <td style={cellStyle}>{sortState ? index + 1 : row.rank}</td>
+                      <td style={cellStyle}>{row.playerName}</td>
+                      {sport === ALL_SPORTS && (
+                        <td style={cellStyle}>{rowSportName}</td>
+                      )}
+                      <td
+                        style={cellStyle}
+                        title={row.rating != null ? row.rating.toString() : undefined}
+                      >
+                        {formatRating(row.rating)}
+                      </td>
+                      <td style={cellStyle}>{formatWinProbability(winProbability)}</td>
+                      {isBowling ? (
+                        <>
+                          <td style={cellStyle}>{formatInteger(highestScore)}</td>
+                          <td style={cellStyle}>{formatDecimal(averageScore)}</td>
+                          <td style={cellStyle}>{formatInteger(matchesPlayed)}</td>
+                          <td style={lastCellStyle}>{formatDecimal(stdDeviation)}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td style={cellStyle}>{row.setsWon ?? "—"}</td>
+                          <td style={cellStyle}>{row.setsLost ?? "—"}</td>
+                          <td style={cellStyle}>{total || "—"}</td>
+                          <td style={lastCellStyle}>{winPct != null ? `${winPct}%` : "—"}</td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                });
+              })()}
             </tbody>
           </table>
           {hasMore ? (

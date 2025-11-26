@@ -36,6 +36,7 @@ from ..schemas import (
     MatchIdOut,
     MatchSummaryOut,
     MatchSummaryParticipantOut,
+    MatchRatingPredictionOut,
     PlayerNameOut,
     MatchOut,
     ParticipantOut,
@@ -429,6 +430,7 @@ async def list_matches(
     next_offset = offset + limit if has_more else None
 
     match_ids = [m.id for m in matches]
+    sport_ids = {m.sport_id for m in matches}
     participants_by_match: dict[str, list[MatchParticipant]] = {
         mid: [] for mid in match_ids
     }
@@ -458,6 +460,20 @@ async def list_matches(
         ).scalars().all()
         players_by_id = {player.id: player for player in player_rows}
 
+    rating_rows: list[tuple[str, str, float]] = []
+    if player_ids and sport_ids:
+        rating_rows = (
+            await session.execute(
+                select(Rating.player_id, Rating.sport_id, Rating.value)
+                .where(Rating.player_id.in_(player_ids))
+                .where(Rating.sport_id.in_(sport_ids))
+            )
+        ).all()
+
+    rating_lookup: dict[tuple[str, str], float] = {
+        (pid, sport): value for pid, sport, value in rating_rows
+    }
+
     def _player_payload(pid: str) -> PlayerNameOut:
         player = players_by_id.get(pid)
         if not player:
@@ -471,6 +487,43 @@ async def list_matches(
     response.headers["X-Has-More"] = "true" if has_more else "false"
     if next_offset is not None:
         response.headers["X-Next-Offset"] = str(next_offset)
+
+    def _average_rating(sport_id: str, player_ids_for_side: list[str]) -> float | None:
+        ratings = [
+            rating_lookup.get((pid, sport_id)) for pid in player_ids_for_side if pid
+        ]
+        values = [val for val in ratings if isinstance(val, (int, float))]
+        if not values:
+            return None
+        return sum(values) / len(values)
+
+    def _prediction_for_match(match: Match) -> MatchRatingPredictionOut | None:
+        match_participants = participants_by_match.get(match.id, [])
+        if len(match_participants) < 2:
+            return None
+
+        sorted_parts = sorted(match_participants, key=lambda part: part.side)
+        side_groups: list[tuple[str, list[str]]] = []
+        for participant in sorted_parts:
+            ids = [pid for pid in participant.player_ids or [] if pid]
+            if ids:
+                side_groups.append((participant.side, ids))
+
+        if len(side_groups) != 2:
+            return None
+
+        (side_a, players_a), (side_b, players_b) = side_groups
+        rating_a = _average_rating(match.sport_id, players_a)
+        rating_b = _average_rating(match.sport_id, players_b)
+        if rating_a is None or rating_b is None:
+            return None
+
+        expected_a = 1 / (1 + 10 ** ((rating_b - rating_a) / 400))
+        expected_b = 1 - expected_a
+        return MatchRatingPredictionOut(
+            method="elo",
+            sides={side_a: expected_a, side_b: expected_b},
+        )
 
     return [
         MatchSummaryOut(
@@ -495,6 +548,7 @@ async def list_matches(
                 )
             ],
             summary=m.details,
+            ratingPrediction=_prediction_for_match(m),
         )
         for m in matches
     ]

@@ -912,6 +912,7 @@ class MatchSummaryOut(BaseModel):
     isFriendly: bool
     participants: List["MatchSummaryParticipantOut"] = Field(default_factory=list)
     summary: Optional[Dict[str, Any]] = None
+    ratingPrediction: Optional["MatchRatingPredictionOut"] = None
 
 
 class MatchSummaryPageOut(BaseModel):
@@ -936,6 +937,13 @@ class MatchSummaryParticipantOut(ParticipantOut):
     """Participant information included in match summaries."""
 
     players: List[PlayerNameOut] = Field(default_factory=list)
+
+
+class MatchRatingPredictionOut(BaseModel):
+    """Rating-based win probabilities for the sides in a match."""
+
+    method: Optional[str] = None
+    sides: Dict[str, float] = Field(default_factory=dict)
 
 
 class ScoreEventOut(BaseModel):

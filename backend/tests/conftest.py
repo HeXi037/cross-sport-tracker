@@ -15,8 +15,9 @@ from app import db, models  # noqa: F401
 # A sufficiently long JWT secret for tests
 TEST_JWT_SECRET = "x" * 32
 os.environ.setdefault("JWT_SECRET", TEST_JWT_SECRET)
-# Force tests to use an in-memory SQLite database
-os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+# Honour any externally provided DATABASE_URL (e.g. CI may set a file-backed DB)
+# but fall back to an in-memory SQLite database so local runs remain isolated.
+DEFAULT_DB_URL = os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 @pytest.fixture(autouse=True)
 def jwt_secret(monkeypatch):
@@ -27,10 +28,11 @@ def jwt_secret(monkeypatch):
 
 @pytest.fixture(autouse=True, scope="module")
 def ensure_database():
-    """Ensure each test module starts with a clean in-memory database."""
+    """Ensure each test module starts with a clean database connection."""
 
     mp = pytest.MonkeyPatch()
-    mp.setenv("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+    desired_url = os.getenv("DATABASE_URL") or DEFAULT_DB_URL
+    mp.setenv("DATABASE_URL", desired_url)
     db.engine = None
     db.AsyncSessionLocal = None
     yield
@@ -55,16 +57,20 @@ def ensure_schema(request, ensure_database):
     opt out of the final reset.
     """
 
-    desired_url: Optional[str] = os.getenv("DATABASE_URL")
+    desired_url: Optional[str] = os.getenv("DATABASE_URL") or DEFAULT_DB_URL
     if desired_url and (
         db.engine is None
         or db.AsyncSessionLocal is None
         or str(db.engine.url) != desired_url
     ):
-        # Recreate engine/session for the desired URL and build schema
+        # Recreate engine/session for the desired URL
         db.engine = None
         db.AsyncSessionLocal = None
         engine = db.get_engine()
+    else:
+        engine = db.engine
+
+    if engine is not None:
         asyncio.run(_create_schema(engine))
 
     yield

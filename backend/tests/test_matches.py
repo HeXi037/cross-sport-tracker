@@ -115,7 +115,7 @@ async def test_create_match_by_name_rejects_duplicate_players(tmp_path):
   db.AsyncSessionLocal = None
   engine = db.get_engine()
   async with engine.begin() as conn:
-    await conn.run_sync(Player.__table__.create)
+    await conn.run_sync(lambda sync_conn: Player.__table__.create(bind=sync_conn, checkfirst=True))
 
   async with db.AsyncSessionLocal() as session:
     session.add(Player(id="p1", name="alice"))
@@ -1162,16 +1162,16 @@ async def test_delete_match_requires_secret_and_marks_deleted(tmp_path):
   engine = db.get_engine()
 
   async with engine.begin() as conn:
-    await conn.run_sync(Match.__table__.create)
-    await conn.run_sync(MatchAuditLog.__table__.create)
-    await conn.run_sync(ScoreEvent.__table__.create)
-    await conn.run_sync(User.__table__.create)
-    await conn.run_sync(Player.__table__.create)
-    await conn.run_sync(Stage.__table__.create)
-    await conn.run_sync(Sport.__table__.create)
-    await conn.run_sync(Rating.__table__.create)
-    await conn.run_sync(GlickoRating.__table__.create)
-    await conn.run_sync(RefreshToken.__table__.create)
+    await conn.run_sync(create_table, Match.__table__)
+    await conn.run_sync(create_table, MatchAuditLog.__table__)
+    await conn.run_sync(create_table, ScoreEvent.__table__)
+    await conn.run_sync(create_table, User.__table__)
+    await conn.run_sync(create_table, Player.__table__)
+    await conn.run_sync(create_table, Stage.__table__)
+    await conn.run_sync(create_table, Sport.__table__)
+    await conn.run_sync(create_table, Rating.__table__)
+    await conn.run_sync(create_table, GlickoRating.__table__)
+    await conn.run_sync(create_table, RefreshToken.__table__)
     await conn.exec_driver_sql(
         "CREATE TABLE match_participant (id TEXT PRIMARY KEY, match_id TEXT, side TEXT, player_ids TEXT)"
     )
@@ -1251,11 +1251,11 @@ async def test_delete_match_missing_returns_404(tmp_path):
   engine = db.get_engine()
 
   async with engine.begin() as conn:
-    await conn.run_sync(Match.__table__.create)
-    await conn.run_sync(MatchAuditLog.__table__.create)
-    await conn.run_sync(User.__table__.create)
-    await conn.run_sync(Player.__table__.create)
-    await conn.run_sync(RefreshToken.__table__.create)
+    await conn.run_sync(create_table, Match.__table__)
+    await conn.run_sync(create_table, MatchAuditLog.__table__)
+    await conn.run_sync(create_table, User.__table__)
+    await conn.run_sync(create_table, Player.__table__)
+    await conn.run_sync(create_table, RefreshToken.__table__)
 
   app = FastAPI()
   app.state.limiter = auth.limiter

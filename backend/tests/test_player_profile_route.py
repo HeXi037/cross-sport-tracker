@@ -35,10 +35,10 @@ def player_profile_client():
 
     async def init_models():
         async with engine.begin() as conn:
-            await conn.run_sync(Sport.__table__.create)
-            await conn.run_sync(Player.__table__.create)
-            await conn.run_sync(Match.__table__.create)
-            await conn.run_sync(MatchParticipant.__table__.create)
+            await conn.run_sync(create_table, Sport.__table__)
+            await conn.run_sync(create_table, Player.__table__)
+            await conn.run_sync(create_table, Match.__table__)
+            await conn.run_sync(create_table, MatchParticipant.__table__)
 
     asyncio.run(init_models())
 

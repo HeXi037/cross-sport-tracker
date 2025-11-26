@@ -183,11 +183,16 @@ async def sync_badge_catalog(session: AsyncSession) -> None:
 
 
 async def _collect_snapshot(session: AsyncSession, player_id: str) -> PlayerBadgeSnapshot:
-    metric_rows = (
-        await session.execute(
-            select(PlayerMetric).where(PlayerMetric.player_id == player_id)
-        )
-    ).scalars().all()
+    try:
+        metric_rows = (
+            await session.execute(
+                select(PlayerMetric).where(PlayerMetric.player_id == player_id)
+            )
+        ).scalars().all()
+    except Exception:
+        # Missing metrics table (or other operational issues) should not block badge
+        # evaluation; fall back to no metrics when the table is unavailable.
+        metric_rows = []
     metrics: dict[str, dict] = {}
     milestones: set[str] = set()
     total_matches = 0

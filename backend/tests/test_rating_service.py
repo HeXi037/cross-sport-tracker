@@ -33,11 +33,11 @@ def test_update_ratings():
 
     async def run_test():
         async with engine.begin() as conn:
-            await conn.run_sync(Player.__table__.create)
-            await conn.run_sync(Rating.__table__.create)
-            await conn.run_sync(GlickoRating.__table__.create)
-            await conn.run_sync(Match.__table__.create)
-            await conn.run_sync(MatchParticipant.__table__.create)
+            await conn.run_sync(create_table, Player.__table__)
+            await conn.run_sync(create_table, Rating.__table__)
+            await conn.run_sync(create_table, GlickoRating.__table__)
+            await conn.run_sync(create_table, Match.__table__)
+            await conn.run_sync(create_table, MatchParticipant.__table__)
 
         async with async_session_maker() as session:
             session.add_all([
@@ -76,11 +76,11 @@ def test_update_ratings_draw():
 
     async def run_test():
         async with engine.begin() as conn:
-            await conn.run_sync(Player.__table__.create)
-            await conn.run_sync(Rating.__table__.create)
-            await conn.run_sync(GlickoRating.__table__.create)
-            await conn.run_sync(Match.__table__.create)
-            await conn.run_sync(MatchParticipant.__table__.create)
+            await conn.run_sync(create_table, Player.__table__)
+            await conn.run_sync(create_table, Rating.__table__)
+            await conn.run_sync(create_table, GlickoRating.__table__)
+            await conn.run_sync(create_table, Match.__table__)
+            await conn.run_sync(create_table, MatchParticipant.__table__)
 
         async with async_session_maker() as session:
             session.add_all([
@@ -125,12 +125,12 @@ async def test_update_ratings_draw_only_creates_entries_and_events():
     async_session_maker = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
     async with engine.begin() as conn:
-        await conn.run_sync(Player.__table__.create)
-        await conn.run_sync(Rating.__table__.create)
-        await conn.run_sync(GlickoRating.__table__.create)
-        await conn.run_sync(Match.__table__.create)
-        await conn.run_sync(MatchParticipant.__table__.create)
-        await conn.run_sync(ScoreEvent.__table__.create)
+        await conn.run_sync(create_table, Player.__table__)
+        await conn.run_sync(create_table, Rating.__table__)
+        await conn.run_sync(create_table, GlickoRating.__table__)
+        await conn.run_sync(create_table, Match.__table__)
+        await conn.run_sync(create_table, MatchParticipant.__table__)
+        await conn.run_sync(create_table, ScoreEvent.__table__)
 
     async with async_session_maker() as session:
         session.add_all(
@@ -191,11 +191,11 @@ def test_update_ratings_variable_k():
 
     async def run_test():
         async with engine.begin() as conn:
-            await conn.run_sync(Player.__table__.create)
-            await conn.run_sync(Rating.__table__.create)
-            await conn.run_sync(GlickoRating.__table__.create)
-            await conn.run_sync(Match.__table__.create)
-            await conn.run_sync(MatchParticipant.__table__.create)
+            await conn.run_sync(create_table, Player.__table__)
+            await conn.run_sync(create_table, Rating.__table__)
+            await conn.run_sync(create_table, GlickoRating.__table__)
+            await conn.run_sync(create_table, Match.__table__)
+            await conn.run_sync(create_table, MatchParticipant.__table__)
 
         async with async_session_maker() as session:
             # Create players and ratings
@@ -253,12 +253,12 @@ def test_update_ratings_creates_score_events():
 
     async def run_test():
         async with engine.begin() as conn:
-            await conn.run_sync(Player.__table__.create)
-            await conn.run_sync(Rating.__table__.create)
-            await conn.run_sync(GlickoRating.__table__.create)
-            await conn.run_sync(Match.__table__.create)
-            await conn.run_sync(MatchParticipant.__table__.create)
-            await conn.run_sync(ScoreEvent.__table__.create)
+            await conn.run_sync(create_table, Player.__table__)
+            await conn.run_sync(create_table, Rating.__table__)
+            await conn.run_sync(create_table, GlickoRating.__table__)
+            await conn.run_sync(create_table, Match.__table__)
+            await conn.run_sync(create_table, MatchParticipant.__table__)
+            await conn.run_sync(create_table, ScoreEvent.__table__)
 
         async with async_session_maker() as session:
             session.add_all([

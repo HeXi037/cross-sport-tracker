@@ -50,10 +50,25 @@ async def _reset_schema(engine) -> None:
         await conn.run_sync(db.Base.metadata.create_all)
 
 
-@pytest.fixture(autouse=True, scope="module")
-def ensure_schema():
-    """Reset the schema once per module to avoid cross-module data leaks."""
+@pytest.fixture(autouse=True)
+def reset_schema(request):
+    """Reset the schema before each test unless preserved via marker."""
+
+    if request.node.get_closest_marker("preserve_schema"):
+        yield
+        return
 
     engine = db.engine or db.get_engine()
     asyncio.run(_reset_schema(engine))
     yield
+
+
+def create_table(sync_conn, table):
+    """Create a table if it is missing, without failing when it already exists."""
+
+    table.create(bind=sync_conn, checkfirst=True)
+
+# Expose for test modules that call run_sync(create_table, ...)
+import builtins
+
+builtins.create_table = create_table

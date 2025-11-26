@@ -19,9 +19,9 @@ def test_update_player_metrics_draws():
 
     async def run_test():
         async with engine.begin() as conn:
-            await conn.run_sync(Sport.__table__.create)
-            await conn.run_sync(Player.__table__.create)
-            await conn.run_sync(PlayerMetric.__table__.create)
+            await conn.run_sync(create_table, Sport.__table__)
+            await conn.run_sync(create_table, Player.__table__)
+            await conn.run_sync(create_table, PlayerMetric.__table__)
 
         async with async_session_maker() as session:
             session.add(Sport(id="padel", name="Padel"))

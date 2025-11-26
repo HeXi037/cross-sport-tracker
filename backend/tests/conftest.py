@@ -54,13 +54,13 @@ async def _rebuild_schema(engine) -> None:
 
 @pytest.fixture(autouse=True, scope="module")
 def ensure_schema(request, ensure_database):
-    """Rebuild database schema if the engine/session have been reset.
+    """Ensure an engine exists for the configured database URL.
 
-    This fixture checks whether ``db.engine`` or ``db.AsyncSessionLocal`` have
-    been cleared or point to a different database URL. If so, it recreates the
-    engine and rebuilds the full schema. Modules that wish to keep their
-    database across tests can apply the ``@pytest.mark.preserve_db`` marker to
-    opt out of the final reset.
+    The actual schema rebuild happens per-test to guarantee clean isolation,
+    preventing unique constraint violations when tests within the same module
+    insert identical records (for example, multiple sports with the same
+    ``name``). Modules can opt out of the teardown reset via the
+    ``@pytest.mark.preserve_db`` marker.
     """
 
     desired_url: Optional[str] = os.getenv("DATABASE_URL") or DEFAULT_DB_URL
@@ -72,12 +72,7 @@ def ensure_schema(request, ensure_database):
         # Recreate engine/session for the desired URL
         db.engine = None
         db.AsyncSessionLocal = None
-        engine = db.get_engine()
-    else:
-        engine = db.engine
-
-    if engine is not None:
-        asyncio.run(_rebuild_schema(engine))
+        db.get_engine()
 
     yield
 
@@ -87,3 +82,18 @@ def ensure_schema(request, ensure_database):
     # Reset global engine/session so the next module starts with a clean slate
     db.engine = None
     db.AsyncSessionLocal = None
+
+
+@pytest.fixture(autouse=True)
+def reset_schema_between_tests(ensure_schema):
+    """Drop and recreate all tables before every test function.
+
+    Running ``drop_all``/``create_all`` for each test prevents data leakage
+    within a module and avoids ``UNIQUE`` constraint violations from repeated
+    inserts. It also guarantees optional tables like ``player_metric`` exist
+    even when a file-backed SQLite database is reused across test processes.
+    """
+
+    engine = db.engine or db.get_engine()
+    asyncio.run(_rebuild_schema(engine))
+    yield

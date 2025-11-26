@@ -7,7 +7,10 @@ import pytest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from app import db
+# Ensure all SQLAlchemy models are registered with the declarative Base so
+# metadata.create_all creates every table (including optional ones like
+# glicko_rating and player_metric) when the test database is initialised.
+from app import db, models  # noqa: F401
 
 # A sufficiently long JWT secret for tests
 TEST_JWT_SECRET = "x" * 32

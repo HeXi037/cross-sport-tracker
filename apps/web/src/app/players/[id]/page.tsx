@@ -992,9 +992,9 @@ export default async function PlayerPage({
           ) : (
             <p className="text-sm text-gray-600">No upcoming matches.</p>
           )}
-          <section aria-label="Badge showcase" className="mt-4">
-            <h2 className="heading">Badges</h2>
-            {player.badges.length ? (
+          {player.badges.length ? (
+            <section aria-label="Badge showcase" className="mt-4">
+              <h2 className="heading">Badges</h2>
               <ul className="badge-grid" aria-label="Unlocked badges">
                 {player.badges.map((b) => {
                   const rarityClass =
@@ -1033,10 +1033,10 @@ export default async function PlayerPage({
                   );
                 })}
               </ul>
-            ) : (
-              <p className="mt-2 text-sm text-gray-600">No badges.</p>
-            )}
-          </section>
+            </section>
+          ) : (
+            <p className="mt-2 text-sm text-gray-600">No badges.</p>
+          )}
         </aside>
       </main>
       </PlayerDetailErrorBoundary>

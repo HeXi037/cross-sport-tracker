@@ -53,18 +53,44 @@ class ClubCreate(BaseModel):
             raise ValueError("name must not be empty")
         return trimmed
 
-class BadgeCreate(BaseModel):
+class BadgeRule(BaseModel):
+    type: str
+    sport_id: Optional[str] = None
+    threshold: Optional[float] = None
+    milestone: Optional[str] = None
+    distinct_sports: Optional[int] = None
+
+
+class BadgeBase(BaseModel):
     name: str
     icon: Optional[str] = None
+    category: str = Field(default="special")
+    rarity: str = Field(default="common")
+    description: Optional[str] = None
+    sport_id: Optional[str] = None
+    rule: Optional[BadgeRule] = None
+
+
+class BadgeCreate(BadgeBase):
+    pass
+
 
 class BadgeUpdate(BaseModel):
     name: Optional[str] = None
     icon: Optional[str] = None
+    category: Optional[str] = None
+    rarity: Optional[str] = None
+    description: Optional[str] = None
+    sport_id: Optional[str] = None
+    rule: Optional[BadgeRule] = None
 
-class BadgeOut(BaseModel):
+
+class BadgeOut(BadgeBase):
     id: str
-    name: str
-    icon: Optional[str] = None
+
+
+class PlayerBadgeOut(BadgeOut):
+    earned_at: Optional[datetime] = None
 
 
 class PlayerSocialLinkBase(BaseModel):
@@ -259,7 +285,7 @@ class PlayerOut(BaseModel):
     hidden: bool = False
     metrics: Optional[Dict[str, Dict[str, int]]] = None
     milestones: Optional[Dict[str, List[str]]] = None
-    badges: List[BadgeOut] = Field(default_factory=list)
+    badges: List[PlayerBadgeOut] = Field(default_factory=list)
     social_links: List[PlayerSocialLinkOut] = Field(default_factory=list)
     match_summary: Optional["MatchSummary"] = None
 

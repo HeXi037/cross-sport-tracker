@@ -545,7 +545,11 @@ def test_player_badges() -> None:
         )
         assert resp.status_code == 204
         data = client.get(f"/players/{pid}").json()
-        assert data["badges"] == [{"id": bid, "name": "MVP", "icon": None}]
+        assert len(data["badges"]) == 1
+        badge = data["badges"][0]
+        assert badge["id"] == bid
+        assert badge["name"] == "MVP"
+        assert badge.get("icon") is None
 
 
 def test_remove_player_badge() -> None:

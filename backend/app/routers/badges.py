@@ -14,7 +14,16 @@ router = APIRouter(prefix="/badges", tags=["badges"], responses={404: {"model": 
 
 
 def _to_badge_out(badge: Badge) -> BadgeOut:
-    return BadgeOut(id=badge.id, name=badge.name, icon=badge.icon)
+    return BadgeOut(
+        id=badge.id,
+        name=badge.name,
+        icon=badge.icon,
+        category=badge.category,
+        rarity=badge.rarity,
+        description=badge.description,
+        sport_id=badge.sport_id,
+        rule=badge.rule,
+    )
 
 
 @router.post("", response_model=BadgeOut)
@@ -23,7 +32,16 @@ async def create_badge(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(require_admin),
 ):
-    badge = Badge(id=uuid.uuid4().hex, name=body.name, icon=body.icon)
+    badge = Badge(
+        id=uuid.uuid4().hex,
+        name=body.name,
+        icon=body.icon,
+        category=body.category,
+        rarity=body.rarity,
+        description=body.description,
+        sport_id=body.sport_id,
+        rule=body.rule.model_dump() if body.rule else None,
+    )
     session.add(badge)
     try:
         await session.commit()
@@ -59,6 +77,11 @@ async def update_badge(
         )
 
     updates = body.model_dump(exclude_unset=True)
+    if "rule" in updates:
+        rule_value = updates.get("rule")
+        updates["rule"] = (
+            rule_value.model_dump() if hasattr(rule_value, "model_dump") else rule_value
+        )
     for field, value in updates.items():
         setattr(badge, field, value)
 

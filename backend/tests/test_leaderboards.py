@@ -30,6 +30,9 @@ from app.routers import leaderboards  # noqa: E402
 app = FastAPI()
 app.include_router(leaderboards.router)
 
+# Preserve the seeded schema and data for all tests in this module.
+pytestmark = pytest.mark.preserve_schema
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_db():

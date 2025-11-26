@@ -21,12 +21,23 @@ import { rememberLoginRedirect } from "../../lib/loginRedirect";
 
 const NAME_REGEX = /^[A-Za-z0-9 '-]{1,50}$/;
 
+interface PlayerBadge {
+  id: string;
+  name: string;
+  icon?: string | null;
+  category: string;
+  rarity: string;
+  description?: string | null;
+  sport_id?: string | null;
+  earned_at?: string | null;
+}
+
 interface Player extends PlayerInfo {
   location?: string | null;
   country_code?: string | null;
   region_code?: string | null;
   club_id?: string | null;
-  badges?: { id: string; name: string; icon?: string | null }[];
+  badges?: PlayerBadge[];
   hidden: boolean;
   matchSummary?: NormalizedMatchSummary | null;
 }
@@ -127,14 +138,19 @@ export default function PlayersPage() {
       });
       const data = await res.json();
       const normalized = ((data.players ?? []) as ApiPlayer[])
-        .map(({ matchSummary, match_summary, hidden: maybeHidden, ...rest }) =>
-          withAbsolutePhotoUrl<Player>({
+        .map(({ matchSummary, match_summary, hidden: maybeHidden, ...rest }) => {
+          const normalizedBadges = (rest.badges ?? []).map((badge) => ({
+            ...badge,
+            earned_at: (badge as { earnedAt?: string }).earnedAt ?? badge.earned_at ?? null,
+          }));
+          return withAbsolutePhotoUrl<Player>({
             ...rest,
+            badges: normalizedBadges,
             hidden: Boolean(maybeHidden),
             matchSummary:
               normalizeMatchSummary(matchSummary ?? match_summary) ?? null,
-          })
-        )
+          });
+        })
         .sort((a, b) =>
           a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
         );
@@ -460,6 +476,20 @@ export default function PlayersPage() {
                             </span>
                           )}
                         </div>
+                        {p.badges && p.badges.length > 0 ? (
+                          <div className="player-list__badges" aria-label="Highlight badges">
+                            {p.badges.slice(0, 2).map((badge) => (
+                              <span
+                                key={badge.id}
+                                className={`badge-pill badge-pill--${(badge.rarity || "common").toLowerCase()}`}
+                              >
+                                <span aria-hidden>{badge.icon || "🏅"}</span>
+                                <span className="sr-only">{badge.rarity} badge:</span>
+                                <span>{badge.name}</span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
                       </Link>
                       {admin && (
                         <div

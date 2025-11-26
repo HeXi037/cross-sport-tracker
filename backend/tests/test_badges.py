@@ -125,6 +125,11 @@ def test_badge_crud_flow(client: TestClient) -> None:
     badge_id = badge_data["id"]
     assert badge_data["name"] == "AllStar"
     assert badge_data["icon"] == "star.png"
+    assert badge_data["category"] == "special"
+    assert badge_data["rarity"] == "common"
+    assert badge_data["description"] is None
+    assert badge_data["sport_id"] is None
+    assert badge_data["rule"] is None
 
     update_resp = client.patch(
         f"/badges/{badge_id}",
@@ -133,7 +138,14 @@ def test_badge_crud_flow(client: TestClient) -> None:
     )
     assert update_resp.status_code == 200
     updated = update_resp.json()
-    assert updated == {"id": badge_id, "name": "HallOfFame", "icon": "gold.png"}
+    assert updated["id"] == badge_id
+    assert updated["name"] == "HallOfFame"
+    assert updated["icon"] == "gold.png"
+    assert updated["category"] == "special"
+    assert updated["rarity"] == "common"
+    assert updated["description"] is None
+    assert updated["sport_id"] is None
+    assert updated["rule"] is None
 
     attach_badge_to_player(badge_id)
 

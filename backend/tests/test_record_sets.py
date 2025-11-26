@@ -51,14 +51,14 @@ def client_and_session():
 
     async def init_models():
         async with engine.begin() as conn:
-            await conn.run_sync(Sport.__table__.create)
-            await conn.run_sync(Match.__table__.create)
-            await conn.run_sync(MatchAuditLog.__table__.create)
-            await conn.run_sync(MatchParticipant.__table__.create)
-            await conn.run_sync(ScoreEvent.__table__.create)
-            await conn.run_sync(Player.__table__.create)
-            await conn.run_sync(Rating.__table__.create)
-            await conn.run_sync(GlickoRating.__table__.create)
+            await conn.run_sync(create_table, Sport.__table__)
+            await conn.run_sync(create_table, Match.__table__)
+            await conn.run_sync(create_table, MatchAuditLog.__table__)
+            await conn.run_sync(create_table, MatchParticipant.__table__)
+            await conn.run_sync(create_table, ScoreEvent.__table__)
+            await conn.run_sync(create_table, Player.__table__)
+            await conn.run_sync(create_table, Rating.__table__)
+            await conn.run_sync(create_table, GlickoRating.__table__)
 
     asyncio.run(init_models())
 

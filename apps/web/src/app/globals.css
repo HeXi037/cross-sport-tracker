@@ -2086,6 +2086,98 @@ textarea {
   color: var(--color-text-muted);
 }
 
+.badge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.badge-card {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.9rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background-color: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.badge-card__icon {
+  font-size: 1.75rem;
+}
+
+.badge-card__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.badge-card__name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.badge-card__name {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.badge-card__meta {
+  margin: 0.15rem 0;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.badge-card__description {
+  margin: 0.25rem 0 0;
+  color: #1f2937;
+  font-size: 0.95rem;
+}
+
+.badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.badge-pill--common {
+  background-color: #f8fafc;
+  color: #0f172a;
+  border-color: #e2e8f0;
+}
+
+.badge-pill--rare {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.badge-pill--epic {
+  background: linear-gradient(120deg, #eef2ff, #f5d0fe);
+  color: #6b21a8;
+  border-color: #e9d5ff;
+}
+
+.badge-pill--legendary {
+  background: linear-gradient(120deg, #fff7ed, #fef9c3);
+  color: #b45309;
+  border-color: #fed7aa;
+}
+
+.player-list__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
 .match-history {
   display: flex;
   flex-direction: column;

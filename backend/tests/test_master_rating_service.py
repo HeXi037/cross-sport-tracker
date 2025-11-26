@@ -20,9 +20,9 @@ def test_update_master_ratings_upsert_and_prune():
 
     async def run_test():
         async with engine.begin() as conn:
-            await conn.run_sync(Player.__table__.create)
-            await conn.run_sync(Rating.__table__.create)
-            await conn.run_sync(MasterRating.__table__.create)
+            await conn.run_sync(create_table, Player.__table__)
+            await conn.run_sync(create_table, Rating.__table__)
+            await conn.run_sync(create_table, MasterRating.__table__)
 
         async with async_session_maker() as session:
             session.add_all([

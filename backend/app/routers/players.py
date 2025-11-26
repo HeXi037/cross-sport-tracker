@@ -65,6 +65,7 @@ from ..schemas import (
     PlayerSocialLinkOut,
     PlayerSocialLinkCreate,
     PlayerSocialLinkUpdate,
+    PlayerBadgeOut,
 )
 from ..exceptions import (
     ProblemDetail,
@@ -76,6 +77,7 @@ from ..services import (
     compute_streaks,
     rolling_win_percentage,
 )
+from ..services.badges import ensure_badges_for_players, ensure_player_badges
 from ..services.notifications import notify_profile_comment
 from ..services.photo_uploads import (
     ALLOWED_PHOTO_TYPES as DEFAULT_ALLOWED_PHOTO_TYPES,
@@ -182,6 +184,18 @@ async def list_players(
     match_summaries = await _load_match_summaries_for_players(
         session, [p.id for p in rows]
     )
+    badge_map: dict[str, list[tuple[PlayerBadge, Badge]]] = {}
+    try:
+        badge_map = await ensure_badges_for_players(
+            session, [p.id for p in rows], auto_award=True
+        )
+    except SQLAlchemyError as exc:
+        if is_missing_table_error(exc, Badge.__tablename__) or is_missing_table_error(
+            exc, PlayerBadge.__tablename__
+        ):
+            await session.rollback()
+        else:
+            raise
     players = [
         PlayerOut(
             id=p.id,
@@ -194,7 +208,20 @@ async def list_players(
             region_code=p.region_code,
             ranking=p.ranking,
             hidden=p.hidden,
-            badges=[],
+            badges=[
+                PlayerBadgeOut(
+                    id=badge.id,
+                    name=badge.name,
+                    icon=badge.icon,
+                    category=badge.category,
+                    rarity=badge.rarity,
+                    description=badge.description,
+                    sport_id=badge.sport_id,
+                    rule=badge.rule,
+                    earned_at=pb.earned_at,
+                )
+                for pb, badge in badge_map.get(p.id, [])[:2]
+            ],
             social_links=[],
             match_summary=match_summaries.get(p.id),
         )
@@ -818,18 +845,14 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
             raise
     metrics = {r.sport_id: r.metrics for r in rows}
     milestones = {r.sport_id: r.milestones for r in rows}
+    badges_with_meta: list[tuple[PlayerBadge, Badge]] = []
     try:
-        badges = (
-            await session.execute(
-                select(Badge).join(PlayerBadge).where(PlayerBadge.player_id == player_id)
-            )
-        ).scalars().all()
+        badges_with_meta = await ensure_player_badges(session, player_id)
     except SQLAlchemyError as exc:
         if is_missing_table_error(exc, Badge.__tablename__) or is_missing_table_error(
             exc, PlayerBadge.__tablename__
         ):
             await session.rollback()
-            badges = []
         else:
             raise
     social_links = await _load_social_links(session, player_id)
@@ -837,7 +860,20 @@ async def get_player(player_id: str, session: AsyncSession = Depends(get_session
         **player_details,
         metrics=metrics or None,
         milestones=milestones or None,
-        badges=[BadgeOut(id=b.id, name=b.name, icon=b.icon) for b in badges],
+        badges=[
+            PlayerBadgeOut(
+                id=badge.id,
+                name=badge.name,
+                icon=badge.icon,
+                category=badge.category,
+                rarity=badge.rarity,
+                description=badge.description,
+                sport_id=badge.sport_id,
+                rule=badge.rule,
+                earned_at=pb.earned_at,
+            )
+            for pb, badge in badges_with_meta
+        ],
         social_links=social_links,
     )
 

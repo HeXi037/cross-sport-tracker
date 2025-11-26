@@ -49,6 +49,12 @@ interface Badge {
   id: string;
   name: string;
   icon?: string | null;
+  category: string;
+  rarity: string;
+  description?: string | null;
+  sport_id?: string | null;
+  earned_at?: string | null;
+  rule?: unknown;
 }
 
 interface PlayerSocialLink {
@@ -127,7 +133,11 @@ async function getPlayer(id: string): Promise<Player> {
     PLAYER_FETCH_OPTIONS
   );
   const data = (await res.json()) as Player;
-  return withAbsolutePhotoUrl(data);
+  const normalizedBadges = (data.badges ?? []).map((badge) => ({
+    ...badge,
+    earned_at: (badge as { earnedAt?: string }).earnedAt ?? badge.earned_at ?? null,
+  }));
+  return withAbsolutePhotoUrl({ ...data, badges: normalizedBadges });
 }
 
 function getErrorStatus(err: unknown): number | undefined {
@@ -176,6 +186,13 @@ const PLAYER_MATCH_LIST_FETCH_OPTIONS: CachedRequestInit = {
 
 const PLAYER_STATS_FETCH_OPTIONS: CachedRequestInit = {
   next: { revalidate: PLAYER_STATS_REVALIDATE_SECONDS },
+};
+
+const BADGE_RARITY_CLASS: Record<string, string> = {
+  common: "badge-pill badge-pill--common",
+  rare: "badge-pill badge-pill--rare",
+  epic: "badge-pill badge-pill--epic",
+  legendary: "badge-pill badge-pill--legendary",
 };
 
 async function getMatches(
@@ -976,16 +993,49 @@ export default async function PlayerPage({
             <p className="text-sm text-gray-600">No upcoming matches.</p>
           )}
           {player.badges.length ? (
-            <>
-              <h2 className="heading mt-4">Badges</h2>
-              <ul>
-                {player.badges.map((b) => (
-                  <li key={b.id}>{b.name}</li>
-                ))}
+            <section aria-label="Badge showcase" className="mt-4">
+              <h2 className="heading">Badges</h2>
+              <ul className="badge-grid" aria-label="Unlocked badges">
+                {player.badges.map((b) => {
+                  const rarityClass =
+                    BADGE_RARITY_CLASS[b.rarity?.toLowerCase() ?? ""] ??
+                    BADGE_RARITY_CLASS.common;
+                  return (
+                    <li
+                      key={b.id}
+                      className={`badge-card badge-card--${(b.rarity || "common").toLowerCase()}`}
+                    >
+                      <div className="badge-card__icon" aria-hidden>
+                        {b.icon || "🏅"}
+                      </div>
+                      <div className="badge-card__body">
+                        <div className="badge-card__name-row">
+                          <span className="badge-card__name">{b.name}</span>
+                          <span className={rarityClass}>{b.rarity ?? "Common"}</span>
+                        </div>
+                        <p className="badge-card__meta">
+                          {b.category}
+                          {b.sport_id ? ` · ${b.sport_id}` : ""}
+                          {b.earned_at
+                            ? ` · Earned ${formatDate(
+                                b.earned_at,
+                                locale,
+                                preferredDateOptions,
+                                timeZone,
+                              )}`
+                            : ""}
+                        </p>
+                        {b.description ? (
+                          <p className="badge-card__description">{b.description}</p>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
-            </>
+            </section>
           ) : (
-            <p className="mt-4 text-sm text-gray-600">No badges.</p>
+            <p className="mt-2 text-sm text-gray-600">No badges.</p>
           )}
         </aside>
       </main>

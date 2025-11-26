@@ -93,6 +93,9 @@
       "notFound": "No pudimos encontrar ese partido.",
       "sessionExpired": "Tu sesión ha expirado. Actualiza la página e inténtalo de nuevo."
     },
+    "prediction": {
+      "favored": "{favorite} tenía un {percent}% de probabilidades de vencer a {opponent}"
+    },
     "summary": {
       "sets": "Sets",
       "games": "Juegos",

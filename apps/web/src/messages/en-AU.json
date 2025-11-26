@@ -93,6 +93,9 @@
       "notFound": "We couldn't find that match.",
       "sessionExpired": "Your session expired. Please refresh and try again."
     },
+    "prediction": {
+      "favored": "{favorite} had a {percent}% chance to beat {opponent}"
+    },
     "summary": {
       "sets": "Sets",
       "games": "Games",

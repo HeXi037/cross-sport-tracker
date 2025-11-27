@@ -2040,13 +2040,19 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                   isFrameInvalid &&
                                   (entryFieldError?.rollIndex === null ||
                                     entryFieldError?.rollIndex === rollIdx);
+                                const rollLabelId = `${inputId}-label`;
+                                const rollLabel = `${playerLabel} frame ${
+                                  frameIdx + 1
+                                } roll ${rollIdx + 1}`;
                                 return (
                                   <div key={rollIdx} className="bowling-roll-field">
                                     <label
+                                      id={rollLabelId}
                                       className="bowling-roll-label"
                                       htmlFor={inputId}
                                     >
                                       Roll {rollIdx + 1}
+                                      <span className="sr-only">{` for ${rollLabel}`}</span>
                                     </label>
                                     <input
                                       id={inputId}
@@ -2078,9 +2084,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                           rollIdx,
                                         )
                                       }
-                                      aria-label={`${playerLabel} frame ${
-                                        frameIdx + 1
-                                      } roll ${rollIdx + 1}`}
+                                      aria-labelledby={rollLabelId}
+                                      aria-label={rollLabel}
                                       aria-invalid={isRollInvalid || undefined}
                                     />
                                     <div

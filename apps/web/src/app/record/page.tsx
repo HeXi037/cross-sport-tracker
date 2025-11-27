@@ -184,6 +184,7 @@ export default async function RecordPage() {
                 <Link
                   href={sport.href}
                   className="record-sport-card"
+                  aria-label={sport.name}
                   style={sport.style}
                 >
                   <span className="record-sport-icon" aria-hidden>

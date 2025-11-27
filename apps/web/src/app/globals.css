@@ -1300,6 +1300,19 @@ textarea {
   padding: clamp(0.5rem, 1.5vw, 1.25rem) 0 3rem;
 }
 
+html.theme-dark .record-page {
+  background: radial-gradient(
+      circle at 18% 18%,
+      rgba(96, 165, 250, 0.18),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 78% 0%,
+      rgba(248, 113, 113, 0.16),
+      transparent 42%
+    );
+}
+
 .record-hero {
   background: var(--color-hero-accent);
   border: 1px solid var(--color-hero-border);
@@ -1358,6 +1371,10 @@ textarea {
   background: rgba(10, 31, 68, 0.08);
   color: var(--color-text);
   font-weight: 600;
+}
+
+html.theme-dark .record-badge {
+  background: color-mix(in srgb, var(--color-accent-blue) 18%, transparent);
 }
 
 .record-hero__card {
@@ -1501,6 +1518,26 @@ textarea {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 4px;
   box-shadow: 0 0 0 6px var(--color-focus-ring-soft);
+}
+
+html.theme-dark .record-sport-card {
+  background: linear-gradient(
+      135deg,
+      rgba(148, 163, 184, 0.08),
+      rgba(15, 23, 42, 0.65)
+    ),
+    var(--record-accent-dark, var(--record-accent));
+  border-color: var(--color-border-subtle);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+
+html.theme-dark .record-sport-card::after {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent);
+}
+
+html.theme-dark .record-sport-card:hover {
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.55);
+  border-color: var(--color-border-strong);
 }
 
 .record-sport-icon {

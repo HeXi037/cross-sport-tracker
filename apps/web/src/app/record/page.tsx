@@ -16,45 +16,56 @@ type Sport = { id: string; name: string };
 type SportVisual = {
   icon: string;
   accent: string;
+  accentDark?: string;
   description: string;
 };
 
-type RecordCardStyle = CSSProperties & { "--record-accent"?: string };
+type RecordCardStyle = CSSProperties & {
+  "--record-accent"?: string;
+  "--record-accent-dark"?: string;
+};
 
 const sportVisuals: Record<string, SportVisual> = {
   badminton: {
     icon: "🏸",
     accent: "linear-gradient(135deg, #a5e6ff, #e3f2ff)",
+    accentDark: "linear-gradient(135deg, #0d2e45, #11263a)",
     description: "Track shuttle rallies, sets, and decisive points in seconds.",
   },
   bowling: {
     icon: "🎳",
     accent: "linear-gradient(135deg, #ffe7b3, #ffd49a)",
+    accentDark: "linear-gradient(135deg, #3b2a12, #22170b)",
     description: "Log frames, strikes, and spares to keep the leaderboard honest.",
   },
   disc_golf: {
     icon: "🥏",
     accent: "linear-gradient(135deg, #c0f0d3, #f0fff4)",
+    accentDark: "linear-gradient(135deg, #103322, #0b2418)",
     description: "Capture every hole score with a layout built for the course.",
   },
   padel: {
     icon: "🎾",
     accent: "linear-gradient(135deg, #d9e2ff, #eef2ff)",
+    accentDark: "linear-gradient(135deg, #1a2345, #121a32)",
     description: "Serve, volley, and record match momentum without missing a point.",
   },
   padel_americano: {
     icon: "🧮",
     accent: "linear-gradient(135deg, #ffe1e1, #fff5f5)",
+    accentDark: "linear-gradient(135deg, #35121b, #220c14)",
     description: "Made for round-robin rotations and quick score updates.",
   },
   pickleball: {
     icon: "🥒",
     accent: "linear-gradient(135deg, #e1f7d5, #f7fff1)",
+    accentDark: "linear-gradient(135deg, #15351c, #0f2615)",
     description: "Dial in rally scoring and side outs for every game you play.",
   },
   table_tennis: {
     icon: "🏓",
     accent: "linear-gradient(135deg, #ffe6f7, #fff0fb)",
+    accentDark: "linear-gradient(135deg, #2e1631, #1b0f22)",
     description: "Perfect for fast rallies, deuce points, and multi-game matches.",
   },
 };
@@ -109,10 +120,14 @@ export default async function RecordPage() {
     const visual = sportVisuals[sport.id] ?? {
       icon: "🏅",
       accent: "linear-gradient(135deg, #e5edff, #f4f7ff)",
+      accentDark: "linear-gradient(135deg, #16284a, #0f172a)",
       description: "Capture scores, sets, and moments with a tailored form.",
     } satisfies SportVisual;
 
-    const style: RecordCardStyle = {"--record-accent": visual.accent};
+    const style: RecordCardStyle = {
+      "--record-accent": visual.accent,
+      "--record-accent-dark": visual.accentDark,
+    };
 
     return {
       ...sport,

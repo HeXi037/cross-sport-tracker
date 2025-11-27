@@ -1903,6 +1903,60 @@ async def test_match_audit_returns_entries(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_match_audit_returns_paginated_results(tmp_path):
+  from fastapi import FastAPI
+  from fastapi.testclient import TestClient
+  from slowapi.errors import RateLimitExceeded
+  from app import db
+  from app.models import Match, MatchAuditLog, Sport, User
+  from app.routers import auth, matches
+  from app.routers.auth import get_current_user
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+      db.Base.metadata.create_all,
+      tables=[Sport.__table__, Match.__table__, MatchAuditLog.__table__, User.__table__],
+    )
+
+  async with db.AsyncSessionLocal() as session:
+    admin = User(id="admin", username="admin", password_hash="x", is_admin=True)
+    session.add_all([Sport(id="padel", name="Padel"), admin, Match(id="m-audit", sport_id="padel", is_friendly=True)])
+    session.add_all([
+      MatchAuditLog(
+        id=f"log-{idx}",
+        match_id="m-audit",
+        actor_user_id="admin",
+        action="created",
+        created_at=datetime(2024, 1, 1, 12, tzinfo=timezone.utc),
+      )
+      for idx in range(120)
+    ])
+    await session.commit()
+
+  app = FastAPI()
+  app.state.limiter = auth.limiter
+  app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
+  app.include_router(matches.router)
+  app.dependency_overrides[get_current_user] = lambda: admin
+
+  with TestClient(app) as client:
+    resp = client.get("/matches/m-audit/audit", params={"limit": 50})
+    assert resp.status_code == 200
+    assert len(resp.json()) == 50
+    assert resp.headers["X-Has-More"] == "true"
+    assert resp.headers["X-Next-Offset"] == "50"
+
+    resp2 = client.get("/matches/m-audit/audit", params={"limit": 50, "offset": 100})
+    assert resp2.status_code == 200
+    assert len(resp2.json()) == 20
+    assert resp2.headers["X-Has-More"] == "false"
+    assert "X-Next-Offset" not in resp2.headers
+
+
+@pytest.mark.anyio
 async def test_match_audit_feed_requires_admin(tmp_path):
   from fastapi import FastAPI
   from fastapi.testclient import TestClient
@@ -2023,3 +2077,47 @@ async def test_match_audit_feed_returns_paginated_entries(tmp_path):
     assert data2["nextOffset"] is None
     assert [item["action"] for item in data2["items"]] == ["created"]
     assert data2["items"][0]["actor"]["username"] == "alice"
+
+
+@pytest.mark.anyio
+async def test_match_list_limits_large_datasets(tmp_path):
+  from fastapi import FastAPI
+  from fastapi.testclient import TestClient
+  from slowapi.errors import RateLimitExceeded
+  from app import db
+  from app.models import Match, MatchParticipant, Sport
+  from app.routers import auth, matches
+
+  db.engine = None
+  db.AsyncSessionLocal = None
+  engine = db.get_engine()
+  async with engine.begin() as conn:
+    await conn.run_sync(
+      db.Base.metadata.create_all,
+      tables=[Sport.__table__, Match.__table__, MatchParticipant.__table__],
+    )
+
+  async with db.AsyncSessionLocal() as session:
+    session.add(Sport(id="padel", name="Padel"))
+    session.add_all([
+      Match(id=f"m-{idx}", sport_id="padel", played_at=datetime(2024, 1, 1, tzinfo=timezone.utc))
+      for idx in range(120)
+    ])
+    await session.commit()
+
+  app = FastAPI()
+  app.state.limiter = auth.limiter
+  app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
+  app.include_router(matches.router)
+
+  with TestClient(app) as client:
+    resp = client.get("/matches", params={"limit": 30})
+    assert resp.status_code == 200
+    assert len(resp.json()) == 30
+    assert resp.headers["X-Has-More"] == "true"
+    assert resp.headers["X-Next-Offset"] == "30"
+
+    resp2 = client.get("/matches", params={"limit": 30, "offset": 90})
+    assert resp2.status_code == 200
+    assert len(resp2.json()) == 30
+    assert resp2.headers["X-Has-More"] == "false"

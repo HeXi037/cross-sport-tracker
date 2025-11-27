@@ -1422,8 +1422,11 @@ async def delete_chat_message(
 @router.get("/{mid}/audit", response_model=list[MatchAuditLogEntryOut])
 async def list_match_audit_log(
     mid: str,
+    response: Response,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(get_current_user),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
 ):
     """Return audit entries ordered chronologically (oldest first)."""
 
@@ -1442,14 +1445,26 @@ async def list_match_audit_log(
             code="match_not_found",
         )
 
-    rows = (
-        await session.execute(
-            select(MatchAuditLog, User)
-                .join(User, MatchAuditLog.actor_user_id == User.id, isouter=True)
-                .where(MatchAuditLog.match_id == mid)
-                .order_by(MatchAuditLog.created_at, MatchAuditLog.id)
-        )
-    ).all()
+    query = (
+        select(MatchAuditLog, User)
+        .join(User, MatchAuditLog.actor_user_id == User.id, isouter=True)
+        .where(MatchAuditLog.match_id == mid)
+        .order_by(MatchAuditLog.created_at, MatchAuditLog.id)
+        .offset(offset)
+        .limit(limit + 1)
+    )
+    rows = (await session.execute(query)).all()
+
+    has_more = len(rows) > limit
+    if has_more:
+        rows = rows[:-1]
+    next_offset = offset + limit if has_more else None
+
+    response.headers["X-Limit"] = str(limit)
+    response.headers["X-Offset"] = str(offset)
+    response.headers["X-Has-More"] = "true" if has_more else "false"
+    if next_offset is not None:
+        response.headers["X-Next-Offset"] = str(next_offset)
 
     entries: list[MatchAuditLogEntryOut] = []
     for log_entry, actor in rows:
@@ -1546,13 +1561,11 @@ async def delete_match(
     # Recompute ratings for this sport now that the match is removed
     try:
         # Reset existing ratings to the default value
-        rows = (
-            await session.execute(
-                select(Rating).where(Rating.sport_id == rating_sport_id)
-            )
-        ).scalars().all()
-        for r in rows:
-            r.value = 1000.0
+        rating_stream = await session.stream_scalars(
+            select(Rating).where(Rating.sport_id == rating_sport_id)
+        )
+        async for rating_row in rating_stream:
+            rating_row.value = 1000.0
         await session.commit()
 
         # Replay remaining matches to rebuild ratings
@@ -1568,9 +1581,10 @@ async def delete_match(
             stmt = stmt.where(
                 or_(Stage.id.is_(None), Stage.type != AMERICANO_STAGE_TYPE)
             )
-        rows = (await session.execute(stmt)).all()
 
-        for match, match_stage in rows:
+        match_stream = await session.stream(stmt)
+
+        async for match, match_stage in match_stream:
             parts = (
                 await session.execute(
                     select(MatchParticipant).where(
@@ -1687,14 +1701,16 @@ async def append_event(
                 code="match_unknown_sport",
             )
 
-    existing = (
-        await session.execute(
-            select(ScoreEvent).where(ScoreEvent.match_id == mid).order_by(ScoreEvent.created_at)
-        )
-    ).scalars().all()
-    rating_recorded = any(ev.type == "RATING" for ev in existing)
+    existing_events_stream = await session.stream_scalars(
+        select(ScoreEvent)
+        .where(ScoreEvent.match_id == mid)
+        .order_by(ScoreEvent.created_at)
+    )
+    rating_recorded = False
     state = engine.init_state({})
-    for old in existing:
+    async for old in existing_events_stream:
+        if old.type == "RATING":
+            rating_recorded = True
         state = engine.apply(old.payload, state)
 
     payload = ev.model_dump()

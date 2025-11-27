@@ -961,9 +961,20 @@ describe("RecordSportForm", () => {
     render(<RecordSportForm sportId="bowling" />);
 
     await screen.findAllByText("Alice");
+    fireEvent.change(screen.getAllByRole("combobox")[0], {
+      target: { value: "1" },
+    });
 
-    expect(screen.getAllByText("Roll 1").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Roll 2").length).toBeGreaterThan(0);
+    const playerLabel = players[0].name;
+    expect(
+      screen.getByLabelText(`${playerLabel} frame 1 roll 1`),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(`${playerLabel} frame 1 roll 2`),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(`${playerLabel} frame 10 roll 3`),
+    ).toBeInTheDocument();
   });
 
   it("validates bowling frames as rolls are entered", async () => {

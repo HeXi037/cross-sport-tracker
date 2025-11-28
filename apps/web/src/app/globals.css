@@ -1957,6 +1957,56 @@ html.theme-dark .record-sport-card:hover {
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
 }
 
+.player-card-grid--compact {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.player-highlights {
+  display: grid;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.player-highlights__section {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1rem;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.player-highlights__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.player-highlights__description {
+  margin-top: 0.25rem;
+  color: #4b5563;
+  font-size: 0.95rem;
+}
+
+.player-highlights__see-all {
+  font-weight: 600;
+  color: var(--color-accent-blue);
+  text-decoration: none;
+}
+
+.player-highlights__see-all:hover,
+.player-highlights__see-all:focus-visible {
+  text-decoration: underline;
+}
+
+.player-highlights__error,
+.player-highlights__empty {
+  color: #6b7280;
+  font-size: 0.95rem;
+  padding: 0.5rem 0;
+}
+
 .player-list__item {
   list-style: none;
 }
@@ -1971,6 +2021,11 @@ html.theme-dark .record-sport-card:hover {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
   border: 1px solid rgba(10, 31, 68, 0.05);
   height: 100%;
+}
+
+.player-card--compact {
+  gap: 0.6rem;
+  padding: 0.75rem;
 }
 
 .player-list__card-link {

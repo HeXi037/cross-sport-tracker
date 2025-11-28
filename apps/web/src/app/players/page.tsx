@@ -277,6 +277,140 @@ const CURATED_SECTIONS: Record<CuratedSectionKey, {
   },
 };
 
+function isWithinDays(date: string | null | undefined, days: number) {
+  if (!date) return false;
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return false;
+  const diffDays = (Date.now() - parsed.getTime()) / (1000 * 60 * 60 * 24);
+  return diffDays <= days;
+}
+
+function selectTopRated(players: Player[], sportFilter: string, limit: number): Player[] {
+  const rated = players
+    .map((player) => ({
+      player,
+      rating: getBestRatingValue(player, sportFilter),
+    }))
+    .filter(({ rating, player }) => rating !== null && (player.matchSummary?.total ?? 0) > 0);
+
+  rated.sort((a, b) => {
+    if (a.rating !== b.rating) {
+      return (b.rating ?? -Infinity) - (a.rating ?? -Infinity);
+    }
+    const lastPlayedA = a.player.matchSummary?.lastPlayedAt
+      ? new Date(a.player.matchSummary.lastPlayedAt).getTime()
+      : null;
+    const lastPlayedB = b.player.matchSummary?.lastPlayedAt
+      ? new Date(b.player.matchSummary.lastPlayedAt).getTime()
+      : null;
+    if (lastPlayedA !== null && lastPlayedB !== null && lastPlayedA !== lastPlayedB) {
+      return lastPlayedB - lastPlayedA;
+    }
+    return a.player.name.localeCompare(b.player.name, undefined, { sensitivity: "base" });
+  });
+
+  return rated.slice(0, limit).map((entry) => entry.player);
+}
+
+function selectFastImprovers(
+  players: Player[],
+  sportFilter: string,
+  limit: number,
+): Player[] {
+  const improvers = players
+    .map((player) => ({ player, growth: getRatingGrowth(player, sportFilter) }))
+    .filter(({ growth, player }) => growth !== null && growth > 0 && (player.matchSummary?.total ?? 0) > 0);
+
+  improvers.sort((a, b) => {
+    if (a.growth !== b.growth) {
+      return (b.growth ?? -Infinity) - (a.growth ?? -Infinity);
+    }
+    const lastPlayedA = a.player.matchSummary?.lastPlayedAt
+      ? new Date(a.player.matchSummary.lastPlayedAt).getTime()
+      : null;
+    const lastPlayedB = b.player.matchSummary?.lastPlayedAt
+      ? new Date(b.player.matchSummary.lastPlayedAt).getTime()
+      : null;
+    if (lastPlayedA !== null && lastPlayedB !== null && lastPlayedA !== lastPlayedB) {
+      return lastPlayedB - lastPlayedA;
+    }
+    return a.player.name.localeCompare(b.player.name, undefined, { sensitivity: "base" });
+  });
+
+  return improvers.slice(0, limit).map((entry) => entry.player);
+}
+
+function selectMostActive(players: Player[], limit: number): Player[] {
+  const recent = players
+    .map((player) => ({ player, summary: player.matchSummary }))
+    .filter(({ summary }) => summary && summary.total > 0 && isWithinDays(summary.lastPlayedAt, 30));
+
+  recent.sort((a, b) => {
+    const matchesA = a.summary?.total ?? 0;
+    const matchesB = b.summary?.total ?? 0;
+    if (matchesA !== matchesB) {
+      return matchesB - matchesA;
+    }
+    const lastPlayedA = a.summary?.lastPlayedAt ? new Date(a.summary.lastPlayedAt).getTime() : null;
+    const lastPlayedB = b.summary?.lastPlayedAt ? new Date(b.summary.lastPlayedAt).getTime() : null;
+    if (lastPlayedA !== null && lastPlayedB !== null && lastPlayedA !== lastPlayedB) {
+      return lastPlayedB - lastPlayedA;
+    }
+    return a.player.name.localeCompare(b.player.name, undefined, { sensitivity: "base" });
+  });
+
+  if (!recent.length) {
+    const activeFallback = players
+      .map((player) => ({ player, summary: player.matchSummary }))
+      .filter(({ summary }) => summary && summary.total > 0)
+      .sort((a, b) => (b.summary?.total ?? 0) - (a.summary?.total ?? 0));
+    return activeFallback.slice(0, limit).map((entry) => entry.player);
+  }
+
+  return recent.slice(0, limit).map((entry) => entry.player);
+}
+
+function selectNewest(players: Player[], limit: number): Player[] {
+  const withCreatedAt = players.filter((player) => player.created_at);
+  withCreatedAt.sort((a, b) => {
+    const createdA = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const createdB = b.created_at ? new Date(b.created_at).getTime() : 0;
+    if (createdA !== createdB) {
+      return createdB - createdA;
+    }
+    return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  });
+  return withCreatedAt.slice(0, limit);
+}
+
+function buildCuratedSections(
+  players: Player[],
+  sportFilter: string,
+): Record<CuratedSectionKey, CuratedSectionState> {
+  return {
+    topRated: {
+      loading: false,
+      error: null,
+      players: selectTopRated(players, sportFilter, CURATED_SECTIONS.topRated.limit),
+    },
+    fastImprovers: {
+      loading: false,
+      error: null,
+      players: selectFastImprovers(players, sportFilter, CURATED_SECTIONS.fastImprovers.limit),
+    },
+    mostActive: {
+      loading: false,
+      error: null,
+      players: selectMostActive(players, CURATED_SECTIONS.mostActive.limit),
+    },
+    newest: {
+      loading: false,
+      error: null,
+      players: selectNewest(players, CURATED_SECTIONS.newest.limit),
+    },
+  };
+}
+
 const SHOW_CURATED_HIGHLIGHTS =
   process.env.NEXT_PUBLIC_ENABLE_CURATED_HIGHLIGHTS !== "false" &&
   process.env.NODE_ENV !== "test";
@@ -590,47 +724,39 @@ export default function PlayersPage() {
   const loadCuratedSections = useCallback(async () => {
     if (!SHOW_CURATED_HIGHLIGHTS) return;
 
-    await Promise.all(
-      Object.entries(CURATED_SECTIONS).map(async ([key, config]) => {
-        const sectionKey = key as CuratedSectionKey;
-        setCuratedSections((prev) => ({
-          ...prev,
-          [sectionKey]: { ...prev[sectionKey], loading: true, error: null },
-        }));
-        try {
-          const params = new URLSearchParams({
-            limit: String(config.limit),
-            offset: "0",
-            ...config.query,
-          });
-          if (admin) {
-            params.set("include_hidden", "true");
-          }
-          const res = await apiFetch(`/v0/players?${params.toString()}`, {
-            cache: "no-store",
-          });
-          const data = await res.json();
-          const normalized = ((data.players ?? []) as ApiPlayer[])
-            .map(normalizePlayer)
-            .filter((player): player is Player => !!player);
-          setCuratedSections((prev) => ({
-            ...prev,
-            [sectionKey]: { loading: false, players: normalized, error: null },
-          }));
-        } catch (err) {
-          console.error(`Failed to load curated section ${sectionKey}`, err);
-          setCuratedSections((prev) => ({
-            ...prev,
-            [sectionKey]: {
-              ...prev[sectionKey],
-              loading: false,
-              error: PLAYERS_ERROR_MESSAGE,
-            },
-          }));
-        }
-      }),
-    );
-  }, [admin]);
+    setCuratedSections((prev) => {
+      const next: Record<CuratedSectionKey, CuratedSectionState> = { ...prev };
+      (Object.keys(CURATED_SECTIONS) as CuratedSectionKey[]).forEach((key) => {
+        next[key] = { ...prev[key], loading: true, error: null };
+      });
+      return next;
+    });
+
+    try {
+      const params = new URLSearchParams({ limit: "200", offset: "0" });
+      if (admin) {
+        params.set("include_hidden", "true");
+      }
+      const res = await apiFetch(`/v0/players?${params.toString()}`, {
+        cache: "no-store",
+      });
+      const data = await res.json();
+      const normalized = ((data.players ?? []) as ApiPlayer[])
+        .map(normalizePlayer)
+        .filter((player): player is Player => !!player);
+
+      setCuratedSections(buildCuratedSections(normalized, sportFilter));
+    } catch (err) {
+      console.error("Failed to load curated highlights", err);
+      setCuratedSections((prev) => {
+        const next: Record<CuratedSectionKey, CuratedSectionState> = { ...prev };
+        (Object.keys(CURATED_SECTIONS) as CuratedSectionKey[]).forEach((key) => {
+          next[key] = { ...prev[key], loading: false, error: PLAYERS_ERROR_MESSAGE, players: [] };
+        });
+        return next;
+      });
+    }
+  }, [admin, sportFilter]);
   useEffect(() => {
     void load();
     if (SHOW_CURATED_HIGHLIGHTS) {

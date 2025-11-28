@@ -285,12 +285,40 @@ const SORT_OPTIONS = [
 ];
 
 const DEFAULT_SORT = "most-active" satisfies (typeof SORT_OPTIONS)[number]["value"];
+const RECENT_SEARCHES_KEY = "player-search-recent";
+
+function normalizeSearchText(text: string) {
+  return text
+    .trim()
+    .toLocaleLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+}
+
+function fuzzyIncludes(target: string, query: string) {
+  if (!query) return true;
+  if (target.includes(query)) return true;
+
+  const tokens = query.split(/\s+/).filter(Boolean);
+  if (tokens.length > 1 && tokens.every((token) => target.includes(token))) {
+    return true;
+  }
+
+  let searchIndex = 0;
+  for (const char of query) {
+    const foundIndex = target.indexOf(char, searchIndex);
+    if (foundIndex === -1) return false;
+    searchIndex = foundIndex + 1;
+  }
+  return true;
+}
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [name, setName] = useState("");
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [sportFilter, setSportFilter] = useState("all");
   const [clubFilter, setClubFilter] = useState("all");
   const [ratingBand, setRatingBand] = useState("all");
@@ -585,6 +613,40 @@ export default function PlayersPage() {
     };
   }, [load, loadCuratedSections]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(RECENT_SEARCHES_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setRecentSearches(parsed.filter((item): item is string => typeof item === "string"));
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to read recent searches", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    const trimmed = debouncedSearch.trim();
+    if (!trimmed) return;
+    setRecentSearches((prev) => {
+      const next = [trimmed, ...prev.filter((item) => item.toLowerCase() !== trimmed.toLowerCase())].slice(
+        0,
+        6,
+      );
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
+        } catch (err) {
+          console.warn("Failed to persist recent searches", err);
+        }
+      }
+      return next;
+    });
+  }, [debouncedSearch]);
+
   const clubOptions = useMemo(() => {
     const options = new Map<string, string>();
     for (const player of players) {
@@ -603,6 +665,8 @@ export default function PlayersPage() {
     ratingBand !== "all" ||
     activityRecency !== "any" ||
     hideInactive;
+  const trimmedSearch = debouncedSearch.trim();
+  const hasSearchTerm = trimmedSearch !== "";
 
   const clearFilters = () => {
     setSportFilter("all");
@@ -613,18 +677,33 @@ export default function PlayersPage() {
     setSortOption(DEFAULT_SORT);
   };
 
+  const clearSearch = () => {
+    setSearch("");
+  };
+
+  const resetSearchAndFilters = () => {
+    clearSearch();
+    clearFilters();
+  };
+
   const filteredPlayers = useMemo(() => {
-    const term = debouncedSearch.trim().toLowerCase();
+    const term = normalizeSearchText(debouncedSearch);
     const today = new Date();
     const recentDays = ACTIVITY_RECENCY_OPTIONS.find(
       (option) => option.value === activityRecency,
     )?.days;
 
     const matches: Player[] = players.filter((player) => {
-      const normalizedName = player.name.toLowerCase();
-      if (term && !normalizedName.includes(term)) {
-        return false;
-      }
+      const searchFields = [player.name, player.location ?? ""];
+      const sports = (player.ratings ?? [])
+        .map((rating) => rating.sport)
+        .filter((sport): sport is string => Boolean(sport));
+      searchFields.push(...sports);
+
+      const matchesSearch = term
+        ? searchFields.some((field) => fuzzyIncludes(normalizeSearchText(field), term))
+        : true;
+      if (!matchesSearch) return false;
 
       if (sportFilter !== "all") {
         const normalizedSport = sportFilter.toLowerCase();
@@ -920,15 +999,46 @@ export default function PlayersPage() {
             <label htmlFor="player-search" className="sr-only">
               Search players
             </label>
-            <input
-              id="player-search"
-              type="search"
-              className="input"
-              aria-label="Search players"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search players"
-            />
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                <input
+                  id="player-search"
+                  type="search"
+                  className="input flex-1"
+                  aria-label="Search players"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search players by handle, club, or sport"
+                />
+                <div className="flex flex-wrap gap-2">
+                  {hasSearchTerm && (
+                    <button type="button" className="button-secondary" onClick={clearSearch}>
+                      Clear search
+                    </button>
+                  )}
+                  {(hasActiveFilters || hasSearchTerm) && (
+                    <button type="button" className="button" onClick={resetSearchAndFilters}>
+                      Reset search & filters
+                    </button>
+                  )}
+                </div>
+              </div>
+              {recentSearches.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2" aria-label="Recent searches">
+                  <span className="text-sm font-medium text-gray-700">Recent:</span>
+                  {recentSearches.map((term) => (
+                    <button
+                      key={term}
+                      type="button"
+                      className="rounded-full border border-gray-300 px-3 py-1 text-sm text-gray-700 transition hover:bg-gray-100"
+                      onClick={() => setSearch(term)}
+                    >
+                      {term}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <div className="player-list__filters mb-6 flex flex-col gap-4">
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -1047,12 +1157,24 @@ export default function PlayersPage() {
               sportFilter={sportFilter}
             />
           )}
-          {filteredPlayers.length === 0 && debouncedSearch.trim() !== "" ? (
+          {filteredPlayers.length === 0 && hasSearchTerm ? (
             <div role="status" aria-live="polite" className="player-list__empty">
-              <p className="font-semibold">No players match your search.</p>
-              <p className="text-sm text-gray-600">
-                Try different spellings or remove filters to see more players.
+              <p className="font-semibold">
+                No players match your search for “{trimmedSearch}”.
               </p>
+              <p className="text-sm text-gray-600">
+                Try another spelling, search by handle or club, or remove filters to broaden results.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <button type="button" className="button" onClick={resetSearchAndFilters}>
+                  Reset search
+                </button>
+                {hasActiveFilters && (
+                  <button type="button" className="underline" onClick={clearFilters}>
+                    Clear filters
+                  </button>
+                )}
+              </div>
             </div>
           ) : filteredPlayers.length === 0 ? (
             <div className="player-list__empty">
@@ -1062,6 +1184,11 @@ export default function PlayersPage() {
                   : "No players match your filters."}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-3">
+                {(hasActiveFilters || hasSearchTerm) && (
+                  <button type="button" className="button-secondary" onClick={resetSearchAndFilters}>
+                    Reset search & filters
+                  </button>
+                )}
                 {hasActiveFilters && (
                   <button type="button" className="underline" onClick={clearFilters}>
                     Clear filters

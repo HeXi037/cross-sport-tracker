@@ -934,6 +934,7 @@ export default async function MatchDetailPage({
                 as="span"
                 sides={participantGroups}
                 separatorSymbol="/"
+                linkToProfile
               />
             ) : (
               "A vs B"
@@ -972,6 +973,7 @@ export default async function MatchDetailPage({
                   as="span"
                   sides={[winnerParticipant.players]}
                   separatorSymbol="&"
+                  linkToProfile
                 />
               ) : null}
             </p>
@@ -1004,6 +1006,7 @@ export default async function MatchDetailPage({
                       as="div"
                       sides={[participant.players]}
                       separatorSymbol="&"
+                      linkToProfile
                     />
                   </li>
                 );

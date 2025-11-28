@@ -1008,7 +1008,7 @@ export default function PlayersPage() {
                   aria-label="Search players"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by player name, username, club, or sport"
+                  placeholder="Search players by handle, club, or sport"
                 />
                 <div className="flex flex-wrap gap-2">
                   {hasSearchTerm && (
@@ -1159,10 +1159,11 @@ export default function PlayersPage() {
           )}
           {filteredPlayers.length === 0 && hasSearchTerm ? (
             <div role="status" aria-live="polite" className="player-list__empty">
-              <p className="font-semibold">No players match “{trimmedSearch}”.</p>
+              <p className="font-semibold">
+                No players match your search for “{trimmedSearch}”.
+              </p>
               <p className="text-sm text-gray-600">
-                Try another spelling, search by username or club name, or pick a different sport to broaden
-                results.
+                Try another spelling, search by handle or club, or remove filters to broaden results.
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 <button type="button" className="button" onClick={resetSearchAndFilters}>

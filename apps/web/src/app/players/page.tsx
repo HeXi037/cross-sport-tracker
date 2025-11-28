@@ -83,6 +83,66 @@ function formatLastPlayed(summary?: NormalizedMatchSummary | null): string {
   return "—";
 }
 
+function getRatingValue(summary?: SportRatingSummary | null): number | null {
+  if (!summary) return null;
+  const preferred = summary.elo ?? summary.glicko;
+  const value = preferred?.value ?? summary.elo?.value ?? summary.glicko?.value;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function getBestRatingValue(player: Player, sportFilter?: string): number | null {
+  const normalizedSport = sportFilter?.toLowerCase();
+  const ratings = player.ratings ?? [];
+  let targetRatings = ratings;
+
+  if (normalizedSport) {
+    targetRatings = ratings.filter(
+      (r) => r.sport?.toLowerCase() === normalizedSport,
+    );
+  }
+
+  const snapshot = targetRatings.reduce<
+    { value: number | null; deviation?: number | null }
+  >(
+    (best, current) => {
+      const currentValue = getRatingValue(current);
+      if (currentValue === null) return best;
+
+      const bestValue = best.value;
+      if (bestValue === null || currentValue > bestValue) {
+        return { value: currentValue, deviation: current.elo?.deviation };
+      }
+      return best;
+    },
+    { value: null },
+  );
+
+  return snapshot.value;
+}
+
+function getRatingGrowth(player: Player, sportFilter?: string): number | null {
+  const normalizedSport = sportFilter?.toLowerCase();
+  const ratings = player.ratings ?? [];
+  let targetRatings = ratings;
+
+  if (normalizedSport) {
+    targetRatings = ratings.filter(
+      (r) => r.sport?.toLowerCase() === normalizedSport,
+    );
+  }
+
+  let bestDelta: number | null = null;
+  for (const summary of targetRatings) {
+    const delta = summary.elo?.delta30 ?? summary.glicko?.delta30 ?? null;
+    if (typeof delta === "number" && Number.isFinite(delta)) {
+      if (bestDelta === null || delta > bestDelta) {
+        bestDelta = delta;
+      }
+    }
+  }
+  return bestDelta;
+}
+
 interface PlayerBadge {
   id: string;
   name: string;
@@ -99,6 +159,7 @@ interface Player extends PlayerInfo {
   country_code?: string | null;
   region_code?: string | null;
   club_id?: string | null;
+  created_at?: string | null;
   badges?: PlayerBadge[];
   hidden: boolean;
   matchSummary?: NormalizedMatchSummary | null;
@@ -126,11 +187,43 @@ const PLAYER_ERROR_COPY: Record<string, string> = {
   players_include_hidden_forbidden: PLAYERS_FORBIDDEN_MESSAGE,
 };
 
+const RATING_BANDS = [
+  { value: "all", label: "All ratings", min: null, max: null },
+  { value: "unranked", label: "Unranked", min: null, max: null },
+  { value: "1000-1299", label: "1000-1299", min: 1000, max: 1299 },
+  { value: "1300-1599", label: "1300-1599", min: 1300, max: 1599 },
+  { value: "1600-1899", label: "1600-1899", min: 1600, max: 1899 },
+  { value: "1900+", label: "1900+", min: 1900, max: null },
+];
+
+const ACTIVITY_RECENCY_OPTIONS = [
+  { value: "any", label: "Any time", days: null },
+  { value: "30", label: "Active in last 30 days", days: 30 },
+  { value: "90", label: "Active in last 90 days", days: 90 },
+  { value: "365", label: "Active in last year", days: 365 },
+];
+
+const SORT_OPTIONS = [
+  { value: "most-active", label: "Most active" },
+  { value: "highest-rating", label: "Highest rating" },
+  { value: "alphabetical", label: "Alphabetical" },
+  { value: "recently-joined", label: "Recently joined" },
+  { value: "rating-growth", label: "Rating growth" },
+];
+
+const DEFAULT_SORT = "most-active" satisfies (typeof SORT_OPTIONS)[number]["value"];
+
 export default function PlayersPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [name, setName] = useState("");
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
+  const [sportFilter, setSportFilter] = useState("all");
+  const [clubFilter, setClubFilter] = useState("all");
+  const [ratingBand, setRatingBand] = useState("all");
+  const [activityRecency, setActivityRecency] = useState("any");
+  const [hideInactive, setHideInactive] = useState(false);
+  const [sortOption, setSortOption] = useState<string>(DEFAULT_SORT);
   const [error, setError] = useState<string | null>(null);
   const [playersLoadError, setPlayersLoadError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -196,6 +289,22 @@ export default function PlayersPage() {
       if (trimmedQuery) {
         params.set("q", trimmedQuery);
       }
+      if (sportFilter !== "all") {
+        params.set("sport", sportFilter);
+      }
+      if (clubFilter !== "all") {
+        params.set("club", clubFilter);
+      }
+      if (ratingBand !== "all") {
+        params.set("rating_band", ratingBand);
+      }
+      if (activityRecency !== "any") {
+        params.set("active_within_days", activityRecency);
+      }
+      if (hideInactive) {
+        params.set("include_inactive", "false");
+      }
+      params.set("sort", sortOption);
       const res = await apiFetch(`/v0/players?${params.toString()}`, {
         cache: "no-store",
         signal: controller.signal,
@@ -294,7 +403,17 @@ export default function PlayersPage() {
         setLoading(false);
       }
     }
-  }, [admin, debouncedSearch, showToast]);
+  }, [
+    activityRecency,
+    admin,
+    clubFilter,
+    debouncedSearch,
+    hideInactive,
+    ratingBand,
+    showToast,
+    sortOption,
+    sportFilter,
+  ]);
   useEffect(() => {
     void load();
     return () => {
@@ -309,11 +428,185 @@ export default function PlayersPage() {
     };
   }, [load]);
 
+  const sportOptions = useMemo(() => {
+    const sports = new Set<string>();
+    for (const player of players) {
+      for (const rating of player.ratings ?? []) {
+        if (rating.sport) {
+          sports.add(rating.sport);
+        }
+      }
+    }
+    return Array.from(sports).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" }),
+    );
+  }, [players]);
+
+  const clubOptions = useMemo(() => {
+    const options = new Map<string, string>();
+    for (const player of players) {
+      if (player.club_id) {
+        options.set(player.club_id, player.location ?? `Club ${player.club_id}`);
+      } else if (player.location) {
+        options.set(player.location, player.location);
+      }
+    }
+    return Array.from(options.entries()).map(([value, label]) => ({ value, label }));
+  }, [players]);
+
+  const hasActiveFilters =
+    sportFilter !== "all" ||
+    clubFilter !== "all" ||
+    ratingBand !== "all" ||
+    activityRecency !== "any" ||
+    hideInactive;
+
+  const clearFilters = () => {
+    setSportFilter("all");
+    setClubFilter("all");
+    setRatingBand("all");
+    setActivityRecency("any");
+    setHideInactive(false);
+    setSortOption(DEFAULT_SORT);
+  };
+
   const filteredPlayers = useMemo(() => {
     const term = debouncedSearch.trim().toLowerCase();
-    if (!term) return players;
-    return players.filter((p) => p.name.toLowerCase().includes(term));
-  }, [players, debouncedSearch]);
+    const today = new Date();
+    const recentDays = ACTIVITY_RECENCY_OPTIONS.find(
+      (option) => option.value === activityRecency,
+    )?.days;
+
+    const matches: Player[] = players.filter((player) => {
+      const normalizedName = player.name.toLowerCase();
+      if (term && !normalizedName.includes(term)) {
+        return false;
+      }
+
+      if (sportFilter !== "all") {
+        const normalizedSport = sportFilter.toLowerCase();
+        const hasSport = (player.ratings ?? []).some(
+          (rating) => rating.sport?.toLowerCase() === normalizedSport,
+        );
+        const sportBadge = (player.badges ?? []).some(
+          (badge) => badge.sport_id?.toLowerCase() === normalizedSport,
+        );
+        if (!hasSport && !sportBadge) return false;
+      }
+
+      if (clubFilter !== "all") {
+        const clubMatch =
+          player.club_id === clubFilter ||
+          (player.location && player.location === clubFilter);
+        if (!clubMatch) return false;
+      }
+
+      if (ratingBand !== "all") {
+        const currentRating = getBestRatingValue(player, sportFilter);
+        if (ratingBand === "unranked") {
+          if (currentRating !== null) return false;
+        } else {
+          const band = RATING_BANDS.find((band) => band.value === ratingBand);
+          if (band) {
+            const meetsMin =
+              band.min === null ||
+              (typeof currentRating === "number" && currentRating >= band.min);
+            const meetsMax =
+              band.max === null ||
+              (typeof currentRating === "number" && currentRating <= band.max);
+            if (currentRating === null || !meetsMin || !meetsMax) return false;
+          }
+        }
+      }
+
+      if (recentDays !== null && recentDays !== undefined) {
+        const lastPlayed = player.matchSummary?.lastPlayedAt;
+        if (!lastPlayed) return false;
+        const lastPlayedDate = new Date(lastPlayed);
+        if (Number.isNaN(lastPlayedDate.getTime())) return false;
+        const diffMs = today.getTime() - lastPlayedDate.getTime();
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+        if (diffDays > recentDays) return false;
+      }
+
+      if (hideInactive) {
+        const summary = player.matchSummary;
+        const lastPlayed = summary?.lastPlayedAt;
+        const matchesPlayed = summary?.total ?? 0;
+        const lastPlayedDate = lastPlayed ? new Date(lastPlayed) : null;
+        const stale =
+          !lastPlayedDate ||
+          Number.isNaN(lastPlayedDate.getTime()) ||
+          today.getTime() - lastPlayedDate.getTime() > 1000 * 60 * 60 * 24 * 180;
+        if (!matchesPlayed || stale) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    const sorted = [...matches].sort((a, b) => {
+      if (sortOption === "alphabetical") {
+        return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+      }
+
+      if (sortOption === "recently-joined") {
+        const joinedA = a.created_at ? new Date(a.created_at).getTime() : null;
+        const joinedB = b.created_at ? new Date(b.created_at).getTime() : null;
+        if (joinedA !== null && joinedB !== null && joinedA !== joinedB) {
+          return joinedB - joinedA;
+        }
+        if (joinedA !== null && joinedB === null) return -1;
+        if (joinedA === null && joinedB !== null) return 1;
+        return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+      }
+
+      if (sortOption === "highest-rating") {
+        const ratingA = getBestRatingValue(a, sportFilter);
+        const ratingB = getBestRatingValue(b, sportFilter);
+        if (ratingA !== ratingB) {
+          return (ratingB ?? -Infinity) - (ratingA ?? -Infinity);
+        }
+      }
+
+      if (sortOption === "rating-growth") {
+        const growthA = getRatingGrowth(a, sportFilter);
+        const growthB = getRatingGrowth(b, sportFilter);
+        if (growthA !== growthB) {
+          return (growthB ?? -Infinity) - (growthA ?? -Infinity);
+        }
+      }
+
+      // default to most active
+      const matchesA = a.matchSummary?.total ?? 0;
+      const matchesB = b.matchSummary?.total ?? 0;
+      if (matchesA !== matchesB) {
+        return matchesB - matchesA;
+      }
+      const lastPlayedA = a.matchSummary?.lastPlayedAt
+        ? new Date(a.matchSummary.lastPlayedAt).getTime()
+        : null;
+      const lastPlayedB = b.matchSummary?.lastPlayedAt
+        ? new Date(b.matchSummary.lastPlayedAt).getTime()
+        : null;
+      if (lastPlayedA !== null && lastPlayedB !== null && lastPlayedA !== lastPlayedB) {
+        return lastPlayedB - lastPlayedA;
+      }
+      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+    });
+
+    return sorted;
+  }, [
+    activityRecency,
+    clubFilter,
+    debouncedSearch,
+    hideInactive,
+    players,
+    ratingBand,
+    sortOption,
+    sportFilter,
+  ]);
 
   async function create() {
     if (!admin) {
@@ -494,6 +787,116 @@ export default function PlayersPage() {
               placeholder="Search players"
             />
           </div>
+          <div className="player-list__filters mb-6 flex flex-col gap-4">
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              <div className="form-field">
+                <label htmlFor="sport-filter" className="form-label">
+                  Sport
+                </label>
+                <select
+                  id="sport-filter"
+                  className="input"
+                  value={sportFilter}
+                  onChange={(e) => setSportFilter(e.target.value)}
+                >
+                  <option value="all">All sports</option>
+                  {sportOptions.map((sport) => (
+                    <option key={sport} value={sport.toLowerCase()}>
+                      {sport}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-field">
+                <label htmlFor="club-filter" className="form-label">
+                  Club / venue
+                </label>
+                <select
+                  id="club-filter"
+                  className="input"
+                  value={clubFilter}
+                  onChange={(e) => setClubFilter(e.target.value)}
+                >
+                  <option value="all">All clubs & venues</option>
+                  {clubOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-field">
+                <label htmlFor="rating-band" className="form-label">
+                  Rating band
+                </label>
+                <select
+                  id="rating-band"
+                  className="input"
+                  value={ratingBand}
+                  onChange={(e) => setRatingBand(e.target.value)}
+                >
+                  {RATING_BANDS.map((band) => (
+                    <option key={band.value} value={band.value}>
+                      {band.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-field">
+                <label htmlFor="activity-recency" className="form-label">
+                  Activity recency
+                </label>
+                <select
+                  id="activity-recency"
+                  className="input"
+                  value={activityRecency}
+                  onChange={(e) => setActivityRecency(e.target.value)}
+                >
+                  {ACTIVITY_RECENCY_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-field">
+                <label htmlFor="sort-option" className="form-label">
+                  Sort by
+                </label>
+                <select
+                  id="sort-option"
+                  className="input"
+                  value={sortOption}
+                  onChange={(e) => setSortOption(e.target.value)}
+                >
+                  {SORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={hideInactive}
+                  onChange={(e) => setHideInactive(e.target.checked)}
+                />
+                Hide inactive players
+              </label>
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={clearFilters}
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          </div>
           {filteredPlayers.length === 0 && debouncedSearch.trim() !== "" ? (
             <div role="status" aria-live="polite" className="player-list__empty">
               <p className="font-semibold">No players match your search.</p>
@@ -504,11 +907,20 @@ export default function PlayersPage() {
           ) : filteredPlayers.length === 0 ? (
             <div className="player-list__empty">
               <p role="status" className="font-semibold">
-                No players have been added yet.
+                {players.length === 0 && !hasActiveFilters && debouncedSearch.trim() === ""
+                  ? "No players have been added yet."
+                  : "No players match your filters."}
               </p>
-              <Link className="underline" href="/record">
-                Record a match to start building the roster
-              </Link>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                {hasActiveFilters && (
+                  <button type="button" className="underline" onClick={clearFilters}>
+                    Clear filters
+                  </button>
+                )}
+                <Link className="underline" href="/record">
+                  Record a match to start building the roster
+                </Link>
+              </div>
             </div>
           ) : (
             <>

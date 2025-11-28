@@ -6,6 +6,14 @@ export type NormalizedMatchSummary = {
   draws: number;
   total: number;
   winPct: number;
+  /**
+   * Optional streak value: positive for wins in a row, negative for losses.
+   */
+  streak?: number | null;
+  /**
+   * Optional ISO timestamp for when the player last played.
+   */
+  lastPlayedAt?: string | null;
 };
 
 export function normalizeMatchSummary(
@@ -14,7 +22,7 @@ export function normalizeMatchSummary(
   if (!summary || typeof summary !== "object") {
     return null;
   }
-  const { wins, losses, draws, total, winPct } = summary as Record<
+  const { wins, losses, draws, total, winPct, streak, lastPlayedAt } = summary as Record<
     string,
     unknown
   >;
@@ -42,7 +50,15 @@ export function normalizeMatchSummary(
   const hasResults = wins > 0 || losses > 0 || normalizedDraws > 0;
   if (!hasResults) {
     if (total === 0) {
-      return { wins: 0, losses: 0, draws: 0, total: 0, winPct: 0 };
+      return {
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        total: 0,
+        winPct: 0,
+        streak: null,
+        lastPlayedAt: null,
+      };
     }
     return null;
   }
@@ -59,6 +75,12 @@ export function normalizeMatchSummary(
     draws: normalizedDraws,
     total,
     winPct: clampedWinPct,
+    streak:
+      typeof streak === "number" && Number.isFinite(streak) ? Math.trunc(streak) : null,
+    lastPlayedAt:
+      typeof lastPlayedAt === "string" && lastPlayedAt.trim().length > 0
+        ? lastPlayedAt
+        : null,
   };
 }
 
@@ -264,4 +286,47 @@ export function normalizeRollingWinPct(values: unknown): number[] {
     )
     .filter((entry): entry is number => entry !== null)
     .map((entry) => Math.max(0, Math.min(entry, 1)));
+}
+
+export function formatRatingValue(value: number | null | undefined): string {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.round(value).toLocaleString();
+  }
+  return "Unranked";
+}
+
+export function formatWinRate(summary?: NormalizedMatchSummary | null): string {
+  if (!summary || summary.total <= 0) {
+    return "—";
+  }
+  const winRate = Math.max(0, Math.min(summary.winPct, 1));
+  return `${Math.round(winRate * 100)}%`;
+}
+
+export function describeStreak(
+  summary?: NormalizedMatchSummary | null,
+): { label: string; value: string; tone: "positive" | "negative" | "neutral" } {
+  if (summary?.streak && Number.isFinite(summary.streak)) {
+    const magnitude = Math.abs(summary.streak);
+    if (magnitude > 0) {
+      const isPositive = summary.streak > 0;
+      return {
+        label: isPositive ? "On a streak" : "Skid",
+        value: `${magnitude} ${isPositive ? "win" : "loss"} streak`,
+        tone: isPositive ? "positive" : "negative",
+      };
+    }
+  }
+
+  if (summary && summary.total > 0) {
+    const winRate = Math.max(0, Math.min(summary.winPct, 1));
+    if (winRate >= 0.65) {
+      return { label: "Momentum", value: "Hot form", tone: "positive" };
+    }
+    if (winRate <= 0.35) {
+      return { label: "Reset", value: "Looking to bounce back", tone: "negative" };
+    }
+  }
+
+  return { label: "Momentum", value: "Warming up", tone: "neutral" };
 }

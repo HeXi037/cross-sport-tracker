@@ -12,14 +12,76 @@ import { COUNTRY_OPTIONS } from "../../lib/countries";
 import PlayerName, { PlayerInfo } from "../../components/PlayerName";
 import { useToast } from "../../components/ToastProvider";
 import {
+  describeStreak,
   formatMatchRecord,
+  formatRatingValue,
+  formatWinRate,
   normalizeMatchSummary,
+  normalizeRatingSummaries,
   type NormalizedMatchSummary,
+  type SportRatingSummary,
 } from "../../lib/player-stats";
 import { useDebounce } from "../../lib/useDebounce";
 import { rememberLoginRedirect } from "../../lib/loginRedirect";
 
 const NAME_REGEX = /^[A-Za-z0-9 '-]{1,50}$/;
+
+const SPORT_VISUALS: Record<
+  string,
+  { icon: string; colorVar: string; backgroundVar: string }
+> = {
+  tennis: { icon: "🎾", colorVar: "var(--color-accent-green)", backgroundVar: "#ecfdf3" },
+  soccer: { icon: "⚽", colorVar: "var(--color-accent-blue)", backgroundVar: "#e0f2fe" },
+  football: { icon: "🏈", colorVar: "#ea580c", backgroundVar: "#fff7ed" },
+  basketball: { icon: "🏀", colorVar: "#f97316", backgroundVar: "#fff7ed" },
+  pickleball: { icon: "🏓", colorVar: "#0ea5e9", backgroundVar: "#e0f2fe" },
+  volleyball: { icon: "🏐", colorVar: "#6366f1", backgroundVar: "#eef2ff" },
+  baseball: { icon: "⚾", colorVar: "#c026d3", backgroundVar: "#faf5ff" },
+  default: { icon: "🏅", colorVar: "var(--color-accent-blue)", backgroundVar: "#e5e7eb" },
+};
+
+const COUNTRY_NAME_BY_CODE = COUNTRY_OPTIONS.reduce<Record<string, string>>(
+  (acc, option) => {
+    acc[option.code] = option.name;
+    return acc;
+  },
+  {},
+);
+
+function getCountryName(code?: string | null): string | null {
+  if (!code) return null;
+  return COUNTRY_NAME_BY_CODE[code] ?? null;
+}
+
+function resolveSportVisuals(sport?: string | null) {
+  if (!sport) return SPORT_VISUALS.default;
+  const key = sport.toLowerCase();
+  return SPORT_VISUALS[key] ?? SPORT_VISUALS.default;
+}
+
+function summarizeRating(snapshot?: SportRatingSummary | null) {
+  if (!snapshot) return null;
+  const preferred = snapshot.elo ?? snapshot.glicko;
+  const value = preferred?.value ?? snapshot.elo?.value ?? snapshot.glicko?.value;
+  const systemName = snapshot.elo ? "Elo" : snapshot.glicko ? "Glicko" : null;
+  if (value === null || value === undefined) {
+    return { label: systemName ?? "Rating", value: "Unranked" };
+  }
+  return { label: systemName ?? "Rating", value: formatRatingValue(value) };
+}
+
+function formatLastPlayed(summary?: NormalizedMatchSummary | null): string {
+  if (summary?.lastPlayedAt) {
+    const date = new Date(summary.lastPlayedAt);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    }
+  }
+  if (summary?.total && summary.total > 0) {
+    return "Recorded";
+  }
+  return "—";
+}
 
 interface PlayerBadge {
   id: string;
@@ -40,12 +102,14 @@ interface Player extends PlayerInfo {
   badges?: PlayerBadge[];
   hidden: boolean;
   matchSummary?: NormalizedMatchSummary | null;
+  ratings?: SportRatingSummary[];
 }
 
 type ApiPlayer = Omit<Player, "hidden" | "matchSummary"> & {
   hidden?: boolean;
   match_summary?: unknown;
   matchSummary?: unknown;
+  ratings?: unknown;
 };
 
 const LOAD_TIMEOUT_MS = 15000;
@@ -143,12 +207,16 @@ export default function PlayersPage() {
             ...badge,
             earned_at: (badge as { earnedAt?: string }).earnedAt ?? badge.earned_at ?? null,
           }));
+          const normalizedRatings = normalizeRatingSummaries(
+            (rest as { ratings?: unknown }).ratings,
+          );
           return withAbsolutePhotoUrl<Player>({
             ...rest,
             badges: normalizedBadges,
             hidden: Boolean(maybeHidden),
             matchSummary:
               normalizeMatchSummary(matchSummary ?? match_summary) ?? null,
+            ratings: normalizedRatings,
           });
         })
         .sort((a, b) =>
@@ -444,104 +512,194 @@ export default function PlayersPage() {
             </div>
           ) : (
             <>
-              <ul className="player-list">
-                {filteredPlayers.map((p) => (
-                  <li key={p.id} className="player-list__item">
-                    <div className="player-list__card">
-                      <Link
-                        href={`/players/${p.id}`}
-                        className="player-list__card-link"
-                        tabIndex={0}
-                      >
-                        <div className="player-list__row">
-                          <span className="player-list__name">
-                            <PlayerName
-                              player={p}
-                              showInitialsText={false}
-                              decorativeAvatar
-                            />
-                          </span>
-                          <span className="player-list__stats">
-                            {(() => {
-                              const summary = p.matchSummary;
-                              if (!summary || summary.total <= 0) {
-                                return "No matches yet";
-                              }
-                              return formatMatchRecord(summary);
-                            })()}
-                          </span>
-                          {p.hidden && (
-                            <span className="player-list__status" aria-label="Hidden player">
-                              Hidden
-                            </span>
-                          )}
-                        </div>
-                        {p.badges && p.badges.length > 0 ? (
-                          <div className="player-list__badges" aria-label="Highlight badges">
-                            {p.badges.slice(0, 2).map((badge) => (
-                              <span
-                                key={badge.id}
-                                className={`badge-pill badge-pill--${(badge.rarity || "common").toLowerCase()}`}
-                              >
-                                <span aria-hidden>{badge.icon || "🏅"}</span>
-                                <span className="sr-only">{badge.rarity} badge:</span>
-                                <span>{badge.name}</span>
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
-                      </Link>
-                      {admin && (
-                        <div
-                          className="player-list__admin"
-                          role="group"
-                          aria-label={`Admin controls for ${p.name}`}
+              <ul className="player-list player-card-grid" aria-label="Players">
+                {filteredPlayers.map((p) => {
+                  const summary = p.matchSummary;
+                  const countryName = getCountryName(p.country_code);
+                  const matchesPlayed = summary?.total ?? 0;
+                  const winRate = formatWinRate(summary);
+                  const streak = describeStreak(summary);
+                  const ratingBadges = (p.ratings ?? []).slice(0, 3);
+
+                  return (
+                    <li key={p.id} className="player-list__item">
+                      <div className="player-list__card player-card">
+                        <Link
+                          href={`/players/${p.id}`}
+                          className="player-list__card-link player-card__link"
+                          tabIndex={0}
+                          aria-label={`View ${p.name}'s profile`}
                         >
-                          <label className="player-list__label" htmlFor={`country-${p.id}`}>
-                            Country:
-                          </label>
-                          <select
-                            id={`country-${p.id}`}
-                            aria-label={`Country for ${p.name}`}
-                            value={p.country_code ?? ""}
-                            onChange={(e) => handleCountryChange(p, e.target.value)}
-                            disabled={updatingLocation === p.id}
-                            className="input player-list__select"
+                            <div className="player-card__header">
+                              <div className="player-card__identity">
+                                <span className="player-list__name">
+                                <PlayerName
+                                  player={p}
+                                  showInitialsText={false}
+                                  decorativeAvatar
+                                />
+                              </span>
+                              <div className="player-card__meta">
+                                {countryName ? (
+                                  <span className="player-card__meta-pill">
+                                    <span aria-hidden>🌍</span> {countryName}
+                                  </span>
+                                ) : null}
+                                {p.location ? (
+                                  <span className="player-card__meta-pill">
+                                    <span aria-hidden>📍</span> {p.location}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                            <div className="player-card__record" aria-label={`Record for ${p.name}`}>
+                              {summary && summary.total > 0 ? formatMatchRecord(summary) : "No matches yet"}
+                            </div>
+                            {p.hidden && (
+                              <span className="player-list__status" aria-label="Hidden player">
+                                Hidden
+                              </span>
+                            )}
+                          </div>
+
+                          <div
+                            className="player-card__ratings"
+                            aria-label={`Rating snapshots for ${p.name}`}
+                            role="list"
                           >
-                            <option value="">Unspecified</option>
-                            {COUNTRY_OPTIONS.map((option) => (
-                              <option key={option.code} value={option.code}>
-                                {option.name}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type="button"
-                            className="player-list__action player-list__toggle"
-                            onClick={() => handleToggleVisibility(p)}
-                            disabled={updatingVisibility === p.id}
+                            {ratingBadges.length ? (
+                              ratingBadges.map((rating) => {
+                                const visuals = resolveSportVisuals(rating.sport);
+                                const ratingSummary = summarizeRating(rating);
+                                return (
+                                  <span
+                                    key={`${p.id}-${rating.sport}`}
+                                    className="player-card__rating"
+                                    role="listitem"
+                                    style={{
+                                      color: visuals.colorVar,
+                                      backgroundColor: visuals.backgroundVar,
+                                    }}
+                                    aria-label={`${rating.sport} ${ratingSummary?.label ?? "Rating"}: ${ratingSummary?.value ?? "Unranked"}`}
+                                  >
+                                    <span aria-hidden>{visuals.icon}</span>
+                                    <span className="player-card__rating-text">
+                                      <span className="player-card__rating-sport">{rating.sport}</span>
+                                      <span className="player-card__rating-value">
+                                        {ratingSummary?.value ?? "Unranked"}
+                                      </span>
+                                    </span>
+                                  </span>
+                                );
+                              })
+                            ) : (
+                              <span className="player-card__rating player-card__rating--empty" role="listitem">
+                                <span aria-hidden>🏅</span>
+                                <span className="player-card__rating-value">No ratings yet</span>
+                              </span>
+                            )}
+                          </div>
+
+                          <dl
+                            className="player-card__quick-stats"
+                            aria-label={`Quick stats for ${p.name}`}
                           >
-                            {p.hidden ? "Unhide" : "Hide"}
-                          </button>
-                          <button
-                            type="button"
-                            className="player-list__action player-list__delete"
-                            onClick={() => handleDelete(p.id)}
+                            <div className="player-card__stat">
+                              <dt>Matches</dt>
+                              <dd>{matchesPlayed > 0 ? matchesPlayed : "—"}</dd>
+                            </div>
+                            <div className="player-card__stat">
+                              <dt>Win rate</dt>
+                              <dd>{winRate}</dd>
+                            </div>
+                            <div className="player-card__stat">
+                              <dt>Last played</dt>
+                              <dd>{formatLastPlayed(summary)}</dd>
+                            </div>
+                          </dl>
+
+                          <div
+                            className={`player-card__streak player-card__streak--${streak.tone}`}
+                            aria-label={`${streak.label}: ${streak.value}`}
                           >
-                            Delete
-                          </button>
-                          <button
-                            type="button"
-                            className="player-list__action player-list__delete"
-                            onClick={() => handleDelete(p.id, true)}
+                            <span className="player-card__streak-label">{streak.label}</span>
+                            <span className="player-card__streak-value">{streak.value}</span>
+                          </div>
+
+                          {p.badges && p.badges.length > 0 ? (
+                            <div
+                              className="player-list__badges player-card__badges"
+                              aria-label={`Badges for ${p.name}`}
+                            >
+                              {p.badges.slice(0, 3).map((badge) => (
+                                <span
+                                  key={badge.id}
+                                  className={`badge-pill badge-pill--${(badge.rarity || "common").toLowerCase()}`}
+                                >
+                                  <span aria-hidden>{badge.icon || "🏅"}</span>
+                                  <span className="sr-only">{badge.rarity} badge:</span>
+                                  <span>{badge.name}</span>
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="player-card__badges player-card__badges--empty" aria-label="No badges earned yet">
+                              <span className="player-card__badge-placeholder">Earn badges by playing matches</span>
+                            </div>
+                          )}
+                        </Link>
+                        {admin && (
+                          <div
+                            className="player-list__admin"
+                            role="group"
+                            aria-label={`Admin controls for ${p.name}`}
                           >
-                            Hard delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </li>
-                ))}
+                            <label className="player-list__label" htmlFor={`country-${p.id}`}>
+                              Country:
+                            </label>
+                            <select
+                              id={`country-${p.id}`}
+                              aria-label={`Country for ${p.name}`}
+                              value={p.country_code ?? ""}
+                              onChange={(e) => handleCountryChange(p, e.target.value)}
+                              disabled={updatingLocation === p.id}
+                              className="input player-list__select"
+                            >
+                              <option value="">Unspecified</option>
+                              {COUNTRY_OPTIONS.map((option) => (
+                                <option key={option.code} value={option.code}>
+                                  {option.name}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              className="player-list__action player-list__toggle"
+                              onClick={() => handleToggleVisibility(p)}
+                              disabled={updatingVisibility === p.id}
+                            >
+                              {p.hidden ? "Unhide" : "Hide"}
+                            </button>
+                            <button
+                              type="button"
+                              className="player-list__action player-list__delete"
+                              onClick={() => handleDelete(p.id)}
+                            >
+                              Delete
+                            </button>
+                            <button
+                              type="button"
+                              className="player-list__action player-list__delete"
+                              onClick={() => handleDelete(p.id, true)}
+                            >
+                              Hard delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             </>
           )}
@@ -624,33 +782,36 @@ export default function PlayersPage() {
 
 function PlayerListSkeleton({ count = 6 }: { count?: number }) {
   return (
-    <ul className="player-list" aria-hidden>
+    <ul className="player-list player-card-grid" aria-hidden>
       {Array.from({ length: count }).map((_, index) => (
         <li key={`player-skeleton-${index}`} className="player-list__item">
-          <div className="player-list__card" aria-hidden>
-            <div className="player-list__row">
+          <div className="player-list__card player-card" aria-hidden>
+            <div className="player-card__header">
               <span
                 className="skeleton"
-                style={{ width: "45%", maxWidth: "220px", height: "1rem" }}
+                style={{ width: "55%", maxWidth: "240px", height: "1.1rem" }}
               />
               <span
                 className="skeleton"
-                style={{ width: "30%", maxWidth: "140px", height: "0.8rem" }}
+                style={{ width: "26%", maxWidth: "140px", height: "0.95rem" }}
               />
             </div>
-            <div className="player-list__row" style={{ gap: "0.35rem" }}>
-              <span
-                className="skeleton"
-                style={{ width: "28%", maxWidth: "120px", height: "0.75rem" }}
-              />
-              <span
-                className="skeleton"
-                style={{ width: "22%", maxWidth: "100px", height: "0.75rem" }}
-              />
-              <span
-                className="skeleton"
-                style={{ width: "18%", maxWidth: "80px", height: "0.75rem" }}
-              />
+            <div className="player-card__ratings">
+              <span className="skeleton" style={{ width: "38%", height: "1.85rem" }} />
+              <span className="skeleton" style={{ width: "32%", height: "1.85rem" }} />
+            </div>
+            <div className="player-card__quick-stats">
+              <span className="skeleton" style={{ width: "30%", height: "1.4rem" }} />
+              <span className="skeleton" style={{ width: "30%", height: "1.4rem" }} />
+              <span className="skeleton" style={{ width: "30%", height: "1.4rem" }} />
+            </div>
+            <div className="player-card__streak player-card__streak--neutral">
+              <span className="skeleton" style={{ width: "28%", height: "1rem" }} />
+            </div>
+            <div className="player-card__badges">
+              <span className="skeleton" style={{ width: "22%", height: "1.4rem" }} />
+              <span className="skeleton" style={{ width: "22%", height: "1.4rem" }} />
+              <span className="skeleton" style={{ width: "22%", height: "1.4rem" }} />
             </div>
           </div>
         </li>

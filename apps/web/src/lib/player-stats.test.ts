@@ -20,6 +20,8 @@ describe("normalizeMatchSummary", () => {
       draws: 1,
       total: 9,
       winPct: 0.5555,
+      streak: null,
+      lastPlayedAt: null,
     });
   });
 
@@ -56,7 +58,15 @@ describe("normalizeMatchSummary", () => {
         total: 0,
         winPct: 0,
       })
-    ).toEqual({ wins: 0, losses: 0, draws: 0, total: 0, winPct: 0 });
+    ).toEqual({
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      total: 0,
+      winPct: 0,
+      streak: null,
+      lastPlayedAt: null,
+    });
   });
 
   it("returns null when a zero total includes wins or losses", () => {

@@ -242,6 +242,10 @@ const CURATED_SECTIONS: Record<CuratedSectionKey, {
   },
 };
 
+const SHOW_CURATED_HIGHLIGHTS =
+  process.env.NEXT_PUBLIC_ENABLE_CURATED_HIGHLIGHTS !== "false" &&
+  process.env.NODE_ENV !== "test";
+
 const LOAD_TIMEOUT_MS = 15000;
 const PLAYERS_ERROR_MESSAGE = "Failed to load players.";
 const PLAYERS_SERVER_ERROR_MESSAGE =
@@ -521,6 +525,8 @@ export default function PlayersPage() {
   ]);
 
   const loadCuratedSections = useCallback(async () => {
+    if (!SHOW_CURATED_HIGHLIGHTS) return;
+
     await Promise.all(
       Object.entries(CURATED_SECTIONS).map(async ([key, config]) => {
         const sectionKey = key as CuratedSectionKey;
@@ -564,7 +570,9 @@ export default function PlayersPage() {
   }, [admin]);
   useEffect(() => {
     void load();
-    void loadCuratedSections();
+    if (SHOW_CURATED_HIGHLIGHTS) {
+      void loadCuratedSections();
+    }
     return () => {
       if (activeLoadTimeout.current) {
         clearTimeout(activeLoadTimeout.current);
@@ -1032,11 +1040,13 @@ export default function PlayersPage() {
               )}
             </div>
           </div>
-          <CuratedHighlights
-            sections={curatedSections}
-            admin={admin}
-            sportFilter={sportFilter}
-          />
+          {SHOW_CURATED_HIGHLIGHTS && (
+            <CuratedHighlights
+              sections={curatedSections}
+              admin={admin}
+              sportFilter={sportFilter}
+            />
+          )}
           {filteredPlayers.length === 0 && debouncedSearch.trim() !== "" ? (
             <div role="status" aria-live="polite" className="player-list__empty">
               <p className="font-semibold">No players match your search.</p>

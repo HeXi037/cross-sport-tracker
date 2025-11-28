@@ -319,6 +319,20 @@ export default function PlayersPage() {
       ),
   );
 
+  const sportOptions = useMemo(() => {
+    const sports = new Set<string>();
+    for (const player of players) {
+      for (const rating of player.ratings ?? []) {
+        if (rating.sport) {
+          sports.add(rating.sport);
+        }
+      }
+    }
+    return Array.from(sports).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" }),
+    );
+  }, [players]);
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -562,20 +576,6 @@ export default function PlayersPage() {
       }
     };
   }, [load, loadCuratedSections]);
-
-  const sportOptions = useMemo(() => {
-    const sports = new Set<string>();
-    for (const player of players) {
-      for (const rating of player.ratings ?? []) {
-        if (rating.sport) {
-          sports.add(rating.sport);
-        }
-      }
-    }
-    return Array.from(sports).sort((a, b) =>
-      a.localeCompare(b, undefined, { sensitivity: "base" }),
-    );
-  }, [players]);
 
   const clubOptions = useMemo(() => {
     const options = new Map<string, string>();

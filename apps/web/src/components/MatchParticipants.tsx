@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { ComponentPropsWithoutRef, ElementType } from 'react';
 import PlayerName, { PlayerInfo } from './PlayerName';
 import { resolveText } from '../lib/text';
@@ -9,6 +10,7 @@ type BaseProps = {
   separatorSymbol?: string;
   versusSymbol?: string;
   className?: string;
+  linkToProfile?: boolean;
 };
 
 type MatchParticipantsProps<T extends ElementType> = BaseProps &
@@ -28,6 +30,7 @@ export default function MatchParticipants<
   separatorSymbol = '&',
   versusSymbol = 'vs',
   className,
+  linkToProfile = false,
   ...rest
 }: MatchParticipantsProps<T>) {
   const Component = (as ?? DEFAULT_ELEMENT) as ElementType;
@@ -41,6 +44,19 @@ export default function MatchParticipants<
     return <Component className={classes} {...rest} />;
   }
 
+  const wrapWithProfileLink = (player: PlayerInfo, content: JSX.Element) => {
+    if (!linkToProfile) return content;
+
+    return (
+      <Link
+        href={`/players/${encodeURIComponent(player.id)}`}
+        className="match-participants__entry"
+      >
+        {content}
+      </Link>
+    );
+  };
+
   return (
     <Component className={classes} {...rest}>
       {sides.map((side, sideIndex) => {
@@ -50,11 +66,14 @@ export default function MatchParticipants<
           if (playerIndex === 0) {
             renderedSide.push(
               <span key={player.id} className="match-participants__entry">
-                <PlayerName
-                  player={player}
-                  showInitialsText={false}
-                  decorativeAvatar
-                />
+                {wrapWithProfileLink(
+                  player,
+                  <PlayerName
+                    player={player}
+                    showInitialsText={false}
+                    decorativeAvatar
+                  />,
+                )}
               </span>
             );
             return;
@@ -72,11 +91,14 @@ export default function MatchParticipants<
                 {visualSeparator}
               </span>
               <span className="match-participants__entry">
-                <PlayerName
-                  player={player}
-                  showInitialsText={false}
-                  decorativeAvatar
-                />
+                {wrapWithProfileLink(
+                  player,
+                  <PlayerName
+                    player={player}
+                    showInitialsText={false}
+                    decorativeAvatar
+                  />,
+                )}
               </span>
             </span>
           );

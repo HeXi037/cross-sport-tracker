@@ -395,6 +395,16 @@ describe("MatchDetailPage", () => {
       within(participantItems[0]).getByText(/winner/i)
     ).toBeInTheDocument();
 
+    const anaLink = within(participantItems[0]).getByRole("link", {
+      name: "Ana",
+    });
+    expect(anaLink).toHaveAttribute("href", "/players/p1");
+
+    const beaLink = within(participantItems[0]).getByRole("link", {
+      name: "Bea",
+    });
+    expect(beaLink).toHaveAttribute("href", "/players/p2");
+
     const totalsTable = screen.getByRole("table", { name: /score totals/i });
     const totalRows = within(totalsTable).getAllByRole("row");
     expect(totalRows).toHaveLength(3);

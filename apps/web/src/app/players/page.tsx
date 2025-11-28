@@ -31,14 +31,49 @@ const SPORT_VISUALS: Record<
   string,
   { icon: string; colorVar: string; backgroundVar: string }
 > = {
-  tennis: { icon: "🎾", colorVar: "var(--color-accent-green)", backgroundVar: "#ecfdf3" },
-  soccer: { icon: "⚽", colorVar: "var(--color-accent-blue)", backgroundVar: "#e0f2fe" },
-  football: { icon: "🏈", colorVar: "#ea580c", backgroundVar: "#fff7ed" },
-  basketball: { icon: "🏀", colorVar: "#f97316", backgroundVar: "#fff7ed" },
-  pickleball: { icon: "🏓", colorVar: "#0ea5e9", backgroundVar: "#e0f2fe" },
-  volleyball: { icon: "🏐", colorVar: "#6366f1", backgroundVar: "#eef2ff" },
-  baseball: { icon: "⚾", colorVar: "#c026d3", backgroundVar: "#faf5ff" },
-  default: { icon: "🏅", colorVar: "var(--color-accent-blue)", backgroundVar: "#e5e7eb" },
+  tennis: {
+    icon: "🎾",
+    colorVar: "var(--color-accent-green)",
+    backgroundVar:
+      "color-mix(in srgb, var(--color-accent-green) 18%, var(--color-surface-elevated))",
+  },
+  soccer: {
+    icon: "⚽",
+    colorVar: "var(--color-accent-blue)",
+    backgroundVar:
+      "color-mix(in srgb, var(--color-accent-blue) 18%, var(--color-surface-elevated))",
+  },
+  football: {
+    icon: "🏈",
+    colorVar: "#ea580c",
+    backgroundVar: "color-mix(in srgb, #ea580c 20%, var(--color-surface-elevated))",
+  },
+  basketball: {
+    icon: "🏀",
+    colorVar: "#f97316",
+    backgroundVar: "color-mix(in srgb, #f97316 20%, var(--color-surface-elevated))",
+  },
+  pickleball: {
+    icon: "🏓",
+    colorVar: "#0ea5e9",
+    backgroundVar: "color-mix(in srgb, #0ea5e9 20%, var(--color-surface-elevated))",
+  },
+  volleyball: {
+    icon: "🏐",
+    colorVar: "#6366f1",
+    backgroundVar: "color-mix(in srgb, #6366f1 20%, var(--color-surface-elevated))",
+  },
+  baseball: {
+    icon: "⚾",
+    colorVar: "#c026d3",
+    backgroundVar: "color-mix(in srgb, #c026d3 20%, var(--color-surface-elevated))",
+  },
+  default: {
+    icon: "🏅",
+    colorVar: "var(--color-accent-blue)",
+    backgroundVar:
+      "color-mix(in srgb, var(--color-accent-blue) 16%, var(--color-surface-elevated))",
+  },
 };
 
 const COUNTRY_NAME_BY_CODE = COUNTRY_OPTIONS.reduce<Record<string, string>>(
@@ -1131,13 +1166,17 @@ export default function PlayersPage() {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-4">
-              <label className="flex items-center gap-2 text-sm font-medium">
+              <label
+                className="player-list__filter-toggle"
+                htmlFor="hide-inactive-players"
+              >
                 <input
+                  id="hide-inactive-players"
                   type="checkbox"
                   checked={hideInactive}
                   onChange={(e) => setHideInactive(e.target.checked)}
                 />
-                Hide inactive players
+                <span>Hide inactive players</span>
               </label>
               {hasActiveFilters && (
                 <button

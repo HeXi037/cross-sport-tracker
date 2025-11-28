@@ -14,6 +14,7 @@
   --color-accent-red: #ba0c2f;
   --color-accent-red-hover: #8e0a23;
   --color-heading: #8e0a23;
+  --color-accent-green: #16a34a;
   --color-accent-blue: #1a73e8;
   --color-focus-ring: #2563eb;
   --color-focus-ring-soft: rgba(37, 99, 235, 0.3);
@@ -88,6 +89,7 @@ html.theme-dark {
   --color-accent-red: #f87171;
   --color-accent-red-hover: #dc2626;
   --color-heading: #fca5a5;
+  --color-accent-green: #4ade80;
   --color-accent-blue: #60a5fa;
   --color-focus-ring: #60a5fa;
   --color-focus-ring-soft: rgba(96, 165, 250, 0.4);
@@ -2081,8 +2083,8 @@ html.theme-dark .record-sport-card:hover {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  background: #f3f4f6;
-  color: rgba(10, 31, 68, 0.72);
+  background: color-mix(in srgb, var(--color-text) 10%, var(--color-surface-elevated));
+  color: color-mix(in srgb, var(--color-text) 85%, transparent);
   padding: 0.2rem 0.55rem;
   border-radius: 999px;
 }
@@ -2108,12 +2110,12 @@ html.theme-dark .record-sport-card:hover {
   padding: 0.45rem 0.6rem;
   border-radius: 10px;
   font-weight: 600;
-  background: #f3f4f6;
+  background: color-mix(in srgb, var(--color-text) 8%, var(--color-surface-elevated));
 }
 
 .player-card__rating--empty {
   color: var(--color-text-muted);
-  background: #f8fafc;
+  background: color-mix(in srgb, var(--color-text) 6%, var(--color-surface-elevated));
 }
 
 .player-card__rating-text {
@@ -2142,9 +2144,9 @@ html.theme-dark .record-sport-card:hover {
 
 .player-card__stat {
   padding: 0.55rem 0.65rem;
-  background: #f8fafc;
+  background: color-mix(in srgb, var(--color-surface-elevated) 85%, var(--color-surface));
   border-radius: 8px;
-  border: 1px solid rgba(10, 31, 68, 0.05);
+  border: 1px solid var(--color-border-subtle);
 }
 
 .player-card__stat dt {
@@ -2156,7 +2158,7 @@ html.theme-dark .record-sport-card:hover {
 .player-card__stat dd {
   font-weight: 700;
   margin: 0;
-  color: #0f172a;
+  color: var(--color-text);
 }
 
 .player-card__streak {
@@ -2165,8 +2167,8 @@ html.theme-dark .record-sport-card:hover {
   justify-content: space-between;
   border-radius: 10px;
   padding: 0.55rem 0.7rem;
-  border: 1px solid rgba(10, 31, 68, 0.08);
-  background: #f8fafc;
+  border: 1px solid var(--color-border-subtle);
+  background: color-mix(in srgb, var(--color-surface-elevated) 82%, var(--color-surface));
   gap: 0.5rem;
 }
 
@@ -2180,20 +2182,20 @@ html.theme-dark .record-sport-card:hover {
 }
 
 .player-card__streak--positive {
-  border-color: rgba(21, 128, 61, 0.35);
-  background: #ecfdf3;
-  color: #166534;
+  border-color: color-mix(in srgb, var(--color-success) 45%, var(--color-border-subtle));
+  background: color-mix(in srgb, var(--color-success) 18%, var(--color-surface-elevated));
+  color: color-mix(in srgb, var(--color-success) 90%, var(--color-text));
 }
 
 .player-card__streak--negative {
-  border-color: rgba(185, 28, 28, 0.35);
-  background: #fef2f2;
-  color: #991b1b;
+  border-color: color-mix(in srgb, var(--color-text-danger-strong) 45%, var(--color-border-subtle));
+  background: color-mix(in srgb, var(--color-text-danger-strong) 18%, var(--color-surface-elevated));
+  color: color-mix(in srgb, var(--color-text-danger-strong) 92%, var(--color-text));
 }
 
 .player-card__streak--neutral {
-  background: #f8fafc;
-  color: rgba(10, 31, 68, 0.8);
+  background: color-mix(in srgb, var(--color-text) 6%, var(--color-surface-elevated));
+  color: color-mix(in srgb, var(--color-text) 85%, transparent);
 }
 
 .player-card__badges {
@@ -2217,6 +2219,30 @@ html.theme-dark .record-sport-card:hover {
   align-items: baseline;
   justify-content: space-between;
   gap: 0.5rem;
+}
+
+.player-list__filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 0.85rem;
+  background: color-mix(in srgb, var(--color-surface-elevated) 88%, var(--color-surface));
+  border-radius: 10px;
+  border: 1px solid var(--color-border-subtle);
+  font-weight: 650;
+  color: var(--color-text);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.player-list__filter-toggle:hover {
+  border-color: color-mix(in srgb, var(--color-accent-blue) 45%, var(--color-border-subtle));
+  background: color-mix(in srgb, var(--color-surface-elevated) 92%, var(--color-surface));
+}
+
+.player-list__filter-toggle input[type="checkbox"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--color-accent-blue);
 }
 
 .player-list__name {

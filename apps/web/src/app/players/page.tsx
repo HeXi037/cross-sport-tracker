@@ -131,7 +131,7 @@ function getBestRatingValue(player: Player, sportFilter?: string): number | null
   const ratings = player.ratings ?? [];
   let targetRatings = ratings;
 
-  if (normalizedSport) {
+  if (normalizedSport && normalizedSport !== "all") {
     targetRatings = ratings.filter(
       (r) => r.sport?.toLowerCase() === normalizedSport,
     );
@@ -161,7 +161,7 @@ function getRatingGrowth(player: Player, sportFilter?: string): number | null {
   const ratings = player.ratings ?? [];
   let targetRatings = ratings;
 
-  if (normalizedSport) {
+  if (normalizedSport && normalizedSport !== "all") {
     targetRatings = ratings.filter(
       (r) => r.sport?.toLowerCase() === normalizedSport,
     );

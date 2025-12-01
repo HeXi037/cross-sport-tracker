@@ -49,6 +49,18 @@ interface IdMap {
   b2: string;
 }
 
+type StoredPairing = {
+  teamA: string[];
+  teamB: string[];
+  count: number;
+};
+
+type PlayerPreferences = {
+  lastSelection: IdMap | null;
+  recentPlayers: string[];
+  favouritePairings: StoredPairing[];
+};
+
 const BOWLING_FRAME_COUNT = 10;
 const MAX_BOWLING_PLAYERS = 6;
 
@@ -56,6 +68,7 @@ const DUPLICATE_PLAYERS_ERROR_CODE = "match_duplicate_players";
 const DUPLICATE_PLAYERS_REGEX = /duplicate players:\s*(.+)/i;
 
 const PADEL_AMERICANO_STORAGE_KEY = "record:padel-americano:defaults";
+const PLAYER_PREFERENCES_STORAGE_KEY = "record:players:preferences";
 const DEFAULT_PADEL_AMERICANO_TARGET = "32";
 
 function parseDuplicatePlayerNames(message?: string | null): string[] {
@@ -731,6 +744,18 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [ids, setIds] = useState<IdMap>({ a1: "", a2: "", b1: "", b2: "" });
+  const [playerSearch, setPlayerSearch] = useState<IdMap>({
+    a1: "",
+    a2: "",
+    b1: "",
+    b2: "",
+  });
+  const [playerPreferences, setPlayerPreferences] = useState<PlayerPreferences>({
+    lastSelection: null,
+    recentPlayers: [],
+    favouritePairings: [],
+  });
+  const [selectedPairingKey, setSelectedPairingKey] = useState<string>("");
   const [bowlingEntries, setBowlingEntries] = useState<BowlingEntry[]>([
     { playerId: "", frames: createEmptyBowlingFrames() },
   ]);
@@ -866,10 +891,54 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const gameSeriesHintId = useId();
   const gameSeriesStatusId = useId();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const preferredPlayerIds = useMemo(() => new Set(players.map((p) => p.id)), [
+    players,
+  ]);
 
   useEffect(() => {
     setGameScores(createGameScoreRows(maxGames));
   }, [maxGames]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(PLAYER_PREFERENCES_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw) as PlayerPreferences | null;
+      if (!parsed || typeof parsed !== "object") {
+        return;
+      }
+      setPlayerPreferences({
+        lastSelection: parsed.lastSelection ?? null,
+        recentPlayers: Array.isArray(parsed.recentPlayers)
+          ? parsed.recentPlayers.filter((id) => typeof id === "string")
+          : [],
+        favouritePairings: Array.isArray(parsed.favouritePairings)
+          ? parsed.favouritePairings
+              .filter(
+                (pairing): pairing is StoredPairing =>
+                  Boolean(
+                    pairing &&
+                      Array.isArray(pairing.teamA) &&
+                      Array.isArray(pairing.teamB) &&
+                      typeof pairing.count === "number",
+                  ),
+              )
+              .map((pairing) => ({
+                teamA: pairing.teamA.map(String),
+                teamB: pairing.teamB.map(String),
+                count: pairing.count,
+              }))
+          : [],
+      });
+    } catch (err) {
+      console.warn("Failed to parse player preferences", err);
+    }
+  }, []);
 
   useEffect(() => {
     if (!isPadelAmericano) {
@@ -1430,6 +1499,238 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     setSuccessMessage(null);
   };
 
+  const applyPlayerSelection = useCallback(
+    (selection: IdMap) => {
+      setIds(selection);
+      setError(null);
+      setDuplicatePlayerNames([]);
+      setSuccessMessage(null);
+      const shouldEnableDoubles = Boolean(
+        selection.a2 || selection.b2 || doubles || isPadel,
+      );
+      setDoubles(shouldEnableDoubles);
+    },
+    [doubles, isPadel],
+  );
+
+  const persistPlayerPreferences = useCallback(
+    (selection: IdMap) => {
+      setPlayerPreferences((previous) => {
+        const selectedIds = [selection.a1, selection.a2, selection.b1, selection.b2]
+          .filter(Boolean)
+          .map(String);
+        const recent = Array.from(
+          new Set([
+            ...selectedIds,
+            ...(previous?.recentPlayers?.filter(Boolean) ?? []),
+          ]),
+        ).slice(0, 8);
+
+        const teamAIds = [selection.a1, selection.a2].filter(Boolean).map(String);
+        const teamBIds = [selection.b1, selection.b2].filter(Boolean).map(String);
+        let favouritePairings = previous?.favouritePairings ?? [];
+        if (teamAIds.length > 0 && teamBIds.length > 0) {
+          const existingIndex = favouritePairings.findIndex(
+            (pairing) =>
+              pairing.teamA.join("|") === teamAIds.join("|") &&
+              pairing.teamB.join("|") === teamBIds.join("|"),
+          );
+          if (existingIndex >= 0) {
+            favouritePairings = favouritePairings.map((pairing, index) =>
+              index === existingIndex
+                ? { ...pairing, count: pairing.count + 1 }
+                : pairing,
+            );
+          } else {
+            favouritePairings = [
+              { teamA: teamAIds, teamB: teamBIds, count: 1 },
+              ...favouritePairings,
+            ].slice(0, 6);
+          }
+        }
+
+        const next: PlayerPreferences = {
+          lastSelection: selection,
+          recentPlayers: recent,
+          favouritePairings,
+        };
+
+        if (typeof window !== "undefined") {
+          try {
+            window.localStorage.setItem(
+              PLAYER_PREFERENCES_STORAGE_KEY,
+              JSON.stringify(next),
+            );
+          } catch (storageErr) {
+            console.warn("Failed to persist player preferences", storageErr);
+          }
+        }
+
+        return next;
+      });
+    },
+    [],
+  );
+
+  const recentPlayers = useMemo(() => {
+    const mapped = playerPreferences.recentPlayers
+      .map((id) => players.find((p) => p.id === id))
+      .filter((player): player is Player => Boolean(player));
+    return mapped;
+  }, [playerPreferences.recentPlayers, players]);
+
+  const mePlayer = useMemo(
+    () => players.find((player) => player.id === session.userId) ?? null,
+    [players, session.userId],
+  );
+
+  const presetPairings = useMemo(() => {
+    const lookupByName = new Map(
+      players.map((p) => [p.name.trim().toLowerCase(), p.id]),
+    );
+    const maybePairing = [
+      {
+        teamA: ["Emil", "Alex"],
+        teamB: ["Jonas", "Sara"],
+      },
+    ]
+      .map(({ teamA, teamB }) => {
+        const teamAIds = teamA
+          .map((name) => lookupByName.get(name.trim().toLowerCase()))
+          .filter((id): id is string => Boolean(id));
+        const teamBIds = teamB
+          .map((name) => lookupByName.get(name.trim().toLowerCase()))
+          .filter((id): id is string => Boolean(id));
+        if (teamAIds.length !== teamA.length || teamBIds.length !== teamB.length) {
+          return null;
+        }
+        return { teamA: teamAIds, teamB: teamBIds, label: "Favourite pairing" };
+      })
+      .filter((pairing): pairing is { teamA: string[]; teamB: string[]; label: string } =>
+        Boolean(pairing),
+      );
+    return maybePairing;
+  }, [players]);
+
+  const favouritePairingOptions = useMemo(() => {
+    const namedLookup = new Map(players.map((p) => [p.id, p.name]));
+    const stored = playerPreferences.favouritePairings
+      .filter(
+        (pairing) =>
+          pairing.teamA.every((id) => preferredPlayerIds.has(id)) &&
+          pairing.teamB.every((id) => preferredPlayerIds.has(id)),
+      )
+      .map((pairing) => ({
+        key: `${pairing.teamA.join("|")}::${pairing.teamB.join("|")}`,
+        teamA: pairing.teamA,
+        teamB: pairing.teamB,
+        label: `${pairing.teamA
+          .map((id) => namedLookup.get(id) ?? "Player")
+          .join(" + ")} vs ${pairing.teamB
+          .map((id) => namedLookup.get(id) ?? "Player")
+          .join(" + ")}`,
+        count: pairing.count,
+      }));
+
+    const presets = presetPairings.map((pairing) => ({
+      key: `${pairing.teamA.join("|")}::${pairing.teamB.join("|")}`,
+      teamA: pairing.teamA,
+      teamB: pairing.teamB,
+      label: `${pairing.label}: ${pairing.teamA
+        .map((id) => namedLookup.get(id) ?? "")
+        .join(" + ")} vs ${pairing.teamB
+        .map((id) => namedLookup.get(id) ?? "")
+        .join(" + ")}`,
+      count: 0,
+    }));
+
+    const byKey = new Map<string, (typeof stored)[number]>();
+    [...presets, ...stored].forEach((pairing) => {
+      const existing = byKey.get(pairing.key);
+      if (!existing || pairing.count > existing.count) {
+        byKey.set(pairing.key, pairing);
+      }
+    });
+
+    return Array.from(byKey.values()).sort((a, b) => b.count - a.count);
+  }, [playerPreferences.favouritePairings, players, presetPairings, preferredPlayerIds]);
+
+  const handleApplyLastMatch = useCallback(() => {
+    if (playerPreferences.lastSelection) {
+      applyPlayerSelection(playerPreferences.lastSelection);
+    }
+  }, [applyPlayerSelection, playerPreferences.lastSelection]);
+
+  const handleApplyPairing = useCallback(() => {
+    const pairing = favouritePairingOptions.find(
+      (option) => option.key === selectedPairingKey,
+    );
+    if (!pairing) {
+      return;
+    }
+    applyPlayerSelection({
+      a1: pairing.teamA[0] ?? "",
+      a2: pairing.teamA[1] ?? "",
+      b1: pairing.teamB[0] ?? "",
+      b2: pairing.teamB[1] ?? "",
+    });
+  }, [applyPlayerSelection, favouritePairingOptions, selectedPairingKey]);
+
+  const handleSwapTeams = useCallback(() => {
+    setIds((prev) => ({ a1: prev.b1, a2: prev.b2, b1: prev.a1, b2: prev.a2 }));
+    setError(null);
+    setDuplicatePlayerNames([]);
+    setSuccessMessage(null);
+  }, []);
+
+  const handleRotatePositions = useCallback(() => {
+    setIds((prev) => ({ a1: prev.a2 || prev.a1, a2: prev.a1, b1: prev.b2 || prev.b1, b2: prev.b1 }));
+    setError(null);
+    setDuplicatePlayerNames([]);
+    setSuccessMessage(null);
+  }, []);
+
+  const handlePlayerSearchChange = useCallback(
+    (key: keyof IdMap, value: string) => {
+      setPlayerSearch((prev) => ({ ...prev, [key]: value }));
+    },
+    [],
+  );
+
+  const filteredPlayerOptions = useCallback(
+    (slot: keyof IdMap) => {
+      const query = playerSearch[slot]?.trim().toLowerCase() ?? "";
+      const seen = new Set<string>();
+      const matchesQuery = (player: Player | null) => {
+        if (!player) return false;
+        if (!query) return true;
+        return player.name.toLowerCase().includes(query);
+      };
+
+      const meOption = mePlayer && matchesQuery(mePlayer)
+        ? [{ id: mePlayer.id, name: `Me (${mePlayer.name})` }]
+        : [];
+
+      const recents = recentPlayers.filter((player) => matchesQuery(player));
+      const recentOptions = recents
+        .filter((p) => !seen.has(p.id))
+        .map((p) => {
+          seen.add(p.id);
+          return { id: p.id, name: p.name };
+        });
+
+      const remaining = players
+        .filter((player) => matchesQuery(player) && !seen.has(player.id))
+        .map((player) => {
+          seen.add(player.id);
+          return { id: player.id, name: player.name };
+        });
+
+      return { meOption, recentOptions, remaining };
+    },
+    [mePlayer, playerSearch, players, recentPlayers],
+  );
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (isAnonymous) {
@@ -1666,6 +1967,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      persistPlayerPreferences(ids);
       try {
         await invalidateMatchesCache();
       } catch (cacheErr) {
@@ -1683,6 +1985,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         if (usesGameSeries) {
           setGameScores(createGameScoreRows(maxGames));
         }
+        setPlayerSearch({ a1: "", a2: "", b1: "", b2: "" });
         setHasAttemptedSubmit(false);
         setDuplicatePlayerNames([]);
         setSuccessMessage(recordT("messages.padelAmericanoSaved"));
@@ -2201,95 +2504,271 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
               {sportCopy.playersHint && (
                 <p className="form-hint">{sportCopy.playersHint}</p>
               )}
-              <div className="form-grid form-grid--two">
-                <label className="form-field" htmlFor="record-player-a1">
-                  <span className="form-label">Team A player 1</span>
-                  <select
-                    id="record-player-a1"
-                    value={ids.a1}
-                    onChange={(e) => handleIdChange("a1", e.target.value)}
-                    aria-invalid={
-                      duplicateHintActive && isDuplicateSelection(ids.a1)
-                        ? true
-                        : undefined
-                    }
-                    aria-describedby={duplicateHintId}
-                  >
-                    <option value="">Select player</option>
-                    {players.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {doubles && (
-                  <label className="form-field" htmlFor="record-player-a2">
-                    <span className="form-label">Team A player 2</span>
+              <div className="player-actions">
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={handleApplyLastMatch}
+                  disabled={!playerPreferences.lastSelection}
+                >
+                  Use last match players
+                </button>
+                <div className="player-actions__favourite">
+                  <label className="form-label" htmlFor="record-favourite-pairing">
+                    Use favourite pairing
+                  </label>
+                  <div className="player-actions__row">
                     <select
-                      id="record-player-a2"
-                      value={ids.a2}
-                      onChange={(e) => handleIdChange("a2", e.target.value)}
-                      aria-invalid={
-                        duplicateHintActive && isDuplicateSelection(ids.a2)
-                          ? true
-                          : undefined
-                      }
-                      aria-describedby={duplicateHintId}
+                      id="record-favourite-pairing"
+                      value={selectedPairingKey}
+                      onChange={(event) => setSelectedPairingKey(event.target.value)}
                     >
-                      <option value="">Select player</option>
-                      {players.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
+                      <option value="">Choose a pairing</option>
+                      {favouritePairingOptions.map((pairing) => (
+                        <option key={pairing.key} value={pairing.key}>
+                          {pairing.label}
+                          {pairing.count > 0 ? ` (${pairing.count}×)` : ""}
                         </option>
                       ))}
                     </select>
-                  </label>
-                )}
-                <label className="form-field" htmlFor="record-player-b1">
-                  <span className="form-label">Team B player 1</span>
-                  <select
-                    id="record-player-b1"
-                    value={ids.b1}
-                    onChange={(e) => handleIdChange("b1", e.target.value)}
-                    aria-invalid={
-                      duplicateHintActive && isDuplicateSelection(ids.b1)
-                        ? true
-                        : undefined
-                    }
-                    aria-describedby={duplicateHintId}
-                  >
-                    <option value="">Select player</option>
-                    {players.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {doubles && (
-                  <label className="form-field" htmlFor="record-player-b2">
-                    <span className="form-label">Team B player 2</span>
-                    <select
-                      id="record-player-b2"
-                      value={ids.b2}
-                      onChange={(e) => handleIdChange("b2", e.target.value)}
-                      aria-invalid={
-                        duplicateHintActive && isDuplicateSelection(ids.b2)
-                          ? true
-                          : undefined
-                      }
-                      aria-describedby={duplicateHintId}
+                    <button
+                      type="button"
+                      className="button-secondary"
+                      onClick={handleApplyPairing}
+                      disabled={!selectedPairingKey}
                     >
-                      <option value="">Select player</option>
-                      {players.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
+                      Apply
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="team-actions">
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={handleSwapTeams}
+                >
+                  Swap teams
+                </button>
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={handleRotatePositions}
+                >
+                  Rotate players
+                </button>
+              </div>
+              <div className="team-grid">
+                <div className="team-card">
+                  <div className="team-card__header">Team A</div>
+                  <div className="team-card__content">
+                    <div className="form-field">
+                      <label className="form-label" htmlFor="record-player-a1">
+                        Team A player 1
+                      </label>
+                      <input
+                        id="record-player-a1-search"
+                        type="search"
+                        value={playerSearch.a1}
+                        onChange={(event) =>
+                          handlePlayerSearchChange("a1", event.target.value)
+                        }
+                        placeholder="Search players"
+                        aria-label="Search Team A options"
+                      />
+                      <select
+                        id="record-player-a1"
+                        value={ids.a1}
+                        onChange={(e) => handleIdChange("a1", e.target.value)}
+                        aria-invalid={
+                          duplicateHintActive && isDuplicateSelection(ids.a1)
+                            ? true
+                            : undefined
+                        }
+                        aria-describedby={duplicateHintId}
+                      >
+                        <option value="">Select player</option>
+                        {filteredPlayerOptions("a1").meOption.map((option) => (
+                          <option key={`me-${option.id}`} value={option.id}>
+                            {option.name}
+                          </option>
+                        ))}
+                        {filteredPlayerOptions("a1").recentOptions.length > 0 && (
+                          <optgroup label="Recent">
+                            {filteredPlayerOptions("a1").recentOptions.map((option) => (
+                              <option key={`recent-${option.id}`} value={option.id}>
+                                {option.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        <optgroup label="All players">
+                          {filteredPlayerOptions("a1").remaining.map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {option.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      </select>
+                    </div>
+                    {doubles && (
+                      <div className="form-field">
+                        <label className="form-label" htmlFor="record-player-a2">
+                          Team A player 2
+                        </label>
+                        <input
+                          id="record-player-a2-search"
+                          type="search"
+                          value={playerSearch.a2}
+                          onChange={(event) =>
+                            handlePlayerSearchChange("a2", event.target.value)
+                          }
+                          placeholder="Search players"
+                          aria-label="Search Team A bench"
+                        />
+                        <select
+                          id="record-player-a2"
+                          value={ids.a2}
+                          onChange={(e) => handleIdChange("a2", e.target.value)}
+                          aria-invalid={
+                            duplicateHintActive && isDuplicateSelection(ids.a2)
+                              ? true
+                              : undefined
+                          }
+                          aria-describedby={duplicateHintId}
+                        >
+                          <option value="">Select player</option>
+                          {filteredPlayerOptions("a2").meOption.map((option) => (
+                            <option key={`me-${option.id}`} value={option.id}>
+                              {option.name}
+                            </option>
+                          ))}
+                          {filteredPlayerOptions("a2").recentOptions.length > 0 && (
+                            <optgroup label="Recent">
+                              {filteredPlayerOptions("a2").recentOptions.map((option) => (
+                                <option key={`recent-${option.id}`} value={option.id}>
+                                  {option.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                          <optgroup label="All players">
+                            {filteredPlayerOptions("a2").remaining.map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="team-card">
+                  <div className="team-card__header">Team B</div>
+                  <div className="team-card__content">
+                    <div className="form-field">
+                      <label className="form-label" htmlFor="record-player-b1">
+                        Team B player 1
+                      </label>
+                      <input
+                        id="record-player-b1-search"
+                        type="search"
+                        value={playerSearch.b1}
+                        onChange={(event) =>
+                          handlePlayerSearchChange("b1", event.target.value)
+                        }
+                        placeholder="Search players"
+                        aria-label="Search Team B options"
+                      />
+                      <select
+                        id="record-player-b1"
+                        value={ids.b1}
+                        onChange={(e) => handleIdChange("b1", e.target.value)}
+                        aria-invalid={
+                          duplicateHintActive && isDuplicateSelection(ids.b1)
+                            ? true
+                            : undefined
+                        }
+                        aria-describedby={duplicateHintId}
+                      >
+                        <option value="">Select player</option>
+                        {filteredPlayerOptions("b1").meOption.map((option) => (
+                          <option key={`me-${option.id}`} value={option.id}>
+                            {option.name}
+                          </option>
+                        ))}
+                        {filteredPlayerOptions("b1").recentOptions.length > 0 && (
+                          <optgroup label="Recent">
+                            {filteredPlayerOptions("b1").recentOptions.map((option) => (
+                              <option key={`recent-${option.id}`} value={option.id}>
+                                {option.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        <optgroup label="All players">
+                          {filteredPlayerOptions("b1").remaining.map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {option.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      </select>
+                    </div>
+                    {doubles && (
+                      <div className="form-field">
+                        <label className="form-label" htmlFor="record-player-b2">
+                          Team B player 2
+                        </label>
+                        <input
+                          id="record-player-b2-search"
+                          type="search"
+                          value={playerSearch.b2}
+                          onChange={(event) =>
+                            handlePlayerSearchChange("b2", event.target.value)
+                          }
+                          placeholder="Search players"
+                          aria-label="Search Team B bench"
+                        />
+                        <select
+                          id="record-player-b2"
+                          value={ids.b2}
+                          onChange={(e) => handleIdChange("b2", e.target.value)}
+                          aria-invalid={
+                            duplicateHintActive && isDuplicateSelection(ids.b2)
+                              ? true
+                              : undefined
+                          }
+                          aria-describedby={duplicateHintId}
+                        >
+                          <option value="">Select player</option>
+                          {filteredPlayerOptions("b2").meOption.map((option) => (
+                            <option key={`me-${option.id}`} value={option.id}>
+                              {option.name}
+                            </option>
+                          ))}
+                          {filteredPlayerOptions("b2").recentOptions.length > 0 && (
+                            <optgroup label="Recent">
+                              {filteredPlayerOptions("b2").recentOptions.map((option) => (
+                                <option key={`recent-${option.id}`} value={option.id}>
+                                  {option.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                          <optgroup label="All players">
+                            {filteredPlayerOptions("b2").remaining.map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
               {duplicatePlayerNames.length > 0 && (
                 <p

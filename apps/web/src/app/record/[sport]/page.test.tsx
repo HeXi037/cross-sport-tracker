@@ -49,6 +49,12 @@ vi.mock("../../../lib/useSessionSnapshot", () => ({
 const mockedUseSessionSnapshot = vi.mocked(useSessionSnapshot);
 const mockedRememberLoginRedirect = vi.mocked(rememberLoginRedirect);
 
+function getPlayerSelects() {
+  return screen
+    .getAllByRole("combobox")
+    .filter((element) => element.id.startsWith("record-player"));
+}
+
 describe("resolveRecordSportRoute", () => {
   afterEach(() => {
     router.push.mockReset();
@@ -204,7 +210,7 @@ describe("RecordSportForm", () => {
 
       await screen.findAllByText("Alice");
 
-      const selects = screen.getAllByRole("combobox");
+      const selects = getPlayerSelects();
       fireEvent.change(selects[0], { target: { value: "1" } });
       fireEvent.change(selects[1], { target: { value: "1" } });
       fireEvent.change(selects[2], { target: { value: "2" } });
@@ -271,7 +277,7 @@ describe("RecordSportForm", () => {
 
       await screen.findAllByText("Alex Smith");
 
-      const selects = screen.getAllByRole("combobox");
+      const selects = getPlayerSelects();
       fireEvent.change(selects[0], { target: { value: "1" } });
       fireEvent.change(selects[1], { target: { value: "3" } });
       fireEvent.change(selects[2], { target: { value: "2" } });
@@ -437,7 +443,7 @@ describe("RecordSportForm", () => {
     // enable doubles and select players
     const doublesRadio = screen.getByLabelText(/doubles/i);
     fireEvent.click(doublesRadio);
-    const selects = screen.getAllByRole("combobox");
+    const selects = getPlayerSelects();
     fireEvent.change(selects[0], { target: { value: "1" } });
     fireEvent.change(selects[1], { target: { value: "2" } });
     fireEvent.change(selects[2], { target: { value: "3" } });
@@ -769,7 +775,7 @@ describe("RecordSportForm", () => {
 
       await screen.findAllByText("Alice");
 
-      const selects = screen.getAllByRole("combobox");
+    const selects = getPlayerSelects();
       fireEvent.change(selects[0], { target: { value: "1" } });
       fireEvent.change(selects[1], { target: { value: "2" } });
       fireEvent.change(selects[2], { target: { value: "3" } });

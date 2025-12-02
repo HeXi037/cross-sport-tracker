@@ -48,6 +48,7 @@ interface SetScore {
 
 type TieBreakVisibility = boolean[];
 type SetErrors = string[];
+type SetTouched = boolean[];
 
 const COMMON_PADEL_SCORES = [
   { A: 6, B: 0 },
@@ -363,6 +364,7 @@ export default function RecordPadelPage() {
   const [bestOf, setBestOf] = useState("3");
   const [sets, setSets] = useState<SetScore[]>([{ ...EMPTY_SET }]);
   const [setErrors, setSetErrors] = useState<SetErrors>([""]);
+  const [setTouched, setSetTouched] = useState<SetTouched>([false]);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
@@ -505,6 +507,15 @@ export default function RecordPadelPage() {
     });
   }, [sets]);
 
+  useEffect(() => {
+    setSetTouched((prev) => {
+      const next = sets.map((_, idx) => prev[idx] ?? false);
+      return next.length === prev.length && next.every((value, i) => value === prev[i])
+        ? prev
+        : next;
+    });
+  }, [sets]);
+
   const isSetComplete = useCallback((set: SetScore) => {
     const aNum = Number(set.A);
     const bNum = Number(set.B);
@@ -574,6 +585,19 @@ export default function RecordPadelPage() {
       next[idx] = updated;
       return next;
     });
+    setSetTouched((prev) => {
+      const next = [...prev];
+      next[idx] = true;
+      return next;
+    });
+  };
+
+  const markSetTouched = (idx: number) => {
+    setSetTouched((prev) => {
+      const next = [...prev];
+      next[idx] = true;
+      return next;
+    });
   };
 
   const handleTieBreakChange = (
@@ -597,6 +621,7 @@ export default function RecordPadelPage() {
   const addSet = () => {
     setSets((prev) => [...prev, { ...EMPTY_SET }]);
     setSetErrors((prev) => [...prev, ""]);
+    setSetTouched((prev) => [...prev, false]);
     setTieBreakVisibility((prev) => [...prev, false]);
   };
 
@@ -616,6 +641,7 @@ export default function RecordPadelPage() {
       } as SetScore;
       return next;
     });
+    markSetTouched(idx);
   };
 
   const dateExample = useMemo(() => getDateExample(locale), [locale]);
@@ -1030,7 +1056,9 @@ export default function RecordPadelPage() {
             const setError = setErrors[idx];
             const errorId = setError ? `padel-set-${idx + 1}-error` : undefined;
             const showTieBreakPrompt =
-              shouldCollectTieBreak(s.A, s.B) && !tieBreakVisibility[idx];
+              shouldCollectTieBreak(s.A, s.B) &&
+              !tieBreakVisibility[idx] &&
+              (setTouched[idx] || showSummaryValidation);
             const showTieBreakFields =
               shouldCollectTieBreak(s.A, s.B) && tieBreakVisibility[idx];
             const tieBreakHintId = showTieBreakFields
@@ -1073,6 +1101,7 @@ export default function RecordPadelPage() {
                     placeholder={`Set ${idx + 1} A`}
                     value={s.A}
                     onChange={(e) => handleSetChange(idx, "A", e.target.value)}
+                    onBlur={() => markSetTouched(idx)}
                     inputMode="numeric"
                     aria-invalid={Boolean(setError)}
                     aria-describedby={combinedDescribedBy || undefined}
@@ -1089,6 +1118,7 @@ export default function RecordPadelPage() {
                     placeholder={`Set ${idx + 1} B`}
                     value={s.B}
                     onChange={(e) => handleSetChange(idx, "B", e.target.value)}
+                    onBlur={() => markSetTouched(idx)}
                     inputMode="numeric"
                     aria-invalid={Boolean(setError)}
                     aria-describedby={combinedDescribedBy || undefined}

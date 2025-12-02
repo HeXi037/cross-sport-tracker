@@ -197,14 +197,19 @@
   },
   "Record": {
     "actions": {
-      "addSet": "Add Set"
+      "addSet": "Add Set",
+      "change": "Change",
+      "now": "Now",
+      "today": "Today"
     },
     "fields": {
       "club": {
         "label": "Played at club",
         "placeholder": "Example: Nordic Padel",
         "hint": "Select the club where the match was played, or leave blank if it wasn't at a club.",
-        "searchLabel": "Played at club"
+        "searchLabel": "Played at club",
+        "homeSelected": "Using your home club from your player profile.",
+        "homeSelectedWithName": "Using {clubName} from your player profile."
       },
       "location": {
         "label": "Location",

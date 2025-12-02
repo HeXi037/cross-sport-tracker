@@ -8,6 +8,7 @@ import { rememberLoginRedirect } from "../../../lib/loginRedirect";
 import * as NotificationCache from "../../../lib/useNotifications";
 import * as MatchCache from "../../../lib/useApiSWR";
 import { useSessionSnapshot } from "../../../lib/useSessionSnapshot";
+import * as datetime from "../../../lib/datetime";
 import {
   getDateExample,
   getTimeExample,
@@ -531,6 +532,82 @@ describe("RecordSportForm", () => {
     expect(screen.getByLabelText(/team b player 2/i)).toBeInTheDocument();
   });
 
+  it("defaults to today's date and the rounded current time slot", async () => {
+    const dateSpy = vi
+      .spyOn(datetime, "getTodayDateInputValue")
+      .mockReturnValue("2024-05-10");
+    const timeSpy = vi
+      .spyOn(datetime, "getCurrentRoundedTimeSlot")
+      .mockReturnValue("10:00");
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ players: [] }) });
+    const originalFetch = global.fetch;
+    global.fetch = fetchMock as typeof fetch;
+
+    try {
+      render(<RecordSportForm sportId="padel" />);
+
+      const dateInput = (await screen.findByLabelText(/date/i)) as HTMLInputElement;
+      const timeInput = screen.getByLabelText(/start time/i) as HTMLInputElement;
+
+      expect(dateInput.value).toBe("2024-05-10");
+      expect(timeInput.value).toBe("10:00");
+
+      fireEvent.change(dateInput, { target: { value: "2024-05-11" } });
+      fireEvent.change(timeInput, { target: { value: "12:30" } });
+
+      fireEvent.click(screen.getByRole("button", { name: /today/i }));
+      fireEvent.click(screen.getByRole("button", { name: /now/i }));
+
+      expect(dateInput.value).toBe("2024-05-10");
+      expect(timeInput.value).toBe("10:00");
+    } finally {
+      dateSpy.mockRestore();
+      timeSpy.mockRestore();
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("prefills the club from the user's profile and hides the location input", async () => {
+    const players = [
+      { id: "user-1", name: "Home Player", club_id: "club-9" },
+      { id: "2", name: "Friend" },
+    ];
+
+    fetchClubsSpy.mockResolvedValue([{ id: "club-9", name: "Home Club" }]);
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ players }) });
+    const originalFetch = global.fetch;
+    global.fetch = fetchMock as typeof fetch;
+
+    try {
+      render(<RecordSportForm sportId="padel_americano" />);
+
+      await screen.findAllByText("Home Player");
+
+      expect(screen.queryByLabelText(/location/i)).not.toBeInTheDocument();
+      expect(
+        screen.queryByLabelText("Played at club", { selector: "select" }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /change/i })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: /change/i }));
+
+      const clubSelect = await screen.findByLabelText("Played at club", {
+        selector: "select",
+      });
+      fireEvent.change(clubSelect, { target: { value: "" } });
+
+      expect(screen.getByLabelText(/location/i)).toBeInTheDocument();
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
   it("stores padel Americano session details and keeps them after saving", async () => {
     const players = [
       { id: "1", name: "Alice" },
@@ -632,11 +709,11 @@ describe("RecordSportForm", () => {
       expect(parsed).toMatchObject({
         date: "2024-08-10",
         time: "18:30",
-        location: "Court 5",
         isFriendly: true,
         clubId: "club-1",
         tieTarget: "32",
       });
+      expect(parsed.location ?? "").toBe("");
 
       const payloadCall = fetchMock.mock.calls.find(([request]) =>
         (typeof request === "string" ? request : request.toString()).includes(
@@ -648,7 +725,7 @@ describe("RecordSportForm", () => {
       expect(typeof body).toBe("string");
       const submitted = JSON.parse(body as string);
       expect(submitted.clubId).toBe("club-1");
-      expect(submitted.location).toBe("Court 5");
+      expect(submitted.location).toBeUndefined();
 
       expect(matchesCacheSpy).toHaveBeenCalled();
       expect(notificationsSpy).toHaveBeenCalled();

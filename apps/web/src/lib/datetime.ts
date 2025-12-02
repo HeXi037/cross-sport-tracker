@@ -38,3 +38,28 @@ export function hasTimeComponent(value?: string | null): boolean {
     numericFraction === 0
   );
 }
+
+function padTimeUnit(value: number): string {
+  return value.toString().padStart(2, "0");
+}
+
+export function getTodayDateInputValue(now = new Date()): string {
+  const year = now.getFullYear();
+  const month = padTimeUnit(now.getMonth() + 1);
+  const day = padTimeUnit(now.getDate());
+  return `${year}-${month}-${day}`;
+}
+
+export function getCurrentRoundedTimeSlot(
+  now = new Date(),
+  intervalMinutes = 15,
+): string {
+  const clampedInterval = Math.max(1, intervalMinutes);
+  const totalMinutes = now.getHours() * 60 + now.getMinutes();
+  const roundedMinutes =
+    Math.round(totalMinutes / clampedInterval) * clampedInterval;
+  const safeMinutes = Math.min(roundedMinutes, 23 * 60 + 59);
+  const hours = Math.floor(safeMinutes / 60);
+  const minutes = safeMinutes % 60;
+  return `${padTimeUnit(hours)}:${padTimeUnit(minutes)}`;
+}

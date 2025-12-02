@@ -14,7 +14,7 @@ import { flushSync } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { apiFetch, type ApiError } from "../../../lib/api";
+import { apiFetch, fetchClubs, type ApiError } from "../../../lib/api";
 import ClubSelect from "../../../components/ClubSelect";
 import { invalidateMatchesCache } from "../../../lib/useApiSWR";
 import { invalidateNotificationsCache } from "../../../lib/useNotifications";
@@ -27,7 +27,11 @@ import {
   getTimeExample,
   usesTwentyFourHourClock,
 } from "../../../lib/i18n";
-import { buildPlayedAtISOString } from "../../../lib/datetime";
+import {
+  buildPlayedAtISOString,
+  getCurrentRoundedTimeSlot,
+  getTodayDateInputValue,
+} from "../../../lib/datetime";
 import {
   summarizeBowlingInput,
   previewBowlingInput,
@@ -791,6 +795,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const [location, setLocation] = useState("");
   const [isFriendly, setIsFriendly] = useState(false);
   const [clubId, setClubId] = useState("");
+  const [clubSelectionOpen, setClubSelectionOpen] = useState(false);
+  const [homeClubName, setHomeClubName] = useState<string | null>(null);
+  const [hasInitializedClub, setHasInitializedClub] = useState(false);
   const [doubles, setDoubles] = useState(isPadel);
   const [submitting, setSubmitting] = useState(false);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
@@ -894,10 +901,14 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const preferredPlayerIds = useMemo(() => new Set(players.map((p) => p.id)), [
     players,
   ]);
-
   useEffect(() => {
     setGameScores(createGameScoreRows(maxGames));
   }, [maxGames]);
+
+  useEffect(() => {
+    setDate((prev) => prev || getTodayDateInputValue());
+    setTime((prev) => prev || getCurrentRoundedTimeSlot());
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -1162,6 +1173,100 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     }
     pendingBowlingFocusRef.current = null;
   }, [bowlingEntries]);
+
+  const recentPlayers = useMemo(() => {
+    const mapped = playerPreferences.recentPlayers
+      .map((id) => players.find((p) => p.id === id))
+      .filter((player): player is Player => Boolean(player));
+    return mapped;
+  }, [playerPreferences.recentPlayers, players]);
+
+  const mePlayer = useMemo(
+    () => players.find((player) => player.id === session.userId) ?? null,
+    [players, session.userId],
+  );
+
+  const homeClubId = useMemo(
+    () => mePlayer?.club_id?.trim() ?? "",
+    [mePlayer?.club_id],
+  );
+  const hasSelectedClub = Boolean(clubId.trim());
+  const shouldShowHomeClubSummary = useMemo(
+    () => Boolean(homeClubId && clubId === homeClubId && !clubSelectionOpen),
+    [clubId, clubSelectionOpen, homeClubId],
+  );
+  const homeClubSummary = useMemo(() => {
+    if (!homeClubId) {
+      return null;
+    }
+    if (homeClubName) {
+      return recordT("fields.club.homeSelectedWithName", { clubName: homeClubName });
+    }
+    return recordT("fields.club.homeSelected");
+  }, [homeClubId, homeClubName, recordT]);
+
+  useEffect(() => {
+    if (!homeClubId) {
+      setClubSelectionOpen(true);
+      return;
+    }
+    let active = true;
+    fetchClubs()
+      .then((clubs) => {
+        if (!active) return;
+        const match = clubs.find((club) => club.id === homeClubId);
+        setHomeClubName(match?.name ?? null);
+      })
+      .catch(() => {
+        if (active) {
+          setHomeClubName(null);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [homeClubId]);
+
+  useEffect(() => {
+    if (hasInitializedClub) {
+      return;
+    }
+    if (clubId) {
+      setHasInitializedClub(true);
+      return;
+    }
+    if (homeClubId) {
+      setClubId(homeClubId);
+      setHasInitializedClub(true);
+      setClubSelectionOpen(false);
+    }
+  }, [clubId, hasInitializedClub, homeClubId]);
+
+  useEffect(() => {
+    if (!hasSelectedClub) {
+      return;
+    }
+    setLocation("");
+  }, [hasSelectedClub]);
+
+  const handleClubChange = useCallback(
+    (nextClubId: string) => {
+      const shouldKeepPickerOpen = !nextClubId || nextClubId !== homeClubId;
+      setClubSelectionOpen(shouldKeepPickerOpen);
+      setClubId(nextClubId);
+      setError(null);
+      setSuccessMessage(null);
+    },
+    [homeClubId],
+  );
+
+  const resetDateToToday = useCallback(() => {
+    setDate(getTodayDateInputValue());
+  }, []);
+
+  const resetTimeToNow = useCallback(() => {
+    setTime(getCurrentRoundedTimeSlot());
+  }, []);
 
   useEffect(() => {
     if (!loggedIn) {
@@ -1570,18 +1675,6 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       });
     },
     [],
-  );
-
-  const recentPlayers = useMemo(() => {
-    const mapped = playerPreferences.recentPlayers
-      .map((id) => players.find((p) => p.id === id))
-      .filter((player): player is Player => Boolean(player));
-    return mapped;
-  }, [playerPreferences.recentPlayers, players]);
-
-  const mePlayer = useMemo(
-    () => players.find((player) => player.id === session.userId) ?? null,
-    [players, session.userId],
   );
 
   const presetPairings = useMemo(() => {
@@ -2116,6 +2209,15 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
               <span id={dateLocaleHintId} className="form-hint">
                 Date format follows your profile preferences.
               </span>
+              <div className="form-chip-row">
+                <button
+                  type="button"
+                  className="form-chip-button"
+                  onClick={resetDateToToday}
+                >
+                  {recordT("actions.today")}
+                </button>
+              </div>
             </label>
             <label className="form-field" htmlFor="record-time">
               <span className="form-label">Start time</span>
@@ -2135,6 +2237,15 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
               <span id={timeHintId} className="form-hint">
                 {timeHintText}
               </span>
+              <div className="form-chip-row">
+                <button
+                  type="button"
+                  className="form-chip-button"
+                  onClick={resetTimeToNow}
+                >
+                  {recordT("actions.now")}
+                </button>
+              </div>
             </label>
           </div>
           {isPadelAmericano && (
@@ -2165,30 +2276,45 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
               <label className="form-label" htmlFor="record-club-select">
                 {recordT("fields.club.label")}
               </label>
-              <ClubSelect
-                value={clubId}
-                onChange={setClubId}
-                placeholder={recordT("fields.club.placeholder")}
-                searchInputId="record-club-search"
-                selectId="record-club-select"
-                searchLabel={recordT("fields.club.searchLabel")}
-                describedById={clubHintId}
-              />
+              {shouldShowHomeClubSummary && homeClubSummary ? (
+                <div className="club-selection-inline">
+                  <span>{homeClubSummary}</span>
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => setClubSelectionOpen(true)}
+                  >
+                    {recordT("actions.change")}
+                  </button>
+                </div>
+              ) : (
+                <ClubSelect
+                  value={clubId}
+                  onChange={handleClubChange}
+                  placeholder={recordT("fields.club.placeholder")}
+                  searchInputId="record-club-search"
+                  selectId="record-club-select"
+                  searchLabel={recordT("fields.club.searchLabel")}
+                  describedById={clubHintId}
+                />
+              )}
               <p id={clubHintId} className="form-hint">
                 {recordT("fields.club.hint")}
               </p>
             </div>
           )}
-          <label className="form-field" htmlFor="record-location">
-            <span className="form-label">{recordT("fields.location.label")}</span>
-            <input
-              id="record-location"
-              type="text"
-              placeholder={recordT("fields.location.placeholder")}
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            />
-          </label>
+          {!hasSelectedClub && (
+            <label className="form-field" htmlFor="record-location">
+              <span className="form-label">{recordT("fields.location.label")}</span>
+              <input
+                id="record-location"
+                type="text"
+                placeholder={recordT("fields.location.placeholder")}
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+              />
+            </label>
+          )}
           <label
             className="form-field form-field--checkbox"
             htmlFor="record-friendly"

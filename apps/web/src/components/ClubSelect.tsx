@@ -6,6 +6,7 @@ import {
   useId,
   useMemo,
   useState,
+  useRef,
   type ChangeEvent,
   type FocusEvent,
 } from "react";
@@ -56,6 +57,7 @@ export default function ClubSelect({
   const [status, setStatus] = useState<LoadStatus>("idle");
   const [searchTerm, setSearchTerm] = useState("");
   const [dirtySearch, setDirtySearch] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const searchInputId = searchInputIdProp ?? `${reactId}-club-search`;
   const selectId = selectIdProp ?? `${reactId}-club-select`;
@@ -174,6 +176,13 @@ export default function ClubSelect({
       setSearchTerm((prev) => (prev ? "" : prev));
       return;
     }
+    const isSearchFocused =
+      typeof document !== "undefined" &&
+      document.activeElement === searchInputRef.current;
+    if (!isSearchFocused) {
+      setSearchTerm((prev) => (prev ? "" : prev));
+      return;
+    }
     const selected = options.find((club) => club.id === value);
     const next = selected ? selected.name : value;
     setSearchTerm((prev) => (prev === next ? prev : next));
@@ -221,6 +230,7 @@ export default function ClubSelect({
         <input
           id={searchInputId}
           type="text"
+          ref={searchInputRef}
           value={searchTerm}
           onChange={handleSearchChange}
           onFocus={handleFocus}

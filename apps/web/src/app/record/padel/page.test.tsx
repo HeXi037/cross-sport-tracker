@@ -153,7 +153,13 @@ describe("RecordPadelPage", () => {
       target: { value: "2" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    const saveButton = screen.getByRole("button", { name: /save/i });
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Completed sets ready to save: 2\./i),
+      ).toBeInTheDocument(),
+    );
+    fireEvent.click(saveButton);
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
       await waitFor(() =>
@@ -436,6 +442,8 @@ describe("RecordPadelPage", () => {
       target: { value: "p2" },
     });
 
+    fireEvent.click(screen.getByRole("button", { name: /1 set/i }));
+
     fireEvent.change(screen.getByPlaceholderText("Set 1 A"), {
       target: { value: "6" },
     });
@@ -588,7 +596,7 @@ describe("RecordPadelPage", () => {
     expect(saveButton).toHaveAttribute("aria-disabled", "true");
   });
 
-  it("requires tie-break points for 7–6 sets", async () => {
+  it("offers an optional tie-break prompt for 7–6 sets", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -599,7 +607,9 @@ describe("RecordPadelPage", () => {
             { id: "p2", name: "Player 2" },
           ],
         }),
-      });
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "m5" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
     global.fetch = fetchMock as typeof fetch;
 
     render(<RecordPadelPage />);
@@ -621,42 +631,14 @@ describe("RecordPadelPage", () => {
     });
 
     expect(
-      screen.getByText(/Set 1 went to a tie-break/i),
+      await screen.findByText(/Add tie-break points to capture the decider/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByLabelText("Tie-break points team A"),
-    ).toBeInTheDocument();
+      screen.queryByLabelText("Tie-break points team A"),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByLabelText("Tie-break points team B"),
+      screen.getByRole("button", { name: /add tie-break points/i }),
     ).toBeInTheDocument();
-
-    const saveButton = screen.getByRole("button", { name: /save/i });
-    const form = saveButton.closest("form");
-    expect(form).not.toBeNull();
-    if (form) {
-      fireEvent.submit(form);
-    }
-
-    const tieBreakErrors = await screen.findAllByText(
-      "Enter tie-break points for set 1.",
-    );
-    expect(tieBreakErrors.length).toBeGreaterThan(0);
-    tieBreakErrors.forEach((error) => {
-      expect(error).toHaveAttribute("role", "alert");
-    });
-
-    fireEvent.change(screen.getByLabelText("Tie-break points team A"), {
-      target: { value: "9" },
-    });
-    fireEvent.change(screen.getByLabelText("Tie-break points team B"), {
-      target: { value: "7" },
-    });
-
-    await waitFor(() => {
-      expect(
-        screen.queryByText("Enter tie-break points for set 1."),
-      ).not.toBeInTheDocument();
-    });
   });
 
   it("sends tie-break points when saving a 7–6 set", async () => {
@@ -701,6 +683,10 @@ describe("RecordPadelPage", () => {
       target: { value: "6" },
     });
 
+    fireEvent.click(
+      await screen.findByRole("button", { name: /add tie-break points/i }),
+    );
+
     fireEvent.change(screen.getByLabelText("Tie-break points team A"), {
       target: { value: "9" },
     });
@@ -708,7 +694,7 @@ describe("RecordPadelPage", () => {
       target: { value: "7" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /add set/i }));
+    await waitFor(() => screen.getByPlaceholderText("Set 2 A"));
     fireEvent.change(screen.getByPlaceholderText("Set 2 A"), {
       target: { value: "6" },
     });

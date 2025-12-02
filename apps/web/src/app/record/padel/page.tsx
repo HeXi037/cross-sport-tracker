@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+  type FormEvent,
+} from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "../../../lib/api";
@@ -38,6 +45,26 @@ interface SetScore {
   tieBreakA: string;
   tieBreakB: string;
 }
+
+type TieBreakVisibility = boolean[];
+type SetErrors = string[];
+
+const COMMON_PADEL_SCORES = [
+  { A: 6, B: 0 },
+  { A: 6, B: 1 },
+  { A: 6, B: 2 },
+  { A: 6, B: 3 },
+  { A: 6, B: 4 },
+  { A: 7, B: 5 },
+  { A: 7, B: 6 },
+  { A: 0, B: 6 },
+  { A: 1, B: 6 },
+  { A: 2, B: 6 },
+  { A: 3, B: 6 },
+  { A: 4, B: 6 },
+  { A: 5, B: 7 },
+  { A: 6, B: 7 },
+];
 
 const VALID_BEST_OF = new Set([1, 3, 5]);
 const MIN_SET_SCORE = 0;
@@ -85,7 +112,7 @@ function shouldCollectTieBreak(scoreA: string, scoreB: string): boolean {
 }
 
 interface PadelSetAnalysis {
-  errors: string[];
+  errors: SetErrors;
   completed: number;
   winsA: number;
   winsB: number;
@@ -148,9 +175,15 @@ function analysePadelSets(sets: SetScore[], rawBestOf: number): PadelSetAnalysis
       const loserSide: keyof SetScore = winnerSide === "A" ? "B" : "A";
       const winnerRaw = (winnerSide === "A" ? set.tieBreakA : set.tieBreakB).trim();
       const loserRaw = (loserSide === "A" ? set.tieBreakA : set.tieBreakB).trim();
+      const winnerProvided = winnerRaw !== "";
+      const loserProvided = loserRaw !== "";
 
-      if (!winnerRaw || !loserRaw) {
-        const message = `Enter tie-break points for ${setLabel}.`;
+      if (!winnerProvided && !loserProvided) {
+        return;
+      }
+
+      if (!winnerProvided || !loserProvided) {
+        const message = `Add both tie-break scores for ${setLabel} or leave them blank.`;
         errors[idx] = message;
         if (!summaryError) {
           summaryError = message;
@@ -329,7 +362,7 @@ export default function RecordPadelPage() {
   const [ids, setIds] = useState<IdMap>({ a1: "", a2: "", b1: "", b2: "" });
   const [bestOf, setBestOf] = useState("3");
   const [sets, setSets] = useState<SetScore[]>([{ ...EMPTY_SET }]);
-  const [setErrors, setSetErrors] = useState<string[]>([""]);
+  const [setErrors, setSetErrors] = useState<SetErrors>([""]);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
@@ -346,6 +379,9 @@ export default function RecordPadelPage() {
   });
   const [saving, setSaving] = useState(false);
   const [showSummaryValidation, setShowSummaryValidation] = useState(false);
+  const [tieBreakVisibility, setTieBreakVisibility] = useState<TieBreakVisibility>([
+    false,
+  ]);
   const locale = useLocale();
   const preferredTimeFormat = usePreferredTimeFormat();
   const commonT = useTranslations("Common");
@@ -455,6 +491,45 @@ export default function RecordPadelPage() {
   }, [setAnalysisErrors]);
 
   useEffect(() => {
+    setTieBreakVisibility((prev) => {
+      const next = sets.map((set, idx) => {
+        const eligible = shouldCollectTieBreak(set.A, set.B);
+        return eligible ? prev[idx] ?? false : false;
+      });
+      return areStringArraysEqual(
+        prev.map((value) => String(value)),
+        next.map((value) => String(value)),
+      )
+        ? prev
+        : next;
+    });
+  }, [sets]);
+
+  const isSetComplete = useCallback((set: SetScore) => {
+    const aNum = Number(set.A);
+    const bNum = Number(set.B);
+    if (!Number.isInteger(aNum) || !Number.isInteger(bNum)) {
+      return false;
+    }
+    if (!isValidPadelSetScore(aNum, bNum)) {
+      return false;
+    }
+    return aNum !== bNum;
+  }, []);
+
+  useEffect(() => {
+    if (bestOfNumber <= 1) {
+      return;
+    }
+    const lastSet = sets[sets.length - 1];
+    const canAddMore = sets.length < bestOfNumber;
+    if (lastSet && isSetComplete(lastSet) && canAddMore) {
+      setSets((prev) => [...prev, { ...EMPTY_SET }]);
+      setSetErrors((prev) => [...prev, ""]);
+    }
+  }, [bestOfNumber, isSetComplete, sets]);
+
+  useEffect(() => {
     async function loadPlayers() {
       try {
         const res = await apiFetch(`/v0/players`);
@@ -522,6 +597,25 @@ export default function RecordPadelPage() {
   const addSet = () => {
     setSets((prev) => [...prev, { ...EMPTY_SET }]);
     setSetErrors((prev) => [...prev, ""]);
+    setTieBreakVisibility((prev) => [...prev, false]);
+  };
+
+  const applyQuickScore = (idx: number, score: { A: number; B: number }) => {
+    setSets((prev) => {
+      const next = [...prev];
+      next[idx] = {
+        ...next[idx],
+        A: String(score.A),
+        B: String(score.B),
+        tieBreakA: shouldCollectTieBreak(String(score.A), String(score.B))
+          ? next[idx]?.tieBreakA ?? ""
+          : "",
+        tieBreakB: shouldCollectTieBreak(String(score.A), String(score.B))
+          ? next[idx]?.tieBreakB ?? ""
+          : "",
+      } as SetScore;
+      return next;
+    });
   };
 
   const dateExample = useMemo(() => getDateExample(locale), [locale]);
@@ -927,15 +1021,18 @@ export default function RecordPadelPage() {
         </fieldset>
 
         <p className="form-hint" id="padel-tiebreak-hint">
-          Sets ending 7–6 require tie-break points – enter the winner and
-          opponent totals when prompted so extended tie-breaks are captured
-          accurately.
+          Sets ending 7–6 can include an optional tie-break summary. Enter the
+          set score first, then add tie-break points if you want to capture
+          extended deciders.
         </p>
         <div className="sets">
           {sets.map((s, idx) => {
             const setError = setErrors[idx];
             const errorId = setError ? `padel-set-${idx + 1}-error` : undefined;
-            const showTieBreakFields = shouldCollectTieBreak(s.A, s.B);
+            const showTieBreakPrompt =
+              shouldCollectTieBreak(s.A, s.B) && !tieBreakVisibility[idx];
+            const showTieBreakFields =
+              shouldCollectTieBreak(s.A, s.B) && tieBreakVisibility[idx];
             const tieBreakHintId = showTieBreakFields
               ? `padel-set-${idx + 1}-tiebreak-hint`
               : undefined;
@@ -947,6 +1044,24 @@ export default function RecordPadelPage() {
               .join(" ");
             return (
               <div key={idx} className="set">
+                <div className="button-toggle-group" role="group">
+                  <span className="form-hint">Quick scores</span>
+                  <div className="button-toggle-group__options">
+                    {COMMON_PADEL_SCORES.map((score) => {
+                      const label = `${score.A}–${score.B}`;
+                      return (
+                        <button
+                          key={`${label}-${idx}`}
+                          type="button"
+                          className="button-toggle"
+                          onClick={() => applyQuickScore(idx, score)}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
                 <label className="form-field" htmlFor={`padel-set-${idx + 1}-a`}>
                   <span className="form-label">Set {idx + 1} team A</span>
                   <input
@@ -979,6 +1094,27 @@ export default function RecordPadelPage() {
                     aria-describedby={combinedDescribedBy || undefined}
                   />
                 </label>
+                {showTieBreakPrompt && (
+                  <div className="form-hint">
+                    Set {idx + 1} finished 7–6. Add tie-break points to capture
+                    the decider (optional).
+                    <div>
+                      <button
+                        type="button"
+                        className="link"
+                        onClick={() =>
+                          setTieBreakVisibility((prev) => {
+                            const next = [...prev];
+                            next[idx] = true;
+                            return next;
+                          })
+                        }
+                      >
+                        Add tie-break points
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {showTieBreakFields && (
                   <div className="form-subfieldset" aria-live="polite">
                     <p id={tieBreakHintId} className="form-hint">
@@ -1042,16 +1178,20 @@ export default function RecordPadelPage() {
             );
           })}
         </div>
-        <p id="padel-add-set-hint" className="form-hint">
-          {recordPadelT("hints.addSet")}
-        </p>
-        <button
-          type="button"
-          onClick={addSet}
-          aria-describedby="padel-add-set-hint"
-        >
-          {recordT("actions.addSet")}
-        </button>
+        {sets.length >= 2 && (
+          <>
+            <p id="padel-add-set-hint" className="form-hint">
+              {recordPadelT("hints.addSet")}
+            </p>
+            <button
+              type="button"
+              onClick={addSet}
+              aria-describedby="padel-add-set-hint"
+            >
+              {recordT("actions.addSet")}
+            </button>
+          </>
+        )}
 
         {globalError && (
           <p role="alert" className="error">

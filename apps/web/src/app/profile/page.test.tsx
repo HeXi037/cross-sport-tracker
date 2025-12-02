@@ -145,7 +145,10 @@ describe("ProfilePage", () => {
     expect(continentDisplay).toHaveTextContent("North America");
     const favoriteClubFields = await screen.findAllByLabelText("Favorite club");
     const clubSearchInput = favoriteClubFields[0] as HTMLInputElement;
-    expect(clubSearchInput).toHaveValue("Club Old");
+    const clubSelect = favoriteClubFields[1] as HTMLSelectElement;
+
+    expect(clubSearchInput).toHaveValue("");
+    expect(clubSelect).toHaveValue("club-old");
   });
 
   it("normalizes relative profile photo URLs", async () => {

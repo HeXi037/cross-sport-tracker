@@ -603,6 +603,26 @@ img {
   color: var(--color-text-muted);
 }
 
+.sets {
+  display: grid;
+  gap: 1rem;
+}
+
+.set {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.set .button-toggle-group {
+  width: 100%;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
 input,
 select,
 textarea,

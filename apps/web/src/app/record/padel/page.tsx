@@ -327,7 +327,7 @@ export default function RecordPadelPage() {
   const router = useRouter();
   const [players, setPlayers] = useState<Player[]>([]);
   const [ids, setIds] = useState<IdMap>({ a1: "", a2: "", b1: "", b2: "" });
-  const [bestOf, setBestOf] = useState("1");
+  const [bestOf, setBestOf] = useState("3");
   const [sets, setSets] = useState<SetScore[]>([{ ...EMPTY_SET }]);
   const [setErrors, setSetErrors] = useState<string[]>([""]);
   const [date, setDate] = useState("");

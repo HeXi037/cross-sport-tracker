@@ -42,7 +42,7 @@ type PlayerOption = {
 };
 
 const MATCH_FETCH_LIMIT = 50;
-const PLAYER_FETCH_LIMIT = 200;
+const PLAYER_FETCH_LIMIT = 100;
 const DEFAULT_HOLE_COUNT = 18;
 const MAX_HOLE_COUNT = 36;
 

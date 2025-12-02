@@ -55,7 +55,7 @@ describe("RecordDiscGolfPage", () => {
 
   it("posts hole events", async () => {
     const fetchMock = vi.fn((url: unknown, init: RequestInit | undefined) => {
-      if (url === "/api/v0/players?limit=200&offset=0") {
+      if (url === "/api/v0/players?limit=100&offset=0") {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -119,7 +119,7 @@ describe("RecordDiscGolfPage", () => {
   it("shows an error and preserves input when an event submission fails", async () => {
     let eventCallCount = 0;
     const fetchMock = vi.fn((url: unknown) => {
-      if (url === "/api/v0/players?limit=200&offset=0") {
+      if (url === "/api/v0/players?limit=100&offset=0") {
         return Promise.resolve({
           ok: true,
           json: async () => ({ players: [{ id: "p1", name: "One" }, { id: "p2", name: "Two" }] }),
@@ -175,7 +175,7 @@ describe("RecordDiscGolfPage", () => {
   it("does not advance or clear inputs when the first submission fails", async () => {
     let eventCallCount = 0;
     const fetchMock = vi.fn((url: unknown) => {
-      if (url === "/api/v0/players?limit=200&offset=0") {
+      if (url === "/api/v0/players?limit=100&offset=0") {
         return Promise.resolve({
           ok: true,
           json: async () => ({ players: [{ id: "p1", name: "One" }, { id: "p2", name: "Two" }] }),
@@ -230,7 +230,7 @@ describe("RecordDiscGolfPage", () => {
   it("disables recording guidance when no match id is provided", async () => {
     useSearchParamsMock.mockReturnValue(new URLSearchParams());
     const fetchMock = vi.fn((url: unknown) => {
-      if (url === "/api/v0/players?limit=200&offset=0") {
+      if (url === "/api/v0/players?limit=100&offset=0") {
         return Promise.resolve({
           ok: true,
           json: async () => ({ players: [] }),
@@ -252,7 +252,7 @@ describe("RecordDiscGolfPage", () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        "/api/v0/players?limit=200&offset=0",
+        "/api/v0/players?limit=100&offset=0",
         expect.any(Object),
       );
     });
@@ -273,7 +273,7 @@ describe("RecordDiscGolfPage", () => {
   it("creates a new match and enables scoring when requested", async () => {
     useSearchParamsMock.mockReturnValue(new URLSearchParams());
     const fetchMock = vi.fn((url: unknown, init: RequestInit | undefined) => {
-      if (url === "/api/v0/players?limit=200&offset=0") {
+      if (url === "/api/v0/players?limit=100&offset=0") {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -381,7 +381,7 @@ describe("RecordDiscGolfPage", () => {
   it("allows selecting an existing match to enable recording", async () => {
     useSearchParamsMock.mockReturnValue(new URLSearchParams());
     const fetchMock = vi.fn((url: unknown) => {
-      if (url === "/api/v0/players?limit=200&offset=0") {
+      if (url === "/api/v0/players?limit=100&offset=0") {
         return Promise.resolve({
           ok: true,
           json: async () => ({ players: [{ id: "p1", name: "One" }, { id: "p2", name: "Two" }] }),
@@ -436,7 +436,7 @@ describe("RecordDiscGolfPage", () => {
 
   it("keeps the form interactive when an existing match id is provided", async () => {
     const fetchMock = vi.fn((url: unknown) => {
-      if (url === "/api/v0/players?limit=200&offset=0") {
+      if (url === "/api/v0/players?limit=100&offset=0") {
         return Promise.resolve({
           ok: true,
           json: async () => ({ players: [{ id: "p1", name: "One" }, { id: "p2", name: "Two" }] }),

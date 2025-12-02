@@ -1,12 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "../../../lib/api";
 import { invalidateMatchesCache } from "../../../lib/useApiSWR";
 import { invalidateNotificationsCache } from "../../../lib/useNotifications";
-import { ensureTrailingSlash } from "../../../lib/routes";
+import { ensureTrailingSlash, recordPathForSport } from "../../../lib/routes";
 import { useLocale } from "../../../lib/LocaleContext";
 import {
   getDateExample,
@@ -326,7 +327,7 @@ export default function RecordPadelPage() {
   const router = useRouter();
   const [players, setPlayers] = useState<Player[]>([]);
   const [ids, setIds] = useState<IdMap>({ a1: "", a2: "", b1: "", b2: "" });
-  const [bestOf, setBestOf] = useState("3");
+  const [bestOf, setBestOf] = useState("1");
   const [sets, setSets] = useState<SetScore[]>([{ ...EMPTY_SET }]);
   const [setErrors, setSetErrors] = useState<string[]>([""]);
   const [date, setDate] = useState("");
@@ -767,6 +768,35 @@ export default function RecordPadelPage() {
           </p>
         </fieldset>
 
+        <div className="record-sport-chooser" aria-label="Choose a sport">
+          <span className="record-sport-chooser__label">Sport</span>
+          <div className="record-sport-chooser__options" role="list">
+            {["padel", "padel_americano", "pickleball"].map((sportId) => {
+              const href = recordPathForSport(sportId);
+              const isActive = sportId === "padel";
+              const label =
+                sportId === "padel"
+                  ? "Padel"
+                  : sportId === "padel_americano"
+                    ? "Padel Americano"
+                    : "Pickleball";
+              return (
+                <Link
+                  key={sportId}
+                  href={href}
+                  className={`record-sport-chooser__option${
+                    isActive ? " record-sport-chooser__option--active" : ""
+                  }`}
+                  aria-current={isActive ? "page" : undefined}
+                  role="listitem"
+                >
+                  {label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
         <fieldset className="form-fieldset">
           <legend className="form-legend">Players</legend>
           <div className="form-grid form-grid--two">
@@ -872,22 +902,24 @@ export default function RecordPadelPage() {
           </div>
           <fieldset className="form-subfieldset">
             <legend className="form-label">Best of</legend>
-            <div className="radio-group">
+            <div
+              className="button-toggle-group"
+              role="group"
+              aria-label="Best of sets"
+            >
               {["1", "3", "5"].map((option) => {
-                const optionId = `padel-best-of-${option}`;
                 const optionLabel = `${option} ${option === "1" ? "set" : "sets"}`;
+                const isActive = bestOf === option;
                 return (
-                  <label key={option} className="radio-group__option" htmlFor={optionId}>
-                    <input
-                      id={optionId}
-                      type="radio"
-                      name="padel-best-of"
-                      value={option}
-                      checked={bestOf === option}
-                      onChange={(e) => setBestOf(e.target.value)}
-                    />
-                    <span>{optionLabel}</span>
-                  </label>
+                  <button
+                    key={option}
+                    type="button"
+                    className={`button-toggle${isActive ? " button-toggle--active" : ""}`}
+                    onClick={() => setBestOf(option)}
+                    aria-pressed={isActive}
+                  >
+                    {optionLabel}
+                  </button>
                 );
               })}
             </div>

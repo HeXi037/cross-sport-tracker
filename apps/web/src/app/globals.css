@@ -510,6 +510,42 @@ img {
   margin: 0;
 }
 
+.button-toggle-group {
+  display: inline-flex;
+  gap: 0.35rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 10px;
+  padding: 0.25rem;
+}
+
+.button-toggle {
+  border: none;
+  background: transparent;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease,
+    transform 0.1s ease;
+}
+
+.button-toggle:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.button-toggle:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.button-toggle--active {
+  background: linear-gradient(135deg, rgba(26, 115, 232, 0.16), rgba(26, 115, 232, 0.12));
+  color: var(--color-primary-text, var(--color-primary));
+  box-shadow: 0 6px 14px rgba(26, 115, 232, 0.18);
+}
+
 .padel-americano-tips {
   display: grid;
   gap: 0.75rem;
@@ -1525,6 +1561,59 @@ html.theme-dark .record-badge {
 
 .record-grid {
   gap: clamp(1rem, 2vw, 1.35rem);
+}
+
+.record-sport-chooser {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.record-sport-chooser__label {
+  font-weight: 700;
+  color: var(--color-heading);
+}
+
+.record-sport-chooser__options {
+  display: inline-flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.record-sport-chooser__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
+  color: inherit;
+  text-decoration: none;
+  font-weight: 600;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.record-sport-chooser__option:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+}
+
+.record-sport-chooser__option:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px var(--color-focus-ring-soft);
+}
+
+.record-sport-chooser__option--active {
+  border-color: var(--color-primary);
+  background: rgba(26, 115, 232, 0.1);
+  color: var(--color-primary-text, var(--color-primary));
+  box-shadow: 0 6px 16px rgba(26, 115, 232, 0.16);
 }
 
 .record-sport-card {

@@ -285,6 +285,9 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     photo_url = Column(String, nullable=True)
     is_admin = Column(Boolean, nullable=False, default=False)
+    must_change_password = Column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
 
 
 class RefreshToken(Base):

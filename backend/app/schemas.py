@@ -606,6 +606,9 @@ class TokenOut(BaseModel):
     access_token: str
     refresh_token: str
     csrf_token: str
+    must_change_password: bool = Field(alias="mustChangePassword")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class UsernameAvailabilityResponse(BaseModel):
@@ -620,6 +623,9 @@ class UserOut(BaseModel):
     username: str
     is_admin: bool
     photo_url: Optional[str] = None
+    must_change_password: bool = Field(alias="mustChangePassword")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class UserUpdate(BaseModel):

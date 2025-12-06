@@ -193,7 +193,10 @@ export async function extractSignupErrors(response: Response): Promise<string[]>
   return ["We couldn't create your account. Please try again."];
 }
 
-export async function loginUser(username: string, password: string) {
+export async function loginUser(
+  username: string,
+  password: string
+): Promise<import("../../../lib/api").TokenResponse> {
   const res = await apiFetch("/v0/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

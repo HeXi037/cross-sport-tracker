@@ -22,10 +22,16 @@ export function normalizeMatchSummary(
   if (!summary || typeof summary !== "object") {
     return null;
   }
-  const { wins, losses, draws, total, winPct, streak, lastPlayedAt } = summary as Record<
-    string,
-    unknown
-  >;
+  const {
+    wins,
+    losses,
+    draws,
+    total,
+    winPct,
+    streak,
+    lastPlayedAt: camelLastPlayedAt,
+    last_played_at: snakeLastPlayedAt,
+  } = summary as Record<string, unknown>;
   if (
     typeof wins !== "number" ||
     typeof losses !== "number" ||
@@ -69,6 +75,14 @@ export function normalizeMatchSummary(
     return null;
   }
   const clampedWinPct = Math.max(0, Math.min(winPct, 1));
+
+  const normalizedLastPlayedAt =
+    typeof camelLastPlayedAt === "string" && camelLastPlayedAt.trim().length > 0
+      ? camelLastPlayedAt
+      : typeof snakeLastPlayedAt === "string" && snakeLastPlayedAt.trim().length > 0
+        ? snakeLastPlayedAt
+        : null;
+
   return {
     wins,
     losses,
@@ -77,10 +91,7 @@ export function normalizeMatchSummary(
     winPct: clampedWinPct,
     streak:
       typeof streak === "number" && Number.isFinite(streak) ? Math.trunc(streak) : null,
-    lastPlayedAt:
-      typeof lastPlayedAt === "string" && lastPlayedAt.trim().length > 0
-        ? lastPlayedAt
-        : null,
+    lastPlayedAt: normalizedLastPlayedAt,
   };
 }
 

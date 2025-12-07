@@ -14,7 +14,7 @@ import {
   MIN_PASSWORD_LENGTH,
   PASSWORD_GUIDELINES,
 } from "../../lib/passwordGuidelines";
-import { useToast } from "../../components/ToastProvider";
+import ToastProvider, { useToast } from "../../components/ToastProvider";
 
 function formatError(err: unknown): string {
   if (typeof err === "string") {
@@ -49,7 +49,7 @@ function strengthLabel(strength: Strength): string {
   }
 }
 
-export default function SetPasswordPage() {
+function SetPasswordContent() {
   const router = useRouter();
   const { showToast } = useToast();
   const [password, setPassword] = useState("");
@@ -67,11 +67,14 @@ export default function SetPasswordPage() {
       router.replace("/login");
       return;
     }
+
     if (!mustChangePasswordRequired()) {
       setMustChange(false);
       setReady(true);
+      router.replace("/");
       return;
     }
+
     setMustChange(true);
     setReady(true);
   }, [router]);
@@ -142,7 +145,7 @@ export default function SetPasswordPage() {
         <div className="auth-panel__header">
           <div>
             <p className="section-eyebrow">Security</p>
-            <h1 className="heading">Choose a new password</h1>
+            <h1 className="heading">Set a new password</h1>
             <p className="text-muted">
               You’ve logged in with a temporary password. For security, please set a
               new one.
@@ -230,7 +233,7 @@ export default function SetPasswordPage() {
           </div>
 
           <button className="button" type="submit" disabled={!canSubmit}>
-            {submitting ? "Saving…" : "Save password"}
+            {submitting ? "Saving…" : "Save new password"}
           </button>
           <button
             type="button"
@@ -242,5 +245,13 @@ export default function SetPasswordPage() {
         </form>
       </section>
     </main>
+  );
+}
+
+export default function SetPasswordPage() {
+  return (
+    <ToastProvider>
+      <SetPasswordContent />
+    </ToastProvider>
   );
 }

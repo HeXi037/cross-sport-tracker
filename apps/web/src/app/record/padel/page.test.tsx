@@ -546,6 +546,71 @@ describe("RecordPadelPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("drops extra sets when switching to a shorter match length", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          players: [
+            { id: "p1", name: "A" },
+            { id: "p2", name: "B" },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "m9" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+    global.fetch = fetchMock as typeof fetch;
+
+    render(<RecordPadelPage />);
+
+    await waitFor(() => screen.getByLabelText("Player A 1"));
+
+    fireEvent.change(screen.getByLabelText("Player A 1"), {
+      target: { value: "p1" },
+    });
+    fireEvent.change(screen.getByLabelText("Player B 1"), {
+      target: { value: "p2" },
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("Set 1 A"), {
+      target: { value: "6" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Set 1 B"), {
+      target: { value: "4" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /add set/i }));
+
+    fireEvent.change(screen.getByPlaceholderText("Set 2 A"), {
+      target: { value: "6" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Set 2 B"), {
+      target: { value: "2" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /1 set/i }));
+
+    await waitFor(() =>
+      expect(screen.queryByPlaceholderText("Set 2 A")).not.toBeInTheDocument(),
+    );
+
+    const saveButton = screen.getByRole("button", { name: /save/i });
+    const form = saveButton.closest("form");
+    expect(form).not.toBeNull();
+    if (form) {
+      fireEvent.submit(form);
+    }
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+
+    const matchPayload = JSON.parse(fetchMock.mock.calls[1][1].body as string);
+    expect(matchPayload.bestOf).toBe(1);
+
+    const setPayload = JSON.parse(fetchMock.mock.calls[2][1].body as string);
+    expect(setPayload.sets).toEqual([{ A: 6, B: 4 }]);
+  });
+
   it("rejects set scores outside the allowed range", async () => {
     const fetchMock = vi
       .fn()

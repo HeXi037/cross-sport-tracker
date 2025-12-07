@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 import { apiFetch, isAdmin } from "../../../lib/api";
 import { rememberLoginRedirect } from "../../../lib/loginRedirect";
 import { useToast } from "../../../components/ToastProvider";
+import { COUNTRY_OPTIONS } from "../../../lib/countries";
 
 type UserStatus = "active" | "locked" | "must-change";
 
 type AdminUser = {
   id: string;
+  playerId: string;
   name: string;
   username: string;
   country?: string;
@@ -18,35 +21,28 @@ type AdminUser = {
   status: UserStatus;
 };
 
-const MOCK_USERS: AdminUser[] = [
-  {
-    id: "user-1",
-    name: "Emil",
-    username: "emil",
-    country: "Norway",
-    club: "Oslo Smash Club",
-    lastLogin: "2024-09-12T08:30:00Z",
-    status: "active",
+type PlayerAccountSummary = {
+  playerId: string;
+  userId: string;
+  username: string;
+  name: string;
+  clubName?: string | null;
+  countryCode?: string | null;
+  mustChangePassword: boolean;
+};
+
+const COUNTRY_NAME_BY_CODE = COUNTRY_OPTIONS.reduce<Record<string, string>>(
+  (acc, option) => {
+    acc[option.code] = option.name;
+    return acc;
   },
-  {
-    id: "user-2",
-    name: "Jade",
-    username: "jade",
-    country: "USA",
-    club: "Portland Pickleball",
-    lastLogin: "2024-09-10T18:05:00Z",
-    status: "must-change",
-  },
-  {
-    id: "user-3",
-    name: "Lina",
-    username: "lina",
-    country: "Sweden",
-    club: "Göteborg Padel",
-    lastLogin: "2024-09-02T13:15:00Z",
-    status: "locked",
-  },
-];
+  {},
+);
+
+function getCountryName(code?: string | null): string | null {
+  if (!code) return null;
+  return COUNTRY_NAME_BY_CODE[code] ?? null;
+}
 
 function formatDate(value?: string | null): string {
   if (!value) return "—";
@@ -73,7 +69,7 @@ function statusLabel(status: UserStatus): string {
 
 export default function AdminUsersPage() {
   const { showToast } = useToast();
-  const [users, setUsers] = useState<AdminUser[]>(MOCK_USERS);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [selected, setSelected] = useState<AdminUser | null>(null);
   const [query, setQuery] = useState("");
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(
@@ -82,12 +78,47 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAdmin()) {
       rememberLoginRedirect();
     }
-    setReady(true);
+    const loadUsers = async () => {
+      setLoadingUsers(true);
+      setLoadError(null);
+      try {
+        const res = await apiFetch("/v0/players/accounts?limit=200", {
+          cache: "no-store",
+        });
+        const data = (await res.json()) as { accounts: PlayerAccountSummary[] };
+        const normalized: AdminUser[] = (data.accounts ?? []).map((account) => ({
+          id: account.userId,
+          playerId: account.playerId,
+          name: account.name,
+          username: account.username,
+          club: account.clubName ?? null,
+          country: getCountryName(account.countryCode) ?? account.countryCode ?? undefined,
+          lastLogin: null,
+          status: account.mustChangePassword ? "must-change" : "active",
+        }));
+        setUsers(
+          normalized.sort((a, b) =>
+            a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+          ),
+        );
+      } catch (err) {
+        console.error("Failed to load user accounts", err);
+        setLoadError("Unable to load users. Try refreshing this page.");
+        setUsers([]);
+      } finally {
+        setLoadingUsers(false);
+        setReady(true);
+      }
+    };
+
+    loadUsers();
   }, []);
 
   const filteredUsers = useMemo(() => {
@@ -205,13 +236,27 @@ export default function AdminUsersPage() {
               Actions
             </div>
           </div>
-            {filteredUsers.length === 0 ? (
-              <div className="admin-table__row" role="row">
-                <div role="cell" className="admin-users__empty" aria-live="polite">
-                  No users match this search. Try searching by username or club.
-                </div>
+          {loadingUsers ? (
+            <div className="admin-table__row" role="row">
+              <div role="cell" className="admin-users__empty" aria-live="polite">
+                Loading users…
               </div>
-            ) : (
+            </div>
+          ) : loadError ? (
+            <div className="admin-table__row" role="row">
+              <div role="cell" className="admin-users__empty" aria-live="polite">
+                {loadError}
+              </div>
+            </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="admin-table__row" role="row">
+              <div role="cell" className="admin-users__empty" aria-live="polite">
+                {users.length === 0
+                  ? "No player accounts found yet. Add players to manage logins."
+                  : "No users match this search. Try searching by username or club."}
+              </div>
+            </div>
+          ) : (
             filteredUsers.map((user) => (
               <div className="admin-table__row" role="row" key={user.id}>
                 <div role="cell">
@@ -230,9 +275,12 @@ export default function AdminUsersPage() {
                 </div>
                 <div role="cell" className="admin-table__actions-col">
                   <div className="admin-users__actions">
-                    <button className="button button--ghost" type="button">
+                    <Link
+                      className="button button--ghost"
+                      href={`/players/${encodeURIComponent(user.playerId)}`}
+                    >
                       View
-                    </button>
+                    </Link>
                     <button
                       className="button button--ghost"
                       type="button"

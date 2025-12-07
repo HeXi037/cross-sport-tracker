@@ -80,6 +80,21 @@ describe("normalizeMatchSummary", () => {
       })
     ).toBeNull();
   });
+
+  it("normalizes snake_cased last played timestamps", () => {
+    const lastPlayedAt = "2024-08-15T12:34:56Z";
+    const summary = normalizeMatchSummary({
+      wins: 3,
+      losses: 2,
+      draws: 0,
+      total: 5,
+      winPct: 0.6,
+      last_played_at: lastPlayedAt,
+    });
+
+    expect(summary).not.toBeNull();
+    expect(summary?.lastPlayedAt).toBe(lastPlayedAt);
+  });
 });
 
 describe("formatMatchRecord", () => {

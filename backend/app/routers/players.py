@@ -14,7 +14,17 @@ from fastapi import (
     Query,
     Header,
 )
-from sqlalchemy import select, func, case, literal, true, delete, Text, inspect
+from sqlalchemy import (
+    select,
+    func,
+    case,
+    literal,
+    true,
+    delete,
+    Text,
+    inspect,
+    or_,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError, InvalidRequestError
 from sqlalchemy.orm import aliased
@@ -67,6 +77,8 @@ from ..schemas import (
     PlayerSocialLinkCreate,
     PlayerSocialLinkUpdate,
     PlayerBadgeOut,
+    PlayerAccountListOut,
+    PlayerAccountSummary,
 )
 from ..exceptions import (
     ProblemDetail,
@@ -242,6 +254,67 @@ async def list_players(
         for p in rows
     ]
     return PlayerListOut(players=players, total=total, limit=limit, offset=offset)
+
+
+@router.get("/accounts", response_model=PlayerAccountListOut)
+async def list_player_accounts(
+    q: str = "",
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    session: AsyncSession = Depends(get_session),
+    _: User = Depends(require_admin),
+):
+    base_filters = (Player.deleted_at.is_(None), Player.user_id.is_not(None))
+    count_stmt = (
+        select(func.count())
+        .select_from(Player)
+        .join(User, Player.user_id == User.id)
+        .where(*base_filters)
+    )
+    stmt = (
+        select(Player, User, Club.name)
+        .join(User, Player.user_id == User.id)
+        .outerjoin(Club, Club.id == Player.club_id)
+        .where(*base_filters)
+    )
+
+    if q:
+        term = f"%{q.lower()}%"
+        search_filter = or_(
+            func.lower(Player.name).like(term),
+            func.lower(User.username).like(term),
+            func.lower(func.coalesce(Club.name, literal(""))).like(term),
+            func.lower(func.coalesce(Player.country_code, literal(""))).like(term),
+        )
+        stmt = stmt.where(search_filter)
+        count_stmt = count_stmt.where(search_filter)
+
+    total = (await session.execute(count_stmt)).scalar_one()
+    rows = (
+        await session.execute(
+            stmt.order_by(Player.name.asc()).limit(limit).offset(offset)
+        )
+    ).all()
+
+    accounts = [
+        PlayerAccountSummary(
+            playerId=player.id,
+            userId=user.id,
+            username=user.username,
+            name=player.name,
+            clubName=club_name,
+            countryCode=player.country_code,
+            mustChangePassword=user.must_change_password,
+        )
+        for player, user, club_name in rows
+    ]
+
+    return PlayerAccountListOut(
+        accounts=accounts,
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 @router.get("/by-ids", response_model=list[PlayerNameOut])
 async def players_by_ids(ids: str = "", session: AsyncSession = Depends(get_session)):

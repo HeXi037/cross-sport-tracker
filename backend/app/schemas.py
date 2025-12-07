@@ -324,6 +324,27 @@ class PlayerListOut(BaseModel):
     offset: int
 
 
+class PlayerAccountSummary(BaseModel):
+    """Summary of a player account with its linked user."""
+
+    player_id: str = Field(alias="playerId")
+    user_id: str = Field(alias="userId")
+    username: str
+    name: str
+    club_name: Optional[str] = Field(default=None, alias="clubName")
+    country_code: Optional[str] = Field(default=None, alias="countryCode")
+    must_change_password: bool = Field(alias="mustChangePassword")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class PlayerAccountListOut(BaseModel):
+    accounts: list[PlayerAccountSummary]
+    total: int
+    limit: int
+    offset: int
+
+
 class PlayerVisibilityUpdate(BaseModel):
     hidden: bool
 

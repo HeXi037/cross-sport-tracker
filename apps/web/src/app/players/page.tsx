@@ -733,19 +733,36 @@ export default function PlayersPage() {
     });
 
     try {
-      const params = new URLSearchParams({ limit: "200", offset: "0" });
-      if (admin) {
-        params.set("include_hidden", "true");
-      }
-      const res = await apiFetch(`/v0/players?${params.toString()}`, {
-        cache: "no-store",
-      });
-      const data = await res.json();
-      const normalized = ((data.players ?? []) as ApiPlayer[])
-        .map(normalizePlayer)
-        .filter((player): player is Player => !!player);
+      const normalizedPlayers: Player[] = [];
+      const pageLimit = 100; // API enforces a maximum of 100
+      const target = 200; // Keep a generous pool for curated lists
 
-      setCuratedSections(buildCuratedSections(normalized, sportFilter));
+      for (let offset = 0; normalizedPlayers.length < target; offset += pageLimit) {
+        const params = new URLSearchParams({
+          limit: pageLimit.toString(),
+          offset: offset.toString(),
+        });
+        if (admin) {
+          params.set("include_hidden", "true");
+        }
+
+        const res = await apiFetch(`/v0/players?${params.toString()}`, {
+          cache: "no-store",
+        });
+        const data = await res.json();
+        const page = ((data.players ?? []) as ApiPlayer[])
+          .map(normalizePlayer)
+          .filter((player): player is Player => !!player);
+
+        normalizedPlayers.push(...page);
+
+        const total = typeof data.total === "number" ? data.total : null;
+        if (page.length < pageLimit || (total !== null && offset + pageLimit >= total)) {
+          break;
+        }
+      }
+
+      setCuratedSections(buildCuratedSections(normalizedPlayers, sportFilter));
     } catch (err) {
       console.error("Failed to load curated highlights", err);
       setCuratedSections((prev) => {

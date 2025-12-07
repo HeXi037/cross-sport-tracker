@@ -489,6 +489,7 @@ interface TokenPayload {
   is_admin?: boolean;
   sub?: string;
   csrf?: string;
+  must_change_password?: boolean;
   [key: string]: unknown;
 }
 
@@ -521,6 +522,12 @@ export function currentUserId(): string | null {
 
 export function isLoggedIn(): boolean {
   return getTokenPayload() !== null;
+}
+
+export function mustChangePasswordRequired(): boolean {
+  const payload = getTokenPayload();
+  const flag = payload?.must_change_password;
+  return typeof flag === "boolean" ? flag : false;
 }
 
 export function csrfToken(): string | null {
@@ -562,6 +569,7 @@ export interface UserMe {
   username: string;
   is_admin: boolean;
   photo_url?: string | null;
+  mustChangePassword?: boolean;
 }
 
 export async function fetchMe(): Promise<UserMe> {
@@ -574,6 +582,7 @@ export interface TokenResponse {
   access_token: string;
   refresh_token: string;
   csrf_token?: string;
+  mustChangePassword?: boolean;
 }
 
 export type UpdateMeResponse = Partial<TokenResponse>;

@@ -18,8 +18,12 @@ export function useLoginForm({ onSuccess }: UseLoginFormOptions = {}) {
     event.preventDefault();
     setErrors([]);
     try {
-      await loginUser(username, password);
+      const result = await loginUser(username, password);
       onSuccess?.();
+      if (result.mustChangePassword) {
+        router.push("/set-password");
+        return;
+      }
       const redirectTarget = consumeLoginRedirect();
       router.push(redirectTarget ?? "/");
     } catch (err) {

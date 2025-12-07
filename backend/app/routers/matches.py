@@ -1041,6 +1041,7 @@ async def list_all_match_audit_entries(
                 username=actor.username,
                 is_admin=actor.is_admin,
                 photo_url=actor.photo_url,
+                must_change_password=actor.must_change_password,
             )
             if actor
             else None
@@ -1474,6 +1475,7 @@ async def list_match_audit_log(
                 username=actor.username,
                 is_admin=actor.is_admin,
                 photo_url=actor.photo_url,
+                must_change_password=actor.must_change_password,
             )
             if actor
             else None

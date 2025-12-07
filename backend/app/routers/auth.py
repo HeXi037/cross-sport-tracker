@@ -181,6 +181,7 @@ async def create_token(user: User, session: AsyncSession) -> tuple[str, str, str
       "sub": user.id,
       "username": user.username,
       "is_admin": user.is_admin,
+      "must_change_password": user.must_change_password,
       "exp": _utcnow() + timedelta(seconds=JWT_EXPIRE_SECONDS),
       "csrf": csrf_token,
   }
@@ -358,6 +359,7 @@ async def signup(
       access_token=access_token,
       refresh_token=refresh_token,
       csrf_token=csrf_token,
+      must_change_password=user.must_change_password,
   )
 
 
@@ -392,6 +394,7 @@ async def login(
       access_token=access_token,
       refresh_token=refresh_token,
       csrf_token=csrf_token,
+      must_change_password=user.must_change_password,
   )
 
 
@@ -420,6 +423,7 @@ async def read_me(current: User = Depends(get_current_user)):
       username=current.username,
       is_admin=current.is_admin,
       photo_url=current.photo_url,
+      must_change_password=current.must_change_password,
   )
 
 
@@ -444,6 +448,7 @@ async def update_my_photo(
       username=current.username,
       is_admin=current.is_admin,
       photo_url=current.photo_url,
+      must_change_password=current.must_change_password,
   )
 
 
@@ -467,6 +472,7 @@ async def delete_my_photo(
       username=current.username,
       is_admin=current.is_admin,
       photo_url=current.photo_url,
+      must_change_password=current.must_change_password,
   )
 
 
@@ -521,6 +527,7 @@ async def update_me(
       player.name = new_username
   if body.password:
     current.password_hash = pwd_context.hash(body.password)
+    current.must_change_password = False
   try:
     await session.commit()
   except IntegrityError as e:
@@ -542,6 +549,7 @@ async def update_me(
       access_token=access_token,
       refresh_token=refresh_token,
       csrf_token=csrf_token,
+      must_change_password=current.must_change_password,
   )
 
 
@@ -575,6 +583,7 @@ async def admin_reset_password(
     )
   temporary_password = _generate_temporary_password()
   user.password_hash = pwd_context.hash(temporary_password)
+  user.must_change_password = True
   await session.execute(
       update(RefreshToken)
       .where(RefreshToken.user_id == user.id)
@@ -618,6 +627,7 @@ async def refresh_tokens(
       access_token=access_token,
       refresh_token=refresh_token,
       csrf_token=csrf_token,
+      must_change_password=user.must_change_password,
   )
 
 

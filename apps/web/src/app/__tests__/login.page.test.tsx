@@ -166,6 +166,42 @@ describe('LoginPage signup feedback', () => {
     });
   });
 
+  it('sends users with temp passwords to the reset screen', async () => {
+    mockedApiFetch.mockResolvedValueOnce(
+      makeResponse({
+        access_token: 'token',
+        refresh_token: 'refresh',
+        mustChangePassword: true,
+      })
+    );
+
+    renderWithToast(<LoginPage />);
+
+    const [loginUsername] = screen.getAllByLabelText('Username');
+    const [loginPassword] = screen.getAllByLabelText('Password');
+
+    fireEvent.change(loginUsername, { target: { value: 'User' } });
+    fireEvent.change(loginPassword, { target: { value: 'CorrectHorse!1' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /login/i }));
+
+    await waitFor(() => {
+      expect(mockedApiFetch).toHaveBeenCalledWith(
+        '/v0/auth/login',
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+
+    expect(mockedPersistSession).toHaveBeenCalledWith({
+      access_token: 'token',
+      refresh_token: 'refresh',
+      mustChangePassword: true,
+    });
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith('/set-password');
+    });
+  });
+
   it('surfaces signup failure reasons from the server', async () => {
     mockedApiFetch.mockImplementation((path) => {
       if (path.startsWith('/v0/auth/signup/username-availability')) {

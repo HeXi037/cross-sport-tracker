@@ -282,6 +282,51 @@ def test_login_rate_limit_not_bypassed_by_spoofed_x_forwarded_for():
         )
         assert resp.status_code == 429
 
+
+def test_admin_password_reset_requires_change():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        client.post(
+            "/auth/signup", json={"username": "resetme", "password": "Str0ng!Pass!"}
+        )
+        admin_token = client.post(
+            "/auth/signup",
+            json={"username": "reset-admin", "password": "Str0ng!Pass!", "is_admin": True},
+            headers={"X-Admin-Secret": "admintest"},
+        ).json()["access_token"]
+
+        reset_resp = client.post(
+            "/auth/admin/reset-password",
+            json={"username": "resetme"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert reset_resp.status_code == 200
+        temporary_password = reset_resp.json()["temporaryPassword"]
+
+        login_with_temp = client.post(
+            "/auth/login",
+            json={"username": "resetme", "password": temporary_password},
+        )
+        assert login_with_temp.status_code == 200
+        login_data = login_with_temp.json()
+        assert login_data["mustChangePassword"] is True
+
+        final_password = "N3w!TempPass"
+        update = client.put(
+            "/auth/me",
+            json={"password": final_password},
+            headers={"Authorization": f"Bearer {login_data['access_token']}"},
+        )
+        assert update.status_code == 200
+        assert update.json()["mustChangePassword"] is False
+
+        final_login = client.post(
+            "/auth/login",
+            json={"username": "resetme", "password": final_password},
+        )
+        assert final_login.status_code == 200
+        assert final_login.json()["mustChangePassword"] is False
+
 def test_jwt_secret_rejects_short(monkeypatch):
     monkeypatch.setenv("JWT_SECRET", "short")
     with pytest.raises(RuntimeError):

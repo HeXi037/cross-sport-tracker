@@ -541,6 +541,18 @@ export default function RecordPadelPage() {
   }, [bestOfNumber, isSetComplete, sets]);
 
   useEffect(() => {
+    if (sets.length <= bestOfNumber) {
+      return;
+    }
+
+    const nextLength = Math.max(bestOfNumber, 1);
+    setSets((prev) => prev.slice(0, nextLength));
+    setSetErrors((prev) => prev.slice(0, nextLength));
+    setSetTouched((prev) => prev.slice(0, nextLength));
+    setTieBreakVisibility((prev) => prev.slice(0, nextLength));
+  }, [bestOfNumber, sets.length]);
+
+  useEffect(() => {
     async function loadPlayers() {
       try {
         const res = await apiFetch(`/v0/players`);

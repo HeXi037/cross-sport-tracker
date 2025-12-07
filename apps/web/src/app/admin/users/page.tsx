@@ -89,7 +89,7 @@ export default function AdminUsersPage() {
       setLoadingUsers(true);
       setLoadError(null);
       try {
-        const res = await apiFetch("/v0/players/accounts?limit=200", {
+        const res = await apiFetch("/v0/players/accounts?limit=100", {
           cache: "no-store",
         });
         const data = (await res.json()) as { accounts: PlayerAccountSummary[] };

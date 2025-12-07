@@ -3659,6 +3659,14 @@ html.theme-dark .record-sport-card:hover {
   margin-bottom: 12px;
 }
 
+.admin-users__search {
+  width: min(360px, 100%);
+}
+
+.admin-users__search input {
+  width: 100%;
+}
+
 .admin-users__name {
   font-weight: 700;
   font-size: 1rem;
@@ -3668,6 +3676,11 @@ html.theme-dark .record-sport-card:hover {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.admin-users__empty {
+  grid-column: 1 / -1;
+  color: var(--color-text-muted);
 }
 
 .card-title {
@@ -3716,6 +3729,14 @@ html.theme-dark .record-sport-card:hover {
   border-color: var(--color-feedback-error-border);
   background: var(--color-feedback-error-bg);
   color: var(--color-feedback-error-text);
+}
+
+.reset-card__steps {
+  margin: 12px 0 0 18px;
+  padding: 0;
+  color: var(--color-text-muted);
+  display: grid;
+  gap: 6px;
 }
 
 .alert-warning {

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { apiFetch, isAdmin } from "../../../lib/api";
 import { rememberLoginRedirect } from "../../../lib/loginRedirect";
@@ -71,18 +71,14 @@ function statusLabel(status: UserStatus): string {
   }
 }
 
-type ResetMode = "temporary" | "custom";
-
 export default function AdminUsersPage() {
   const { showToast } = useToast();
   const [users, setUsers] = useState<AdminUser[]>(MOCK_USERS);
   const [selected, setSelected] = useState<AdminUser | null>(null);
-  const [mode, setMode] = useState<ResetMode>("temporary");
+  const [query, setQuery] = useState("");
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(
     null,
   );
-  const [customPassword, setCustomPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -94,19 +90,23 @@ export default function AdminUsersPage() {
     setReady(true);
   }, []);
 
-  const sortedUsers = useMemo(
-    () =>
-      users
-        .slice()
-        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" })),
-    [users],
-  );
+  const filteredUsers = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    const sorted = users
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+    if (!term) {
+      return sorted;
+    }
+    return sorted.filter((user) =>
+      [user.name, user.username, user.country ?? "", user.club ?? ""].some((value) =>
+        value.toLowerCase().includes(term),
+      ),
+    );
+  }, [query, users]);
 
   const resetModal = () => {
-    setMode("temporary");
     setGeneratedPassword(null);
-    setCustomPassword("");
-    setConfirmPassword("");
     setError(null);
   };
 
@@ -148,41 +148,8 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleCustomSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!selected) return;
-    const trimmed = customPassword.trim();
-    if (!trimmed) {
-      setError("Enter a password to continue.");
-      return;
-    }
-    if (trimmed !== customPassword || trimmed !== confirmPassword.trim()) {
-      setError("Passwords must match and not include leading or trailing spaces.");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 350));
-      setUsers((current) =>
-        current.map((user) =>
-          user.id === selected.id ? { ...user, status: "active" } : user,
-        ),
-      );
-      showToast({
-        message: `Saved a new password for ${selected.name}.`,
-        variant: "success",
-      });
-      setSelected(null);
-    } catch (err) {
-      setError("We couldn't save this password right now. Please try again.");
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const requireChangeWarning = selected?.status === "must-change";
+  const lockedOut = selected?.status === "locked";
 
   if (!ready) {
     return null;
@@ -210,8 +177,22 @@ export default function AdminUsersPage() {
         <div className="admin-users__table-head">
           <div>
             <h2 className="card-title">User list</h2>
-            <p className="text-muted">Reset passwords or review account status.</p>
+            <p className="text-muted">
+              Search the directory, see who is locked out, and reset passwords when
+              someone needs to get back in.
+            </p>
           </div>
+          <label className="form-field admin-users__search" htmlFor="user-search">
+            <span className="form-label">Find a user</span>
+            <input
+              id="user-search"
+              type="search"
+              placeholder="Search by name, username, club, or country"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              autoComplete="off"
+            />
+          </label>
         </div>
         <div className="admin-table" role="table" aria-label="User list">
           <div className="admin-table__head" role="row">
@@ -224,39 +205,47 @@ export default function AdminUsersPage() {
               Actions
             </div>
           </div>
-          {sortedUsers.map((user) => (
-            <div className="admin-table__row" role="row" key={user.id}>
-              <div role="cell">
-                <div className="admin-users__name">{user.name}</div>
-                <div className="text-muted">{user.country ?? "—"}</div>
-              </div>
-              <div role="cell">{user.username}</div>
-              <div role="cell">{user.club ?? "—"}</div>
-              <div role="cell">{formatDate(user.lastLogin)}</div>
-              <div role="cell">
-                <span
-                  className={`status-pill status-pill--${user.status.replace("-", "")}`}
-                >
-                  {statusLabel(user.status)}
-                </span>
-              </div>
-              <div role="cell" className="admin-table__actions-col">
-                <div className="admin-users__actions">
-                  <button className="button button--ghost" type="button">
-                    View
-                  </button>
-                  <button
-                    className="button button--ghost"
-                    type="button"
-                    onClick={() => handleResetClick(user)}
-                    title="Reset password"
-                  >
-                    Reset password
-                  </button>
+            {filteredUsers.length === 0 ? (
+              <div className="admin-table__row" role="row">
+                <div role="cell" className="admin-users__empty" aria-live="polite">
+                  No users match this search. Try searching by username or club.
                 </div>
               </div>
-            </div>
-          ))}
+            ) : (
+            filteredUsers.map((user) => (
+              <div className="admin-table__row" role="row" key={user.id}>
+                <div role="cell">
+                  <div className="admin-users__name">{user.name}</div>
+                  <div className="text-muted">{user.country ?? "—"}</div>
+                </div>
+                <div role="cell">{user.username}</div>
+                <div role="cell">{user.club ?? "—"}</div>
+                <div role="cell">{formatDate(user.lastLogin)}</div>
+                <div role="cell">
+                  <span
+                    className={`status-pill status-pill--${user.status.replace("-", "")}`}
+                  >
+                    {statusLabel(user.status)}
+                  </span>
+                </div>
+                <div role="cell" className="admin-table__actions-col">
+                  <div className="admin-users__actions">
+                    <button className="button button--ghost" type="button">
+                      View
+                    </button>
+                    <button
+                      className="button button--ghost"
+                      type="button"
+                      onClick={() => handleResetClick(user)}
+                      title="Reset password"
+                    >
+                      Reset password
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </section>
 
@@ -271,8 +260,8 @@ export default function AdminUsersPage() {
                   {selected.country ? ` (${selected.country})` : ""}
                 </h2>
                 <p className="text-muted">
-                  This will reset {selected.name}'s password and sign them out of
-                  active sessions.
+                  Generate a one-time password and share it securely so the
+                  player can sign back in and set their own password.
                 </p>
               </div>
               <button
@@ -291,143 +280,87 @@ export default function AdminUsersPage() {
               </div>
             ) : null}
 
+              {lockedOut ? (
+                <div className="alert" role="status">
+                  This account is locked. Generating a temporary password will let
+                  them sign back in, but they need to choose a new password
+                  immediately afterward.
+                </div>
+              ) : null}
+
             {error ? (
               <div className="alert alert-error" role="alert">
                 {error}
               </div>
             ) : null}
 
-            <div className="reset-mode-switch" role="tablist" aria-label="Reset options">
-              <button
-                className={`reset-mode-switch__button${
-                  mode === "temporary" ? " is-active" : ""
-                }`}
-                role="tab"
-                aria-selected={mode === "temporary"}
-                onClick={() => setMode("temporary")}
-                type="button"
-              >
-                Generate temporary password (recommended)
-              </button>
-              <button
-                className={`reset-mode-switch__button${
-                  mode === "custom" ? " is-active" : ""
-                }`}
-                role="tab"
-                aria-selected={mode === "custom"}
-                onClick={() => setMode("custom")}
-                type="button"
-              >
-                Set custom password
-              </button>
-            </div>
-
-            {mode === "temporary" ? (
-              <div className="card reset-card">
-                <div className="reset-card__row">
-                  <div>
-                    <h3 className="card-title">Temporary password</h3>
-                    <p className="text-muted">
-                      Generate a one-time password and share it securely. The
-                      player will be asked to set a new password after logging
-                      in.
-                    </p>
-                  </div>
-                  <button
-                    className="button"
-                    type="button"
-                    onClick={handleGenerate}
-                    disabled={loading}
-                  >
-                    {loading ? "Generating…" : "Generate temporary password"}
-                  </button>
+            <div className="card reset-card">
+              <div className="reset-card__row">
+                <div>
+                  <h3 className="card-title">Temporary password</h3>
+                  <p className="text-muted">
+                    Reset the account, sign them out everywhere, and send the
+                    temporary password in a trusted channel like Messenger, Discord,
+                    or SMS. They will be forced to create their own password when
+                    they log back in.
+                  </p>
+                  <ul className="reset-card__steps">
+                    <li>Generate a temporary password.</li>
+                    <li>Share it privately with the player.</li>
+                    <li>Ask them to sign in and set a new password immediately.</li>
+                  </ul>
                 </div>
-                {generatedPassword ? (
-                  <div className="reset-card__result" aria-live="polite">
-                    <label className="form-field" htmlFor="generated-password">
-                      <span className="form-label">Temporary password</span>
-                      <div className="generated-password">
-                        <input
-                          id="generated-password"
-                          value={generatedPassword}
-                          readOnly
-                          className="input"
-                        />
-                        <button
-                          className="button button--ghost"
-                          type="button"
-                          onClick={() =>
-                            navigator.clipboard?.writeText(generatedPassword)
-                          }
-                        >
-                          Copy
-                        </button>
-                      </div>
-                    </label>
-                    <p className="text-muted">
-                      Share this password securely with the player. They'll be asked
-                      to choose a new password after logging in.
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <div className="card reset-card">
-                <form className="reset-card__form" onSubmit={handleCustomSubmit}>
-                  <label className="form-field" htmlFor="custom-password">
-                    <span className="form-label">New password</span>
-                    <input
-                      id="custom-password"
-                      type="password"
-                      value={customPassword}
-                      onChange={(event) => setCustomPassword(event.target.value)}
-                      autoComplete="new-password"
-                      required
-                    />
-                  </label>
-                  <label className="form-field" htmlFor="confirm-password">
-                    <span className="form-label">Confirm new password</span>
-                    <input
-                      id="confirm-password"
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(event) => setConfirmPassword(event.target.value)}
-                      autoComplete="new-password"
-                      required
-                    />
-                  </label>
-                  <label className="checkbox">
-                    <input type="checkbox" defaultChecked />
-                    Require password change at next login
-                  </label>
-                  <div className="reset-card__footer">
-                    <button
-                      className="button button--ghost"
-                      type="button"
-                      onClick={() => setSelected(null)}
-                    >
-                      Cancel
-                    </button>
-                    <button className="button" type="submit" disabled={loading}>
-                      {loading ? "Saving…" : "Save new password"}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            <footer className="modal__footer">
-              <span className="text-muted">This action will be logged in the audit log.</span>
-              {mode === "temporary" ? (
                 <button
                   className="button"
                   type="button"
                   onClick={handleGenerate}
                   disabled={loading}
                 >
-                  {loading ? "Resetting…" : "Reset password"}
+                  {loading
+                    ? "Generating…"
+                    : generatedPassword
+                      ? "Generate new temporary password"
+                      : "Generate temporary password"}
                 </button>
+              </div>
+              {generatedPassword ? (
+                <div className="reset-card__result" aria-live="polite">
+                  <label className="form-field" htmlFor="generated-password">
+                    <span className="form-label">Temporary password</span>
+                    <div className="generated-password">
+                      <input
+                        id="generated-password"
+                        value={generatedPassword}
+                        readOnly
+                        className="input"
+                      />
+                      <button
+                        className="button button--ghost"
+                        type="button"
+                        onClick={() => navigator.clipboard?.writeText(generatedPassword)}
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </label>
+                  <p className="text-muted">
+                    Share this password securely with the player. They will be asked
+                    to choose a new password after logging in.
+                  </p>
+                </div>
               ) : null}
+            </div>
+
+            <footer className="modal__footer">
+              <span className="text-muted">This action will be logged in the audit log.</span>
+              <button
+                className="button"
+                type="button"
+                onClick={handleGenerate}
+                disabled={loading}
+              >
+                {loading ? "Resetting…" : "Generate temporary password"}
+              </button>
             </footer>
           </div>
         </div>

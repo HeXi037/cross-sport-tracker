@@ -8,8 +8,10 @@ type Props = {
 
 export function PadelAmericanoTargetField({ value, onChange, label, hint, targetHintId }: Props) {
   return (
-    <label className="form-field" htmlFor="padel-americano-target">
-      <span className="form-label">{label}</span>
+    <div className="form-field">
+      <label className="form-label" htmlFor="padel-americano-target">
+        {label}
+      </label>
       <input
         id="padel-americano-target"
         type="number"
@@ -24,6 +26,6 @@ export function PadelAmericanoTargetField({ value, onChange, label, hint, target
       <span id={targetHintId} className="form-hint">
         {hint}
       </span>
-    </label>
+    </div>
   );
 }

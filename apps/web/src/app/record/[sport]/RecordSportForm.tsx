@@ -798,6 +798,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   const [clubSelectionOpen, setClubSelectionOpen] = useState(false);
   const [homeClubName, setHomeClubName] = useState<string | null>(null);
   const [hasInitializedClub, setHasInitializedClub] = useState(false);
+  const clubIdRef = useRef(clubId);
+  const hasInitializedClubRef = useRef(hasInitializedClub);
   const [doubles, setDoubles] = useState(isPadel);
   const [submitting, setSubmitting] = useState(false);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
@@ -813,6 +815,14 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     });
     return map;
   }, [players]);
+
+  useEffect(() => {
+    clubIdRef.current = clubId;
+  }, [clubId]);
+
+  useEffect(() => {
+    hasInitializedClubRef.current = hasInitializedClub;
+  }, [hasInitializedClub]);
   const duplicateNameSet = useMemo(
     () =>
       new Set(
@@ -1289,6 +1299,17 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
             a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
           );
         setPlayers(sortedPlayers);
+
+        if (!hasInitializedClubRef.current && !clubIdRef.current) {
+          const me = sortedPlayers.find((player) => player.id === session.userId);
+          const defaultClubId = me?.club_id?.trim();
+
+          if (defaultClubId) {
+            setClubId(defaultClubId);
+            setHasInitializedClub(true);
+            setClubSelectionOpen(false);
+          }
+        }
       } catch (err) {
         const apiError = err instanceof Error ? (err as ApiError) : null;
         if (apiError?.status === 401 && active) {

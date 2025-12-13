@@ -864,12 +864,13 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     () => getSportCopy(sport, locale),
     [locale, sport],
   );
+  const bowlingRollPlaceholder = recordT("bowling.rollPlaceholder");
   const scorePlaceholderA =
-    sportCopy.scorePlaceholderA ?? "Team A whole-number score (e.g. 0)";
+    sportCopy.scorePlaceholderA ?? recordT("score.placeholderTeamA");
   const scorePlaceholderB =
-    sportCopy.scorePlaceholderB ?? "Team B whole-number score (e.g. 0)";
+    sportCopy.scorePlaceholderB ?? recordT("score.placeholderTeamB");
   const gameScorePlaceholder =
-    sportCopy.gameScorePlaceholder ?? "Whole-number points (e.g. 11)";
+    sportCopy.gameScorePlaceholder ?? recordT("score.placeholderGame");
   const gameScoreMax =
     !isPickleball && typeof gameSeriesConfig?.maxPointsPerGame === "number"
       ? gameSeriesConfig.maxPointsPerGame
@@ -2514,7 +2515,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                       inputMode="numeric"
                                       pattern="[0-9]*"
                                       maxLength={2}
-                                      placeholder="--"
+                                      placeholder={bowlingRollPlaceholder}
                                       value={roll}
                                       disabled={!isRollEnabled}
                                       onChange={(e) =>

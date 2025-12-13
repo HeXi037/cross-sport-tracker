@@ -790,13 +790,16 @@ function DiscGolfForm() {
         </h2>
         {hasMatchId ? (
           <>
-            {loadingMatchDetails ? (
+            {loadingMatchDetails && (
               <>
                 <span className="sr-only">
                   {recordDiscGolfT("loading.matchDetails")}
                 </span>
                 <ScoreInputsSkeleton />
               </>
+            )}
+            {matchDetailsError ? (
+              <p>{matchDetailsError}</p>
             ) : (
               <>
                 <p>
@@ -819,7 +822,6 @@ function DiscGolfForm() {
                     Side A: {sideALabel || "Unassigned"} · Side B: {sideBLabel || "Unassigned"}
                   </p>
                 )}
-                {matchDetailsError && <p>{matchDetailsError}</p>}
                 <div className="scores form-grid form-grid--two">
                   <label className="form-field" htmlFor="disc-golf-score-a">
                     <span className="form-label">Side A strokes</span>

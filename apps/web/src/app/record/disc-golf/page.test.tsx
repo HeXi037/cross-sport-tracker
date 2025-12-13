@@ -7,6 +7,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
+import { createRequire } from "node:module";
 import RecordDiscGolfPage from "./page";
 
 const useSearchParamsMock = vi.fn<URLSearchParams, []>();
@@ -31,6 +32,52 @@ vi.mock("../../../lib/useApiSWR", () => ({
 vi.mock("../../../lib/useNotifications", () => ({
   invalidateNotificationsCache:
     notificationMocks.invalidateNotificationsCacheMock,
+}));
+
+const require = createRequire(import.meta.url);
+const intlMessages = require("../../../messages/en-GB.json") as Record<string, unknown>;
+
+vi.mock("next-intl", () => ({
+  useTranslations: (namespace?: string) =>
+    (key: string, values?: Record<string, string | number>) => {
+    if (!namespace) {
+      return key;
+    }
+
+    const namespaceParts = namespace.split(".");
+    let base: unknown = intlMessages;
+    for (const part of namespaceParts) {
+      if (!base || typeof base !== "object") {
+        return `${namespace}.${key}`;
+      }
+      base = (base as Record<string, unknown>)[part];
+    }
+
+    if (base && typeof base === "object") {
+      const keyParts = key.split(".");
+      let value: unknown = base;
+      for (const part of keyParts) {
+        if (!value || typeof value !== "object") {
+          value = undefined;
+          break;
+        }
+        value = (value as Record<string, unknown>)[part];
+      }
+
+      if (typeof value === "string") {
+        if (values && Object.keys(values).length > 0) {
+          return Object.entries(values).reduce(
+            (result, [name, replacement]) =>
+              result.replace(new RegExp(`{${name}}`, "g"), String(replacement)),
+            value,
+          );
+        }
+        return value;
+      }
+    }
+
+    return `${namespace}.${key}`;
+  },
 }));
 
 const originalFetch = global.fetch;

@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 
@@ -64,7 +64,12 @@ describe("BowlingEntriesSection", () => {
   it("provides strike shortcuts for enabled rolls", () => {
     const { props } = renderComponent();
 
-    const strikeButton = screen.getByRole("button", { name: /Set to strike/ });
+    const firstShortcutGroup = screen.getByRole("group", {
+      name: /Player One frame 1 roll 1 shortcuts/,
+    });
+    const strikeButton = within(firstShortcutGroup).getByRole("button", {
+      name: /Set to strike/,
+    });
     fireEvent.click(strikeButton);
 
     expect(props.handleBowlingRollChange).toHaveBeenCalledWith(0, 0, 0, "10");

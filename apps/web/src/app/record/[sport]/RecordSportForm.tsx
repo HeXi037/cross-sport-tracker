@@ -2493,7 +2493,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                       inputMode="numeric"
                                       pattern="[0-9]*"
                                       maxLength={2}
-                                      placeholder="0, X, /"
+                                      placeholder="--"
                                       value={roll}
                                       disabled={!isRollEnabled}
                                       onChange={(e) =>

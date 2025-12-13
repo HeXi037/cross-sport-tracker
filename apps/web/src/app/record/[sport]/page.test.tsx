@@ -20,19 +20,42 @@ import enMessages from "../../../messages/en-GB.json";
 
 const router = { push: vi.fn() };
 
-function translate(namespace: string | undefined, key: string): string {
+function translate(
+  namespace: string | undefined,
+  key: string,
+  values?: Record<string, string | number>,
+): string {
   const path = namespace ? `${namespace}.${key}` : key;
-  return path.split(".").reduce((acc: unknown, segment) => {
+  const result = path.split(".").reduce((acc: unknown, segment) => {
     if (typeof acc !== "object" || acc === null) {
       return undefined;
     }
     return (acc as Record<string, unknown>)[segment];
   }, enMessages as unknown) as string | undefined;
+
+  if (typeof result === "string") {
+    if (values && Object.keys(values).length > 0) {
+      return Object.entries(values).reduce(
+        (acc, [name, replacement]) =>
+          acc.replace(new RegExp(`{${name}}`, "g"), String(replacement)),
+        result,
+      );
+    }
+    return result;
+  }
+
+  return path;
+}
+
+function bowlingRollLabel(playerLabel: string, frame: number, roll: number) {
+  return translate("Record", "bowling.rollLabel", { playerLabel, frame, roll });
 }
 
 vi.mock("next-intl", () => ({
   useTranslations: (namespace?: string) =>
-    (key: string) => translate(namespace, key) ?? `${namespace ? `${namespace}.` : ""}${key}`,
+    (key: string, values?: Record<string, string | number>) =>
+      translate(namespace, key, values) ??
+      `${namespace ? `${namespace}.` : ""}${key}`,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -1050,13 +1073,13 @@ describe("RecordSportForm", () => {
 
     const playerLabel = players[0].name;
     expect(
-      screen.getByLabelText(`${playerLabel} frame 1 roll 1`),
+      screen.getByLabelText(bowlingRollLabel(playerLabel, 1, 1)),
     ).toBeInTheDocument();
     expect(
-      screen.getByLabelText(`${playerLabel} frame 1 roll 2`),
+      screen.getByLabelText(bowlingRollLabel(playerLabel, 1, 2)),
     ).toBeInTheDocument();
     expect(
-      screen.getByLabelText(`${playerLabel} frame 10 roll 3`),
+      screen.getByLabelText(bowlingRollLabel(playerLabel, 10, 3)),
     ).toBeInTheDocument();
   });
 
@@ -1076,8 +1099,12 @@ describe("RecordSportForm", () => {
     fireEvent.change(select, { target: { value: "1" } });
 
     const playerName = players[0].name;
-    const firstRoll = screen.getByLabelText(`${playerName} frame 1 roll 1`);
-    const secondRoll = screen.getByLabelText(`${playerName} frame 1 roll 2`);
+    const firstRoll = screen.getByLabelText(
+      bowlingRollLabel(playerName, 1, 1),
+    );
+    const secondRoll = screen.getByLabelText(
+      bowlingRollLabel(playerName, 1, 2),
+    );
 
     fireEvent.change(firstRoll, { target: { value: "10" } });
     expect((secondRoll as HTMLInputElement).value).toBe("");
@@ -1122,14 +1149,22 @@ describe("RecordSportForm", () => {
     const playerName = players[0].name;
 
     for (let frame = 1; frame <= 9; frame += 1) {
-      const roll1 = screen.getByLabelText(`${playerName} frame ${frame} roll 1`);
-      const roll2 = screen.getByLabelText(`${playerName} frame ${frame} roll 2`);
+      const roll1 = screen.getByLabelText(
+        bowlingRollLabel(playerName, frame, 1),
+      );
+      const roll2 = screen.getByLabelText(
+        bowlingRollLabel(playerName, frame, 2),
+      );
       fireEvent.change(roll1, { target: { value: "3" } });
       fireEvent.change(roll2, { target: { value: "4" } });
     }
 
-    const finalRoll1 = screen.getByLabelText(`${playerName} frame 10 roll 1`);
-    const finalRoll2 = screen.getByLabelText(`${playerName} frame 10 roll 2`);
+    const finalRoll1 = screen.getByLabelText(
+      bowlingRollLabel(playerName, 10, 1),
+    );
+    const finalRoll2 = screen.getByLabelText(
+      bowlingRollLabel(playerName, 10, 2),
+    );
     fireEvent.change(finalRoll1, { target: { value: "3" } });
     fireEvent.change(finalRoll2, { target: { value: "4" } });
 

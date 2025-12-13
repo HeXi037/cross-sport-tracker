@@ -234,6 +234,7 @@
       "placeholderTeamB": "Marcador entero equipo B (p. ej., 0)"
     },
     "bowling": {
+      "rollLabel": "Puntuación de {playerLabel} en el frame {frame}, tiro {roll}",
       "rollPlaceholder": "Pinos o símbolos (p. ej., X para pleno, / para spare, – para canalón)"
     },
     "padel": {

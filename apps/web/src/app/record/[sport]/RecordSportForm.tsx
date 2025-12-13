@@ -2492,9 +2492,11 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                   (entryFieldError?.rollIndex === null ||
                                     entryFieldError?.rollIndex === rollIdx);
                                 const rollLabelId = `${inputId}-label`;
-                                const rollLabel = `${playerLabel} frame ${
-                                  frameIdx + 1
-                                } roll ${rollIdx + 1}`;
+                                const rollLabel = recordT("bowling.rollLabel", {
+                                  playerLabel,
+                                  frame: frameIdx + 1,
+                                  roll: rollIdx + 1,
+                                });
                                 return (
                                   <div key={rollIdx} className="bowling-roll-field">
                                     <label

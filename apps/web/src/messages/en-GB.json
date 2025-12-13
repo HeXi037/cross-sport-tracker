@@ -234,6 +234,7 @@
       "placeholderTeamB": "Team B whole-number score (e.g. 0)"
     },
     "bowling": {
+      "rollLabel": "Score for {playerLabel} frame {frame} roll {roll}",
       "rollPlaceholder": "Pins or symbols (e.g. X for strikes, / for spares, – for gutters)"
     },
     "padel": {

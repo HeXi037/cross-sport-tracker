@@ -253,6 +253,50 @@
       "tieTargetRequired": "Introduce un objetivo de tie positivo antes de guardar tu enfrentamiento de pádel Americano.",
       "tieTargetMismatchPrefix": "Los totales de pádel Americano deben coincidir con tu objetivo de",
       "tieTargetMismatchSuffix": "puntos. Ajusta los marcadores."
+    },
+    "discGolf": {
+      "title": "Registrar disc golf",
+      "actions": {
+        "startMatch": "Iniciar nueva partida",
+        "recordHole": "Registrar hoyo"
+      },
+      "loading": {
+        "players": "Cargando jugadores…",
+        "matches": "Cargando partidas…",
+        "matchDetails": "Cargando detalles de la partida…",
+        "starting": "Iniciando…",
+        "recording": "Guardando…"
+      },
+      "fields": {
+        "existingMatchPlaceholder": "Selecciona una partida de disc golf"
+      },
+      "status": {
+        "matchComplete": "Se han registrado los {count} hoyos.",
+        "holeProgress": "Hoyo {hole} de {total}",
+        "currentPar": "(Par {par})"
+      },
+      "guidance": {
+        "selectMatch": "Inicia una nueva partida o elige una existente antes de registrar los golpes por hoyo.",
+        "noMatchSelected": "Selecciona jugadores y comienza una nueva partida o elige una existente para empezar a registrar puntuaciones."
+      },
+      "errors": {
+        "players": "No se pudieron cargar los jugadores. Inténtalo de nuevo.",
+        "playersOffline": "No se pueden cargar jugadores sin conexión. Comprueba tu conexión e inténtalo otra vez.",
+        "matches": "No se pudieron cargar las partidas de disc golf. Inténtalo de nuevo.",
+        "matchesOffline": "No se pueden cargar partidas sin conexión. Vuelve a conectarte e inténtalo de nuevo.",
+        "matchDetails": "No se pudieron cargar los detalles de la partida. Inténtalo de nuevo.",
+        "matchDetailsOffline": "No se pueden cargar detalles de la partida sin conexión. Comprueba la conexión e inténtalo otra vez.",
+        "startMatch": "No se pudo iniciar una nueva partida.",
+        "startMatchOffline": "No puedes iniciar una nueva partida sin conexión. Vuelve a conectarte e inténtalo de nuevo.",
+        "missingPlayers": "Selecciona al menos un jugador por lado.",
+        "duplicatePlayers": "Los jugadores no pueden aparecer en varios lados: {players}.",
+        "holeCount": "Introduce un número de hoyos válido entre 1 y {max}.",
+        "parValues": "Introduce un par positivo para cada hoyo.",
+        "invalidHole": "Número de hoyo no válido.",
+        "strokesRequired": "Introduce los golpes de ambos lados.",
+        "record": "No se pudo registrar el evento.",
+        "recordOffline": "No puedes registrar resultados sin conexión. Vuelve a conectarte e inténtalo otra vez."
+      }
     }
   }
 }

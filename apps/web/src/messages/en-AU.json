@@ -253,6 +253,50 @@
       "tieTargetRequired": "Pop in a positive tie target before saving your padel Americano tie.",
       "tieTargetMismatchPrefix": "Padel Americano totals need to match your tie target of",
       "tieTargetMismatchSuffix": "points. Tweak the scores."
+    },
+    "discGolf": {
+      "title": "Record Disc Golf",
+      "actions": {
+        "startMatch": "Start new match",
+        "recordHole": "Record Hole"
+      },
+      "loading": {
+        "players": "Loading players…",
+        "matches": "Loading matches…",
+        "matchDetails": "Loading match details…",
+        "starting": "Starting…",
+        "recording": "Recording…"
+      },
+      "fields": {
+        "existingMatchPlaceholder": "Select a disc golf match"
+      },
+      "status": {
+        "matchComplete": "All {count} holes have been recorded.",
+        "holeProgress": "Hole {hole} of {total}",
+        "currentPar": "(Par {par})"
+      },
+      "guidance": {
+        "selectMatch": "Start a new match or choose an existing disc golf match before recording hole scores.",
+        "noMatchSelected": "Select players and start a new match or choose an existing disc golf match to begin recording scores."
+      },
+      "errors": {
+        "players": "Failed to load players. Please try again.",
+        "playersOffline": "Unable to load players while offline. Check your connection and retry.",
+        "matches": "Failed to load existing disc golf matches. Please try again.",
+        "matchesOffline": "Unable to load matches while offline. Reconnect and retry.",
+        "matchDetails": "Failed to load match details. Please try again.",
+        "matchDetailsOffline": "Unable to load match details while offline. Check your connection and try again.",
+        "startMatch": "Failed to start a new match.",
+        "startMatchOffline": "Unable to start a new match while offline. Reconnect and try again.",
+        "missingPlayers": "Select at least one player for each side.",
+        "duplicatePlayers": "Players cannot appear on multiple sides: {players}.",
+        "holeCount": "Enter a valid hole count between 1 and {max}.",
+        "parValues": "Enter a positive par value for each hole.",
+        "invalidHole": "Invalid hole number.",
+        "strokesRequired": "Enter stroke counts for both sides.",
+        "record": "Failed to record event.",
+        "recordOffline": "Unable to record while offline. Reconnect and try again."
+      }
     }
   }
 }

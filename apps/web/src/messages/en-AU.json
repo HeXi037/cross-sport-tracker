@@ -301,6 +301,14 @@
         "labelTeamB": "Tie-break points team B",
         "placeholderTeamA": "Tie-break A",
         "placeholderTeamB": "Tie-break B"
+      },
+      "errors": {
+        "loadPlayers": "Failed to load players.",
+        "loadPlayersOffline": "Unable to load players while offline. Check your connection and try again.",
+        "setScoresInvalid": "Please fix the highlighted set scores before saving.",
+        "playersInvalid": "Please fix the highlighted player selections before saving.",
+        "saveFailed": "Failed to save match. Please try again.",
+        "saveOffline": "Unable to save while offline. Check your connection and try again."
       }
     },
     "padelAmericano": {

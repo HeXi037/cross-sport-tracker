@@ -103,7 +103,7 @@ describe("RecordDiscGolfPage", () => {
 
     await screen.findByText(/Side A:/i);
     const sideAInput = await screen.findByLabelText<HTMLInputElement>(/side a strokes/i);
-    const sideBInput = screen.getByLabelText<HTMLInputElement>(/side b strokes/i);
+    const sideBInput = await screen.findByLabelText<HTMLInputElement>(/side b strokes/i);
 
     fireEvent.change(sideAInput, { target: { value: "3" } });
     fireEvent.change(sideBInput, { target: { value: "4" } });

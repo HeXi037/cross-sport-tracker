@@ -301,6 +301,14 @@
         "labelTeamB": "Puntos de desempate equipo B",
         "placeholderTeamA": "Desempate A",
         "placeholderTeamB": "Desempate B"
+      },
+      "errors": {
+        "loadPlayers": "No se pudieron cargar los jugadores.",
+        "loadPlayersOffline": "No se pueden cargar los jugadores sin conexión. Comprueba tu conexión e inténtalo de nuevo.",
+        "setScoresInvalid": "Corrige las puntuaciones de los sets resaltadas antes de guardar.",
+        "playersInvalid": "Corrige las selecciones de jugadores resaltadas antes de guardar.",
+        "saveFailed": "No se pudo guardar el partido. Inténtalo de nuevo.",
+        "saveOffline": "No se puede guardar sin conexión. Comprueba tu conexión e inténtalo de nuevo."
       }
     },
     "padelAmericano": {

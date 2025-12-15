@@ -901,7 +901,7 @@ describe("RecordPadelPage", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent(
-        /failed to save match/i,
+        (intlMessages as any).Record.padel.errors.saveOffline,
       ),
     );
 

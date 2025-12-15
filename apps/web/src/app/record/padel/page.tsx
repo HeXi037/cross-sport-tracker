@@ -564,8 +564,10 @@ export default function RecordPadelPage() {
           );
         setPlayers(sortedPlayers);
       } catch (err: unknown) {
-        setGlobalError("Failed to load players");
         const status = (err as { status?: number }).status;
+        const errorKey =
+          status === 0 ? "errors.loadPlayersOffline" : "errors.loadPlayers";
+        setGlobalError(recordPadelT(errorKey));
         if (status === 401) {
           rememberLoginRedirect();
           router.push(ensureTrailingSlash("/login"));
@@ -711,10 +713,9 @@ export default function RecordPadelPage() {
 
     let nextGlobalError: string | null = null;
     if (!setsValid) {
-      nextGlobalError = "Please fix the highlighted set scores before saving.";
+      nextGlobalError = recordPadelT("errors.setScoresInvalid");
     } else if (playerValidationOnSubmit.hasErrors) {
-      nextGlobalError =
-        "Please fix the highlighted player selections before saving.";
+      nextGlobalError = recordPadelT("errors.playersInvalid");
     }
     setGlobalError(nextGlobalError);
 
@@ -805,7 +806,9 @@ export default function RecordPadelPage() {
       console.error("Failed to save padel match", err);
       setSaving(false);
       setSuccess(false);
-      setGlobalError("Failed to save match. Please try again.");
+      const status = (err as { status?: number }).status;
+      const errorKey = status === 0 ? "errors.saveOffline" : "errors.saveFailed";
+      setGlobalError(recordPadelT(errorKey));
     }
   };
 

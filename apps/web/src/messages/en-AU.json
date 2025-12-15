@@ -253,6 +253,64 @@
       "tieTargetRequired": "Pop in a positive tie target before saving your padel Americano tie.",
       "tieTargetMismatchPrefix": "Padel Americano totals need to match your tie target of",
       "tieTargetMismatchSuffix": "points. Tweak the scores."
+    },
+    "discGolf": {
+      "heading": "Record Disc Golf",
+      "setupHeading": "Disc golf match setup",
+      "scoringHeading": "Disc golf scoring",
+      "labels": {
+        "playerWithId": "Player {id}"
+      },
+      "fields": {
+        "sideAPlayers": "Side A players",
+        "sideBPlayers": "Side B players",
+        "sideAStrokes": "Side A strokes",
+        "sideBStrokes": "Side B strokes",
+        "holeCount": "Number of holes",
+        "parByHole": {
+          "legend": "Par by hole",
+          "holeLabel": "Hole {index}"
+        },
+        "existingMatch": "Existing match"
+      },
+      "actions": {
+        "startNewMatch": "Start new match",
+        "recordHole": "Record Hole"
+      },
+      "status": {
+        "starting": "Starting…",
+        "recording": "Recording…",
+        "loadingPlayers": "Loading players…",
+        "loadingMatches": "Loading matches…",
+        "loadingMatchDetails": "Loading match details…"
+      },
+      "placeholders": {
+        "selectMatch": "Select a disc golf match",
+        "strokesA": "e.g. 3",
+        "strokesB": "e.g. 4"
+      },
+      "messages": {
+        "matchSetup": "Start a new match or choose an existing disc golf match before recording hole scores.",
+        "allHolesRecorded": "All {count} holes have been recorded.",
+        "holeProgress": "Hole {hole} of {total}",
+        "parValue": " (Par {par})",
+        "sideAssignments": "Side A: {sideA} · Side B: {sideB}",
+        "unassigned": "Unassigned",
+        "setupPrompt": "Select players and start a new match or choose an existing disc golf match to begin recording scores."
+      },
+      "errors": {
+        "loadPlayers": "Failed to load players.",
+        "loadMatches": "Failed to load existing disc golf matches.",
+        "loadMatchDetails": "Failed to load match details.",
+        "playersRequired": "Select at least one player for each side.",
+        "duplicatePlayers": "Players cannot appear on multiple sides: {names}.",
+        "invalidHoleCount": "Enter a valid hole count between 1 and {max}.",
+        "invalidPars": "Enter a positive par value for each hole.",
+        "startMatch": "Failed to start a new match.",
+        "invalidHoleNumber": "Invalid hole number.",
+        "strokeCountsRequired": "Enter stroke counts for both sides.",
+        "recordEvent": "Failed to record event."
+      }
     }
   }
 }

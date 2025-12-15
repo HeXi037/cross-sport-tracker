@@ -253,6 +253,64 @@
       "tieTargetRequired": "Introduce un objetivo de tie positivo antes de guardar tu enfrentamiento de pádel Americano.",
       "tieTargetMismatchPrefix": "Los totales de pádel Americano deben coincidir con tu objetivo de",
       "tieTargetMismatchSuffix": "puntos. Ajusta los marcadores."
+    },
+    "discGolf": {
+      "heading": "Registrar disc golf",
+      "setupHeading": "Configuración del partido de disc golf",
+      "scoringHeading": "Marcador de disc golf",
+      "labels": {
+        "playerWithId": "Jugador {id}"
+      },
+      "fields": {
+        "sideAPlayers": "Jugadores del lado A",
+        "sideBPlayers": "Jugadores del lado B",
+        "sideAStrokes": "Golpes del lado A",
+        "sideBStrokes": "Golpes del lado B",
+        "holeCount": "Número de hoyos",
+        "parByHole": {
+          "legend": "Par por hoyo",
+          "holeLabel": "Hoyo {index}"
+        },
+        "existingMatch": "Partido existente"
+      },
+      "actions": {
+        "startNewMatch": "Iniciar nuevo partido",
+        "recordHole": "Registrar hoyo"
+      },
+      "status": {
+        "starting": "Iniciando…",
+        "recording": "Registrando…",
+        "loadingPlayers": "Cargando jugadores…",
+        "loadingMatches": "Cargando partidos…",
+        "loadingMatchDetails": "Cargando detalles del partido…"
+      },
+      "placeholders": {
+        "selectMatch": "Selecciona un partido de disc golf",
+        "strokesA": "p. ej., 3",
+        "strokesB": "p. ej., 4"
+      },
+      "messages": {
+        "matchSetup": "Inicia un partido nuevo o elige uno de disc golf existente antes de registrar los resultados de cada hoyo.",
+        "allHolesRecorded": "Se han registrado los {count} hoyos.",
+        "holeProgress": "Hoyo {hole} de {total}",
+        "parValue": " (Par {par})",
+        "sideAssignments": "Lado A: {sideA} · Lado B: {sideB}",
+        "unassigned": "Sin asignar",
+        "setupPrompt": "Selecciona jugadores y comienza un partido nuevo o elige uno de disc golf existente para registrar marcadores."
+      },
+      "errors": {
+        "loadPlayers": "Error al cargar los jugadores.",
+        "loadMatches": "Error al cargar los partidos de disc golf existentes.",
+        "loadMatchDetails": "Error al cargar los detalles del partido.",
+        "playersRequired": "Selecciona al menos un jugador por lado.",
+        "duplicatePlayers": "Los jugadores no pueden aparecer en varios lados: {names}.",
+        "invalidHoleCount": "Introduce un número de hoyos válido entre 1 y {max}.",
+        "invalidPars": "Introduce un par positivo para cada hoyo.",
+        "startMatch": "No se pudo iniciar un nuevo partido.",
+        "invalidHoleNumber": "Número de hoyo no válido.",
+        "strokeCountsRequired": "Introduce los golpes de ambos lados.",
+        "recordEvent": "No se pudo registrar el resultado."
+      }
     }
   }
 }

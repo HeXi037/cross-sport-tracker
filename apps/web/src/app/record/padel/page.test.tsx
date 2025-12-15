@@ -899,11 +899,9 @@ describe("RecordPadelPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        (intlMessages as any).Record.padel.errors.saveOffline,
-      ),
-    );
+    expect(
+      await screen.findByRole("alert"),
+    ).toHaveTextContent((intlMessages as any).Record.padel.errors.saveOffline);
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /save/i })).toHaveAttribute(

@@ -7,6 +7,8 @@ import {
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
+import { NextIntlClientProvider } from "next-intl";
+import enMessages from "../../../messages/en-GB.json";
 import RecordDiscGolfPage from "./page";
 
 const useSearchParamsMock = vi.fn<URLSearchParams, []>();
@@ -18,6 +20,14 @@ const apiSWRMocks = vi.hoisted(() => ({
 const notificationMocks = vi.hoisted(() => ({
   invalidateNotificationsCacheMock: vi.fn(async () => {}),
 }));
+
+function renderWithIntl() {
+  return render(
+    <NextIntlClientProvider locale="en-GB" messages={enMessages}>
+      <RecordDiscGolfPage />
+    </NextIntlClientProvider>,
+  );
+}
 
 vi.mock("next/navigation", () => ({
   useSearchParams: () => useSearchParamsMock(),
@@ -89,7 +99,7 @@ describe("RecordDiscGolfPage", () => {
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    render(<RecordDiscGolfPage />);
+    renderWithIntl();
 
     await screen.findByText(/Side A:/i);
     const sideAInput = await screen.findByLabelText<HTMLInputElement>(/side a strokes/i);
@@ -152,7 +162,7 @@ describe("RecordDiscGolfPage", () => {
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    render(<RecordDiscGolfPage />);
+    renderWithIntl();
 
     await screen.findByText(/Side A:/i);
     const sideAInput = await screen.findByLabelText<HTMLInputElement>(/side a strokes/i);
@@ -161,7 +171,7 @@ describe("RecordDiscGolfPage", () => {
     fireEvent.change(sideBInput, { target: { value: "4" } });
     fireEvent.click(screen.getByRole("button", { name: /record hole/i }));
 
-    await screen.findByText("Failed to record event.");
+    await screen.findByText(enMessages.Record.discGolf.errors.record);
 
     const eventCalls = fetchMock.mock.calls.filter(([calledUrl]) =>
       typeof calledUrl === "string" && calledUrl.includes("/events"),
@@ -207,7 +217,7 @@ describe("RecordDiscGolfPage", () => {
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    render(<RecordDiscGolfPage />);
+    renderWithIntl();
 
     await screen.findByText(/Side A:/i);
     const sideAInput = await screen.findByLabelText<HTMLInputElement>(/side a strokes/i);
@@ -216,7 +226,7 @@ describe("RecordDiscGolfPage", () => {
     fireEvent.change(sideBInput, { target: { value: "5" } });
     fireEvent.click(screen.getByRole("button", { name: /record hole/i }));
 
-    await screen.findByText("Failed to record event.");
+    await screen.findByText(enMessages.Record.discGolf.errors.record);
 
     const eventCalls = fetchMock.mock.calls.filter(([calledUrl]) =>
       typeof calledUrl === "string" && calledUrl.includes("/events"),
@@ -248,7 +258,7 @@ describe("RecordDiscGolfPage", () => {
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    render(<RecordDiscGolfPage />);
+    renderWithIntl();
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -318,7 +328,7 @@ describe("RecordDiscGolfPage", () => {
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    render(<RecordDiscGolfPage />);
+    renderWithIntl();
 
     const user = userEvent.setup();
     const sideASelect = await screen.findByLabelText<HTMLSelectElement>(/side a players/i);
@@ -415,7 +425,7 @@ describe("RecordDiscGolfPage", () => {
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    render(<RecordDiscGolfPage />);
+    renderWithIntl();
 
     const select = await screen.findByLabelText<HTMLSelectElement>(/existing match/i);
     fireEvent.change(select, { target: { value: "m-existing" } });
@@ -462,7 +472,7 @@ describe("RecordDiscGolfPage", () => {
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    render(<RecordDiscGolfPage />);
+    renderWithIntl();
 
     await waitFor(() => {
       expect(

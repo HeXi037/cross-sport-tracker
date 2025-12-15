@@ -564,7 +564,7 @@ export default function RecordPadelPage() {
           );
         setPlayers(sortedPlayers);
       } catch (err: unknown) {
-        const status = (err as { status?: number }).status;
+        const status = (err as { status?: number }).status ?? 0;
         const errorKey =
           status === 0 ? "errors.loadPlayersOffline" : "errors.loadPlayers";
         setGlobalError(recordPadelT(errorKey));
@@ -806,7 +806,7 @@ export default function RecordPadelPage() {
       console.error("Failed to save padel match", err);
       setSaving(false);
       setSuccess(false);
-      const status = (err as { status?: number }).status;
+      const status = (err as { status?: number }).status ?? 0;
       const errorKey = status === 0 ? "errors.saveOffline" : "errors.saveFailed";
       setGlobalError(recordPadelT(errorKey));
     }

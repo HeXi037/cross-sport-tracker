@@ -83,7 +83,10 @@ def client_and_session():
     )
 
     with TestClient(app) as client:
-        yield client, async_session_maker
+        try:
+            yield client, async_session_maker
+        finally:
+            asyncio.run(engine.dispose())
 
 
 def seed_match(session_maker, mid: str) -> None:

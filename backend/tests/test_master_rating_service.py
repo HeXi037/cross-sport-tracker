@@ -46,7 +46,10 @@ def test_update_master_ratings_upsert_and_prune():
             ).scalars().all()
             return [(r.player_id, r.value) for r in rows]
 
-    results = asyncio.run(run_test())
+    try:
+        results = asyncio.run(run_test())
+    finally:
+        asyncio.run(engine.dispose())
     assert len(results) == 2
     assert results[0][0] == "p1" and abs(results[0][1] - 1000.0) < 1e-6
     assert results[1][0] == "p2" and abs(results[1][1]) < 1e-6

@@ -41,6 +41,13 @@ def ensure_database():
     db.engine = None
     db.AsyncSessionLocal = None
     yield
+    if db.engine is not None:
+        asyncio.run(db.engine.dispose())
+        db.engine = None
+        db.AsyncSessionLocal = None
+    # Keep a fresh event loop alive so aiosqlite connection cleanup during
+    # interpreter shutdown can still obtain a loop without raising.
+    asyncio.set_event_loop(asyncio.new_event_loop())
     mp.undo()
 
 

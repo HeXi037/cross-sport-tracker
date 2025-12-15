@@ -8,6 +8,7 @@ import {
   useState,
   type ChangeEvent,
 } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiUrl } from "../../../lib/api";
 import { invalidateMatchesCache } from "../../../lib/useApiSWR";
@@ -148,6 +149,7 @@ function determineNextHole(
 }
 
 function DiscGolfForm() {
+  const recordDiscGolfT = useTranslations("Record.discGolf");
   const params = useSearchParams();
   const router = useRouter();
   const mid = params.get("mid") || "";
@@ -177,6 +179,16 @@ function DiscGolfForm() {
   const [existingScores, setExistingScores] = useState<ScoreMap | null>(null);
 
   const hasMatchId = Boolean(currentMatchId);
+
+  const getNetworkErrorMessage = useCallback(
+    (defaultKey: string) => {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        return recordDiscGolfT("errors.offline");
+      }
+      return recordDiscGolfT(defaultKey);
+    },
+    [recordDiscGolfT],
+  );
 
   const matchOptions = useMemo(
     () => availableMatches.filter((m) => m.sport === "disc_golf"),
@@ -223,7 +235,7 @@ function DiscGolfForm() {
         }
       } catch (err) {
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
-          setPlayerError("Failed to load players.");
+          setPlayerError(getNetworkErrorMessage("errors.players"));
         }
       } finally {
         if (!cancelled) {
@@ -235,7 +247,7 @@ function DiscGolfForm() {
       cancelled = true;
       controller.abort();
     };
-  }, []);
+  }, [getNetworkErrorMessage]);
 
   useEffect(() => {
     if (mid) return;
@@ -261,7 +273,7 @@ function DiscGolfForm() {
         }
       } catch (err) {
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
-          setMatchPickerError("Failed to load existing disc golf matches.");
+          setMatchPickerError(getNetworkErrorMessage("errors.matches"));
         }
       } finally {
         if (!cancelled) {
@@ -273,7 +285,7 @@ function DiscGolfForm() {
       cancelled = true;
       controller.abort();
     };
-  }, [mid]);
+  }, [getNetworkErrorMessage, mid]);
 
   const navigateToMatch = useCallback(
     (matchId: string) => {
@@ -340,7 +352,7 @@ function DiscGolfForm() {
         setStrokeB(next.values.B);
       } catch (err) {
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
-          setMatchDetailsError("Failed to load match details.");
+          setMatchDetailsError(getNetworkErrorMessage("errors.matchDetails"));
         }
       } finally {
         if (!cancelled) {
@@ -352,7 +364,7 @@ function DiscGolfForm() {
       cancelled = true;
       controller.abort();
     };
-  }, [currentMatchId, holeCountInput]);
+  }, [currentMatchId, getNetworkErrorMessage, holeCountInput]);
 
   useEffect(() => {
     const parsed = parsePositiveInteger(holeCountInput);
@@ -408,9 +420,10 @@ function DiscGolfForm() {
       return [];
     }
     return Array.from(duplicates).map(
-      (id) => playerLookup.get(id) ?? `Player ${id}`,
+      (id) =>
+        playerLookup.get(id) ?? recordDiscGolfT("labels.playerFallback", { id }),
     );
-  }, [playerLookup, sideAPlayers, sideBPlayers]);
+  }, [playerLookup, recordDiscGolfT, sideAPlayers, sideBPlayers]);
 
   const parsedPars = useMemo(
     () => pars.map((value) => parsePositiveInteger(value)),
@@ -472,19 +485,21 @@ function DiscGolfForm() {
     const playersA = sideAPlayers.filter(Boolean);
     const playersB = sideBPlayers.filter(Boolean);
     if (!playersA.length || !playersB.length) {
-      setSetupError("Select at least one player for each side.");
+      setSetupError(recordDiscGolfT("errors.selectPlayers"));
       return;
     }
     if (duplicatePlayerNames.length) {
       setSetupError(
-        `Players cannot appear on multiple sides: ${duplicatePlayerNames.join(", ")}.`,
+        recordDiscGolfT("errors.uniquePlayers", {
+          players: duplicatePlayerNames.join(", "),
+        }),
       );
       return;
     }
     const parsedHoleCount = parsePositiveInteger(holeCountInput);
     if (!parsedHoleCount || parsedHoleCount > MAX_HOLE_COUNT) {
       setSetupError(
-        `Enter a valid hole count between 1 and ${MAX_HOLE_COUNT}.`,
+        recordDiscGolfT("errors.holeCount", { max: MAX_HOLE_COUNT }),
       );
       return;
     }
@@ -501,7 +516,7 @@ function DiscGolfForm() {
     });
     if (invalidIndexes.length) {
       setParErrors(new Set(invalidIndexes));
-      setSetupError("Enter a positive par value for each hole.");
+      setSetupError(recordDiscGolfT("errors.parValues"));
       return;
     }
     setParErrors((previous) => (previous.size ? new Set() : previous));
@@ -542,7 +557,7 @@ function DiscGolfForm() {
       navigateToMatch(data.id);
     } catch (err) {
       console.error("Failed to start disc golf match", err);
-      setMatchPickerError("Failed to start a new match.");
+      setMatchPickerError(getNetworkErrorMessage("errors.create"));
     } finally {
       setCreatingMatch(false);
     }
@@ -554,13 +569,13 @@ function DiscGolfForm() {
     }
     const holeNumber = hole;
     if (holeNumber < 1 || holeNumber > effectiveHoleCount) {
-      setRecordError("Invalid hole number.");
+      setRecordError(recordDiscGolfT("errors.holeNumber"));
       return;
     }
     const parsedA = parsePositiveInteger(strokeA);
     const parsedB = parsePositiveInteger(strokeB);
     if (!parsedA || !parsedB) {
-      setRecordError("Enter stroke counts for both sides.");
+      setRecordError(recordDiscGolfT("errors.strokeCounts"));
       return;
     }
     setSubmittingHole(true);
@@ -593,74 +608,96 @@ function DiscGolfForm() {
       setStrokeB(next.values.B);
     } catch (err) {
       console.error("Failed to record disc golf hole", err);
-      setRecordError("Failed to record event.");
+      setRecordError(getNetworkErrorMessage("errors.record"));
     } finally {
       setSubmittingHole(false);
     }
   };
 
   const sideALabel = sideAPlayers
-    .map((id) => playerLookup.get(id) ?? `Player ${id}`)
+    .map((id) =>
+      playerLookup.get(id) ?? recordDiscGolfT("labels.playerFallback", { id }),
+    )
     .join(", ");
   const sideBLabel = sideBPlayers
-    .map((id) => playerLookup.get(id) ?? `Player ${id}`)
+    .map((id) =>
+      playerLookup.get(id) ?? recordDiscGolfT("labels.playerFallback", { id }),
+    )
     .join(", ");
 
   return (
     <main className="container">
-      <h1 className="heading">Record Disc Golf</h1>
+      <h1 className="heading">{recordDiscGolfT("title")}</h1>
       <section className="form-stack" aria-labelledby="disc-golf-setup-heading">
         <h2 id="disc-golf-setup-heading" className="sr-only">
-          Disc golf match setup
+          {recordDiscGolfT("headings.setup")}
         </h2>
-        <p>
-          Start a new match or choose an existing disc golf match before
-          recording hole scores.
-        </p>
-        <div className="form-grid form-grid--two">
-          <label className="form-field" htmlFor="disc-golf-side-a">
-            <span className="form-label">Side A players</span>
-            <select
-              id="disc-golf-side-a"
-              multiple
-              value={sideAPlayers}
-              onChange={(event) => handlePlayerChange("A", event)}
-              disabled={hasMatchId}
-            >
-              {playerOptions.map((player) => (
-                <option key={player.id} value={player.id}>
-                  {player.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="form-field" htmlFor="disc-golf-side-b">
-            <span className="form-label">Side B players</span>
-            <select
-              id="disc-golf-side-b"
-              multiple
-              value={sideBPlayers}
-              onChange={(event) => handlePlayerChange("B", event)}
-              disabled={hasMatchId}
-            >
-              {playerOptions.map((player) => (
-                <option key={player.id} value={player.id}>
-                  {player.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        {isLoadingPlayers && <p>Loading players…</p>}
+        <p>{recordDiscGolfT("setupDescription")}</p>
+        {isLoadingPlayers ? (
+          <div className="form-grid form-grid--two" aria-live="polite">
+            {["A", "B"].map((side) => (
+              <div key={`disc-golf-player-skeleton-${side}`} className="form-field">
+                <span className="form-label">
+                  {recordDiscGolfT(
+                    side === "A" ? "labels.sideAPlayers" : "labels.sideBPlayers",
+                  )}
+                </span>
+                <div className="skeleton" style={{ height: 112 }} aria-hidden />
+              </div>
+            ))}
+            <p className="sr-only">{recordDiscGolfT("loading.players")}</p>
+          </div>
+        ) : (
+          <div className="form-grid form-grid--two">
+            <label className="form-field" htmlFor="disc-golf-side-a">
+              <span className="form-label">
+                {recordDiscGolfT("labels.sideAPlayers")}
+              </span>
+              <select
+                id="disc-golf-side-a"
+                multiple
+                value={sideAPlayers}
+                onChange={(event) => handlePlayerChange("A", event)}
+                disabled={hasMatchId}
+              >
+                {playerOptions.map((player) => (
+                  <option key={player.id} value={player.id}>
+                    {player.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="form-field" htmlFor="disc-golf-side-b">
+              <span className="form-label">
+                {recordDiscGolfT("labels.sideBPlayers")}
+              </span>
+              <select
+                id="disc-golf-side-b"
+                multiple
+                value={sideBPlayers}
+                onChange={(event) => handlePlayerChange("B", event)}
+                disabled={hasMatchId}
+              >
+                {playerOptions.map((player) => (
+                  <option key={player.id} value={player.id}>
+                    {player.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
         {playerError && <p>{playerError}</p>}
         {!!duplicatePlayerNames.length && (
           <p>
-            Players cannot appear on multiple sides: {duplicatePlayerNames.join(", ")}.
+            {recordDiscGolfT("errors.uniquePlayers", {
+              players: duplicatePlayerNames.join(", "),
+            })}
           </p>
         )}
         <div className="form-grid form-grid--two">
           <label className="form-field" htmlFor="disc-golf-hole-count">
-            <span className="form-label">Number of holes</span>
+            <span className="form-label">{recordDiscGolfT("labels.holeCount")}</span>
             <input
               id="disc-golf-hole-count"
               type="number"
@@ -674,7 +711,7 @@ function DiscGolfForm() {
           </label>
         </div>
         <fieldset className="form-fieldset">
-          <legend className="form-legend">Par by hole</legend>
+          <legend className="form-legend">{recordDiscGolfT("labels.parLegend")}</legend>
           <div
             className="form-grid form-grid--two"
             style={{ gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))" }}
@@ -685,7 +722,9 @@ function DiscGolfForm() {
                 className="form-field"
                 htmlFor={`disc-golf-par-${index}`}
               >
-                <span className="form-label">Hole {index + 1}</span>
+                <span className="form-label">
+                  {recordDiscGolfT("labels.hole", { number: index + 1 })}
+                </span>
                 <input
                   id={`disc-golf-par-${index}`}
                   type="number"
@@ -702,35 +741,41 @@ function DiscGolfForm() {
             ))}
           </div>
         </fieldset>
-        {setupError && <p>{setupError}</p>}
+        {setupError && !duplicatePlayerNames.length && <p>{setupError}</p>}
         <div className="form-grid form-grid--two">
           <button type="button" onClick={startMatch} disabled={creatingMatch}>
-            {creatingMatch ? "Starting…" : "Start new match"}
+            {creatingMatch
+              ? recordDiscGolfT("loading.starting")
+              : recordDiscGolfT("actions.startNew")}
           </button>
           <label className="form-field" htmlFor="disc-golf-existing-match">
-            <span className="form-label">Existing match</span>
-            <select
-              id="disc-golf-existing-match"
-              onChange={(event) => {
-                const matchId = event.target.value;
-                if (matchId) {
-                  navigateToMatch(matchId);
-                }
-              }}
-              disabled={isLoadingMatches || matchOptions.length === 0}
-              value={hasMatchId ? currentMatchId : ""}
-            >
-              <option value="" disabled>
-                {isLoadingMatches
-                  ? "Loading matches…"
-                  : "Select a disc golf match"}
-              </option>
-              {matchOptions.map((match) => (
-                <option key={match.id} value={match.id}>
-                  {match.id}
+            <span className="form-label">{recordDiscGolfT("labels.existingMatch")}</span>
+            {isLoadingMatches ? (
+              <div className="skeleton" style={{ height: 44 }} role="status">
+                <span className="sr-only">{recordDiscGolfT("loading.matches")}</span>
+              </div>
+            ) : (
+              <select
+                id="disc-golf-existing-match"
+                onChange={(event) => {
+                  const matchId = event.target.value;
+                  if (matchId) {
+                    navigateToMatch(matchId);
+                  }
+                }}
+                disabled={isLoadingMatches || matchOptions.length === 0}
+                value={hasMatchId ? currentMatchId : ""}
+              >
+                <option value="" disabled>
+                  {recordDiscGolfT("placeholders.existingMatch")}
                 </option>
-              ))}
-            </select>
+                {matchOptions.map((match) => (
+                  <option key={match.id} value={match.id}>
+                    {match.id}
+                  </option>
+                ))}
+              </select>
+            )}
           </label>
         </div>
         {matchPickerError && <p>{matchPickerError}</p>}
@@ -738,82 +783,124 @@ function DiscGolfForm() {
 
       <section className="form-stack" aria-labelledby="disc-golf-scoring-heading">
         <h2 id="disc-golf-scoring-heading" className="sr-only">
-          Disc golf scoring
+          {recordDiscGolfT("headings.scoring")}
         </h2>
         {hasMatchId ? (
           <>
             {loadingMatchDetails ? (
-              <p>Loading match details…</p>
+              <div className="form-stack" aria-live="polite">
+                <div className="skeleton" style={{ height: 18, width: "60%" }} />
+                <div className="skeleton" style={{ height: 18, width: "70%" }} />
+                <p className="sr-only">{recordDiscGolfT("loading.matchDetails")}</p>
+              </div>
             ) : (
               <>
                 <p>
                   {isMatchComplete
-                    ? `All ${effectiveHoleCount} holes have been recorded.`
-                    : `Hole ${hole} of ${effectiveHoleCount}`}
-                  {currentPar ? ` (Par ${currentPar})` : null}
+                    ? recordDiscGolfT("states.matchComplete", {
+                        holeCount: effectiveHoleCount,
+                      })
+                    : recordDiscGolfT("states.holeProgress", {
+                        hole,
+                        holeCount: effectiveHoleCount,
+                      })}
+                  {currentPar
+                    ? ` ${recordDiscGolfT("states.par", { par: currentPar })}`
+                    : null}
                 </p>
                 {(sideALabel || sideBLabel) && (
                   <p>
-                    Side A: {sideALabel || "Unassigned"} · Side B: {sideBLabel || "Unassigned"}
+                    {recordDiscGolfT("states.sides", {
+                      sideA: sideALabel || recordDiscGolfT("states.unassigned"),
+                      sideB: sideBLabel || recordDiscGolfT("states.unassigned"),
+                    })}
                   </p>
                 )}
                 {matchDetailsError && <p>{matchDetailsError}</p>}
               </>
             )}
-            <div className="scores form-grid form-grid--two">
-              <label className="form-field" htmlFor="disc-golf-score-a">
-                <span className="form-label">Side A strokes</span>
-                <input
-                  id="disc-golf-score-a"
-                  type="number"
-                  placeholder="e.g. 3"
-                  value={strokeA}
-                  onChange={(event) => {
-                    setStrokeA(event.target.value);
-                    setRecordError(null);
-                  }}
-                  disabled={
-                    !hasMatchId || loadingMatchDetails || isMatchComplete
-                  }
-                  inputMode="numeric"
-                  min={1}
-                />
-              </label>
-              <label className="form-field" htmlFor="disc-golf-score-b">
-                <span className="form-label">Side B strokes</span>
-                <input
-                  id="disc-golf-score-b"
-                  type="number"
-                  placeholder="e.g. 4"
-                  value={strokeB}
-                  onChange={(event) => {
-                    setStrokeB(event.target.value);
-                    setRecordError(null);
-                  }}
-                  disabled={
-                    !hasMatchId || loadingMatchDetails || isMatchComplete
-                  }
-                  inputMode="numeric"
-                  min={1}
-                />
-              </label>
-            </div>
-            <button
-              type="button"
-              onClick={submit}
-              disabled={
-                !hasMatchId || loadingMatchDetails || submittingHole || isMatchComplete
-              }
-            >
-              {submittingHole ? "Recording…" : "Record Hole"}
-            </button>
+            {loadingMatchDetails ? (
+              <div className="scores form-grid form-grid--two" aria-hidden>
+                {["A", "B"].map((side) => (
+                  <div key={`disc-golf-score-skeleton-${side}`} className="form-field">
+                    <span className="form-label">
+                      {recordDiscGolfT(
+                        side === "A"
+                          ? "labels.sideAStrokes"
+                          : "labels.sideBStrokes",
+                      )}
+                    </span>
+                    <div className="skeleton" style={{ height: 44 }} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="scores form-grid form-grid--two">
+                <label className="form-field" htmlFor="disc-golf-score-a">
+                  <span className="form-label">
+                    {recordDiscGolfT("labels.sideAStrokes")}
+                  </span>
+                  <input
+                    id="disc-golf-score-a"
+                    type="number"
+                    placeholder={recordDiscGolfT("placeholders.strokeExample", {
+                      example: 3,
+                    })}
+                    value={strokeA}
+                    onChange={(event) => {
+                      setStrokeA(event.target.value);
+                      setRecordError(null);
+                    }}
+                    disabled={
+                      !hasMatchId || loadingMatchDetails || isMatchComplete
+                    }
+                    inputMode="numeric"
+                    min={1}
+                  />
+                </label>
+                <label className="form-field" htmlFor="disc-golf-score-b">
+                  <span className="form-label">
+                    {recordDiscGolfT("labels.sideBStrokes")}
+                  </span>
+                  <input
+                    id="disc-golf-score-b"
+                    type="number"
+                    placeholder={recordDiscGolfT("placeholders.strokeExample", {
+                      example: 4,
+                    })}
+                    value={strokeB}
+                    onChange={(event) => {
+                      setStrokeB(event.target.value);
+                      setRecordError(null);
+                    }}
+                    disabled={
+                      !hasMatchId || loadingMatchDetails || isMatchComplete
+                    }
+                    inputMode="numeric"
+                    min={1}
+                  />
+                </label>
+              </div>
+            )}
+            {loadingMatchDetails ? (
+              <div className="skeleton" style={{ height: 44, width: 180 }} />
+            ) : (
+              <button
+                type="button"
+                onClick={submit}
+                disabled={
+                  !hasMatchId || loadingMatchDetails || submittingHole || isMatchComplete
+                }
+              >
+                {submittingHole
+                  ? recordDiscGolfT("loading.recording")
+                  : recordDiscGolfT("actions.recordHole")}
+              </button>
+            )}
             {recordError && <p>{recordError}</p>}
           </>
         ) : (
-          <p>
-            Select players and start a new match or choose an existing disc golf
-            match to begin recording scores.
-          </p>
+          <p>{recordDiscGolfT("states.noMatch")}</p>
         )}
       </section>
     </main>
@@ -821,9 +908,10 @@ function DiscGolfForm() {
 }
 
 function DiscGolfLoading() {
+  const recordDiscGolfT = useTranslations("Record.discGolf");
   return (
     <main className="container">
-      <h1 className="heading">Record Disc Golf</h1>
+      <h1 className="heading">{recordDiscGolfT("title")}</h1>
     </main>
   );
 }

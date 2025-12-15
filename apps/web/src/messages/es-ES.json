@@ -236,6 +236,62 @@
     "bowling": {
       "rollPlaceholder": "Pinos o símbolos (p. ej., X para pleno, / para spare, – para canalón)"
     },
+    "discGolf": {
+      "title": "Registrar disc golf",
+      "headings": {
+        "setup": "Configuración de partida de disc golf",
+        "scoring": "Puntuación de disc golf"
+      },
+      "setupDescription": "Inicia una nueva partida o elige una existente antes de registrar los resultados de cada hoyo.",
+      "loading": {
+        "players": "Cargando jugadores…",
+        "matches": "Cargando partidas…",
+        "matchDetails": "Cargando detalles de la partida…",
+        "starting": "Iniciando…",
+        "recording": "Registrando…"
+      },
+      "labels": {
+        "sideAPlayers": "Jugadores del lado A",
+        "sideBPlayers": "Jugadores del lado B",
+        "holeCount": "Número de hoyos",
+        "parLegend": "Par por hoyo",
+        "hole": "Hoyo {number}",
+        "existingMatch": "Partida existente",
+        "sideAStrokes": "Golpes del lado A",
+        "sideBStrokes": "Golpes del lado B",
+        "playerFallback": "Jugador {id}"
+      },
+      "placeholders": {
+        "existingMatch": "Selecciona una partida de disc golf",
+        "strokeExample": "p. ej. {example}"
+      },
+      "actions": {
+        "startNew": "Iniciar partida nueva",
+        "recordHole": "Registrar hoyo"
+      },
+      "states": {
+        "matchComplete": "Se han registrado los {holeCount} hoyos.",
+        "holeProgress": "Hoyo {hole} de {holeCount}",
+        "par": "(Par {par})",
+        "sides": "Lado A: {sideA} · Lado B: {sideB}",
+        "unassigned": "Sin asignar",
+        "noMatch": "Selecciona jugadores y crea una partida nueva o elige una de disc golf existente para empezar a registrar resultados."
+      },
+      "errors": {
+        "players": "No se pudieron cargar los jugadores. Comprueba tu conexión e inténtalo de nuevo.",
+        "matches": "No se pudieron cargar las partidas de disc golf. Comprueba tu conexión e inténtalo de nuevo.",
+        "matchDetails": "No se pudieron cargar los detalles de la partida. Vuelve a intentarlo.",
+        "selectPlayers": "Selecciona al menos un jugador por lado.",
+        "uniquePlayers": "Los jugadores no pueden aparecer en varios lados: {players}.",
+        "holeCount": "Introduce un número de hoyos válido entre 1 y {max}.",
+        "parValues": "Introduce un par positivo para cada hoyo.",
+        "holeNumber": "Número de hoyo no válido.",
+        "strokeCounts": "Introduce los golpes de ambos lados.",
+        "record": "No se pudo registrar este hoyo. Inténtalo de nuevo.",
+        "create": "No se pudo iniciar una partida nueva. Inténtalo de nuevo.",
+        "offline": "Parece que estás sin conexión. Comprueba la red y vuelve a intentarlo."
+      }
+    },
     "padel": {
       "hints": {
         "addSet": "Añade otro set si el partido se prolongó más allá de los sets registrados."

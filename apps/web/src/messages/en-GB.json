@@ -236,6 +236,62 @@
     "bowling": {
       "rollPlaceholder": "Pins or symbols (e.g. X for strikes, / for spares, – for gutters)"
     },
+    "discGolf": {
+      "title": "Record Disc Golf",
+      "headings": {
+        "setup": "Disc golf match setup",
+        "scoring": "Disc golf scoring"
+      },
+      "setupDescription": "Start a new match or choose an existing disc golf match before recording hole scores.",
+      "loading": {
+        "players": "Loading players…",
+        "matches": "Loading matches…",
+        "matchDetails": "Loading match details…",
+        "starting": "Starting…",
+        "recording": "Recording…"
+      },
+      "labels": {
+        "sideAPlayers": "Side A players",
+        "sideBPlayers": "Side B players",
+        "holeCount": "Number of holes",
+        "parLegend": "Par by hole",
+        "hole": "Hole {number}",
+        "existingMatch": "Existing match",
+        "sideAStrokes": "Side A strokes",
+        "sideBStrokes": "Side B strokes",
+        "playerFallback": "Player {id}"
+      },
+      "placeholders": {
+        "existingMatch": "Select a disc golf match",
+        "strokeExample": "e.g. {example}"
+      },
+      "actions": {
+        "startNew": "Start new match",
+        "recordHole": "Record Hole"
+      },
+      "states": {
+        "matchComplete": "All {holeCount} holes have been recorded.",
+        "holeProgress": "Hole {hole} of {holeCount}",
+        "par": "(Par {par})",
+        "sides": "Side A: {sideA} · Side B: {sideB}",
+        "unassigned": "Unassigned",
+        "noMatch": "Select players and start a new match or choose an existing disc golf match to begin recording scores."
+      },
+      "errors": {
+        "players": "Unable to load players. Check your connection and try again.",
+        "matches": "Unable to load disc golf matches. Check your connection and try again.",
+        "matchDetails": "Unable to load match details. Please try again.",
+        "selectPlayers": "Select at least one player for each side.",
+        "uniquePlayers": "Players cannot appear on multiple sides: {players}.",
+        "holeCount": "Enter a valid hole count between 1 and {max}.",
+        "parValues": "Enter a positive par value for each hole.",
+        "holeNumber": "Invalid hole number.",
+        "strokeCounts": "Enter stroke counts for both sides.",
+        "record": "Failed to record this hole. Please try again.",
+        "create": "Failed to start a new match. Please try again.",
+        "offline": "You appear to be offline. Check your network connection and retry."
+      }
+    },
     "padel": {
       "hints": {
         "addSet": "Add another set if the match extended beyond the recorded sets."

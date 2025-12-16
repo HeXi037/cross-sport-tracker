@@ -32,17 +32,17 @@ def get_engine() -> AsyncEngine:
                 "postgresql://", "postgresql+asyncpg://", 1
             )
 
-        engine_kwargs = {"echo": False, "pool_pre_ping": True}
+        engine_kwargs = {"echo": False}
 
-        if database_url.startswith("sqlite"):
-            # Avoid connection pooling for SQLite so tests don't leak connections
-            # across event loops or keep file handles open between runs.
+        if database_url.startswith("sqlite+aiosqlite://"):
+            # In-memory SQLite must reuse the same connection to persist schema/data.
             if ":memory:" in database_url:
-                # In-memory SQLite databases need a static pool to persist
-                # across connections within the same process.
                 engine_kwargs["poolclass"] = StaticPool
             else:
+                # File-backed SQLite in CI: do not pool to avoid cross-loop / late GC issues.
                 engine_kwargs["poolclass"] = NullPool
+        else:
+            engine_kwargs["pool_pre_ping"] = True
 
         engine = create_async_engine(database_url, **engine_kwargs)
         AsyncSessionLocal = sessionmaker(

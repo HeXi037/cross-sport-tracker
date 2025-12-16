@@ -56,6 +56,10 @@ function getPlayerSelects() {
     .filter((element) => element.id.startsWith("record-player"));
 }
 
+function bowlingRollLabel(playerName: string, frame: number, roll: number) {
+  return `${playerName} frame ${frame} roll ${roll} score`;
+}
+
 describe("resolveRecordSportRoute", () => {
   afterEach(() => {
     router.push.mockReset();
@@ -1050,13 +1054,13 @@ describe("RecordSportForm", () => {
 
     const playerLabel = players[0].name;
     expect(
-      screen.getByLabelText(`${playerLabel} frame 1 roll 1`),
+      screen.getByLabelText(bowlingRollLabel(playerLabel, 1, 1)),
     ).toBeInTheDocument();
     expect(
-      screen.getByLabelText(`${playerLabel} frame 1 roll 2`),
+      screen.getByLabelText(bowlingRollLabel(playerLabel, 1, 2)),
     ).toBeInTheDocument();
     expect(
-      screen.getByLabelText(`${playerLabel} frame 10 roll 3`),
+      screen.getByLabelText(bowlingRollLabel(playerLabel, 10, 3)),
     ).toBeInTheDocument();
   });
 
@@ -1076,8 +1080,12 @@ describe("RecordSportForm", () => {
     fireEvent.change(select, { target: { value: "1" } });
 
     const playerName = players[0].name;
-    const firstRoll = screen.getByLabelText(`${playerName} frame 1 roll 1`);
-    const secondRoll = screen.getByLabelText(`${playerName} frame 1 roll 2`);
+    const firstRoll = screen.getByLabelText(
+      bowlingRollLabel(playerName, 1, 1),
+    );
+    const secondRoll = screen.getByLabelText(
+      bowlingRollLabel(playerName, 1, 2),
+    );
 
     fireEvent.change(firstRoll, { target: { value: "10" } });
     expect((secondRoll as HTMLInputElement).value).toBe("");
@@ -1122,14 +1130,22 @@ describe("RecordSportForm", () => {
     const playerName = players[0].name;
 
     for (let frame = 1; frame <= 9; frame += 1) {
-      const roll1 = screen.getByLabelText(`${playerName} frame ${frame} roll 1`);
-      const roll2 = screen.getByLabelText(`${playerName} frame ${frame} roll 2`);
+      const roll1 = screen.getByLabelText(
+        bowlingRollLabel(playerName, frame, 1),
+      );
+      const roll2 = screen.getByLabelText(
+        bowlingRollLabel(playerName, frame, 2),
+      );
       fireEvent.change(roll1, { target: { value: "3" } });
       fireEvent.change(roll2, { target: { value: "4" } });
     }
 
-    const finalRoll1 = screen.getByLabelText(`${playerName} frame 10 roll 1`);
-    const finalRoll2 = screen.getByLabelText(`${playerName} frame 10 roll 2`);
+    const finalRoll1 = screen.getByLabelText(
+      bowlingRollLabel(playerName, 10, 1),
+    );
+    const finalRoll2 = screen.getByLabelText(
+      bowlingRollLabel(playerName, 10, 2),
+    );
     fireEvent.change(finalRoll1, { target: { value: "3" } });
     fireEvent.change(finalRoll2, { target: { value: "4" } });
 

@@ -2493,7 +2493,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                 const rollLabelId = `${inputId}-label`;
                                 const rollLabel = `${playerLabel} frame ${
                                   frameIdx + 1
-                                } roll ${rollIdx + 1}`;
+                                } roll ${rollIdx + 1} score`;
                                 return (
                                   <div key={rollIdx} className="bowling-roll-field">
                                     <label

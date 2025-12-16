@@ -41,6 +41,12 @@ def ensure_database():
     db.engine = None
     db.AsyncSessionLocal = None
     yield
+    if db.engine is not None:
+        asyncio.run(db.engine.dispose())
+        db.engine = None
+
+    if db.AsyncSessionLocal is not None:
+        db.AsyncSessionLocal = None
     mp.undo()
 
 

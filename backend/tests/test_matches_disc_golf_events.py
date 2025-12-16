@@ -73,8 +73,11 @@ def client_and_session():
     app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_current_user] = admin_user
 
-    with TestClient(app) as client:
-        yield client, async_session_maker
+    try:
+        with TestClient(app) as client:
+            yield client, async_session_maker
+    finally:
+        asyncio.run(engine.dispose())
 def test_create_and_append_event_hole(client_and_session):
     client, session_maker = client_and_session
 

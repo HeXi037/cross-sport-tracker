@@ -76,8 +76,11 @@ def client_and_session():
         id="u", username="u", password_hash="", is_admin=True
     )
 
-    with TestClient(app) as client:
-        yield client, async_session_maker
+    try:
+        with TestClient(app) as client:
+            yield client, async_session_maker
+    finally:
+        asyncio.run(engine.dispose())
 
 
 def seed(session_maker):

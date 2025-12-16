@@ -66,10 +66,13 @@ def client_and_session():
     app.include_router(players.router)
     app.dependency_overrides[get_session] = override_get_session
 
-    asyncio.run(players.player_stats_cache.clear())
-    with TestClient(app) as client:
-        yield client, async_session_maker
-    asyncio.run(players.player_stats_cache.clear())
+    try:
+        asyncio.run(players.player_stats_cache.clear())
+        with TestClient(app) as client:
+            yield client, async_session_maker
+    finally:
+        asyncio.run(players.player_stats_cache.clear())
+        asyncio.run(engine.dispose())
 
 
 def seed(session_maker):

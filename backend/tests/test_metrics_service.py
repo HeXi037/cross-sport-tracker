@@ -38,6 +38,8 @@ def test_update_player_metrics_draws():
 
     rows = asyncio.run(run_test())
 
+    asyncio.run(engine.dispose())
+
     assert len(rows) == 2
     assert rows[0].metrics["matches"] == 1
     assert rows[0].metrics["draws"] == 1

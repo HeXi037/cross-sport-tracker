@@ -1,5 +1,6 @@
 import logging
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request
@@ -9,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 import sentry_sdk
 from slowapi.errors import RateLimitExceeded
 
+from . import db
 from .routers import (
     sports,
     rulesets,
@@ -56,6 +58,17 @@ if "*" in ALLOWED_ORIGINS:
         "ALLOWED_ORIGINS cannot include '*' (wildcard). Specify explicit, trusted origins."
     )
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # pragma: no cover - exercised via tests
+    try:
+        yield
+    finally:
+        if db.engine is not None:
+            await db.engine.dispose()
+            db.engine = None
+        db.AsyncSessionLocal = None
+
+
 # -----------------------------------------------------------------------------
 # FastAPI app
 # -----------------------------------------------------------------------------
@@ -65,6 +78,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
 
 # Rate limiting

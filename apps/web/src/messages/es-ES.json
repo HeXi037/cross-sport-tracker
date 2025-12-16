@@ -228,14 +228,6 @@
       "matchRecorded": "¡Partido registrado!",
       "padelAmericanoSaved": "Encuentro de pádel Americano guardado. Actualiza a los jugadores y los marcadores para registrar el siguiente enfrentamiento."
     },
-    "score": {
-      "placeholderGame": "Puntos enteros (p. ej., 11)",
-      "placeholderTeamA": "Marcador entero equipo A (p. ej., 0)",
-      "placeholderTeamB": "Marcador entero equipo B (p. ej., 0)"
-    },
-    "bowling": {
-      "rollPlaceholder": "Pinos o símbolos (p. ej., X para pleno, / para spare, – para canalón)"
-    },
     "padel": {
       "hints": {
         "addSet": "Añade otro set si el partido se prolongó más allá de los sets registrados."

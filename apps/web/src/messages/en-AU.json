@@ -228,14 +228,6 @@
       "matchRecorded": "Match recorded!",
       "padelAmericanoSaved": "Padel Americano tie saved. Update the players and scores to record the next tie."
     },
-    "score": {
-      "placeholderGame": "Whole-number points (e.g. 11)",
-      "placeholderTeamA": "Team A whole-number score (e.g. 0)",
-      "placeholderTeamB": "Team B whole-number score (e.g. 0)"
-    },
-    "bowling": {
-      "rollPlaceholder": "Pins or symbols (e.g. X for strikes, / for spares, – for gutters)"
-    },
     "padel": {
       "hints": {
         "addSet": "Add another set if the match extended beyond the recorded sets."

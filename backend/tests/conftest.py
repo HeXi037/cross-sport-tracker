@@ -6,6 +6,16 @@ import pytest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+
+@pytest.fixture(scope="session")
+def session_loop():
+    """Single event loop for all sync fixtures that need to run async DB code."""
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    yield loop
+    loop.close()
+
 # Ensure all SQLAlchemy models are registered with the declarative Base so
 # metadata.create_all creates every table (including optional ones like
 # glicko_rating and player_metric) when the test database is initialised.
@@ -25,19 +35,8 @@ def jwt_secret(monkeypatch):
     yield
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Provide a single event loop for synchronous fixtures/tests."""
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    yield loop
-    loop.run_until_complete(loop.shutdown_asyncgens())
-    loop.close()
-
-
 @pytest.fixture(autouse=True, scope="session")
-def ensure_database(event_loop: asyncio.AbstractEventLoop):
+def ensure_database(session_loop):
     """Ensure the test database starts clean and honours DATABASE_URL."""
 
     mp = pytest.MonkeyPatch()
@@ -53,7 +52,7 @@ def ensure_database(event_loop: asyncio.AbstractEventLoop):
     db.AsyncSessionLocal = None
     yield
     if db.engine is not None:
-        event_loop.run_until_complete(db.engine.dispose())
+        session_loop.run_until_complete(db.engine.dispose())
         db.engine = None
 
     if db.AsyncSessionLocal is not None:
@@ -72,7 +71,7 @@ async def _reset_schema(engine) -> None:
 
 
 @pytest.fixture(autouse=True)
-def reset_schema(event_loop: asyncio.AbstractEventLoop, request):
+def reset_schema(request, session_loop):
     """Reset the schema before each test unless preserved via marker."""
 
     if request.node.get_closest_marker("preserve_schema"):
@@ -80,7 +79,7 @@ def reset_schema(event_loop: asyncio.AbstractEventLoop, request):
         return
 
     engine = db.engine or db.get_engine()
-    event_loop.run_until_complete(_reset_schema(engine))
+    session_loop.run_until_complete(_reset_schema(engine))
     yield
 
 

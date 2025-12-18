@@ -790,8 +790,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
   );
   const [error, setError] = useState<string | null>(null);
   const [duplicatePlayerNames, setDuplicatePlayerNames] = useState<string[]>([]);
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
+  const [date, setDate] = useState(() => getTodayDateInputValue());
+  const [time, setTime] = useState(() => getCurrentRoundedTimeSlot());
   const [location, setLocation] = useState("");
   const [isFriendly, setIsFriendly] = useState(false);
   const [clubId, setClubId] = useState("");

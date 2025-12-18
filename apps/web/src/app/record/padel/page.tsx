@@ -22,7 +22,11 @@ import {
   getTimeExample,
   usesTwentyFourHourClock,
 } from "../../../lib/i18n";
-import { buildPlayedAtISOString } from "../../../lib/datetime";
+import {
+  buildPlayedAtISOString,
+  getCurrentRoundedTimeSlot,
+  getTodayDateInputValue,
+} from "../../../lib/datetime";
 import { rememberLoginRedirect } from "../../../lib/loginRedirect";
 import ClubSelect from "../../../components/ClubSelect";
 import { usePreferredTimeFormat } from "../../../lib/usePreferredTimeFormat";
@@ -363,10 +367,10 @@ export default function RecordPadelPage() {
   const [ids, setIds] = useState<IdMap>({ a1: "", a2: "", b1: "", b2: "" });
   const [bestOf, setBestOf] = useState("3");
   const [sets, setSets] = useState<SetScore[]>([{ ...EMPTY_SET }]);
-  const [setErrors, setSetErrors] = useState<SetErrors>([""]);
+  const [setErrors, setSetErrors] = useState<SetErrors>([""]);  
   const [setTouched, setSetTouched] = useState<SetTouched>([false]);
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
+  const [date, setDate] = useState(() => getTodayDateInputValue());
+  const [time, setTime] = useState(() => getCurrentRoundedTimeSlot());
   const [location, setLocation] = useState("");
   const [clubId, setClubId] = useState("");
   const [isFriendly, setIsFriendly] = useState(false);

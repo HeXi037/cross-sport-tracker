@@ -884,6 +884,7 @@ class MatchSummary(BaseModel):
     losses: int = 0
     draws: int = 0
     winPct: float = 0.0
+    lastPlayedAt: Optional[datetime] = None
 
 
 class SetSummary(BaseModel):

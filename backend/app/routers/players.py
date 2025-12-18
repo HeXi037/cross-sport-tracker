@@ -576,6 +576,7 @@ async def _load_match_summaries_for_players(
                     func.count().label("total"),
                     func.sum(wins_case).label("wins"),
                     func.sum(losses_case).label("losses"),
+                    func.max(Match.played_at).label("last_played_at"),
                 )
                 .select_from(mp)
                 .join(Match, Match.id == mp.match_id)
@@ -600,12 +601,14 @@ async def _load_match_summaries_for_players(
         losses = int(row.losses or 0)
         draws = max(total - wins - losses, 0)
         win_pct = wins / total if total else 0.0
+        last_played_at = getattr(row, "last_played_at", None)
         summaries[player_id] = MatchSummary(
             total=total,
             wins=wins,
             losses=losses,
             draws=draws,
             winPct=win_pct,
+            lastPlayedAt=coerce_utc(last_played_at) if last_played_at else None,
         )
     return summaries
 

@@ -576,6 +576,7 @@ async def _load_match_summaries_for_players(
                     func.count().label("total"),
                     func.sum(wins_case).label("wins"),
                     func.sum(losses_case).label("losses"),
+                    func.max(Match.played_at).label("last_played_at"),
                 )
                 .select_from(mp)
                 .join(Match, Match.id == mp.match_id)
@@ -600,12 +601,14 @@ async def _load_match_summaries_for_players(
         losses = int(row.losses or 0)
         draws = max(total - wins - losses, 0)
         win_pct = wins / total if total else 0.0
+        last_played_at = getattr(row, "last_played_at", None)
         summaries[player_id] = MatchSummary(
             total=total,
             wins=wins,
             losses=losses,
             draws=draws,
             winPct=win_pct,
+            lastPlayedAt=coerce_utc(last_played_at) if last_played_at else None,
         )
     return summaries
 
@@ -1263,11 +1266,16 @@ async def _compute_player_stats(
     seen_ids: set[str] = set()
     match_ids: list[str] = []
     match_sport: dict[str, str] = {}
+    last_played_at = None
     for row in rows:
         match_sport[row.match_id] = row.sport_id
         if row.match_id not in seen_ids:
             seen_ids.add(row.match_id)
             match_ids.append(row.match_id)
+
+        if row.played_at is not None:
+            if last_played_at is None or row.played_at > last_played_at:
+                last_played_at = row.played_at
 
     participant_map: dict[str, dict[str, list[str]]] = {}
     if match_ids:
@@ -1384,6 +1392,7 @@ async def _compute_player_stats(
         losses=losses,
         draws=draws,
         winPct=win_pct,
+        lastPlayedAt=coerce_utc(last_played_at) if last_played_at else None,
     )
     set_summary = SetSummary(
         won=sets_won,

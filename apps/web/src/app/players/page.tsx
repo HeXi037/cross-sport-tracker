@@ -110,7 +110,12 @@ function formatLastPlayed(summary?: NormalizedMatchSummary | null): string {
   if (summary?.lastPlayedAt) {
     const date = new Date(summary.lastPlayedAt);
     if (!Number.isNaN(date.getTime())) {
-      return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      return date.toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      });
     }
   }
   if (summary?.total && summary.total > 0) {
@@ -228,193 +233,6 @@ type ApiPlayer = Omit<Player, "hidden" | "matchSummary"> & {
   ratings?: unknown;
 };
 
-type CuratedSectionKey =
-  | "topRated"
-  | "fastImprovers"
-  | "mostActive"
-  | "newest";
-
-interface CuratedSectionState {
-  loading: boolean;
-  players: Player[];
-  error: string | null;
-}
-
-const CURATED_SECTIONS: Record<CuratedSectionKey, {
-  title: string;
-  description: string;
-  limit: number;
-  query: Record<string, string>;
-  seeAllParams: Record<string, string>;
-}> = {
-  topRated: {
-    title: "Top rated",
-    description: "Highest sport ratings across the community.",
-    limit: 5,
-    query: { sort: "highest-rating" },
-    seeAllParams: { sort: "highest-rating" },
-  },
-  fastImprovers: {
-    title: "Fast improvers",
-    description: "Biggest rating gains in the last 30 days.",
-    limit: 5,
-    query: { sort: "rating-growth", active_within_days: "30" },
-    seeAllParams: { sort: "rating-growth", active_within_days: "30" },
-  },
-  mostActive: {
-    title: "Most active",
-    description: "Playing the most matches in the last 30 days.",
-    limit: 5,
-    query: { sort: "most-active", active_within_days: "30" },
-    seeAllParams: { sort: "most-active", active_within_days: "30" },
-  },
-  newest: {
-    title: "Newest players",
-    description: "Fresh faces who just joined.",
-    limit: 5,
-    query: { sort: "recently-joined" },
-    seeAllParams: { sort: "recently-joined" },
-  },
-};
-
-function isWithinDays(date: string | null | undefined, days: number) {
-  if (!date) return false;
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return false;
-  const diffDays = (Date.now() - parsed.getTime()) / (1000 * 60 * 60 * 24);
-  return diffDays <= days;
-}
-
-function selectTopRated(players: Player[], sportFilter: string, limit: number): Player[] {
-  const rated = players
-    .map((player) => ({
-      player,
-      rating: getBestRatingValue(player, sportFilter),
-    }))
-    .filter(({ rating, player }) => rating !== null && (player.matchSummary?.total ?? 0) > 0);
-
-  rated.sort((a, b) => {
-    if (a.rating !== b.rating) {
-      return (b.rating ?? -Infinity) - (a.rating ?? -Infinity);
-    }
-    const lastPlayedA = a.player.matchSummary?.lastPlayedAt
-      ? new Date(a.player.matchSummary.lastPlayedAt).getTime()
-      : null;
-    const lastPlayedB = b.player.matchSummary?.lastPlayedAt
-      ? new Date(b.player.matchSummary.lastPlayedAt).getTime()
-      : null;
-    if (lastPlayedA !== null && lastPlayedB !== null && lastPlayedA !== lastPlayedB) {
-      return lastPlayedB - lastPlayedA;
-    }
-    return a.player.name.localeCompare(b.player.name, undefined, { sensitivity: "base" });
-  });
-
-  return rated.slice(0, limit).map((entry) => entry.player);
-}
-
-function selectFastImprovers(
-  players: Player[],
-  sportFilter: string,
-  limit: number,
-): Player[] {
-  const improvers = players
-    .map((player) => ({ player, growth: getRatingGrowth(player, sportFilter) }))
-    .filter(({ growth, player }) => growth !== null && growth > 0 && (player.matchSummary?.total ?? 0) > 0);
-
-  improvers.sort((a, b) => {
-    if (a.growth !== b.growth) {
-      return (b.growth ?? -Infinity) - (a.growth ?? -Infinity);
-    }
-    const lastPlayedA = a.player.matchSummary?.lastPlayedAt
-      ? new Date(a.player.matchSummary.lastPlayedAt).getTime()
-      : null;
-    const lastPlayedB = b.player.matchSummary?.lastPlayedAt
-      ? new Date(b.player.matchSummary.lastPlayedAt).getTime()
-      : null;
-    if (lastPlayedA !== null && lastPlayedB !== null && lastPlayedA !== lastPlayedB) {
-      return lastPlayedB - lastPlayedA;
-    }
-    return a.player.name.localeCompare(b.player.name, undefined, { sensitivity: "base" });
-  });
-
-  return improvers.slice(0, limit).map((entry) => entry.player);
-}
-
-function selectMostActive(players: Player[], limit: number): Player[] {
-  const recent = players
-    .map((player) => ({ player, summary: player.matchSummary }))
-    .filter(({ summary }) => summary && summary.total > 0 && isWithinDays(summary.lastPlayedAt, 30));
-
-  recent.sort((a, b) => {
-    const matchesA = a.summary?.total ?? 0;
-    const matchesB = b.summary?.total ?? 0;
-    if (matchesA !== matchesB) {
-      return matchesB - matchesA;
-    }
-    const lastPlayedA = a.summary?.lastPlayedAt ? new Date(a.summary.lastPlayedAt).getTime() : null;
-    const lastPlayedB = b.summary?.lastPlayedAt ? new Date(b.summary.lastPlayedAt).getTime() : null;
-    if (lastPlayedA !== null && lastPlayedB !== null && lastPlayedA !== lastPlayedB) {
-      return lastPlayedB - lastPlayedA;
-    }
-    return a.player.name.localeCompare(b.player.name, undefined, { sensitivity: "base" });
-  });
-
-  if (!recent.length) {
-    const activeFallback = players
-      .map((player) => ({ player, summary: player.matchSummary }))
-      .filter(({ summary }) => summary && summary.total > 0)
-      .sort((a, b) => (b.summary?.total ?? 0) - (a.summary?.total ?? 0));
-    return activeFallback.slice(0, limit).map((entry) => entry.player);
-  }
-
-  return recent.slice(0, limit).map((entry) => entry.player);
-}
-
-function selectNewest(players: Player[], limit: number): Player[] {
-  const withCreatedAt = players.filter((player) => player.created_at);
-  withCreatedAt.sort((a, b) => {
-    const createdA = a.created_at ? new Date(a.created_at).getTime() : 0;
-    const createdB = b.created_at ? new Date(b.created_at).getTime() : 0;
-    if (createdA !== createdB) {
-      return createdB - createdA;
-    }
-    return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-  });
-  return withCreatedAt.slice(0, limit);
-}
-
-function buildCuratedSections(
-  players: Player[],
-  sportFilter: string,
-): Record<CuratedSectionKey, CuratedSectionState> {
-  return {
-    topRated: {
-      loading: false,
-      error: null,
-      players: selectTopRated(players, sportFilter, CURATED_SECTIONS.topRated.limit),
-    },
-    fastImprovers: {
-      loading: false,
-      error: null,
-      players: selectFastImprovers(players, sportFilter, CURATED_SECTIONS.fastImprovers.limit),
-    },
-    mostActive: {
-      loading: false,
-      error: null,
-      players: selectMostActive(players, CURATED_SECTIONS.mostActive.limit),
-    },
-    newest: {
-      loading: false,
-      error: null,
-      players: selectNewest(players, CURATED_SECTIONS.newest.limit),
-    },
-  };
-}
-
-const SHOW_CURATED_HIGHLIGHTS =
-  process.env.NEXT_PUBLIC_ENABLE_CURATED_HIGHLIGHTS !== "false" &&
-  process.env.NODE_ENV !== "test";
-
 const LOAD_TIMEOUT_MS = 15000;
 const PLAYERS_ERROR_MESSAGE = "Failed to load players.";
 const PLAYERS_SERVER_ERROR_MESSAGE =
@@ -508,17 +326,6 @@ export default function PlayersPage() {
   const activeLoadController = useRef<AbortController | null>(null);
   const activeLoadTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { showToast } = useToast();
-
-  const [curatedSections, setCuratedSections] = useState<Record<CuratedSectionKey, CuratedSectionState>>(
-    () =>
-      Object.keys(CURATED_SECTIONS).reduce(
-        (acc, key) => {
-          acc[key as CuratedSectionKey] = { loading: true, players: [], error: null };
-          return acc;
-        },
-        {} as Record<CuratedSectionKey, CuratedSectionState>,
-      ),
-  );
 
   const sportOptions = useMemo(() => {
     const sports = new Set<string>();
@@ -721,64 +528,8 @@ export default function PlayersPage() {
     sportFilter,
   ]);
 
-  const loadCuratedSections = useCallback(async () => {
-    if (!SHOW_CURATED_HIGHLIGHTS) return;
-
-    setCuratedSections((prev) => {
-      const next: Record<CuratedSectionKey, CuratedSectionState> = { ...prev };
-      (Object.keys(CURATED_SECTIONS) as CuratedSectionKey[]).forEach((key) => {
-        next[key] = { ...prev[key], loading: true, error: null };
-      });
-      return next;
-    });
-
-    try {
-      const normalizedPlayers: Player[] = [];
-      const pageLimit = 100; // API enforces a maximum of 100
-      const target = 200; // Keep a generous pool for curated lists
-
-      for (let offset = 0; normalizedPlayers.length < target; offset += pageLimit) {
-        const params = new URLSearchParams({
-          limit: pageLimit.toString(),
-          offset: offset.toString(),
-        });
-        if (admin) {
-          params.set("include_hidden", "true");
-        }
-
-        const res = await apiFetch(`/v0/players?${params.toString()}`, {
-          cache: "no-store",
-        });
-        const data = await res.json();
-        const page = ((data.players ?? []) as ApiPlayer[])
-          .map(normalizePlayer)
-          .filter((player): player is Player => !!player);
-
-        normalizedPlayers.push(...page);
-
-        const total = typeof data.total === "number" ? data.total : null;
-        if (page.length < pageLimit || (total !== null && offset + pageLimit >= total)) {
-          break;
-        }
-      }
-
-      setCuratedSections(buildCuratedSections(normalizedPlayers, sportFilter));
-    } catch (err) {
-      console.error("Failed to load curated highlights", err);
-      setCuratedSections((prev) => {
-        const next: Record<CuratedSectionKey, CuratedSectionState> = { ...prev };
-        (Object.keys(CURATED_SECTIONS) as CuratedSectionKey[]).forEach((key) => {
-          next[key] = { ...prev[key], loading: false, error: PLAYERS_ERROR_MESSAGE, players: [] };
-        });
-        return next;
-      });
-    }
-  }, [admin, sportFilter]);
   useEffect(() => {
     void load();
-    if (SHOW_CURATED_HIGHLIGHTS) {
-      void loadCuratedSections();
-    }
     return () => {
       if (activeLoadTimeout.current) {
         clearTimeout(activeLoadTimeout.current);
@@ -789,7 +540,7 @@ export default function PlayersPage() {
         activeLoadController.current = null;
       }
     };
-  }, [load, loadCuratedSections]);
+  }, [load]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1332,13 +1083,6 @@ export default function PlayersPage() {
               )}
             </div>
           </div>
-          {SHOW_CURATED_HIGHLIGHTS && (
-            <CuratedHighlights
-              sections={curatedSections}
-              admin={admin}
-              sportFilter={sportFilter}
-            />
-          )}
           {filteredPlayers.length === 0 && hasSearchTerm ? (
             <div role="status" aria-live="polite" className="player-list__empty">
               <p className="font-semibold">
@@ -1697,65 +1441,6 @@ function PlayerDirectoryCard({
   );
 }
 
-function CuratedHighlights({
-  sections,
-  admin,
-  sportFilter,
-}: {
-  sections: Record<CuratedSectionKey, CuratedSectionState>;
-  admin: boolean;
-  sportFilter: string;
-}) {
-  return (
-    <div className="player-highlights" aria-label="Curated player collections">
-      {Object.entries(CURATED_SECTIONS).map(([key, config]) => {
-        const sectionKey = key as CuratedSectionKey;
-        const section = sections[sectionKey];
-        const seeAllParams = new URLSearchParams(config.seeAllParams);
-        const seeAllHref = `/players?${seeAllParams.toString()}`;
-        return (
-          <section key={key} className="player-highlights__section">
-            <div className="player-highlights__header">
-              <div>
-                <p className="eyebrow">{config.title}</p>
-                <p className="player-highlights__description">{config.description}</p>
-              </div>
-              <Link className="player-highlights__see-all" href={seeAllHref}>
-                See all
-              </Link>
-            </div>
-            {section.error ? (
-              <p className="player-highlights__error" role="status" aria-live="polite">
-                {section.error}
-              </p>
-            ) : section.loading ? (
-              <CompactPlayerListSkeleton count={config.limit} />
-            ) : section.players.length ? (
-              <ul
-                className="player-list player-card-grid player-card-grid--compact"
-                aria-label={`${config.title} players`}
-              >
-                {section.players.map((player) => (
-                  <li key={`${sectionKey}-${player.id}`} className="player-list__item">
-                    <PlayerDirectoryCard
-                      player={player}
-                      admin={admin}
-                      sportFilter={sportFilter}
-                      variant="compact"
-                    />
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="player-highlights__empty">No players yet.</p>
-            )}
-          </section>
-        );
-      })}
-    </div>
-  );
-}
-
 function PlayerListSkeleton({ count = 6 }: { count?: number }) {
   return (
     <ul className="player-list player-card-grid" aria-hidden>
@@ -1796,36 +1481,3 @@ function PlayerListSkeleton({ count = 6 }: { count?: number }) {
   );
 }
 
-function CompactPlayerListSkeleton({ count = 5 }: { count?: number }) {
-  return (
-    <ul className="player-list player-card-grid player-card-grid--compact" aria-hidden>
-      {Array.from({ length: count }).map((_, index) => (
-        <li key={`compact-player-skeleton-${index}`} className="player-list__item">
-          <div className="player-list__card player-card player-card--compact" aria-hidden>
-            <div className="player-card__header">
-              <span
-                className="skeleton"
-                style={{ width: "60%", maxWidth: "200px", height: "1.1rem" }}
-              />
-              <span
-                className="skeleton"
-                style={{ width: "30%", maxWidth: "120px", height: "0.95rem" }}
-              />
-            </div>
-            <div className="player-card__ratings">
-              <span className="skeleton" style={{ width: "42%", height: "1.5rem" }} />
-              <span className="skeleton" style={{ width: "36%", height: "1.5rem" }} />
-            </div>
-            <div className="player-card__quick-stats">
-              <span className="skeleton" style={{ width: "32%", height: "1.2rem" }} />
-              <span className="skeleton" style={{ width: "32%", height: "1.2rem" }} />
-            </div>
-            <div className="player-card__streak player-card__streak--neutral">
-              <span className="skeleton" style={{ width: "36%", height: "0.95rem" }} />
-            </div>
-          </div>
-        </li>
-      ))}
-    </ul>
-  );
-}

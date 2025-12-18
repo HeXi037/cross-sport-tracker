@@ -1266,11 +1266,16 @@ async def _compute_player_stats(
     seen_ids: set[str] = set()
     match_ids: list[str] = []
     match_sport: dict[str, str] = {}
+    last_played_at = None
     for row in rows:
         match_sport[row.match_id] = row.sport_id
         if row.match_id not in seen_ids:
             seen_ids.add(row.match_id)
             match_ids.append(row.match_id)
+
+        if row.played_at is not None:
+            if last_played_at is None or row.played_at > last_played_at:
+                last_played_at = row.played_at
 
     participant_map: dict[str, dict[str, list[str]]] = {}
     if match_ids:
@@ -1387,6 +1392,7 @@ async def _compute_player_stats(
         losses=losses,
         draws=draws,
         winPct=win_pct,
+        lastPlayedAt=coerce_utc(last_played_at) if last_played_at else None,
     )
     set_summary = SetSummary(
         won=sets_won,

@@ -321,6 +321,7 @@ def test_player_stats_after_recording_padel_matches(client_and_session, monkeypa
         "losses": 1,
         "draws": 0,
         "winPct": pytest.approx(0.5),
+        "lastPlayedAt": "2024-01-02T00:00:00Z",
     }
     assert data["setSummary"] == {"won": 2, "lost": 2, "differential": 0}
     assert data["recentForm"] == {"lastFive": ["W", "L"], "currentStreak": "L1"}
@@ -367,6 +368,7 @@ def test_player_stats(client_and_session):
         "losses": 1,
         "draws": 0,
         "winPct": pytest.approx(0.5),
+        "lastPlayedAt": None,
     }
     assert data["setSummary"] == {
         "won": 2,

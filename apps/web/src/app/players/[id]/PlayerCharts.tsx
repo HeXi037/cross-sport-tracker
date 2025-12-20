@@ -1,12 +1,48 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useMemo } from 'react';
-import WinRateChart, { WinRatePoint } from '../../../components/charts/WinRateChart';
-import RankingHistoryChart, { RankingPoint } from '../../../components/charts/RankingHistoryChart';
-import MatchHeatmap, { HeatmapDatum } from '../../../components/charts/MatchHeatmap';
+import type { WinRatePoint } from '../../../components/charts/WinRateChart';
+import type { RankingPoint } from '../../../components/charts/RankingHistoryChart';
+import type { HeatmapDatum } from '../../../components/charts/MatchHeatmap';
 import { useLocale, useTimeZone } from '../../../lib/LocaleContext';
 import { formatDate } from '../../../lib/i18n';
 import NoMatchesGuidance from './NoMatchesGuidance';
+
+function ChartPlaceholder({ label }: { label: string }) {
+  return (
+    <div className="flex h-[300px] items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50 text-sm text-gray-500">
+      {label}
+    </div>
+  );
+}
+
+const WinRateChart = dynamic(
+  () =>
+    import('../../../components/charts/WinRateChart').then((mod) => mod.default),
+  {
+    ssr: false,
+    loading: () => <ChartPlaceholder label="Loading win rate chart…" />,
+  },
+);
+
+const RankingHistoryChart = dynamic(
+  () =>
+    import('../../../components/charts/RankingHistoryChart').then((mod) => mod.default),
+  {
+    ssr: false,
+    loading: () => <ChartPlaceholder label="Loading ranking history chart…" />,
+  },
+);
+
+const MatchHeatmap = dynamic(
+  () =>
+    import('../../../components/charts/MatchHeatmap').then((mod) => mod.default),
+  {
+    ssr: false,
+    loading: () => <ChartPlaceholder label="Loading activity heatmap…" />,
+  },
+);
 
 interface EnrichedMatch {
   playedAt: string | null;

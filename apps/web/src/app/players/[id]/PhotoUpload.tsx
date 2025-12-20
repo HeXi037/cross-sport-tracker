@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import {
   SESSION_ENDED_EVENT,
@@ -131,11 +132,12 @@ export default function PhotoUpload({
     }
   };
 
+  const isBlobUrl = url?.startsWith('blob:') ?? false;
+
   return (
     <div className="mb-4">
       {url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={url}
           alt={
             typeof playerName === "string" && playerName.trim().length
@@ -144,6 +146,8 @@ export default function PhotoUpload({
           }
           width={120}
           height={120}
+          sizes="120px"
+          unoptimized={isBlobUrl}
           style={{ borderRadius: '50%', objectFit: 'cover', marginBottom: 8 }}
         />
       )}

@@ -1,6 +1,7 @@
 "use client";
 
 // apps/web/src/components/PlayerName.tsx (update)
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { normalizePhotoUrl } from '../lib/api';
 import { getInitials } from '../lib/names';
@@ -37,13 +38,13 @@ export default function PlayerName({
   return (
     <span className="player-name">
       {photoUrl && showPhoto ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={photoUrl}
           alt={decorativeAvatar ? "" : `${player.name} avatar`}
           aria-hidden={decorativeAvatar || undefined}
           width={24}
           height={24}
+          sizes="24px"
           className="player-name__avatar"
           onError={() => setShowPhoto(false)}
         />

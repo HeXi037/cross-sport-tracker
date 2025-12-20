@@ -33,14 +33,14 @@ vi.mock("../../../lib/LocaleContext", () => ({
 
 import PlayerCharts from "./PlayerCharts";
 
-function readJson<T>(testId: string): T {
-  const element = screen.getByTestId(testId);
+async function readJson<T>(testId: string): Promise<T> {
+  const element = await screen.findByTestId(testId);
   const raw = element.textContent ?? "null";
   return JSON.parse(raw) as T;
 }
 
 describe("PlayerCharts", () => {
-  it("handles matches with invalid playedAt values", () => {
+  it("handles matches with invalid playedAt values", async () => {
     const matches = [
       {
         id: "m1",
@@ -76,25 +76,28 @@ describe("PlayerCharts", () => {
       />,
     );
 
-    const winRate = readJson<Array<{ date: string; winRate: number }>>("win-rate");
+    const winRate = await readJson<Array<{ date: string; winRate: number }>>("win-rate");
     expect(winRate).toHaveLength(2);
     expect(winRate[0].date).toBe("Match 1");
     expect(winRate[1].date).toBe("1/1/24");
     expect(winRate[0].winRate).toBeCloseTo(0.5);
     expect(winRate[1].winRate).toBeCloseTo(0.25);
 
-    const ranking = readJson<Array<{ date: string; rank: number }>>("ranking-history");
+    const ranking = await readJson<Array<{ date: string; rank: number }>>(
+      "ranking-history",
+    );
     expect(ranking).toHaveLength(2);
     expect(ranking[0].date).toBe("Padel Elo 1");
     expect(ranking[1].date).toBe("Padel Elo 2");
     expect(ranking[0].rank).toBe(1);
     expect(ranking[1].rank).toBe(21);
 
-    const heatmap = readJson<Array<{ x: number; y: number; v: number }>>("heatmap");
+    const heatmap = await readJson<Array<{ x: number; y: number; v: number }>>(
+      "heatmap",
+    );
     expect(heatmap).toHaveLength(1);
     expect(Number.isFinite(heatmap[0].x)).toBe(true);
     expect(Number.isFinite(heatmap[0].y)).toBe(true);
     expect(heatmap[0].v).toBe(1);
   });
 });
-

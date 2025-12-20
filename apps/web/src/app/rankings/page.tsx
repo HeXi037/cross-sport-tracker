@@ -123,7 +123,10 @@ export default function RankingsPage() {
   useEffect(() => {
     async function loadSports() {
       try {
-        const res = await fetch(`${base}/v0/sports`, { cache: "force-cache" });
+        const res = await fetch(`${base}/v0/sports`, {
+          cache: "force-cache",
+          next: { revalidate: 3600 },
+        });
         if (!res.ok) {
           throw new Error("Unable to load sports catalog");
         }
@@ -150,21 +153,30 @@ export default function RankingsPage() {
     setError(null);
     try {
       const endpoint = sport === "master" ? `/v0/leaderboards/master` : `/v0/leaderboards?sport=${sport}`;
-      const [res, masterRes] = await Promise.all([
-        fetch(`${base}${endpoint}`, { cache: "no-store" }),
-        fetch(`${base}/v0/leaderboards/master`, { cache: "no-store" }),
-      ]);
+      const masterRequest = fetch(`${base}/v0/leaderboards/master`, {
+        cache: "force-cache",
+        next: { revalidate: 300 },
+      });
+      // Leaderboards change with every reported match, so always bypass the cache for the active sport.
+      const leaderboardRequest =
+        sport === "master"
+          ? masterRequest
+          : fetch(`${base}${endpoint}`, { cache: "no-store" });
+      const [res, masterRes] = await Promise.all([leaderboardRequest, masterRequest]);
 
       if (res.ok) {
         const data = (await res.json()) as LeaderboardResponse;
         setLeaderboard(data);
         setError(null);
+        if (sport === "master") {
+          setMasterLeaderboard(data);
+        }
       } else {
         setLeaderboard(null);
         setError("Unable to load rankings. Please try again.");
       }
 
-      if (masterRes.ok) {
+      if (sport !== "master" && masterRes.ok) {
         const data = (await masterRes.json()) as LeaderboardResponse;
         setMasterLeaderboard(data);
       }

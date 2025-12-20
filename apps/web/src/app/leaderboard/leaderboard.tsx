@@ -356,7 +356,10 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     let cancelled = false;
     (async () => {
       try {
-        const clubs = await fetchClubs();
+        const clubs = await fetchClubs({
+          cache: "force-cache",
+          next: { revalidate: 3600 },
+        });
         if (cancelled) {
           return;
         }
@@ -1139,9 +1142,11 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             setLoading(true);
           }
 
+          // Leaderboard results update with every match, so we skip caching for active sport fetches.
           const results = await Promise.allSettled(
             missingSports.map(async (s) => {
               const res = await fetch(buildUrl(s), {
+                cache: "no-store",
                 signal: controller.signal,
               });
               if (!res.ok) {
@@ -1193,7 +1198,11 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           setLoading(true);
           const res = await fetch(
             apiUrl(`/v0/leaderboards/master?limit=${PAGE_SIZE}&offset=0`),
-            { signal: controller.signal },
+            {
+              cache: "force-cache",
+              next: { revalidate: 300 },
+              signal: controller.signal,
+            },
           );
           if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
           const data = await res.json();
@@ -1215,7 +1224,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             return;
           }
           setLoading(true);
+          // Live leaderboard data should always be fetched fresh.
           const res = await fetch(buildUrl(sport), {
+            cache: "no-store",
             signal: controller.signal,
           });
           if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
@@ -1287,6 +1298,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     setIsLoadingMore(true);
     try {
       if (sport === ALL_SPORTS) {
+        // Load-more requests reflect live results, so bypass caches for each sport.
         const sportsToFetch = SPORTS.filter((id) => {
           const cached = getCachedLeaders(id);
           return cached ? cached.nextOffset < cached.total : true;
@@ -1304,6 +1316,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
               return;
             }
             const res = await fetch(buildUrl(id, { offset }), {
+              cache: "no-store",
               signal: controller.signal,
             });
             if (!res.ok) {
@@ -1340,7 +1353,11 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         } else {
           const res = await fetch(
             apiUrl(`/v0/leaderboards/master?limit=${PAGE_SIZE}&offset=${offset}`),
-            { signal: controller.signal },
+            {
+              cache: "force-cache",
+              next: { revalidate: 300 },
+              signal: controller.signal,
+            },
           );
           if (!res.ok) {
             throw new Error(`${res.status} ${res.statusText}`);
@@ -1358,7 +1375,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         if (cached && offset >= cached.total) {
           setHasMore(false);
         } else {
+          // Keep paginated leaderboards fresh for in-progress matches.
           const res = await fetch(buildUrl(sport, { offset }), {
+            cache: "no-store",
             signal: controller.signal,
           });
           if (!res.ok) {

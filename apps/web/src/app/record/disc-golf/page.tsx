@@ -199,10 +199,12 @@ function DiscGolfForm() {
     setPlayerError(null);
     (async () => {
       try {
+        // Player lists change frequently as members sign up, so always fetch fresh data.
         const res = await fetch(
           apiUrl(`/v0/players?limit=${PLAYER_FETCH_LIMIT}&offset=0`),
           {
             method: "GET",
+            cache: "no-store",
             signal: controller.signal,
           },
         );
@@ -245,10 +247,12 @@ function DiscGolfForm() {
     setMatchPickerError(null);
     (async () => {
       try {
+        // Match options should reflect the latest results, so avoid caching.
         const res = await fetch(
           apiUrl(`/v0/matches?limit=${MATCH_FETCH_LIMIT}&offset=0`),
           {
             method: "GET",
+            cache: "no-store",
             signal: controller.signal,
           },
         );
@@ -300,9 +304,10 @@ function DiscGolfForm() {
     setMatchDetailsError(null);
     (async () => {
       try {
+        // Match details are updated as holes are recorded, so keep them uncached.
         const res = await fetch(
           apiUrl(`/v0/matches/${encodeURIComponent(currentMatchId)}`),
-          { signal: controller.signal },
+          { cache: "no-store", signal: controller.signal },
         );
         if (!res.ok) {
           throw new Error("Failed to load match");

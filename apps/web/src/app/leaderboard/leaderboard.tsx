@@ -7,6 +7,8 @@ import {
   ChangeEvent,
   CSSProperties,
   FormEvent,
+  forwardRef,
+  type HTMLAttributes,
   startTransition,
   useCallback,
   useEffect,
@@ -14,6 +16,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { FixedSizeList, type ListChildComponentProps } from "react-window";
 import CountrySelect from "../../components/CountrySelect";
 import ClubSelect from "../../components/ClubSelect";
 import { apiUrl, fetchClubs, type ClubSummary } from "../../lib/api";
@@ -76,6 +79,9 @@ const RESULTS_TABLE_ID = "leaderboard-results";
 const RESULTS_TABLE_CAPTION_ID = `${RESULTS_TABLE_ID}-caption`;
 const LEADERBOARD_TIMEOUT_MS = 15000;
 const PAGE_SIZE = 50;
+const VIRTUALIZATION_THRESHOLD = 50;
+const VIRTUAL_ROW_HEIGHT = 40;
+const MAX_VIRTUALIZED_HEIGHT = 520;
 
 const canonicalizePathname = (pathname: string) => {
   if (pathname === "/" || pathname === "") {
@@ -235,6 +241,8 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const [hasMore, setHasMore] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const loadMoreAbortRef = useRef<AbortController | null>(null);
+  const tableContainerRef = useRef<HTMLDivElement | null>(null);
+  const [tableWidth, setTableWidth] = useState(0);
   type SortDirection = "ascending" | "descending";
   type SortableColumn = "rating" | "wins" | "matches";
   const [sortState, setSortState] = useState<
@@ -1424,7 +1432,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   ]);
 
   useEffect(() => {
-    if (!hasMore) {
+    if (!hasMore || shouldVirtualize) {
       return;
     }
     const target = loadMoreRef.current;
@@ -1442,7 +1450,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     return () => {
       observer.disconnect();
     };
-  }, [hasMore, loadMore, leaders.length]);
+  }, [hasMore, loadMore, leaders.length, shouldVirtualize]);
 
   useEffect(() => () => {
     loadMoreAbortRef.current?.abort();
@@ -1451,9 +1459,64 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const tableStyle = useMemo(
     () => ({
       width: "100%",
-      borderCollapse: "collapse" as const,
+      display: "grid",
       fontSize: "0.9rem",
     }),
+    [],
+  );
+
+  const columnTemplate = useMemo(() => {
+    const columns: string[] = [
+      "56px",
+      "minmax(160px, 1.6fr)",
+    ];
+
+    if (sport === ALL_SPORTS) {
+      columns.push("minmax(120px, 1fr)");
+    }
+
+    columns.push("minmax(90px, 0.7fr)", "minmax(150px, 1fr)");
+
+    if (isBowling) {
+      columns.push(
+        "minmax(120px, 0.9fr)",
+        "minmax(120px, 0.9fr)",
+        "minmax(140px, 1fr)",
+        "minmax(180px, 1fr)",
+      );
+    } else {
+      columns.push("72px", "72px", "96px", "72px");
+    }
+
+    return columns.join(" ");
+  }, [isBowling, sport]);
+
+  const headerRowStyle = useMemo(
+    () => ({
+      display: "grid",
+      gridTemplateColumns: columnTemplate,
+      alignItems: "center",
+    }),
+    [columnTemplate],
+  );
+
+  const rowGridStyle = useMemo(
+    () => ({
+      display: "grid",
+      gridTemplateColumns: columnTemplate,
+      alignItems: "center",
+      borderTop: "1px solid var(--color-border-subtle)",
+      boxSizing: "border-box" as const,
+      height: VIRTUAL_ROW_HEIGHT,
+    }),
+    [columnTemplate],
+  );
+
+  const VirtualRowGroup = useMemo(
+    () =>
+      forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+        (props, ref) => <div ref={ref} role="rowgroup" {...props} />,
+      ),
     [],
   );
 
@@ -1525,7 +1588,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             ? "Currently sorted descending. Sort ascending."
             : "Not sorted. Sort descending.";
       return (
-        <th scope="col" aria-sort={ariaSort} style={style}>
+        <div role="columnheader" aria-sort={ariaSort} style={style}>
           <button
             type="button"
             onClick={() => toggleSort(column)}
@@ -1552,61 +1615,61 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                   : "↕"}
             </span>
           </button>
-        </th>
+        </div>
       );
     },
     [getAriaSort, getSortForColumn, toggleSort],
   );
 
   const TableHeader = () => (
-    <thead>
-      <tr>
-        <th
-          scope="col"
+    <div role="rowgroup">
+      <div role="row" style={headerRowStyle}>
+        <div
+          role="columnheader"
           aria-sort={sortState ? "none" : "ascending"}
           style={headerCellStyle}
         >
           #
-        </th>
-        <th scope="col" style={headerCellStyle}>
+        </div>
+        <div role="columnheader" style={headerCellStyle}>
           Player
-        </th>
+        </div>
         {sport === ALL_SPORTS && (
-          <th scope="col" style={headerCellStyle}>
+          <div role="columnheader" style={headerCellStyle}>
             Sport
-          </th>
+          </div>
         )}
         {renderSortableHeader("rating", "Rating", headerCellStyle)}
-        <th scope="col" style={headerCellStyle}>
+        <div role="columnheader" style={headerCellStyle}>
           Win chance vs #1
-        </th>
+        </div>
         {isBowling ? (
           <>
-            <th scope="col" style={headerCellStyle}>
+            <div role="columnheader" style={headerCellStyle}>
               Highest score
-            </th>
-            <th scope="col" style={headerCellStyle}>
+            </div>
+            <div role="columnheader" style={headerCellStyle}>
               Average score
-            </th>
+            </div>
             {renderSortableHeader("matches", "Matches played", headerCellStyle)}
-            <th scope="col" style={lastHeaderCellStyle}>
+            <div role="columnheader" style={lastHeaderCellStyle}>
               Std. deviation (consistency)
-            </th>
+            </div>
           </>
         ) : (
           <>
             {renderSortableHeader("wins", "W", headerCellStyle)}
-            <th scope="col" style={headerCellStyle}>
+            <div role="columnheader" style={headerCellStyle}>
               L
-            </th>
+            </div>
             {renderSortableHeader("matches", "Matches", headerCellStyle)}
-            <th scope="col" style={lastHeaderCellStyle}>
+            <div role="columnheader" style={lastHeaderCellStyle}>
               Win%
-            </th>
+            </div>
           </>
         )}
-      </tr>
-    </thead>
+      </div>
+    </div>
   );
 
   const sortedLeaders = useMemo(() => {
@@ -1653,6 +1716,166 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       return (aValue - bValue) * directionFactor;
     });
   }, [isBowling, leaders, sortState]);
+
+  useEffect(() => {
+    const element = tableContainerRef.current;
+    if (!element) {
+      return;
+    }
+    const updateWidth = () => {
+      const rectWidth = element.getBoundingClientRect().width;
+      const scrollWidth = element.scrollWidth;
+      setTableWidth(Math.max(rectWidth, scrollWidth));
+    };
+    updateWidth();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateWidth);
+      return () => {
+        window.removeEventListener("resize", updateWidth);
+      };
+    }
+
+    const observer = new ResizeObserver(() => updateWidth());
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [sortedLeaders.length, loading]);
+
+  const shouldVirtualize =
+    sortedLeaders.length > VIRTUALIZATION_THRESHOLD && tableWidth > 0;
+
+  const virtualizedListHeight = useMemo(
+    () =>
+      Math.min(
+        sortedLeaders.length * VIRTUAL_ROW_HEIGHT,
+        MAX_VIRTUALIZED_HEIGHT,
+      ),
+    [sortedLeaders.length],
+  );
+
+  const buildRow = useCallback(
+    (row: Leader, index: number, style?: CSSProperties) => {
+      const topRatedPlayerId = topRatedLeader?.playerId;
+      const topRatedRating = topRatedLeader?.rating;
+      const won = row.setsWon ?? 0;
+      const lost = row.setsLost ?? 0;
+      const total = won + lost;
+      const winPct =
+        !isBowling && total > 0 ? Math.round((won / total) * 100) : null;
+      const matchesPlayed = row.matchesPlayed ?? row.sets ?? null;
+      const highestScore = row.highestScore ?? null;
+      const averageScore = row.averageScore ?? null;
+      const stdDeviation = row.standardDeviation ?? null;
+      const rowSportName = formatSportName(row.sport);
+      const winProbability =
+        typeof topRatedRating === "number" &&
+        Number.isFinite(topRatedRating) &&
+        topRatedPlayerId != null &&
+        typeof row.rating === "number" &&
+        Number.isFinite(row.rating) &&
+        row.playerId !== topRatedPlayerId
+          ? computeExpectedWinProbability(row.rating, topRatedRating)
+          : null;
+
+      const rowKey = `${row.rank}-${row.playerId}-${row.sport ?? ""}`;
+
+      return (
+        <div
+          key={rowKey}
+          role="row"
+          style={{
+            ...rowGridStyle,
+            ...(style ?? {}),
+            width: "100%",
+            background:
+              index % 2 === 1 ? "rgba(10, 31, 68, 0.02)" : "transparent",
+          }}
+        >
+          <div role="cell" style={cellStyle}>
+            {sortState ? index + 1 : row.rank}
+          </div>
+          <div role="cell" style={cellStyle}>
+            {row.playerName}
+          </div>
+          {sport === ALL_SPORTS && (
+            <div role="cell" style={cellStyle}>
+              {rowSportName}
+            </div>
+          )}
+          <div
+            role="cell"
+            style={cellStyle}
+            title={row.rating != null ? row.rating.toString() : undefined}
+          >
+            {formatRating(row.rating)}
+          </div>
+          <div role="cell" style={cellStyle}>
+            {formatWinProbability(winProbability)}
+          </div>
+          {isBowling ? (
+            <>
+              <div role="cell" style={cellStyle}>
+                {formatInteger(highestScore)}
+              </div>
+              <div role="cell" style={cellStyle}>
+                {formatDecimal(averageScore)}
+              </div>
+              <div role="cell" style={cellStyle}>
+                {formatInteger(matchesPlayed)}
+              </div>
+              <div role="cell" style={lastCellStyle}>
+                {formatDecimal(stdDeviation)}
+              </div>
+            </>
+          ) : (
+            <>
+              <div role="cell" style={cellStyle}>
+                {row.setsWon ?? "—"}
+              </div>
+              <div role="cell" style={cellStyle}>
+                {row.setsLost ?? "—"}
+              </div>
+              <div role="cell" style={cellStyle}>
+                {total || "—"}
+              </div>
+              <div role="cell" style={lastCellStyle}>
+                {winPct != null ? `${winPct}%` : "—"}
+              </div>
+            </>
+          )}
+        </div>
+      );
+    },
+    [
+      cellStyle,
+      computeExpectedWinProbability,
+      formatDecimal,
+      formatInteger,
+      formatRating,
+      formatWinProbability,
+      isBowling,
+      lastCellStyle,
+      rowGridStyle,
+      sortState,
+      sport,
+      topRatedLeader,
+    ],
+  );
+
+  const renderVirtualRow = useCallback(
+    ({ index, style, data }: ListChildComponentProps<Leader[]>) =>
+      buildRow(data[index], index, style),
+    [buildRow],
+  );
+
+  const handleItemsRendered = useCallback(
+    ({ visibleStopIndex }: { visibleStartIndex: number; visibleStopIndex: number }) => {
+      if (hasMore && visibleStopIndex >= sortedLeaders.length - 5) {
+        loadMore();
+      }
+    },
+    [hasMore, loadMore, sortedLeaders.length],
+  );
 
   return (
     <main className="container">
@@ -2056,79 +2279,42 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         )
       ) : (
         <div className="leaderboard-table-wrapper">
-          <table
+          <div
             id={RESULTS_TABLE_ID}
+            ref={tableContainerRef}
+            role="table"
             className="leaderboard-table"
             style={tableStyle}
             aria-labelledby={RESULTS_TABLE_CAPTION_ID}
           >
-            <caption id={RESULTS_TABLE_CAPTION_ID} className="sr-only">
+            <div id={RESULTS_TABLE_CAPTION_ID} className="sr-only">
               {captionText}
-            </caption>
+            </div>
             <TableHeader />
-            <tbody>
-              {(() => {
-                const topRatedPlayerId = topRatedLeader?.playerId;
-                const topRatedRating = topRatedLeader?.rating;
-
-                return sortedLeaders.map((row, index) => {
-                  const won = row.setsWon ?? 0;
-                  const lost = row.setsLost ?? 0;
-                  const total = won + lost;
-                  const winPct = !isBowling && total > 0 ? Math.round((won / total) * 100) : null;
-                  const matchesPlayed = row.matchesPlayed ?? row.sets ?? null;
-                  const highestScore = row.highestScore ?? null;
-                  const averageScore = row.averageScore ?? null;
-                  const stdDeviation = row.standardDeviation ?? null;
-                  const rowSportName = formatSportName(row.sport);
-                  const winProbability =
-                    typeof topRatedRating === "number" &&
-                    Number.isFinite(topRatedRating) &&
-                    topRatedPlayerId != null &&
-                    typeof row.rating === "number" &&
-                    Number.isFinite(row.rating) &&
-                    row.playerId !== topRatedPlayerId
-                      ? computeExpectedWinProbability(row.rating, topRatedRating)
-                      : null;
-                  return (
-                    <tr
-                      key={`${row.rank}-${row.playerId}-${row.sport ?? ""}`}
-                      style={{ borderTop: "1px solid var(--color-border-subtle)" }}
-                    >
-                      <td style={cellStyle}>{sortState ? index + 1 : row.rank}</td>
-                      <td style={cellStyle}>{row.playerName}</td>
-                      {sport === ALL_SPORTS && (
-                        <td style={cellStyle}>{rowSportName}</td>
-                      )}
-                      <td
-                        style={cellStyle}
-                        title={row.rating != null ? row.rating.toString() : undefined}
-                      >
-                        {formatRating(row.rating)}
-                      </td>
-                      <td style={cellStyle}>{formatWinProbability(winProbability)}</td>
-                      {isBowling ? (
-                        <>
-                          <td style={cellStyle}>{formatInteger(highestScore)}</td>
-                          <td style={cellStyle}>{formatDecimal(averageScore)}</td>
-                          <td style={cellStyle}>{formatInteger(matchesPlayed)}</td>
-                          <td style={lastCellStyle}>{formatDecimal(stdDeviation)}</td>
-                        </>
-                      ) : (
-                        <>
-                          <td style={cellStyle}>{row.setsWon ?? "—"}</td>
-                          <td style={cellStyle}>{row.setsLost ?? "—"}</td>
-                          <td style={cellStyle}>{total || "—"}</td>
-                          <td style={lastCellStyle}>{winPct != null ? `${winPct}%` : "—"}</td>
-                        </>
-                      )}
-                    </tr>
-                  );
-                });
-              })()}
-            </tbody>
-          </table>
-          {hasMore ? (
+            {shouldVirtualize ? (
+              <FixedSizeList
+                height={virtualizedListHeight}
+                width={tableWidth}
+                itemCount={sortedLeaders.length}
+                itemData={sortedLeaders}
+                itemSize={VIRTUAL_ROW_HEIGHT}
+                onItemsRendered={handleItemsRendered}
+                outerElementType={VirtualRowGroup}
+                itemKey={(index, data) => {
+                  const row = data[index];
+                  return `${row.rank}-${row.playerId}-${row.sport ?? ""}`;
+                }}
+                style={{ overflowX: "hidden" }}
+              >
+                {renderVirtualRow}
+              </FixedSizeList>
+            ) : (
+              <div role="rowgroup">
+                {sortedLeaders.map((row, index) => buildRow(row, index))}
+              </div>
+            )}
+          </div>
+          {hasMore && !shouldVirtualize ? (
             <div
               ref={loadMoreRef}
               aria-hidden="true"

@@ -2,6 +2,18 @@ import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
 import PlayerName, { type PlayerInfo } from '../PlayerName';
 
+const expectNextImageSrc = (img: HTMLElement, expectedPath: string) => {
+  const src = img.getAttribute('src');
+  expect(src).toBeTruthy();
+  const resolved = new URL(src ?? '', 'http://localhost');
+  if (resolved.pathname === '/_next/image') {
+    const urlParam = resolved.searchParams.get('url');
+    expect(urlParam ? decodeURIComponent(urlParam) : null).toBe(expectedPath);
+    return;
+  }
+  expect(resolved.pathname + resolved.search).toBe(expectedPath);
+};
+
 describe('PlayerName', () => {
   const renderComponent = (player: PlayerInfo) => render(<PlayerName player={player} />);
 
@@ -13,7 +25,7 @@ describe('PlayerName', () => {
     });
 
     const img = screen.getByAltText('Valid Avatar avatar');
-    expect(img).toHaveAttribute('src', '/api/static/users/avatar.png');
+    expectNextImageSrc(img, '/api/static/users/avatar.png');
   });
 
   it('falls back to an initials placeholder when the URL is invalid', () => {

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   useCallback,
   useEffect,
@@ -829,12 +830,12 @@ export default function ProfilePage() {
       <h1 className="heading">Profile</h1>
       <div className="auth-form">
         {photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={photoUrl}
             alt={username ? `${username} profile photo` : "Profile photo"}
             width={120}
             height={120}
+            sizes="120px"
             style={{
               borderRadius: "50%",
               objectFit: "cover",

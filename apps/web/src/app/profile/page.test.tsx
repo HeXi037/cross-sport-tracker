@@ -60,6 +60,18 @@ vi.mock("../../lib/api", async () => {
 import ProfilePage from "./page";
 import { USER_SETTINGS_STORAGE_KEY } from "../user-settings";
 
+const expectNextImageSrc = (img: HTMLElement, expectedPath: string) => {
+  const src = img.getAttribute("src");
+  expect(src).toBeTruthy();
+  const resolved = new URL(src ?? "", "http://localhost");
+  if (resolved.pathname === "/_next/image") {
+    const urlParam = resolved.searchParams.get("url");
+    expect(urlParam ? decodeURIComponent(urlParam) : null).toBe(expectedPath);
+    return;
+  }
+  expect(resolved.pathname + resolved.search).toBe(expectedPath);
+};
+
 describe("ProfilePage", () => {
   beforeEach(() => {
     pushMock.mockReset();
@@ -164,7 +176,7 @@ describe("ProfilePage", () => {
     });
 
     const img = await screen.findByAltText("relative-user profile photo");
-    expect(img).toHaveAttribute("src", "/api/media/photos/me.png");
+    expectNextImageSrc(img, "/api/media/photos/me.png");
   });
 
   it("drops trailing undefined fragments from profile photo URLs", async () => {
@@ -180,7 +192,7 @@ describe("ProfilePage", () => {
     });
 
     const img = await screen.findByAltText("broken profile photo");
-    expect(img).toHaveAttribute("src", "/api/static/users/avatar.png");
+    expectNextImageSrc(img, "/api/static/users/avatar.png");
   });
 
   it("falls back to an initials placeholder when the photo URL is invalid", async () => {
@@ -232,10 +244,7 @@ describe("ProfilePage", () => {
     });
 
     const preview = await screen.findByAltText("default-user profile photo");
-    expect(preview).toHaveAttribute(
-      "src",
-      "/api/static/users/avatar.png?t=123456789",
-    );
+    expectNextImageSrc(preview, "/api/static/users/avatar.png?t=123456789");
     expect(screen.queryByText("Updating photo…")).not.toBeInTheDocument();
     dateSpy.mockRestore();
   });

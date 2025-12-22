@@ -40,6 +40,7 @@ export default function NotificationBell() {
   const [clearingAll, setClearingAll] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const wasOpenRef = useRef(false);
   const { showToast } = useToast();
 
   const {
@@ -60,6 +61,24 @@ export default function NotificationBell() {
   }, []);
 
   useEffect(() => {
+    if (open) {
+      const panel = panelRef.current;
+      if (panel) {
+        const focusable = panel.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
+        const firstFocusable = focusable[0];
+        if (firstFocusable) {
+          requestAnimationFrame(() => firstFocusable.focus());
+        }
+      }
+    } else if (wasOpenRef.current) {
+      buttonRef.current?.focus();
+    }
+    wasOpenRef.current = open;
+  }, [open]);
+
+  useEffect(() => {
     if (!open) return;
     const handleClick = (event: MouseEvent | globalThis.MouseEvent | TouchEvent) => {
       const target = event.target as Node | null;
@@ -72,7 +91,36 @@ export default function NotificationBell() {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         closePanel();
-        buttonRef.current?.focus();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const panel = panelRef.current;
+      if (!panel) return;
+      const focusable = panel.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable.length) {
+        event.preventDefault();
+        return;
+      }
+      const firstFocusable = focusable[0];
+      const lastFocusable = focusable[focusable.length - 1];
+      const activeElement = document.activeElement as HTMLElement | null;
+      if (event.shiftKey) {
+        if (!activeElement || activeElement === firstFocusable || !panel.contains(activeElement)) {
+          event.preventDefault();
+          lastFocusable.focus();
+        }
+        return;
+      }
+      if (!activeElement || !panel.contains(activeElement)) {
+        event.preventDefault();
+        firstFocusable.focus();
+        return;
+      }
+      if (activeElement === lastFocusable) {
+        event.preventDefault();
+        firstFocusable.focus();
       }
     };
 
@@ -288,6 +336,7 @@ export default function NotificationBell() {
           ref={panelRef}
           id="notification-panel"
           role="dialog"
+          aria-modal="true"
           aria-label="Notifications"
           className="notification-panel"
         >

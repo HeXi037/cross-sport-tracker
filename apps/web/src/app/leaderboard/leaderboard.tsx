@@ -1431,27 +1431,6 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     computeHasMoreForSport,
   ]);
 
-  useEffect(() => {
-    if (!hasMore || shouldVirtualize) {
-      return;
-    }
-    const target = loadMoreRef.current;
-    if (!target) {
-      return;
-    }
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          loadMore();
-        }
-      });
-    }, { rootMargin: "200px" });
-    observer.observe(target);
-    return () => {
-      observer.disconnect();
-    };
-  }, [hasMore, loadMore, leaders.length, shouldVirtualize]);
-
   useEffect(() => () => {
     loadMoreAbortRef.current?.abort();
   }, []);
@@ -1876,6 +1855,27 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     },
     [hasMore, loadMore, sortedLeaders.length],
   );
+
+  useEffect(() => {
+    if (!hasMore || shouldVirtualize) {
+      return;
+    }
+    const target = loadMoreRef.current;
+    if (!target) {
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          loadMore();
+        }
+      });
+    }, { rootMargin: "200px" });
+    observer.observe(target);
+    return () => {
+      observer.disconnect();
+    };
+  }, [hasMore, loadMore, leaders.length, shouldVirtualize]);
 
   return (
     <main className="container">

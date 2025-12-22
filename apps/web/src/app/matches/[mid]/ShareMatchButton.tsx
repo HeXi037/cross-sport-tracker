@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   buildPrefilledShareLinks,
@@ -51,6 +58,9 @@ export default function ShareMatchButton({
   const [feedback, setFeedback] = useState<string | null>(null);
   const [canUseNativeShare, setCanUseNativeShare] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuItemRefs = useRef<Array<HTMLButtonElement | HTMLAnchorElement | null>>([]);
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -64,30 +74,112 @@ export default function ShareMatchButton({
     setCanUseNativeShare(typeof navigator.share === "function");
   }, []);
 
+  const closeMenu = useCallback((options?: { returnFocus?: boolean }) => {
+    setMenuOpen(false);
+    if (options?.returnFocus) {
+      window.requestAnimationFrame(() => {
+        triggerRef.current?.focus();
+      });
+    }
+  }, []);
+
+  const menuItemDisabled = useMemo(
+    () => [
+      !canUseNativeShare,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ],
+    [canUseNativeShare]
+  );
+
+  const focusMenuItem = useCallback((index: number) => {
+    const item = menuItemRefs.current[index];
+    if (item) {
+      item.focus();
+      setActiveIndex(index);
+    }
+  }, []);
+
+  const findFirstEnabledIndex = useCallback(() => {
+    const index = menuItemDisabled.findIndex((disabled) => !disabled);
+    return index === -1 ? 0 : index;
+  }, [menuItemDisabled]);
+
+  const findNextEnabledIndex = useCallback(
+    (startIndex: number, direction: 1 | -1) => {
+      const total = menuItemDisabled.length;
+      for (let step = 1; step <= total; step += 1) {
+        const nextIndex = (startIndex + direction * step + total) % total;
+        if (!menuItemDisabled[nextIndex]) {
+          return nextIndex;
+        }
+      }
+      return startIndex;
+    },
+    [menuItemDisabled]
+  );
+
+  const handleMenuKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeMenu({ returnFocus: true });
+        return;
+      }
+
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
+        return;
+      }
+
+      event.preventDefault();
+      const fallbackIndex = findFirstEnabledIndex();
+      const currentIndex = activeIndex >= 0 ? activeIndex : fallbackIndex;
+      const direction = event.key === "ArrowDown" ? 1 : -1;
+      const nextIndex = findNextEnabledIndex(currentIndex, direction);
+      focusMenuItem(nextIndex);
+    },
+    [activeIndex, closeMenu, findFirstEnabledIndex, findNextEnabledIndex, focusMenuItem]
+  );
+
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!menuOpen) {
+      setActiveIndex(-1);
+      return;
+    }
 
     const handlePointerDown = (event: PointerEvent) => {
       if (!containerRef.current) return;
       if (event.target instanceof Node && !containerRef.current.contains(event.target)) {
-        setMenuOpen(false);
+        closeMenu();
       }
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setMenuOpen(false);
+        closeMenu({ returnFocus: true });
       }
     };
 
     window.addEventListener("pointerdown", handlePointerDown);
     window.addEventListener("keydown", handleKeyDown);
 
+    const firstEnabledIndex = findFirstEnabledIndex();
+    setActiveIndex(firstEnabledIndex);
+    window.requestAnimationFrame(() => {
+      focusMenuItem(firstEnabledIndex);
+    });
+
     return () => {
       window.removeEventListener("pointerdown", handlePointerDown);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [menuOpen]);
+  }, [closeMenu, findFirstEnabledIndex, focusMenuItem, menuOpen]);
 
   useEffect(() => {
     if (!feedback) return undefined;
@@ -170,9 +262,9 @@ export default function ShareMatchButton({
       setFeedback("Unable to copy match link. Try copying the URL manually.");
       reportShareTelemetry("error", "copy-link");
     } finally {
-      setMenuOpen(false);
+      closeMenu();
     }
-  }, [reportShareTelemetry, resolvedUrl]);
+  }, [closeMenu, reportShareTelemetry, resolvedUrl]);
 
   const handleCopySummary = useCallback(async () => {
     try {
@@ -196,9 +288,9 @@ export default function ShareMatchButton({
       setFeedback("Unable to copy summary. Try copying the URL manually.");
       reportShareTelemetry("error", "copy-summary");
     } finally {
-      setMenuOpen(false);
+      closeMenu();
     }
-  }, [reportShareTelemetry, sharePayload.shareText]);
+  }, [closeMenu, reportShareTelemetry, sharePayload.shareText]);
 
   const handleNativeShare = useCallback(async () => {
     if (!canUseNativeShare) {
@@ -225,10 +317,11 @@ export default function ShareMatchButton({
         reportShareTelemetry("error", "native");
       }
     } finally {
-      setMenuOpen(false);
+      closeMenu();
     }
   }, [
     canUseNativeShare,
+    closeMenu,
     matchTitle,
     reportShareTelemetry,
     sharePayload.matchUrl,
@@ -304,9 +397,9 @@ export default function ShareMatchButton({
       setFeedback("Unable to export CSV. Please try again.");
       reportShareTelemetry("error", "export-csv");
     } finally {
-      setMenuOpen(false);
+      closeMenu();
     }
-  }, [buildCsvContent, matchId, reportShareTelemetry]);
+  }, [buildCsvContent, closeMenu, matchId, reportShareTelemetry]);
 
   const handleDownloadPdf = useCallback(async () => {
     try {
@@ -382,9 +475,10 @@ export default function ShareMatchButton({
       setFeedback("Unable to export PDF. Please try again.");
       reportShareTelemetry("error", "export-pdf");
     } finally {
-      setMenuOpen(false);
+      closeMenu();
     }
   }, [
+    closeMenu,
     matchId,
     matchMetaLines,
     matchTitle,
@@ -402,12 +496,18 @@ export default function ShareMatchButton({
         className="button-secondary share-match__trigger"
         aria-haspopup="menu"
         aria-expanded={menuOpen}
+        ref={triggerRef}
         onClick={() => setMenuOpen((open) => !open)}
       >
         Share match
       </button>
       {menuOpen ? (
-        <div className="share-match__menu" role="menu" aria-label="Share options">
+        <div
+          className="share-match__menu"
+          role="menu"
+          aria-label="Share options"
+          onKeyDown={handleMenuKeyDown}
+        >
           <button
             type="button"
             className="share-match__menu-item"
@@ -415,6 +515,11 @@ export default function ShareMatchButton({
             onClick={handleNativeShare}
             aria-disabled={!canUseNativeShare}
             disabled={!canUseNativeShare}
+            tabIndex={activeIndex === 0 ? 0 : -1}
+            ref={(node) => {
+              menuItemRefs.current[0] = node;
+            }}
+            onFocus={() => setActiveIndex(0)}
           >
             Share via device
           </button>
@@ -428,6 +533,11 @@ export default function ShareMatchButton({
             className="share-match__menu-item"
             role="menuitem"
             onClick={handleCopySummary}
+            tabIndex={activeIndex === 1 ? 0 : -1}
+            ref={(node) => {
+              menuItemRefs.current[1] = node;
+            }}
+            onFocus={() => setActiveIndex(1)}
           >
             Copy summary text
           </button>
@@ -436,6 +546,11 @@ export default function ShareMatchButton({
             className="share-match__menu-item"
             role="menuitem"
             onClick={handleCopyLink}
+            tabIndex={activeIndex === 2 ? 0 : -1}
+            ref={(node) => {
+              menuItemRefs.current[2] = node;
+            }}
+            onFocus={() => setActiveIndex(2)}
           >
             Copy link
           </button>
@@ -447,8 +562,13 @@ export default function ShareMatchButton({
             rel="noreferrer"
             onClick={() => {
               reportShareTelemetry("prefilled", "x");
-              setMenuOpen(false);
+              closeMenu();
             }}
+            tabIndex={activeIndex === 3 ? 0 : -1}
+            ref={(node) => {
+              menuItemRefs.current[3] = node;
+            }}
+            onFocus={() => setActiveIndex(3)}
           >
             Share on X (Twitter)
           </a>
@@ -460,8 +580,13 @@ export default function ShareMatchButton({
             rel="noreferrer"
             onClick={() => {
               reportShareTelemetry("prefilled", "whatsapp");
-              setMenuOpen(false);
+              closeMenu();
             }}
+            tabIndex={activeIndex === 4 ? 0 : -1}
+            ref={(node) => {
+              menuItemRefs.current[4] = node;
+            }}
+            onFocus={() => setActiveIndex(4)}
           >
             Share on WhatsApp
           </a>
@@ -473,8 +598,13 @@ export default function ShareMatchButton({
             rel="noreferrer"
             onClick={() => {
               reportShareTelemetry("prefilled", "telegram");
-              setMenuOpen(false);
+              closeMenu();
             }}
+            tabIndex={activeIndex === 5 ? 0 : -1}
+            ref={(node) => {
+              menuItemRefs.current[5] = node;
+            }}
+            onFocus={() => setActiveIndex(5)}
           >
             Share on Telegram
           </a>
@@ -484,8 +614,13 @@ export default function ShareMatchButton({
             href={prefilledLinks.sms}
             onClick={() => {
               reportShareTelemetry("prefilled", "sms");
-              setMenuOpen(false);
+              closeMenu();
             }}
+            tabIndex={activeIndex === 6 ? 0 : -1}
+            ref={(node) => {
+              menuItemRefs.current[6] = node;
+            }}
+            onFocus={() => setActiveIndex(6)}
           >
             Send via SMS/DM
           </a>
@@ -494,6 +629,11 @@ export default function ShareMatchButton({
             className="share-match__menu-item"
             role="menuitem"
             onClick={handleDownloadPdf}
+            tabIndex={activeIndex === 7 ? 0 : -1}
+            ref={(node) => {
+              menuItemRefs.current[7] = node;
+            }}
+            onFocus={() => setActiveIndex(7)}
           >
             Export PDF
           </button>
@@ -502,6 +642,11 @@ export default function ShareMatchButton({
             className="share-match__menu-item"
             role="menuitem"
             onClick={handleDownloadCsv}
+            tabIndex={activeIndex === 8 ? 0 : -1}
+            ref={(node) => {
+              menuItemRefs.current[8] = node;
+            }}
+            onFocus={() => setActiveIndex(8)}
           >
             Export CSV
           </button>

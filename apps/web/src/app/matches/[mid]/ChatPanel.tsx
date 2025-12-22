@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   SESSION_ENDED_EVENT,
   apiFetch,
@@ -43,6 +43,7 @@ export default function ChatPanel({ matchId }: { matchId: string }) {
     userId: currentUserId(),
     admin: isAdmin(),
   }));
+  const inputRef = useRef<HTMLInputElement>(null);
   const locale = useLocale();
   const timeZone = useTimeZone();
 
@@ -67,6 +68,13 @@ export default function ChatPanel({ matchId }: { matchId: string }) {
       window.removeEventListener(SESSION_ENDED_EVENT, handleSessionEnded);
     };
   }, []);
+
+  useEffect(() => {
+    setFeedback((current) => (current?.type === "error" ? null : current));
+    if (session.loggedIn) {
+      inputRef.current?.focus();
+    }
+  }, [session.loggedIn]);
 
   async function send(e: FormEvent) {
     e.preventDefault();
@@ -140,12 +148,22 @@ export default function ChatPanel({ matchId }: { matchId: string }) {
         <input
           id="chat-message"
           type="text"
+          ref={inputRef}
           value={content}
           maxLength={MAX_LENGTH}
           onChange={(e) => setContent(e.target.value)}
           placeholder={session.loggedIn ? "Say hello" : "Log in to chat"}
           disabled={!session.loggedIn}
         />
+        {!session.loggedIn && (
+          <p className="text-muted">
+            {/* TODO: localize helper copy. */}
+            Log in to chat with other fans.{" "}
+            <a className="button button--link" href="/login">
+              Log in
+            </a>
+          </p>
+        )}
         <button type="submit" disabled={!session.loggedIn}>
           Send
         </button>

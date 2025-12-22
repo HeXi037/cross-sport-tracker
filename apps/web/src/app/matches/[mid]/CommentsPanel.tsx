@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   SESSION_ENDED_EVENT,
   apiFetch,
@@ -55,6 +55,7 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
     userId: currentUserId(),
     admin: isAdmin(),
   }));
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const locale = useLocale();
   const timeZone = useTimeZone();
 
@@ -90,6 +91,13 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
   useEffect(() => {
     if (!session.loggedIn) {
       setContent("");
+    }
+  }, [session.loggedIn]);
+
+  useEffect(() => {
+    setFeedback((current) => (current?.type === "error" ? null : current));
+    if (session.loggedIn) {
+      textareaRef.current?.focus();
     }
   }, [session.loggedIn]);
 
@@ -174,6 +182,7 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
         </label>
         <textarea
           id="match-comment"
+          ref={textareaRef}
           value={content}
           maxLength={MAX_LENGTH}
           onChange={(e) => setContent(e.target.value)}
@@ -181,6 +190,15 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
           disabled={submitting || !session.loggedIn}
           rows={3}
         />
+        {!session.loggedIn && (
+          <p className="text-muted">
+            {/* TODO: localize helper copy. */}
+            Log in to join the conversation.{" "}
+            <a className="button button--link" href="/login">
+              Log in
+            </a>
+          </p>
+        )}
         <div className="row space-between">
           <small>
             {content.length}/{MAX_LENGTH}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   SESSION_ENDED_EVENT,
   apiFetch,
@@ -32,16 +32,8 @@ interface CommentPage {
 }
 
 const MAX_LENGTH = 1000;
-
-function flattenComments(items: MatchComment[]): MatchComment[] {
-  const ordered: MatchComment[] = [];
-  const walk = (node: MatchComment, depth = 0) => {
-    ordered.push({ ...node, content: `${"  ".repeat(depth)}${node.content}` });
-    (node.replies || []).forEach((reply) => walk(reply, depth + 1));
-  };
-  items.forEach((c) => walk(c));
-  return ordered;
-}
+const REPLY_COLLAPSE_THRESHOLD = 4;
+const REPLY_PREVIEW_COUNT = 2;
 
 export default function CommentsPanel({ matchId }: { matchId: string }) {
   const [content, setContent] = useState("");
@@ -55,6 +47,9 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
     userId: currentUserId(),
     admin: isAdmin(),
   }));
+  const [expandedThreads, setExpandedThreads] = useState<Record<string, boolean>>(
+    {}
+  );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const locale = useLocale();
   const timeZone = useTimeZone();
@@ -66,10 +61,7 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
     }
   );
 
-  const comments = useMemo(
-    () => flattenComments(data?.items || []),
-    [data?.items]
-  );
+  const comments = data?.items ?? [];
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -173,6 +165,61 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
     }
   }
 
+  function toggleReplies(id: string) {
+    setExpandedThreads((current) => ({ ...current, [id]: !current[id] }));
+  }
+
+  function renderComment(comment: MatchComment, depth: number) {
+    const replies = comment.replies ?? [];
+    const hasManyReplies = replies.length >= REPLY_COLLAPSE_THRESHOLD;
+    const isExpanded = expandedThreads[comment.id] ?? !hasManyReplies;
+    const visibleReplies =
+      isExpanded || !hasManyReplies
+        ? replies
+        : replies.slice(0, REPLY_PREVIEW_COUNT);
+    const hiddenCount = replies.length - visibleReplies.length;
+
+    return (
+      <li
+        key={comment.id}
+        className="stack comment"
+        style={{ marginLeft: `${depth * 16}px` }}
+      >
+        <div className="row space-between">
+          <span className="text-muted">@{comment.username}</span>
+          <span className="text-muted">
+            {formatDateTime(comment.createdAt, locale, "compact", timeZone)}
+          </span>
+        </div>
+        <p>{comment.content}</p>
+        {(session.admin || session.userId === comment.userId) && (
+          <button
+            className="button button--link"
+            type="button"
+            onClick={() => void remove(comment.id, comment.userId)}
+          >
+            Delete
+          </button>
+        )}
+        {hasManyReplies && (
+          <button
+            className="button button--link text-muted"
+            type="button"
+            onClick={() => toggleReplies(comment.id)}
+            aria-expanded={isExpanded}
+          >
+            {isExpanded ? "Hide replies" : `View replies (${hiddenCount} more)`}
+          </button>
+        )}
+        {visibleReplies.length > 0 && (
+          <ul className="stack comment__replies">
+            {visibleReplies.map((reply) => renderComment(reply, depth + 1))}
+          </ul>
+        )}
+      </li>
+    );
+  }
+
   return (
     <section className="card">
       <h2 className="heading">Comments</h2>
@@ -214,26 +261,7 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
       {error && <p className="status status--error">Could not load comments.</p>}
       {(isLoading || isValidating) && <p>Loading…</p>}
       <ul className="stack">
-        {comments.map((c) => (
-          <li key={c.id} className="stack">
-            <div className="row space-between">
-              <span className="text-muted">@{c.username}</span>
-              <span className="text-muted">
-                {formatDateTime(c.createdAt, locale, "compact", timeZone)}
-              </span>
-            </div>
-            <p>{c.content}</p>
-            {(session.admin || session.userId === c.userId) && (
-              <button
-                className="button button--link"
-                type="button"
-                onClick={() => void remove(c.id, c.userId)}
-              >
-                Delete
-              </button>
-            )}
-          </li>
-        ))}
+        {comments.map((c) => renderComment(c, 0))}
         {!comments.length && !isLoading && <li className="text-muted">No comments yet.</li>}
       </ul>
     </section>

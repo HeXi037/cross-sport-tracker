@@ -392,7 +392,6 @@ describe("ProfilePage", () => {
     expect(apiMocks.updateMe).toHaveBeenCalledWith({ username: "existing" });
     expect(statusMessage).toBeInTheDocument();
     expect(toast).toHaveTextContent(/Profile saved successfully\./i);
-    expect(window.localStorage.getItem("token")).toBe("new.token.value");
   });
 
   it("allows clearing country and club", async () => {

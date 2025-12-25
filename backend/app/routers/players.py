@@ -13,6 +13,7 @@ from fastapi import (
     File,
     Query,
     Header,
+    Request,
 )
 from sqlalchemy import (
     select,
@@ -171,11 +172,14 @@ async def list_players(
     include_hidden: bool = False,
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    request: Request = None,
     session: AsyncSession = Depends(get_session),
     authorization: str | None = Header(None),
 ):
     if include_hidden:
-        user = await get_current_user(authorization=authorization, session=session)
+        user = await get_current_user(
+            request=request, authorization=authorization, session=session
+        )
         if not user.is_admin:
             raise http_problem(
                 status_code=403,

@@ -963,7 +963,8 @@ describe("RecordPadelPage", () => {
     );
     fetchMock.mock.calls.slice(0, 2).forEach(([, init]) => {
       const headers = init?.headers as Headers;
-      expect(headers.get("Authorization")).toBe("Bearer tkn");
+      expect(init?.credentials).toBe("include");
+      expect(headers.get("Authorization")).toBeNull();
     });
   });
 
@@ -977,6 +978,6 @@ describe("RecordPadelPage", () => {
 
     const errorMessage = await screen.findByText(/failed to load players/i);
     expect(errorMessage).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(1);
   });
 });

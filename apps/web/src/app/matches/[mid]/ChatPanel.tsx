@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
+  SESSION_CHANGED_EVENT,
   SESSION_ENDED_EVENT,
   apiFetch,
   currentUserId,
@@ -60,12 +61,11 @@ export default function ChatPanel({ matchId }: { matchId: string }) {
         userId: currentUserId(),
         admin: isAdmin(),
       });
-    const handleSessionEnded = () => updateSession();
-    window.addEventListener("storage", updateSession);
-    window.addEventListener(SESSION_ENDED_EVENT, handleSessionEnded);
+    window.addEventListener(SESSION_CHANGED_EVENT, updateSession);
+    window.addEventListener(SESSION_ENDED_EVENT, updateSession);
     return () => {
-      window.removeEventListener("storage", updateSession);
-      window.removeEventListener(SESSION_ENDED_EVENT, handleSessionEnded);
+      window.removeEventListener(SESSION_CHANGED_EVENT, updateSession);
+      window.removeEventListener(SESSION_ENDED_EVENT, updateSession);
     };
   }, []);
 

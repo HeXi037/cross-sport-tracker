@@ -5,6 +5,8 @@ import {
   isAdmin,
   logout,
   persistSession,
+  SESSION_CHANGED_EVENT,
+  SESSION_ENDED_EVENT,
   SESSION_ENDED_STORAGE_KEY,
 } from './api';
 
@@ -14,32 +16,28 @@ afterEach(() => {
   process.env.NEXT_PUBLIC_API_BASE_URL = ORIGINAL_API_BASE;
 });
 
-function buildToken(payload: Record<string, unknown>): string {
-  const json = JSON.stringify(payload);
-  const base64 = btoa(json);
-  const base64url = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return `e30.${base64url}.sig`;
-}
+const buildSessionHint = (payload: Record<string, unknown>): string =>
+  btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
 describe('isAdmin', () => {
   afterEach(() => {
-    window.localStorage.clear();
+    document.cookie = '';
   });
 
   it('returns true when token has is_admin true', () => {
-    const token = buildToken({ is_admin: true, char: 'ÿ' });
-    window.localStorage.setItem('token', token);
+    const hint = buildSessionHint({ is_admin: true, username: 'test' });
+    document.cookie = `session_hint=${hint}`;
     expect(isAdmin()).toBe(true);
   });
 
   it('returns false when token has is_admin false', () => {
-    const token = buildToken({ is_admin: false });
-    window.localStorage.setItem('token', token);
+    const hint = buildSessionHint({ is_admin: false });
+    document.cookie = `session_hint=${hint}`;
     expect(isAdmin()).toBe(false);
   });
 
   it('returns false for malformed token', () => {
-    window.localStorage.setItem('token', 'bad.token');
+    document.cookie = `session_hint=bad.token`;
     expect(isAdmin()).toBe(false);
   });
 });
@@ -67,7 +65,8 @@ describe('persistSession', () => {
     window.localStorage.clear();
   });
 
-  it('stores access and refresh tokens and clears session flags', () => {
+  it('clears session flags and emits a change event', () => {
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
     window.localStorage.setItem(
       SESSION_ENDED_STORAGE_KEY,
       JSON.stringify({ reason: 'expired', timestamp: Date.now() })
@@ -75,44 +74,51 @@ describe('persistSession', () => {
 
     persistSession({ access_token: 'abc', refresh_token: 'def' });
 
-    expect(window.localStorage.getItem('token')).toBe('abc');
-    expect(window.localStorage.getItem('refresh_token')).toBe('def');
     expect(window.localStorage.getItem(SESSION_ENDED_STORAGE_KEY)).toBeNull();
+    expect(dispatchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ type: SESSION_CHANGED_EVENT })
+    );
   });
 });
 
 describe('logout', () => {
   afterEach(() => {
     window.localStorage.clear();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it('records a session end when expiring', () => {
-    window.localStorage.setItem('token', 'abc');
-    window.localStorage.setItem('refresh_token', 'def');
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}')));
 
     logout('expired');
 
-    expect(window.localStorage.getItem('token')).toBeNull();
-    expect(window.localStorage.getItem('refresh_token')).toBeNull();
     const sessionEnd = window.localStorage.getItem(SESSION_ENDED_STORAGE_KEY);
     expect(sessionEnd).not.toBeNull();
     if (sessionEnd) {
       const parsed = JSON.parse(sessionEnd) as { reason?: string };
       expect(parsed.reason).toBe('expired');
     }
+    expect(dispatchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ type: SESSION_ENDED_EVENT })
+    );
   });
 
   it('clears session end notices on manual logout', () => {
-    window.localStorage.setItem('token', 'abc');
     window.localStorage.setItem(
       SESSION_ENDED_STORAGE_KEY,
       JSON.stringify({ reason: 'expired', timestamp: Date.now() })
     );
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}')));
 
     logout();
 
-    expect(window.localStorage.getItem('token')).toBeNull();
     expect(window.localStorage.getItem(SESSION_ENDED_STORAGE_KEY)).toBeNull();
+    expect(dispatchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ type: SESSION_CHANGED_EVENT })
+    );
   });
 });
 
@@ -125,12 +131,11 @@ describe('apiFetch', () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     window.localStorage.clear();
+    document.cookie = '';
   });
 
   it('attaches CSRF tokens to mutating requests', async () => {
-    const csrf = 'csrf-token';
-    const token = buildToken({ sub: 'user-1', csrf });
-    window.localStorage.setItem('token', token);
+    document.cookie = 'csrf_token=csrf-token';
     const response = new Response('{}', {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
@@ -143,8 +148,8 @@ describe('apiFetch', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [, init] = fetchMock.mock.calls[0];
     const headers = new Headers(init?.headers);
-    expect(headers.get('Authorization')).toBe(`Bearer ${token}`);
-    expect(headers.get('X-CSRF-Token')).toBe(csrf);
+    expect(headers.get('X-CSRF-Token')).toBe('csrf-token');
+    expect(init?.credentials).toBe('include');
   });
 
   it('uses problem detail messages for RFC 7807 responses', async () => {
@@ -180,7 +185,7 @@ describe('apiFetch', () => {
   });
 
   it('logs out when the token has expired', async () => {
-    window.localStorage.setItem('token', 'abc');
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
     const response = new Response(
       JSON.stringify({ detail: 'token expired' }),
       {
@@ -195,12 +200,14 @@ describe('apiFetch', () => {
       message: 'HTTP 401: token expired',
       status: 401,
     });
-    expect(window.localStorage.getItem('token')).toBeNull();
     const sessionEnd = window.localStorage.getItem(SESSION_ENDED_STORAGE_KEY);
     expect(sessionEnd).not.toBeNull();
     if (sessionEnd) {
       const parsed = JSON.parse(sessionEnd) as { reason?: string };
       expect(parsed.reason).toBe('expired');
     }
+    expect(dispatchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ type: SESSION_ENDED_EVENT })
+    );
   });
 });

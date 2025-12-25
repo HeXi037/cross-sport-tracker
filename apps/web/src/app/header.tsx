@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { currentUsername, isAdmin, logout } from '../lib/api';
+import { SESSION_CHANGED_EVENT, SESSION_ENDED_EVENT, currentUsername, isAdmin, logout } from '../lib/api';
 import { ensureTrailingSlash } from '../lib/routes';
 import { rememberLoginRedirect } from '../lib/loginRedirect';
 import NotificationBell from '../components/NotificationBell';
@@ -46,8 +46,12 @@ export default function Header() {
       setAdmin(isAdmin());
     };
     update();
-    window.addEventListener('storage', update);
-    return () => window.removeEventListener('storage', update);
+    window.addEventListener(SESSION_CHANGED_EVENT, update);
+    window.addEventListener(SESSION_ENDED_EVENT, update);
+    return () => {
+      window.removeEventListener(SESSION_CHANGED_EVENT, update);
+      window.removeEventListener(SESSION_ENDED_EVENT, update);
+    };
   }, []);
 
   const handleLogout = () => {

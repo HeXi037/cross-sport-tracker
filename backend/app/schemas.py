@@ -704,7 +704,7 @@ class AdminPasswordResetOut(BaseModel):
 
 class RefreshRequest(BaseModel):
     """Request body for refreshing or revoking tokens."""
-    refresh_token: str
+    refresh_token: Optional[str] = None
 
 class CommentCreate(BaseModel):
     """Schema for creating a comment on a player."""

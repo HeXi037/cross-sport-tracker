@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import {
+  SESSION_CHANGED_EVENT,
   SESSION_ENDED_EVENT,
   apiFetch,
   currentUserId,
@@ -56,11 +57,11 @@ export default function PhotoUpload({
 
     const handleSessionEnded = () => updateSession();
 
-    window.addEventListener('storage', updateSession);
+    window.addEventListener(SESSION_CHANGED_EVENT, updateSession);
     window.addEventListener(SESSION_ENDED_EVENT, handleSessionEnded);
 
     return () => {
-      window.removeEventListener('storage', updateSession);
+      window.removeEventListener(SESSION_CHANGED_EVENT, updateSession);
       window.removeEventListener(SESSION_ENDED_EVENT, handleSessionEnded);
     };
   }, []);

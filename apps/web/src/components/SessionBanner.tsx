@@ -39,12 +39,6 @@ export default function SessionBanner() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === SESSION_ENDED_STORAGE_KEY) {
-        setSessionEnd(parseSessionEnd(event.newValue));
-      }
-    };
-
     const handleSessionEnded = (event: Event) => {
       const detail = (event as CustomEvent<SessionEndDetail | null>).detail;
       if (detail) {
@@ -59,10 +53,8 @@ export default function SessionBanner() {
       }
     };
 
-    window.addEventListener("storage", handleStorage);
     window.addEventListener(SESSION_ENDED_EVENT, handleSessionEnded as EventListener);
     return () => {
-      window.removeEventListener("storage", handleStorage);
       window.removeEventListener(
         SESSION_ENDED_EVENT,
         handleSessionEnded as EventListener

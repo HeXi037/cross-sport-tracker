@@ -36,6 +36,20 @@ function renderWithProviders(ui: ReactNode) {
   return render(<ToastProvider>{ui}</ToastProvider>);
 }
 
+function setAdminSession() {
+  const payload = {
+    uid: "admin-id",
+    username: "admin",
+    is_admin: true,
+    must_change_password: false,
+  };
+  const hint = btoa(JSON.stringify(payload))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+  document.cookie = `session_hint=${hint}; path=/`;
+}
+
 function toUrl(value: RequestInfo | URL): string {
   if (typeof value === "string") return value;
   const candidate = value as { url?: string };
@@ -49,6 +63,7 @@ describe("PlayersPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     window.localStorage.clear();
+    document.cookie = "session_hint=; Max-Age=0; path=/";
     vi.useRealTimers();
   });
 
@@ -166,7 +181,7 @@ describe("PlayersPage", () => {
   });
 
   it("disables add button for blank names", async () => {
-    window.localStorage.setItem("token", "x.eyJpc19hZG1pbiI6dHJ1ZX0.y");
+    setAdminSession();
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
@@ -475,7 +490,7 @@ describe("PlayersPage", () => {
   });
 
   it("shows a success message after adding a player", async () => {
-    window.localStorage.setItem("token", "x.eyJpc19hZG1pbiI6dHJ1ZX0.y");
+    setAdminSession();
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) })
@@ -577,7 +592,7 @@ describe("PlayersPage", () => {
   });
 
   it("shows the create form when the viewer is an admin", async () => {
-    window.localStorage.setItem("token", "x.eyJpc19hZG1pbiI6dHJ1ZX0.y");
+    setAdminSession();
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ players: [] }) });
@@ -589,15 +604,10 @@ describe("PlayersPage", () => {
 
     expect(screen.getByTestId("player-create-controls")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /add/i })).toBeTruthy();
-    window.localStorage.removeItem("token");
   });
 
   it("allows admin to delete a player", async () => {
-    // mock token with admin privileges
-    window.localStorage.setItem(
-      "token",
-      "x.eyJpc19hZG1pbiI6dHJ1ZX0.y"
-    );
+    setAdminSession();
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -640,7 +650,7 @@ describe("PlayersPage", () => {
   });
 
   it("allows admin to hard delete a player", async () => {
-    window.localStorage.setItem("token", "x.eyJpc19hZG1pbiI6dHJ1ZX0.y");
+    setAdminSession();
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -683,7 +693,7 @@ describe("PlayersPage", () => {
   });
 
   it("allows admin to toggle player visibility", async () => {
-    window.localStorage.setItem("token", "x.eyJpc19hZG1pbiI6dHJ1ZX0.y");
+    setAdminSession();
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -745,7 +755,7 @@ describe("PlayersPage", () => {
   });
 
   it("shows country selector for admins", async () => {
-    window.localStorage.setItem("token", "x.eyJpc19hZG1pbiI6dHJ1ZX0.y");
+    setAdminSession();
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -772,7 +782,7 @@ describe("PlayersPage", () => {
   });
 
   it("updates player country via API", async () => {
-    window.localStorage.setItem("token", "x.eyJpc19hZG1pbiI6dHJ1ZX0.y");
+    setAdminSession();
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({

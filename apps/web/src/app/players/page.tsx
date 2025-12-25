@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   apiFetch,
+  SESSION_CHANGED_EVENT,
+  SESSION_ENDED_EVENT,
   isAdmin,
   updatePlayerLocation,
   withAbsolutePhotoUrl,
@@ -349,9 +351,11 @@ export default function PlayersPage() {
       setAdmin(isAdmin());
     };
     updateAdmin();
-    window.addEventListener("storage", updateAdmin);
+    window.addEventListener(SESSION_CHANGED_EVENT, updateAdmin);
+    window.addEventListener(SESSION_ENDED_EVENT, updateAdmin);
     return () => {
-      window.removeEventListener("storage", updateAdmin);
+      window.removeEventListener(SESSION_CHANGED_EVENT, updateAdmin);
+      window.removeEventListener(SESSION_ENDED_EVENT, updateAdmin);
     };
   }, []);
 
@@ -1480,4 +1484,3 @@ function PlayerListSkeleton({ count = 6 }: { count?: number }) {
     </ul>
   );
 }
-

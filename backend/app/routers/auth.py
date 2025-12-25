@@ -1,3 +1,5 @@
+import base64
+import json
 import os
 import uuid
 import secrets
@@ -51,6 +53,15 @@ def get_jwt_secret() -> str:
 JWT_ALG = "HS256"
 JWT_EXPIRE_SECONDS = 3600
 REFRESH_TOKEN_EXPIRE_DAYS = 30
+ACCESS_TOKEN_COOKIE = "access_token"
+REFRESH_TOKEN_COOKIE = "refresh_token"
+CSRF_COOKIE = "csrf_token"
+SESSION_HINT_COOKIE = "session_hint"
+COOKIE_PATH = "/"
+_RAW_SAMESITE = (os.getenv("AUTH_COOKIE_SAMESITE", "lax") or "lax").lower()
+COOKIE_SAMESITE = "strict" if _RAW_SAMESITE == "strict" else "lax"
+COOKIE_SECURE = os.getenv("AUTH_COOKIE_SECURE", "true").lower() != "false"
+COOKIE_DOMAIN = os.getenv("AUTH_COOKIE_DOMAIN") or None
 
 
 def _get_client_ip(request: Request) -> str:
@@ -199,20 +210,108 @@ async def create_token(user: User, session: AsyncSession) -> tuple[str, str, str
   return access_token, refresh_token, csrf_token
 
 
-def _extract_bearer_token(authorization: str | None) -> str:
-  if not authorization or not authorization.lower().startswith("bearer "):
-    raise http_problem(
-        status_code=401,
-        detail="missing token",
-        code="auth_missing_token",
+def _build_session_hint(user: User) -> str:
+  data = {
+      "uid": user.id,
+      "username": user.username,
+      "is_admin": user.is_admin,
+      "must_change_password": user.must_change_password,
+  }
+  serialized = json.dumps(data, separators=(",", ":"), ensure_ascii=False)
+  return base64.urlsafe_b64encode(serialized.encode("utf-8")).decode("ascii")
+
+
+def _attach_auth_cookies(
+    response: JSONResponse,
+    user: User,
+    access_token: str,
+    refresh_token: str,
+    csrf_token: str,
+) -> None:
+  access_max_age = JWT_EXPIRE_SECONDS
+  refresh_max_age = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+
+  response.set_cookie(
+      ACCESS_TOKEN_COOKIE,
+      access_token,
+      max_age=access_max_age,
+      path=COOKIE_PATH,
+      secure=COOKIE_SECURE,
+      httponly=True,
+      samesite=COOKIE_SAMESITE,
+      domain=COOKIE_DOMAIN,
+  )
+  response.set_cookie(
+      REFRESH_TOKEN_COOKIE,
+      refresh_token,
+      max_age=refresh_max_age,
+      path=COOKIE_PATH,
+      secure=COOKIE_SECURE,
+      httponly=True,
+      samesite=COOKIE_SAMESITE,
+      domain=COOKIE_DOMAIN,
+  )
+  response.set_cookie(
+      CSRF_COOKIE,
+      csrf_token,
+      max_age=access_max_age,
+      path=COOKIE_PATH,
+      secure=COOKIE_SECURE,
+      httponly=False,
+      samesite=COOKIE_SAMESITE,
+      domain=COOKIE_DOMAIN,
+  )
+  response.set_cookie(
+      SESSION_HINT_COOKIE,
+      _build_session_hint(user),
+      max_age=refresh_max_age,
+      path=COOKIE_PATH,
+      secure=COOKIE_SECURE,
+      httponly=False,
+      samesite=COOKIE_SAMESITE,
+      domain=COOKIE_DOMAIN,
+  )
+
+
+def _clear_auth_cookies(response: JSONResponse) -> None:
+  cookies_to_clear = [
+      ACCESS_TOKEN_COOKIE,
+      REFRESH_TOKEN_COOKIE,
+      CSRF_COOKIE,
+      SESSION_HINT_COOKIE,
+  ]
+  for cookie in cookies_to_clear:
+    response.set_cookie(
+        cookie,
+        "",
+        max_age=0,
+        path=COOKIE_PATH,
+        secure=COOKIE_SECURE,
+        httponly=cookie in {ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE},
+        samesite=COOKIE_SAMESITE,
+        domain=COOKIE_DOMAIN,
     )
-  return authorization.split(" ", 1)[1]
+
+
+def _extract_bearer_token(request: Request, authorization: str | None) -> str:
+  if authorization and authorization.lower().startswith("bearer "):
+    return authorization.split(" ", 1)[1]
+
+  cookie_token = request.cookies.get(ACCESS_TOKEN_COOKIE)
+  if cookie_token:
+    return cookie_token
+
+  raise http_problem(
+      status_code=401,
+      detail="missing token",
+      code="auth_missing_token",
+  )
 
 
 async def _resolve_user_and_payload(
-    authorization: str | None, session: AsyncSession
+    request: Request, authorization: str | None, session: AsyncSession
 ) -> Tuple[User, dict[str, Any]]:
-  token = _extract_bearer_token(authorization)
+  token = _extract_bearer_token(request, authorization)
   try:
     payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALG])
   except jwt.ExpiredSignatureError:
@@ -355,12 +454,15 @@ async def signup(
     session.add(player)
   access_token, refresh_token, csrf_token = await create_token(user, session)
   await session.commit()
-  return TokenOut(
+  payload = TokenOut(
       access_token=access_token,
       refresh_token=refresh_token,
       csrf_token=csrf_token,
       must_change_password=user.must_change_password,
   )
+  response = JSONResponse(content=payload.model_dump(by_alias=True))
+  _attach_auth_cookies(response, user, access_token, refresh_token, csrf_token)
+  return response
 
 
 @router.post("/login", response_model=TokenOut)
@@ -387,31 +489,36 @@ async def login(
         status_code=401,
         detail="invalid credentials",
         code="auth_invalid_credentials",
-    )
+  )
   access_token, refresh_token, csrf_token = await create_token(user, session)
   await session.commit()
-  return TokenOut(
+  payload = TokenOut(
       access_token=access_token,
       refresh_token=refresh_token,
       csrf_token=csrf_token,
       must_change_password=user.must_change_password,
   )
+  response = JSONResponse(content=payload.model_dump(by_alias=True))
+  _attach_auth_cookies(response, user, access_token, refresh_token, csrf_token)
+  return response
 
 
 async def get_current_user(
+    request: Request,
     authorization: str | None = Header(None),
     session: AsyncSession = Depends(get_session),
 ) -> User:
-  user, _ = await _resolve_user_and_payload(authorization, session)
+  user, _ = await _resolve_user_and_payload(request, authorization, session)
   return user
 
 
 async def get_current_user_with_csrf(
+    request: Request,
     authorization: str | None = Header(None),
     csrf_token: str | None = Header(None, alias="X-CSRF-Token"),
     session: AsyncSession = Depends(get_session),
 ) -> User:
-  user, payload = await _resolve_user_and_payload(authorization, session)
+  user, payload = await _resolve_user_and_payload(request, authorization, session)
   _require_csrf_token(csrf_token, payload)
   return user
 
@@ -545,12 +652,15 @@ async def update_me(
     )
   access_token, refresh_token, csrf_token = await create_token(current, session)
   await session.commit()
-  return TokenOut(
+  payload = TokenOut(
       access_token=access_token,
       refresh_token=refresh_token,
       csrf_token=csrf_token,
       must_change_password=current.must_change_password,
   )
+  response = JSONResponse(content=payload.model_dump(by_alias=True))
+  _attach_auth_cookies(response, current, access_token, refresh_token, csrf_token)
+  return response
 
 
 @router.post("/admin/reset-password", response_model=AdminPasswordResetOut)
@@ -599,9 +709,20 @@ async def admin_reset_password(
 
 @router.post("/refresh", response_model=TokenOut)
 async def refresh_tokens(
-    body: RefreshRequest, session: AsyncSession = Depends(get_session)
+    request: Request,
+    body: RefreshRequest | None = None,
+    session: AsyncSession = Depends(get_session),
 ):
-  token_hash = hashlib.sha256(body.refresh_token.encode()).hexdigest()
+  refresh_token = (
+      body.refresh_token if body is not None else None
+  ) or request.cookies.get(REFRESH_TOKEN_COOKIE)
+  if not refresh_token:
+    raise http_problem(
+        status_code=401,
+        detail="missing refresh token",
+        code="auth_invalid_refresh_token",
+    )
+  token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
   token = await session.get(RefreshToken, token_hash)
   if (
       not token
@@ -623,21 +744,35 @@ async def refresh_tokens(
   token.revoked = True
   access_token, refresh_token, csrf_token = await create_token(user, session)
   await session.commit()
-  return TokenOut(
+  payload = TokenOut(
       access_token=access_token,
       refresh_token=refresh_token,
       csrf_token=csrf_token,
       must_change_password=user.must_change_password,
   )
+  response = JSONResponse(content=payload.model_dump(by_alias=True))
+  _attach_auth_cookies(response, user, access_token, refresh_token, csrf_token)
+  return response
 
 
 @router.post("/revoke")
 async def revoke_token(
-    body: RefreshRequest, session: AsyncSession = Depends(get_session)
+    request: Request,
+    body: RefreshRequest | None = None,
+    session: AsyncSession = Depends(get_session),
 ):
-  token_hash = hashlib.sha256(body.refresh_token.encode()).hexdigest()
+  refresh_token = (
+      body.refresh_token if body is not None else None
+  ) or request.cookies.get(REFRESH_TOKEN_COOKIE)
+  response = JSONResponse({"status": "ok"})
+  if not refresh_token:
+    _clear_auth_cookies(response)
+    return response
+
+  token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
   token = await session.get(RefreshToken, token_hash)
   if token:
     token.revoked = True
     await session.commit()
-  return {"status": "ok"}
+  _clear_auth_cookies(response)
+  return response

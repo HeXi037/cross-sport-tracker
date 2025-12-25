@@ -23,11 +23,12 @@ export function apiUrl(path: string): string {
 
 const ABSOLUTE_URL_REGEX = /^[a-zA-Z][a-zA-Z\d+\-.]*:/;
 
-const ACCESS_TOKEN_KEY = "token";
-const REFRESH_TOKEN_KEY = "refresh_token";
+const SESSION_HINT_COOKIE = "session_hint";
+const CSRF_COOKIE = "csrf_token";
 export const SESSION_ENDED_STORAGE_KEY = "cst:session-ended";
 export const SESSION_ENDED_EVENT = "cst:session-ended";
-const REFRESH_BUFFER_SECONDS = 30;
+export const SESSION_CHANGED_EVENT = "cst:session-changed";
+const SESSION_CHANNEL_NAME = "cst:session-channel";
 const SAFE_HTTP_METHODS = new Set(["GET", "HEAD", "OPTIONS", "TRACE"]);
 
 type LogoutReason = "manual" | "expired" | "error";
@@ -37,118 +38,91 @@ export type SessionEndDetail = {
 };
 type TokenUpdate = { access_token?: string; refresh_token?: string };
 
-let refreshTimeout: ReturnType<typeof setTimeout> | null = null;
-let refreshPromise: Promise<string | null> | null = null;
+let refreshPromise: Promise<void> | null = null;
+let sessionChannel: BroadcastChannel | null = null;
+if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+  sessionChannel = new BroadcastChannel(SESSION_CHANNEL_NAME);
+}
+if (sessionChannel && typeof window !== "undefined") {
+  sessionChannel.onmessage = (event) => {
+    const payload = event.data ?? {};
+    if (payload?.type === SESSION_ENDED_EVENT) {
+      const detail = payload.detail as SessionEndDetail | undefined;
+      window.dispatchEvent(new CustomEvent(SESSION_ENDED_EVENT, { detail }));
+    } else if (payload?.type === SESSION_CHANGED_EVENT) {
+      window.dispatchEvent(new Event(SESSION_CHANGED_EVENT));
+    }
+  };
+}
 
-function readStoredAccessToken(): string | null {
+function readCookieValue(cookieString: string, name: string): string | null {
+  const cookies = cookieString.split(";").map((c) => c.trim());
+  for (const cookie of cookies) {
+    if (!cookie) continue;
+    const [key, ...rest] = cookie.split("=");
+    if (key === decodeURIComponent(name)) {
+      return rest.join("=");
+    }
+  }
+  return null;
+}
+
+function getClientCookie(name: string): string | null {
   if (typeof window === "undefined") return null;
+  return readCookieValue(document.cookie ?? "", name);
+}
+
+async function getServerCookie(name: string): Promise<string | null> {
+  if (typeof window !== "undefined") return getClientCookie(name);
   try {
-    return window.localStorage?.getItem(ACCESS_TOKEN_KEY) ?? null;
+    const { cookies } = await import("next/headers");
+    const store = cookies();
+    const value = store.get(name)?.value ?? null;
+    return value ?? null;
   } catch {
     return null;
   }
 }
 
-function readStoredRefreshToken(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return window.localStorage?.getItem(REFRESH_TOKEN_KEY) ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function hasStoredSessionTokens(
-  accessToken?: string | null,
-  refreshToken?: string | null
-): boolean {
-  if (typeof window === "undefined") return false;
-  if (accessToken === undefined) {
-    accessToken = readStoredAccessToken();
-  }
-  if (refreshToken === undefined) {
-    refreshToken = readStoredRefreshToken();
-  }
-  return Boolean(accessToken || refreshToken);
-}
-
-function cancelScheduledRefresh() {
-  if (refreshTimeout) {
-    clearTimeout(refreshTimeout);
-    refreshTimeout = null;
-  }
-}
-
-function broadcastSessionEnd(reason: Exclude<LogoutReason, "manual">) {
+function notifySessionChanged(detail?: SessionEndDetail | null) {
   if (typeof window === "undefined") return;
-  const detail: SessionEndDetail = { reason, timestamp: Date.now() };
-  try {
-    window.localStorage?.setItem(
-      SESSION_ENDED_STORAGE_KEY,
-      JSON.stringify(detail)
-    );
-  } catch {
-    // Ignore storage errors – the banner is a best-effort hint.
+  if (detail) {
+    try {
+      window.localStorage?.setItem(SESSION_ENDED_STORAGE_KEY, JSON.stringify(detail));
+    } catch {
+      // Ignore persistence errors.
+    }
+    window.dispatchEvent(new CustomEvent(SESSION_ENDED_EVENT, { detail }));
+    sessionChannel?.postMessage({ type: SESSION_ENDED_EVENT, detail });
+  } else {
+    window.dispatchEvent(new Event(SESSION_CHANGED_EVENT));
+    sessionChannel?.postMessage({ type: SESSION_CHANGED_EVENT });
   }
-  window.dispatchEvent(new CustomEvent(SESSION_ENDED_EVENT, { detail }));
-}
-
-function scheduleAccessTokenRefresh(token: string | null) {
-  cancelScheduledRefresh();
-  if (!token) return;
-  const payload = getTokenPayload(token);
-  const exp = typeof payload?.exp === "number" ? payload.exp : null;
-  if (!exp) return;
-  const refreshAt = exp * 1000 - REFRESH_BUFFER_SECONDS * 1000;
-  const delay = Math.max(refreshAt - Date.now(), 0);
-  refreshTimeout = setTimeout(() => {
-    ensureAccessTokenValid(true).catch((err) => {
-      console.error("Failed to refresh session", err);
-    });
-  }, delay);
 }
 
 export function persistSession(tokens: TokenUpdate): void {
   if (typeof window === "undefined") return;
-  const { access_token, refresh_token } = tokens;
   try {
-    if (access_token) {
-      window.localStorage?.setItem(ACCESS_TOKEN_KEY, access_token);
-    }
-    if (refresh_token) {
-      window.localStorage?.setItem(REFRESH_TOKEN_KEY, refresh_token);
-    }
-    if (access_token || refresh_token) {
-      window.localStorage?.removeItem(SESSION_ENDED_STORAGE_KEY);
-    }
+    window.localStorage?.removeItem(SESSION_ENDED_STORAGE_KEY);
   } catch {
-    // Ignore storage quota errors; they'll surface when we next read tokens.
+    // Ignore storage quota errors.
   }
-  const activeToken = access_token ?? readStoredAccessToken();
-  scheduleAccessTokenRefresh(activeToken);
-  window.dispatchEvent(new Event("storage"));
+  notifySessionChanged(null);
 }
 
-async function refreshAccessToken(): Promise<string | null> {
-  if (typeof window === "undefined") return null;
-  if (refreshPromise) return refreshPromise;
+async function refreshAccessToken(): Promise<boolean> {
+  if (refreshPromise) {
+    await refreshPromise;
+    return true;
+  }
 
   refreshPromise = (async () => {
-    const refreshToken = readStoredRefreshToken();
-    if (!refreshToken) {
-      if (hasStoredSessionTokens()) {
-        logout("expired");
-      }
-      return null;
-    }
     let response: Response;
     try {
-      // Use globalThis.fetch so tests that set global.fetch are honored.
       const activeFetch = (globalThis as any).fetch ?? fetch;
       response = await activeFetch(apiUrl("/v0/auth/refresh"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: refreshToken }),
+        credentials: "include",
       });
     } catch (err) {
       throw err;
@@ -182,47 +156,25 @@ async function refreshAccessToken(): Promise<string | null> {
         `HTTP ${response.status}: ${message}`
       );
       err.status = response.status;
-      if (response.status === 401 && hasStoredSessionTokens(undefined, refreshToken)) {
-        logout("expired");
-      }
       throw err;
     }
 
     const data = (await response.json()) as TokenResponse;
     persistSession(data);
-    return data.access_token;
   })();
 
   try {
-    return await refreshPromise;
+    await refreshPromise;
+    return true;
+  } catch (err) {
+    const status = (err as Error & { status?: number }).status;
+    if (status === 401) {
+      logout("expired");
+    }
+    throw err;
   } finally {
     refreshPromise = null;
   }
-}
-
-async function ensureAccessTokenValid(
-  forceRefresh = false
-): Promise<string | null> {
-  if (typeof window === "undefined") return null;
-  const token = readStoredAccessToken();
-  if (!token) return null;
-  const payload = getTokenPayload(token);
-  const exp = typeof payload?.exp === "number" ? payload.exp : null;
-  if (!exp) return token;
-  const nowSeconds = Date.now() / 1000;
-  if (forceRefresh || exp - REFRESH_BUFFER_SECONDS <= nowSeconds) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed) {
-      scheduleAccessTokenRefresh(refreshed);
-      return refreshed;
-    }
-    return readStoredAccessToken();
-  }
-  return token;
-}
-
-if (typeof window !== "undefined") {
-  scheduleAccessTokenRefresh(readStoredAccessToken());
 }
 
 export function ensureAbsoluteApiUrl(path: string): string;
@@ -328,9 +280,14 @@ async function executeFetch(
   attempt: number
 ): Promise<Response> {
   const headers = new Headers(init?.headers);
+  let serverCookieHeader: string | null = null;
   if (typeof window === "undefined") {
     const { cookies } = await import("next/headers");
     const cookieStore = cookies();
+    serverCookieHeader = cookieStore
+      .getAll()
+      .map((entry) => `${entry.name}=${encodeURIComponent(entry.value)}`)
+      .join("; ");
     const rawTimeZone = cookieStore.get(TIME_ZONE_COOKIE_KEY)?.value ?? null;
     const preferredTimeZone =
       typeof rawTimeZone === "string" && rawTimeZone.trim().length > 0
@@ -356,26 +313,26 @@ async function executeFetch(
       } else {
         headers.set("cookie", serialized);
       }
+    } else if (serverCookieHeader) {
+      const existingCookieHeader = headers.get("cookie");
+      if (existingCookieHeader) {
+        headers.set("cookie", `${existingCookieHeader}; ${serverCookieHeader}`);
+      } else {
+        headers.set("cookie", serverCookieHeader);
+      }
     }
   }
 
-  if (typeof window !== "undefined") {
-    let token: string | null = null;
-    try {
-      token = await ensureAccessTokenValid();
-    } catch (err) {
-      console.error("Failed to ensure access token", err);
-      token = readStoredAccessToken();
+  const method = (init?.method ?? "GET").toUpperCase();
+  if (!SAFE_HTTP_METHODS.has(method)) {
+    let csrf: string | null = null;
+    if (typeof window === "undefined") {
+      csrf = readCookieValue(headers.get("cookie") ?? serverCookieHeader ?? "", CSRF_COOKIE);
+    } else {
+      csrf = getClientCookie(CSRF_COOKIE);
     }
-    if (token) {
-      headers.set("Authorization", `Bearer ${token}`);
-      const method = (init?.method ?? "GET").toUpperCase();
-      if (!SAFE_HTTP_METHODS.has(method)) {
-        const csrf = getCsrfTokenFromToken(token);
-        if (csrf) {
-          headers.set("X-CSRF-Token", csrf);
-        }
-      }
+    if (csrf) {
+      headers.set("X-CSRF-Token", csrf);
     }
   }
 
@@ -383,7 +340,8 @@ async function executeFetch(
   try {
     // Use globalThis.fetch to ensure test-time global.fetch replacement is used.
     const activeFetch = (globalThis as any).fetch ?? fetch;
-    res = await activeFetch(apiUrl(path), { ...init, headers });
+    const credentials = init?.credentials ?? "include";
+    res = await activeFetch(apiUrl(path), { ...init, headers, credentials });
   } catch (err) {
     const apiErr: ApiError =
       err instanceof Error ? err : new Error("Network request failed");
@@ -453,7 +411,7 @@ async function executeFetch(
       logoutSource.includes("user not found") ||
       logoutSource.includes("not authenticated");
 
-    if (shouldLogout && hasStoredSessionTokens()) {
+    if (shouldLogout) {
       logout("expired");
     }
   }
@@ -484,84 +442,87 @@ function base64UrlDecode(str: string): string {
   return atob(padded);
 }
 
-interface TokenPayload {
+type SessionHint = {
+  uid?: string;
   username?: string;
   is_admin?: boolean;
-  sub?: string;
-  csrf?: string;
   must_change_password?: boolean;
-  [key: string]: unknown;
-}
+};
 
-function getTokenPayload(token?: string | null): TokenPayload | null {
-  const rawToken = token ?? readStoredAccessToken();
-  if (!rawToken) return null;
+function parseSessionHint(raw: string | null): SessionHint | null {
+  if (!raw) return null;
   try {
-    const [, payload] = rawToken.split(".");
-    return JSON.parse(base64UrlDecode(payload));
+    const decoded = base64UrlDecode(raw);
+    const parsed = JSON.parse(decoded) as SessionHint;
+    if (parsed && typeof parsed === "object") {
+      return parsed;
+    }
   } catch {
-    return null;
+    // Ignore parsing errors.
   }
+  return null;
 }
 
-function getCsrfTokenFromToken(token?: string | null): string | null {
-  const payload = getTokenPayload(token);
-  const csrf = payload?.csrf;
-  return typeof csrf === "string" ? csrf : null;
+function getSessionHint(): SessionHint | null {
+  return parseSessionHint(getClientCookie(SESSION_HINT_COOKIE));
 }
 
 export function currentUsername(): string | null {
-  const payload = getTokenPayload();
-  return payload?.username ?? null;
+  return getSessionHint()?.username ?? null;
 }
 
 export function currentUserId(): string | null {
-  const payload = getTokenPayload();
-  return typeof payload?.sub === "string" ? payload.sub : null;
+  const hint = getSessionHint();
+  return typeof hint?.uid === "string" ? hint.uid : null;
 }
 
 export function isLoggedIn(): boolean {
-  return getTokenPayload() !== null;
+  return getSessionHint() !== null;
 }
 
 export function mustChangePasswordRequired(): boolean {
-  const payload = getTokenPayload();
-  const flag = payload?.must_change_password;
+  const hint = getSessionHint();
+  const flag = hint?.must_change_password;
   return typeof flag === "boolean" ? flag : false;
 }
 
 export function csrfToken(): string | null {
-  return getCsrfTokenFromToken();
+  return getClientCookie(CSRF_COOKIE);
 }
 
 export function logout(reason: LogoutReason = "manual") {
   if (typeof window === "undefined") return;
-  cancelScheduledRefresh();
   refreshPromise = null;
-  try {
-    window.localStorage?.removeItem(ACCESS_TOKEN_KEY);
-    window.localStorage?.removeItem(REFRESH_TOKEN_KEY);
-  } catch {
-    // Ignore storage errors when clearing tokens.
-  }
-  if (reason === "manual") {
+  const detail =
+    reason === "manual" ? null : ({ reason, timestamp: Date.now() } satisfies SessionEndDetail);
+  if (detail) {
+    try {
+      window.localStorage?.setItem(SESSION_ENDED_STORAGE_KEY, JSON.stringify(detail));
+    } catch {
+      // Ignore storage errors when recording session end.
+    }
+    window.dispatchEvent(new CustomEvent(SESSION_ENDED_EVENT, { detail }));
+    sessionChannel?.postMessage({ type: SESSION_ENDED_EVENT, detail });
+  } else {
     try {
       window.localStorage?.removeItem(SESSION_ENDED_STORAGE_KEY);
     } catch {
       // Ignore storage errors when clearing session notifications.
     }
-  } else {
-    broadcastSessionEnd(reason);
+    window.dispatchEvent(new Event(SESSION_CHANGED_EVENT));
+    sessionChannel?.postMessage({ type: SESSION_CHANGED_EVENT });
   }
-  // Manually notify listeners since the `storage` event doesn't fire in the
-  // same tab that performed the update. Header components listen for this
-  // event to refresh login state.
-  window.dispatchEvent(new Event("storage"));
+  void fetch(apiUrl("/v0/auth/revoke"), {
+    method: "POST",
+    credentials: "include",
+  }).catch(() => {
+    // Ignore network errors when attempting to revoke the session.
+  });
 }
 
 export function isAdmin(): boolean {
-  const payload = getTokenPayload();
-  return !!payload?.is_admin;
+  const hint = getSessionHint();
+  return !!hint?.is_admin;
 }
 
 export interface UserMe {

@@ -886,10 +886,11 @@ describe("MatchDetailPage", () => {
       return Promise.resolve({ ok: true, json: async () => ({}) });
     });
 
-    window.localStorage.setItem(
-      "token",
-      "x.eyJpc19hZG1pbiI6dHJ1ZX0.y",
-    );
+    const adminHint = btoa(JSON.stringify({ uid: "admin", is_admin: true }))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+    document.cookie = `session_hint=${adminHint}; path=/`;
 
     render(await MatchDetailPage({ params: { mid: "m-admin" } }));
 

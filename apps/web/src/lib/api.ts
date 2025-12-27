@@ -109,6 +109,20 @@ function getClientCookie(name: string): string | null {
   return readCookieValue(document.cookie ?? "", name);
 }
 
+export function setSessionHintCookie(value: string | null | undefined): void {
+  if (typeof window === "undefined") return;
+  if (value === undefined) return;
+  const secure = window.location.protocol === "https:" ? "; secure" : "";
+  if (value === null || value.trim() === "") {
+    document.cookie = `${SESSION_HINT_COOKIE}=; path=/; max-age=0; samesite=lax${secure}`;
+    return;
+  }
+  const maxAgeSeconds = 60 * 60 * 24 * 30; // Align with refresh token lifetime.
+  document.cookie = `${SESSION_HINT_COOKIE}=${encodeURIComponent(
+    value,
+  )}; path=/; max-age=${maxAgeSeconds}; samesite=lax${secure}`;
+}
+
 async function getServerCookie(name: string): Promise<string | null> {
   if (typeof window !== "undefined") return getClientCookie(name);
   try {
@@ -196,7 +210,8 @@ async function refreshAccessToken(): Promise<boolean> {
       throw err;
     }
 
-    await response.json();
+    const payload = (await response.json()) as TokenResponse | undefined;
+    setSessionHintCookie(payload?.sessionHint);
     persistSession();
   })();
 
@@ -530,6 +545,7 @@ export function csrfToken(): string | null {
 export function logout(reason: LogoutReason = "manual") {
   if (typeof window === "undefined") return;
   refreshPromise = null;
+  setSessionHintCookie(null);
   const detail =
     reason === "manual" ? null : ({ reason, timestamp: Date.now() } satisfies SessionEndDetail);
   if (detail) {
@@ -578,6 +594,7 @@ export async function fetchMe(): Promise<UserMe> {
 
 export interface TokenResponse {
   mustChangePassword?: boolean;
+  sessionHint?: string | null;
 }
 
 export type UpdateMeResponse = TokenResponse;
@@ -592,7 +609,11 @@ export async function updateMe(data: {
     body: JSON.stringify(data),
   });
   const payload = (await res.json()) as UpdateMeResponse;
-  return { mustChangePassword: payload?.mustChangePassword };
+  setSessionHintCookie(payload?.sessionHint);
+  return {
+    mustChangePassword: payload?.mustChangePassword,
+    sessionHint: payload?.sessionHint,
+  };
 }
 
 export interface ClubSummary {

@@ -629,6 +629,7 @@ class TokenOut(BaseModel):
     refresh_token: str
     csrf_token: str
     must_change_password: bool = Field(alias="mustChangePassword")
+    session_hint: str = Field(alias="sessionHint")
 
     model_config = ConfigDict(populate_by_name=True)
 

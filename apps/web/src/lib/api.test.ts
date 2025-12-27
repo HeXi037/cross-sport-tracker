@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  apiBase,
   apiFetch,
   ensureAbsoluteApiUrl,
   isAdmin,
@@ -11,9 +12,11 @@ import {
 } from './api';
 
 const ORIGINAL_API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
+const ORIGINAL_INTERNAL_API_BASE = process.env.INTERNAL_API_BASE_URL;
 
 afterEach(() => {
   process.env.NEXT_PUBLIC_API_BASE_URL = ORIGINAL_API_BASE;
+  process.env.INTERNAL_API_BASE_URL = ORIGINAL_INTERNAL_API_BASE;
 });
 
 const buildSessionHint = (payload: Record<string, unknown>): string =>
@@ -56,6 +59,41 @@ describe('ensureAbsoluteApiUrl', () => {
 
     expect(ensureAbsoluteApiUrl('static/users/example.jpg')).toBe(
       '/api/static/users/example.jpg'
+    );
+  });
+});
+
+describe('apiBase', () => {
+  const originalWindow = globalThis.window;
+
+  beforeEach(() => {
+    (globalThis as any).window = undefined;
+  });
+
+  afterEach(() => {
+    (globalThis as any).window = originalWindow;
+  });
+
+  it('uses INTERNAL_API_BASE_URL on the server', () => {
+    process.env.INTERNAL_API_BASE_URL = 'https://internal.example.com/api/';
+    process.env.NEXT_PUBLIC_API_BASE_URL = 'https://public.example.com/api/';
+
+    expect(apiBase()).toBe('https://internal.example.com/api');
+  });
+
+  it('falls back to NEXT_PUBLIC_API_BASE_URL on the server', () => {
+    delete process.env.INTERNAL_API_BASE_URL;
+    process.env.NEXT_PUBLIC_API_BASE_URL = 'https://public.example.com/api/';
+
+    expect(apiBase()).toBe('https://public.example.com/api');
+  });
+
+  it('throws a descriptive error when the API base is missing on the server', () => {
+    delete process.env.INTERNAL_API_BASE_URL;
+    delete process.env.NEXT_PUBLIC_API_BASE_URL;
+
+    expect(() => apiBase()).toThrow(
+      /API base URL is not configured.*INTERNAL_API_BASE_URL.*NEXT_PUBLIC_API_BASE_URL/i
     );
   });
 });

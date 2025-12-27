@@ -13,6 +13,7 @@ import type { Metadata } from 'next';
 import type enMessages from '../messages/en-GB.json';
 import { LocaleProvider } from '../lib/LocaleContext';
 import { resolveServerLocale } from '../lib/server-locale';
+import { assertApiBaseConfigured } from '../lib/api';
 import { loadLocaleMessages } from '../i18n/messages';
 import {
   CURRENT_ROUTE_STORAGE_KEY,
@@ -25,6 +26,8 @@ import {
   TIME_ZONE_COOKIE_KEY,
   TIME_ZONE_STORAGE_KEY,
 } from '../lib/i18n';
+
+assertApiBaseConfigured();
 
 const LOCALE_DETECTION_SCRIPT = `(() => {
   if (typeof window === 'undefined' || typeof document === 'undefined') {

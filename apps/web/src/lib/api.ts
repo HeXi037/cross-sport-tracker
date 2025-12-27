@@ -7,12 +7,51 @@ export type ApiRequestInit = RequestInit & {
     tags?: string[];
   };
 };
+
+function normalizeApiBase(base: string): string {
+  return base.endsWith("/") ? base.slice(0, -1) : base;
+}
+
+function resolveServerApiBase(): string {
+  const internalBase = process.env.INTERNAL_API_BASE_URL?.trim() ?? "";
+  const publicBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() ?? "";
+
+  if (internalBase) {
+    return internalBase;
+  }
+  if (publicBase) {
+    return publicBase;
+  }
+
+  const message =
+    "API base URL is not configured for server-side rendering. Set INTERNAL_API_BASE_URL or NEXT_PUBLIC_API_BASE_URL.";
+  throw new Error(message);
+}
+
+function resolveClientApiBase(): string {
+  const publicBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim() ?? "";
+  return publicBase || "/api";
+}
+
+export function assertApiBaseConfigured(): void {
+  if (typeof window !== "undefined") {
+    return;
+  }
+
+  try {
+    resolveServerApiBase();
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "API base URL is not configured.";
+    console.error(message);
+    throw err;
+  }
+}
+
 export function apiBase(): string {
   const server = typeof window === 'undefined';
-  const base = server
-    ? process.env.INTERNAL_API_BASE_URL || 'http://localhost:8000/api'
-    : process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
-  return base.endsWith('/') ? base.slice(0, -1) : base;
+  const base = server ? resolveServerApiBase() : resolveClientApiBase();
+  return normalizeApiBase(base);
 }
 
 export function apiUrl(path: string): string {

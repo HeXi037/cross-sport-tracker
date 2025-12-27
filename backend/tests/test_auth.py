@@ -3,6 +3,8 @@ import sys
 import asyncio
 import uuid
 import secrets
+import importlib
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 import jwt
 import pytest
@@ -21,6 +23,28 @@ from app import db
 from app.models import User, Player, Club, RefreshToken
 from app.routers import auth, players
 from app.routers.auth import pwd_context
+
+@contextmanager
+def reload_auth_with_env(**env: str):
+    saved = {
+        "AUTH_COOKIE_SAMESITE": os.environ.get("AUTH_COOKIE_SAMESITE"),
+        "AUTH_COOKIE_SECURE": os.environ.get("AUTH_COOKIE_SECURE"),
+        "AUTH_COOKIE_DOMAIN": os.environ.get("AUTH_COOKIE_DOMAIN"),
+    }
+    try:
+        for key, value in env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        yield importlib.reload(auth)
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        importlib.reload(auth)
 
 app = FastAPI()
 app.state.limiter = auth.limiter
@@ -58,6 +82,21 @@ def setup_db():
     yield
     if os.path.exists("./test_auth.db"):
         os.remove("./test_auth.db")
+
+
+def test_auth_cookie_samesite_none_allowed_with_secure():
+    with reload_auth_with_env(AUTH_COOKIE_SAMESITE="none", AUTH_COOKIE_SECURE="true") as module:
+        assert module.COOKIE_SAMESITE == "none"
+        assert module.COOKIE_SECURE is True
+
+
+def test_auth_cookie_samesite_none_requires_secure():
+    with pytest.raises(RuntimeError):
+        with reload_auth_with_env(
+            AUTH_COOKIE_SAMESITE="none", AUTH_COOKIE_SECURE="false"
+        ):
+            pass
+
 
 def test_signup_login_and_protected_access():
     with TestClient(app) as client:

@@ -58,10 +58,26 @@ REFRESH_TOKEN_COOKIE = "refresh_token"
 CSRF_COOKIE = "csrf_token"
 SESSION_HINT_COOKIE = "session_hint"
 COOKIE_PATH = "/"
-_RAW_SAMESITE = (os.getenv("AUTH_COOKIE_SAMESITE", "lax") or "lax").lower()
-COOKIE_SAMESITE = "strict" if _RAW_SAMESITE == "strict" else "lax"
-COOKIE_SECURE = os.getenv("AUTH_COOKIE_SECURE", "true").lower() != "false"
-COOKIE_DOMAIN = os.getenv("AUTH_COOKIE_DOMAIN") or None
+
+
+def _load_cookie_settings() -> tuple[str, bool, str | None]:
+  raw_samesite = (os.getenv("AUTH_COOKIE_SAMESITE", "lax") or "lax").lower()
+  if raw_samesite not in {"lax", "strict", "none"}:
+    raise RuntimeError(
+        "AUTH_COOKIE_SAMESITE must be one of: lax, strict, none"
+    )
+
+  secure = os.getenv("AUTH_COOKIE_SECURE", "true").lower() != "false"
+  if raw_samesite == "none" and not secure:
+    raise RuntimeError(
+        "AUTH_COOKIE_SECURE must be true when AUTH_COOKIE_SAMESITE=none to allow cross-site auth cookies"
+    )
+
+  domain = os.getenv("AUTH_COOKIE_DOMAIN") or None
+  return raw_samesite, secure, domain
+
+
+COOKIE_SAMESITE, COOKIE_SECURE, COOKIE_DOMAIN = _load_cookie_settings()
 
 
 def _get_client_ip(request: Request) -> str:

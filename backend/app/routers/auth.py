@@ -485,12 +485,12 @@ async def signup(
   access_token, refresh_token, csrf_token = await create_token(user, session)
   await session.commit()
   payload = TokenOut(
-      access_token=None,
-      refresh_token=None,
-      csrf_token=None,
+      access_token=access_token,
+      refresh_token=refresh_token,
+      csrf_token=csrf_token,
       must_change_password=user.must_change_password,
   )
-  response = JSONResponse(content=payload.model_dump(by_alias=True, exclude_none=True))
+  response = JSONResponse(content=payload.model_dump(by_alias=True))
   _attach_auth_cookies(response, user, access_token, refresh_token, csrf_token)
   return response
 
@@ -524,12 +524,12 @@ async def login(
   access_token, refresh_token, csrf_token = await create_token(user, session)
   await session.commit()
   payload = TokenOut(
-      access_token=None,
-      refresh_token=None,
-      csrf_token=None,
+      access_token=access_token,
+      refresh_token=refresh_token,
+      csrf_token=csrf_token,
       must_change_password=user.must_change_password,
   )
-  response = JSONResponse(content=payload.model_dump(by_alias=True, exclude_none=True))
+  response = JSONResponse(content=payload.model_dump(by_alias=True))
   _attach_auth_cookies(response, user, access_token, refresh_token, csrf_token)
   return response
 
@@ -688,12 +688,12 @@ async def update_me(
   access_token, refresh_token, csrf_token = await create_token(current, session)
   await session.commit()
   payload = TokenOut(
-      access_token=None,
-      refresh_token=None,
-      csrf_token=None,
+      access_token=access_token,
+      refresh_token=refresh_token,
+      csrf_token=csrf_token,
       must_change_password=current.must_change_password,
   )
-  response = JSONResponse(content=payload.model_dump(by_alias=True, exclude_none=True))
+  response = JSONResponse(content=payload.model_dump(by_alias=True))
   _attach_auth_cookies(response, current, access_token, refresh_token, csrf_token)
   return response
 
@@ -787,12 +787,12 @@ async def refresh_tokens(
   )
   await session.commit()
   payload = TokenOut(
-      access_token=None,
-      refresh_token=None,
-      csrf_token=None,
+      access_token=access_token,
+      refresh_token=refresh_token,
+      csrf_token=csrf_token,
       must_change_password=user.must_change_password,
   )
-  response = JSONResponse(content=payload.model_dump(by_alias=True, exclude_none=True))
+  response = JSONResponse(content=payload.model_dump(by_alias=True))
   _attach_auth_cookies(response, user, access_token, refresh_token, csrf_token)
   return response
 

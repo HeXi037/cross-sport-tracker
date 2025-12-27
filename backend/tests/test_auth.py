@@ -445,6 +445,98 @@ def test_refresh_and_revoke():
         assert resp.status_code == 401
 
 
+def test_reuse_of_rotated_refresh_token_is_rejected():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup", json={"username": "rotate", "password": "Str0ng!Pass!"}
+        )
+        assert resp.status_code == 200
+        original_refresh = resp.json()["refresh_token"]
+
+        resp = client.post("/auth/refresh", json={"refresh_token": original_refresh})
+        assert resp.status_code == 200
+        latest_tokens = resp.json()
+
+        # Rotated-out token cannot be reused
+        resp = client.post("/auth/refresh", json={"refresh_token": original_refresh})
+        assert resp.status_code == 401
+
+        # The newest token still works
+        resp = client.post(
+            "/auth/refresh", json={"refresh_token": latest_tokens["refresh_token"]}
+        )
+        assert resp.status_code == 200
+
+
+def test_only_newest_refresh_token_remains_valid_after_relogin():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup", json={"username": "rel0gin", "password": "Str0ng!Pass!"}
+        )
+        assert resp.status_code == 200
+        first_refresh = resp.json()["refresh_token"]
+
+        # Login again should revoke the previous refresh tokens
+        resp = client.post(
+            "/auth/login", json={"username": "rel0gin", "password": "Str0ng!Pass!"}
+        )
+        assert resp.status_code == 200
+        latest_refresh = resp.json()["refresh_token"]
+
+        resp = client.post("/auth/refresh", json={"refresh_token": first_refresh})
+        assert resp.status_code == 401
+
+        resp = client.post("/auth/refresh", json={"refresh_token": latest_refresh})
+        assert resp.status_code == 200
+
+
+def test_password_change_and_logout_revoke_all_tokens():
+    auth.limiter.reset()
+    with TestClient(app) as client:
+        resp = client.post(
+            "/auth/signup",
+            json={"username": "pwreset", "password": "Str0ng!Pass!"},
+        )
+        assert resp.status_code == 200
+        tokens = resp.json()
+
+        rotated = client.post(
+            "/auth/refresh", json={"refresh_token": tokens["refresh_token"]}
+        )
+        assert rotated.status_code == 200
+        rotated_tokens = rotated.json()
+
+        # Change password should revoke all existing refresh tokens
+        update_resp = client.put(
+            "/auth/me",
+            json={"password": "N3wPass!Word"},
+            headers={"Authorization": f"Bearer {rotated_tokens['access_token']}"},
+        )
+        assert update_resp.status_code == 200
+        updated_tokens = update_resp.json()
+
+        resp = client.post(
+            "/auth/refresh", json={"refresh_token": rotated_tokens["refresh_token"]}
+        )
+        assert resp.status_code == 401
+
+        resp = client.post(
+            "/auth/refresh", json={"refresh_token": updated_tokens["refresh_token"]}
+        )
+        assert resp.status_code == 200
+        newest_refresh = resp.json()["refresh_token"]
+
+        # Logging out should revoke every refresh token for the user
+        logout_resp = client.post(
+            "/auth/revoke", json={"refresh_token": newest_refresh}
+        )
+        assert logout_resp.status_code == 200
+        resp = client.post("/auth/refresh", json={"refresh_token": newest_refresh})
+        assert resp.status_code == 401
+
+
 def test_create_token_flushes_before_refresh_token():
     class TrackingSession:
         def __init__(self):

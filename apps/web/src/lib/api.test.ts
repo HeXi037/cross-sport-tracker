@@ -72,7 +72,7 @@ describe('persistSession', () => {
       JSON.stringify({ reason: 'expired', timestamp: Date.now() })
     );
 
-    persistSession({ access_token: 'abc', refresh_token: 'def' });
+    persistSession();
 
     expect(window.localStorage.getItem(SESSION_ENDED_STORAGE_KEY)).toBeNull();
     expect(dispatchSpy).toHaveBeenCalledWith(

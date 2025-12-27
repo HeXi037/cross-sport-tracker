@@ -36,8 +36,6 @@ export type SessionEndDetail = {
   reason: Exclude<LogoutReason, "manual">;
   timestamp: number;
 };
-type TokenUpdate = { access_token?: string; refresh_token?: string };
-
 let refreshPromise: Promise<void> | null = null;
 let sessionChannel: BroadcastChannel | null = null;
 if (typeof window !== "undefined" && "BroadcastChannel" in window) {
@@ -100,7 +98,7 @@ function notifySessionChanged(detail?: SessionEndDetail | null) {
   }
 }
 
-export function persistSession(tokens: TokenUpdate): void {
+export function persistSession(): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage?.removeItem(SESSION_ENDED_STORAGE_KEY);
@@ -159,8 +157,8 @@ async function refreshAccessToken(): Promise<boolean> {
       throw err;
     }
 
-    const data = (await response.json()) as TokenResponse;
-    persistSession(data);
+    await response.json();
+    persistSession();
   })();
 
   try {
@@ -540,13 +538,10 @@ export async function fetchMe(): Promise<UserMe> {
 }
 
 export interface TokenResponse {
-  access_token: string;
-  refresh_token: string;
-  csrf_token?: string;
   mustChangePassword?: boolean;
 }
 
-export type UpdateMeResponse = Partial<TokenResponse>;
+export type UpdateMeResponse = TokenResponse;
 
 export async function updateMe(data: {
   username?: string;
@@ -558,7 +553,7 @@ export async function updateMe(data: {
     body: JSON.stringify(data),
   });
   const payload = (await res.json()) as UpdateMeResponse;
-  return payload;
+  return { mustChangePassword: payload?.mustChangePassword };
 }
 
 export interface ClubSummary {

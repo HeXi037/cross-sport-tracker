@@ -350,7 +350,7 @@ describe("ProfilePage", () => {
       region_code: "EU",
       club_id: "club-new",
     });
-    apiMocks.updateMe.mockResolvedValue({ access_token: "new.token.value" });
+    apiMocks.updateMe.mockResolvedValue({});
 
     await act(async () => {
       renderWithProviders(<ProfilePage />);

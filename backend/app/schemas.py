@@ -624,9 +624,10 @@ class UserLogin(BaseModel):
 
 class TokenOut(BaseModel):
     """Returned on successful authentication."""
-    access_token: str
-    refresh_token: str
-    csrf_token: str
+
+    access_token: str | None = None
+    refresh_token: str | None = None
+    csrf_token: str | None = None
     must_change_password: bool = Field(alias="mustChangePassword")
 
     model_config = ConfigDict(populate_by_name=True)

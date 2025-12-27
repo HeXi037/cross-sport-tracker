@@ -94,9 +94,7 @@ describe('LoginPage signup feedback', () => {
         return Promise.resolve(makeResponse({ available: true }));
       }
       if (path === '/v0/auth/signup') {
-        return Promise.resolve(
-          makeResponse({ access_token: 'token', refresh_token: 'refresh' })
-        );
+        return Promise.resolve(makeResponse({ access_token: 'token', refresh_token: 'refresh' }));
       }
       return Promise.reject(new Error(`Unexpected apiFetch call to ${path}`));
     });
@@ -123,10 +121,7 @@ describe('LoginPage signup feedback', () => {
       );
     });
 
-    expect(mockedPersistSession).toHaveBeenCalledWith({
-      access_token: 'token',
-      refresh_token: 'refresh',
-    });
+    expect(mockedPersistSession).toHaveBeenCalledWith();
     expect(pushMock).toHaveBeenCalledWith('/profile');
 
     const toast = await screen.findByTestId('toast');
@@ -134,9 +129,7 @@ describe('LoginPage signup feedback', () => {
   });
 
   it('redirects to the stored page after login', async () => {
-    mockedApiFetch.mockResolvedValueOnce(
-      makeResponse({ access_token: 'token', refresh_token: 'refresh' })
-    );
+    mockedApiFetch.mockResolvedValueOnce(makeResponse({}));
 
     document.cookie = 'cst-login-redirect=%2Fprofile';
 
@@ -157,10 +150,7 @@ describe('LoginPage signup feedback', () => {
       );
     });
 
-    expect(mockedPersistSession).toHaveBeenCalledWith({
-      access_token: 'token',
-      refresh_token: 'refresh',
-    });
+    expect(mockedPersistSession).toHaveBeenCalledWith();
     await waitFor(() => {
       expect(pushMock).toHaveBeenCalledWith('/profile');
     });
@@ -169,8 +159,6 @@ describe('LoginPage signup feedback', () => {
   it('sends users with temp passwords to the reset screen', async () => {
     mockedApiFetch.mockResolvedValueOnce(
       makeResponse({
-        access_token: 'token',
-        refresh_token: 'refresh',
         mustChangePassword: true,
       })
     );
@@ -192,11 +180,7 @@ describe('LoginPage signup feedback', () => {
       );
     });
 
-    expect(mockedPersistSession).toHaveBeenCalledWith({
-      access_token: 'token',
-      refresh_token: 'refresh',
-      mustChangePassword: true,
-    });
+    expect(mockedPersistSession).toHaveBeenCalledWith();
     await waitFor(() => {
       expect(pushMock).toHaveBeenCalledWith('/set-password');
     });

@@ -46,6 +46,22 @@ def reload_auth_with_env(**env: str):
                 os.environ[key] = value
         importlib.reload(auth)
 
+@contextmanager
+def rate_limits_enabled():
+    prev = getattr(auth.limiter, "enabled", True)
+    prev_env = os.environ.get("DISABLE_AUTH_RATE_LIMITS")
+    os.environ["DISABLE_AUTH_RATE_LIMITS"] = "false"
+    auth.limiter.enabled = True
+    try:
+        yield
+    finally:
+        auth.limiter.enabled = prev
+        if prev_env is None:
+            os.environ.pop("DISABLE_AUTH_RATE_LIMITS", None)
+        else:
+            os.environ["DISABLE_AUTH_RATE_LIMITS"] = prev_env
+        auth.limiter.reset()
+
 app = FastAPI()
 app.state.limiter = auth.limiter
 app.add_exception_handler(RateLimitExceeded, auth.rate_limit_handler)
@@ -252,7 +268,7 @@ def test_signup_rejects_attached_player():
 
 def test_login_rate_limited():
     auth.limiter.reset()
-    with TestClient(app) as client:
+    with rate_limits_enabled(), TestClient(app) as client:
         resp = client.post(
             "/auth/signup", json={"username": "rate", "password": "Str0ng!Pass!"}
         )
@@ -269,7 +285,7 @@ def test_login_rate_limited():
 
 def test_login_rate_limited_per_ip():
     auth.limiter.reset()
-    with TestClient(app) as client:
+    with rate_limits_enabled(), TestClient(app) as client:
         resp = client.post(
             "/auth/signup",
             json={"username": "iprate", "password": "Str0ng!Pass!"},
@@ -299,7 +315,7 @@ def test_login_rate_limited_per_ip():
 
 def test_login_rate_limit_not_bypassed_by_spoofed_x_forwarded_for():
     auth.limiter.reset()
-    with TestClient(app) as client:
+    with rate_limits_enabled(), TestClient(app) as client:
         resp = client.post(
             "/auth/signup", json={"username": "spoof", "password": "Str0ng!Pass!"}
         )

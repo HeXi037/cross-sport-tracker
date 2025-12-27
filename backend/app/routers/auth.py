@@ -60,6 +60,10 @@ SESSION_HINT_COOKIE = "session_hint"
 COOKIE_PATH = "/"
 
 
+def _rate_limits_disabled() -> bool:
+  return (os.getenv("DISABLE_AUTH_RATE_LIMITS") or "").lower() == "true"
+
+
 def _load_cookie_settings() -> tuple[str, bool, str | None]:
   raw_samesite = (os.getenv("AUTH_COOKIE_SAMESITE", "lax") or "lax").lower()
   if raw_samesite not in {"lax", "strict", "none"}:
@@ -125,7 +129,15 @@ def _delete_user_photo_file(photo_url: str | None) -> None:
 
 
 def signup_rate_limit(key: str) -> str:
+    if _rate_limits_disabled():
+        return "1000/second"
     return "1/hour" if key in FLAGGED_IPS else "5/minute"
+
+
+def login_rate_limit() -> str:
+  if _rate_limits_disabled():
+    return "1000/second"
+  return "5/minute"
 
 
 class _BcryptContext:
@@ -512,7 +524,7 @@ async def signup(
 
 
 @router.post("/login", response_model=TokenOut)
-@limiter.limit("5/minute")
+@limiter.limit(login_rate_limit)
 async def login(
     request: Request,
     body: UserLogin,

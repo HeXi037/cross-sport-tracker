@@ -20,6 +20,7 @@ def session_loop():
 # metadata.create_all creates every table (including optional ones like
 # glicko_rating and player_metric) when the test database is initialised.
 from app import db, models  # noqa: F401
+from app.routers import auth  # ensure limiter is available for tests
 
 # A sufficiently long JWT secret for tests
 TEST_JWT_SECRET = "x" * 32
@@ -32,6 +33,9 @@ DEFAULT_DB_URL = os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:mem
 def jwt_secret(monkeypatch):
     """Ensure a strong JWT secret is present for all tests."""
     monkeypatch.setenv("JWT_SECRET", TEST_JWT_SECRET)
+    # Disable auth rate limits for most tests; targeted rate-limit tests
+    # will re-enable them explicitly.
+    monkeypatch.setenv("DISABLE_AUTH_RATE_LIMITS", "true")
     yield
 
 
@@ -81,6 +85,27 @@ def reset_schema(request, session_loop):
     engine = db.engine or db.get_engine()
     session_loop.run_until_complete(_reset_schema(engine))
     yield
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limits():
+    """Ensure per-IP rate limits don't leak between tests."""
+
+    try:
+        # Replace the storage with a fresh in-memory backend so earlier tests
+        # don't consume the quota for later ones.
+        from limits.storage import memory
+
+        auth.limiter._storage = memory.MemoryStorage()
+        auth.limiter.reset()
+        # Keep limits enabled but start from a clean state for each test.
+        auth.limiter.enabled = True
+    except Exception:
+        # If the limiter is misconfigured, surface the error when the test runs.
+        raise
+    yield
+    auth.limiter.enabled = True
+    auth.limiter.reset()
 
 
 def create_table(sync_conn, table):

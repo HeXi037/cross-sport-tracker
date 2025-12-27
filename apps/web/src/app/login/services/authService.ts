@@ -1,4 +1,10 @@
-import { apiFetch, persistSession, type ApiError } from "../../../lib/api";
+import {
+  apiFetch,
+  persistSession,
+  setSessionHintCookie,
+  type ApiError,
+  type TokenResponse,
+} from "../../../lib/api";
 
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const USERNAME_REGEX = /^[A-Za-z0-9_.-]+$/;
@@ -196,7 +202,7 @@ export async function extractSignupErrors(response: Response): Promise<string[]>
 export async function loginUser(
   username: string,
   password: string
-): Promise<import("../../../lib/api").TokenResponse> {
+): Promise<TokenResponse> {
   const res = await apiFetch("/v0/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -208,10 +214,10 @@ export async function loginUser(
     throw new Error(message);
   }
 
-  const { mustChangePassword } =
-    ((await res.json()) as import("../../../lib/api").TokenResponse) ?? {};
+  const payload = ((await res.json()) as TokenResponse) ?? {};
+  setSessionHintCookie(payload.sessionHint);
   persistSession();
-  return { mustChangePassword };
+  return { mustChangePassword: payload.mustChangePassword };
 }
 
 export async function signupUser(username: string, password: string) {
@@ -226,10 +232,10 @@ export async function signupUser(username: string, password: string) {
     throw new SignupError(messages);
   }
 
-  const { mustChangePassword } =
-    ((await res.json()) as import("../../../lib/api").TokenResponse) ?? {};
+  const payload = ((await res.json()) as TokenResponse) ?? {};
+  setSessionHintCookie(payload.sessionHint);
   persistSession();
-  return { mustChangePassword };
+  return { mustChangePassword: payload.mustChangePassword };
 }
 
 export async function checkUsernameAvailability(

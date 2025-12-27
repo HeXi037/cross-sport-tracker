@@ -296,6 +296,8 @@ class RefreshToken(Base):
     user_id = Column(String, ForeignKey("user.id"), nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     revoked = Column(Boolean, nullable=False, default=False)
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+    family_id = Column(String, nullable=True)
 
 
 class Comment(Base):

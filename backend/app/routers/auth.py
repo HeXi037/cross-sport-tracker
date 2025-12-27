@@ -185,15 +185,18 @@ def _generate_csrf_token() -> str:
   return secrets.token_urlsafe(32)
 
 
-async def create_token(user: User, session: AsyncSession) -> tuple[str, str, str]:
+async def create_token(
+    user: User, session: AsyncSession, *, family_id: str | None = None
+) -> tuple[str, str, str]:
   await session.flush()
   csrf_token = _generate_csrf_token()
+  now = _utcnow()
   payload = {
       "sub": user.id,
       "username": user.username,
       "is_admin": user.is_admin,
       "must_change_password": user.must_change_password,
-      "exp": _utcnow() + timedelta(seconds=JWT_EXPIRE_SECONDS),
+      "exp": now + timedelta(seconds=JWT_EXPIRE_SECONDS),
       "csrf": csrf_token,
   }
   access_token = jwt.encode(payload, get_jwt_secret(), algorithm=JWT_ALG)
@@ -203,11 +206,37 @@ async def create_token(user: User, session: AsyncSession) -> tuple[str, str, str
       RefreshToken(
           token_hash=token_hash,
           user_id=user.id,
-          expires_at=_utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+          expires_at=now + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
           revoked=False,
+          last_used_at=now,
+          family_id=family_id or uuid.uuid4().hex,
       )
   )
   return access_token, refresh_token, csrf_token
+
+
+async def _revoke_all_refresh_tokens(session: AsyncSession, user_id: str) -> None:
+  await session.execute(
+      update(RefreshToken)
+      .where(RefreshToken.user_id == user_id)
+      .values(revoked=True, last_used_at=_utcnow())
+  )
+
+
+async def _latest_active_refresh_token(
+    session: AsyncSession, user_id: str
+) -> RefreshToken | None:
+  return (
+      (
+          await session.execute(
+              select(RefreshToken)
+              .where(RefreshToken.user_id == user_id)
+              .where(RefreshToken.revoked.is_(False))
+              .order_by(RefreshToken.last_used_at.desc(), RefreshToken.expires_at.desc())
+              .limit(1)
+          )
+      ).scalar_one_or_none()
+  )
 
 
 def _build_session_hint(user: User) -> str:
@@ -452,6 +481,7 @@ async def signup(
   else:
     player = Player(id=uuid.uuid4().hex, user_id=uid, name=username)
     session.add(player)
+  await _revoke_all_refresh_tokens(session, uid)
   access_token, refresh_token, csrf_token = await create_token(user, session)
   await session.commit()
   payload = TokenOut(
@@ -490,6 +520,7 @@ async def login(
         detail="invalid credentials",
         code="auth_invalid_credentials",
   )
+  await _revoke_all_refresh_tokens(session, user.id)
   access_token, refresh_token, csrf_token = await create_token(user, session)
   await session.commit()
   payload = TokenOut(
@@ -589,6 +620,7 @@ async def update_me(
     current: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
+  password_changed = False
   if body.username:
     new_username = body.username.strip()
     if not new_username:
@@ -635,6 +667,7 @@ async def update_me(
   if body.password:
     current.password_hash = pwd_context.hash(body.password)
     current.must_change_password = False
+    password_changed = True
   try:
     await session.commit()
   except IntegrityError as e:
@@ -650,6 +683,8 @@ async def update_me(
         detail="username exists",
         code="auth_username_exists",
     )
+  if password_changed:
+    await _revoke_all_refresh_tokens(session, current.id)
   access_token, refresh_token, csrf_token = await create_token(current, session)
   await session.commit()
   payload = TokenOut(
@@ -694,11 +729,7 @@ async def admin_reset_password(
   temporary_password = _generate_temporary_password()
   user.password_hash = pwd_context.hash(temporary_password)
   user.must_change_password = True
-  await session.execute(
-      update(RefreshToken)
-      .where(RefreshToken.user_id == user.id)
-      .values(revoked=True)
-  )
+  await _revoke_all_refresh_tokens(session, user.id)
   await session.commit()
   return AdminPasswordResetOut(
       user_id=user.id,
@@ -734,6 +765,13 @@ async def refresh_tokens(
         detail="invalid refresh token",
         code="auth_invalid_refresh_token",
     )
+  latest = await _latest_active_refresh_token(session, token.user_id)
+  if latest and latest.token_hash != token_hash:
+    raise http_problem(
+        status_code=401,
+        detail="invalid refresh token",
+        code="auth_invalid_refresh_token",
+    )
   user = await session.get(User, token.user_id)
   if not user:
     raise http_problem(
@@ -741,8 +779,12 @@ async def refresh_tokens(
         detail="user not found",
         code="auth_user_not_found",
     )
+  now = _utcnow()
+  token.last_used_at = now
   token.revoked = True
-  access_token, refresh_token, csrf_token = await create_token(user, session)
+  access_token, refresh_token, csrf_token = await create_token(
+      user, session, family_id=token.family_id
+  )
   await session.commit()
   payload = TokenOut(
       access_token=access_token,
@@ -772,7 +814,7 @@ async def revoke_token(
   token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
   token = await session.get(RefreshToken, token_hash)
   if token:
-    token.revoked = True
+    await _revoke_all_refresh_tokens(session, token.user_id)
     await session.commit()
   _clear_auth_cookies(response)
   return response

@@ -104,10 +104,8 @@ function SetPasswordContent() {
 
     setSubmitting(true);
     try {
-      const response = await updateMe({ password });
-      if (response.access_token || response.refresh_token) {
-        persistSession(response);
-      }
+      await updateMe({ password });
+      persistSession();
       showToast({ message: "Your password has been updated.", variant: "success" });
       router.replace("/");
     } catch (err) {

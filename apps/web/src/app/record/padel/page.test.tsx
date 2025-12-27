@@ -914,8 +914,7 @@ describe("RecordPadelPage", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
-  it("includes auth token in API requests", async () => {
-    window.localStorage.setItem("token", "tkn");
+  it("uses cookie-based auth without exposing tokens", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({

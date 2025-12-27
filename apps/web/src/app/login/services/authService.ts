@@ -208,9 +208,10 @@ export async function loginUser(
     throw new Error(message);
   }
 
-  const data = await res.json();
-  persistSession(data);
-  return data;
+  const { mustChangePassword } =
+    ((await res.json()) as import("../../../lib/api").TokenResponse) ?? {};
+  persistSession();
+  return { mustChangePassword };
 }
 
 export async function signupUser(username: string, password: string) {
@@ -225,9 +226,10 @@ export async function signupUser(username: string, password: string) {
     throw new SignupError(messages);
   }
 
-  const data = await res.json();
-  persistSession(data);
-  return data;
+  const { mustChangePassword } =
+    ((await res.json()) as import("../../../lib/api").TokenResponse) ?? {};
+  persistSession();
+  return { mustChangePassword };
 }
 
 export async function checkUsernameAvailability(

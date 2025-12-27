@@ -604,9 +604,7 @@ export default function ProfilePage() {
 
       try {
         const res = await updateMe(body);
-        if (res.access_token || res.refresh_token) {
-          persistSession(res);
-        }
+        persistSession();
       } catch (err) {
         const status = (err as Error & { status?: number }).status;
         const message = extractErrorMessage(err);

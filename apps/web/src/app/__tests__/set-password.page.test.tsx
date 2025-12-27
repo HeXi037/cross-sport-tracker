@@ -89,8 +89,6 @@ describe('SetPasswordPage', () => {
     mockedIsLoggedIn.mockReturnValue(true);
     mockedMustChange.mockReturnValue(true);
     mockedUpdateMe.mockResolvedValue({
-      access_token: 'new-token',
-      refresh_token: 'new-refresh',
       mustChangePassword: false,
     });
 
@@ -111,11 +109,7 @@ describe('SetPasswordPage', () => {
 
     await waitFor(() => {
       expect(mockedUpdateMe).toHaveBeenCalledWith({ password: 'CorrectHorse!1' });
-      expect(mockedPersistSession).toHaveBeenCalledWith({
-        access_token: 'new-token',
-        refresh_token: 'new-refresh',
-        mustChangePassword: false,
-      });
+      expect(mockedPersistSession).toHaveBeenCalledWith();
       expect(replaceMock).toHaveBeenCalledWith('/');
     });
   });

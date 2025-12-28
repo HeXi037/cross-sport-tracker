@@ -3521,17 +3521,25 @@ html.theme-dark .record-sport-card:hover {
 
 .leaderboard-nav {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
   gap: 0.75rem;
 }
 
-.leaderboard-tablist {
-  --leaderboard-tablist-padding: 0.25rem;
-  display: flex;
+.leaderboard-nav--overflow {
   gap: 0.5rem;
+}
+
+.leaderboard-tablist {
+  --leaderboard-tablist-padding: 0.35rem;
+  display: flex;
+  gap: 0.75rem;
   list-style: none;
   margin: 0;
   padding: var(--leaderboard-tablist-padding);
+  border-radius: 14px;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
   overflow-x: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(10, 31, 68, 0.4) transparent;
@@ -3568,34 +3576,49 @@ html.theme-dark .record-sport-card:hover {
 }
 
 .leaderboard-tab {
+  appearance: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.35rem 0.85rem;
-  border-radius: 999px;
+  gap: 0.35rem;
+  padding: 0.55rem 1rem;
+  min-height: 2.5rem;
+  min-width: 92px;
+  border-radius: 12px;
   border: 1px solid rgba(10, 31, 68, 0.25);
   background: transparent;
   color: var(--color-text);
   font-weight: 500;
   text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease,
-    box-shadow 0.2s ease;
+    box-shadow 0.2s ease, transform 0.1s ease;
 }
 
 .leaderboard-tab:hover {
-  border-color: rgba(26, 115, 232, 0.5);
+  border-color: rgba(26, 115, 232, 0.45);
+  background: rgba(26, 115, 232, 0.07);
 }
 
 .leaderboard-tab:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.35);
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.3);
 }
 
 .leaderboard-tab--active {
   border-color: var(--color-button-primary-border);
-  background: var(--color-button-primary-bg);
+  background: linear-gradient(
+      135deg,
+      rgba(26, 115, 232, 0.2),
+      rgba(26, 115, 232, 0.35)
+    ),
+    var(--color-button-primary-bg);
   color: var(--color-button-primary-text);
-  font-weight: 600;
+  box-shadow: 0 6px 14px rgba(26, 115, 232, 0.15),
+    inset 0 0 0 1px rgba(26, 115, 232, 0.35);
+  font-weight: 700;
+  transform: translateY(-1px);
 }
 
 .leaderboard-nav-select {
@@ -3604,6 +3627,22 @@ html.theme-dark .record-sport-card:hover {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+}
+
+.leaderboard-nav--overflow .leaderboard-nav-select {
+  padding: 0.5rem 0.65rem;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-elevated);
+}
+
+.leaderboard-nav--overflow .leaderboard-tablist {
+  flex: 1 1 auto;
+}
+
+.leaderboard-nav-select--primary {
+  width: 100%;
+  max-width: 420px;
 }
 
 .leaderboard-nav-select__label {
@@ -3632,6 +3671,21 @@ html.theme-dark .record-sport-card:hover {
 
 .leaderboard-nav-select__control:hover {
   border-color: rgba(26, 115, 232, 0.5);
+}
+
+@media (max-width: 640px) {
+  .leaderboard-nav--overflow {
+    flex-direction: column;
+  }
+
+  .leaderboard-nav--overflow .leaderboard-nav-select {
+    order: -1;
+    width: 100%;
+  }
+
+  .leaderboard-nav--overflow .leaderboard-tablist {
+    width: 100%;
+  }
 }
 
 .section-eyebrow {

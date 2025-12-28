@@ -32,6 +32,7 @@ import {
   getCurrentRoundedTimeSlot,
   getTodayDateInputValue,
 } from "../../../lib/datetime";
+import { resolveMatchActorError } from "../matchErrorMessages";
 import {
   summarizeBowlingInput,
   previewBowlingInput,
@@ -2109,7 +2110,10 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     } catch (err) {
       console.error(err);
       const apiError = err instanceof Error ? (err as ApiError) : null;
-      if (apiError?.code === DUPLICATE_PLAYERS_ERROR_CODE) {
+      const participantMessage = resolveMatchActorError(apiError);
+      if (participantMessage) {
+        setError(participantMessage);
+      } else if (apiError?.code === DUPLICATE_PLAYERS_ERROR_CODE) {
         const duplicates = parseDuplicatePlayerNames(
           apiError.parsedMessage ?? apiError.message,
         );
@@ -3065,4 +3069,3 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     </main>
   );
 }
-

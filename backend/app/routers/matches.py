@@ -645,8 +645,8 @@ async def create_match(
         if not player_ids or not any(pid in all_player_ids for pid in player_ids):
             raise http_problem(
                 status_code=403,
-                detail="forbidden",
-                code="match_forbidden",
+                detail="You must be added as a participant to create this match.",
+                code="match_actor_not_participant",
             )
 
     for part in body.participants:
@@ -1900,8 +1900,8 @@ async def record_sets_endpoint(
         if not user_player_ids or not set(user_player_ids) & match_player_ids:
             raise http_problem(
                 status_code=403,
-                detail="forbidden",
-                code="match_forbidden",
+                detail="You must be a participant in this match to record set scores.",
+                code="match_actor_not_participant",
             )
 
     # Validate set scores before applying them.

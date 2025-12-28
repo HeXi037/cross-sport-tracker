@@ -42,8 +42,6 @@ interface Player extends PlayerInfo {
 type CachedRequestInit = RequestInit & { next?: { revalidate?: number } };
 
 const PLAYER_REVALIDATE_SECONDS = 120;
-const PLAYER_MATCH_LIST_REVALIDATE_SECONDS = 60;
-const PLAYER_STATS_REVALIDATE_SECONDS = 300;
 
 interface Badge {
   id: string;
@@ -181,11 +179,11 @@ function renderPlayerError(
 }
 
 const PLAYER_MATCH_LIST_FETCH_OPTIONS: CachedRequestInit = {
-  next: { revalidate: PLAYER_MATCH_LIST_REVALIDATE_SECONDS },
+  cache: "no-store",
 };
 
 const PLAYER_STATS_FETCH_OPTIONS: CachedRequestInit = {
-  next: { revalidate: PLAYER_STATS_REVALIDATE_SECONDS },
+  cache: "no-store",
 };
 
 const BADGE_RARITY_CLASS: Record<string, string> = {
@@ -1155,4 +1153,3 @@ export default async function PlayerPage({
     );
   }
 }
-

@@ -27,6 +27,7 @@ import {
   getCurrentRoundedTimeSlot,
   getTodayDateInputValue,
 } from "../../../lib/datetime";
+import { resolveMatchActorError } from "../matchErrorMessages";
 import { rememberLoginRedirect } from "../../../lib/loginRedirect";
 import ClubSelect from "../../../components/ClubSelect";
 import { usePreferredTimeFormat } from "../../../lib/usePreferredTimeFormat";
@@ -809,7 +810,10 @@ export default function RecordPadelPage() {
       console.error("Failed to save padel match", err);
       setSaving(false);
       setSuccess(false);
-      setGlobalError("Failed to save match. Please try again.");
+      const participantMessage = resolveMatchActorError(err);
+      setGlobalError(
+        participantMessage ?? "Failed to save match. Please try again.",
+      );
     }
   };
 
@@ -1307,4 +1311,3 @@ export default function RecordPadelPage() {
     </main>
   );
 }
-

@@ -326,12 +326,15 @@ describe("RecordDiscGolfPage", () => {
     await user.selectOptions(sideASelect, ["p1"]);
     await user.selectOptions(sideBSelect, ["p2"]);
 
+    const advancedToggle = screen.getByRole("button", { name: /advanced setup/i });
+    await user.click(advancedToggle);
+
     const holeCountInput = screen.getByLabelText<HTMLInputElement>(/number of holes/i);
     fireEvent.change(holeCountInput, { target: { value: "3" } });
     await waitFor(() => {
       expect(screen.getAllByLabelText(/hole \d+/i)).toHaveLength(3);
     });
-    fireEvent.change(screen.getByLabelText<HTMLInputElement>(/hole 2/i), {
+    fireEvent.change(screen.getByLabelText<HTMLInputElement>(/^hole 2$/i), {
       target: { value: "4" },
     });
 
@@ -473,5 +476,82 @@ describe("RecordDiscGolfPage", () => {
       screen.getByLabelText<HTMLInputElement>(/side b strokes/i),
     ).not.toBeDisabled();
     expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it("prefills par inputs when a preset is selected and reveals advanced setup on toggle", async () => {
+    useSearchParamsMock.mockReturnValue(new URLSearchParams());
+    const fetchMock = vi.fn((url: unknown) => {
+      if (url === "/api/v0/players?limit=100&offset=0") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ players: [] }),
+        }) as Promise<Response>;
+      }
+      if (typeof url === "string" && url.startsWith("/api/v0/matches?")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [],
+        }) as Promise<Response>;
+      }
+      throw new Error(`Unexpected fetch to ${String(url)}`);
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    render(<RecordDiscGolfPage />);
+
+    const advancedToggle = screen.getByRole("button", { name: /advanced setup/i });
+    expect(advancedToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText(/hole 1/i)).not.toBeInTheDocument();
+
+    const user = userEvent.setup();
+    const presetSelect = await screen.findByLabelText<HTMLSelectElement>(/course presets/i);
+    await user.selectOptions(presetSelect, ["9-standard"]);
+
+    const holeCountInput = screen.getByLabelText<HTMLInputElement>(/number of holes/i);
+    expect(holeCountInput).toHaveDisplayValue("9");
+
+    await user.click(advancedToggle);
+    expect(advancedToggle).toHaveAttribute("aria-expanded", "true");
+
+    const holeInputs = await screen.findAllByLabelText(/hole \d+/i);
+    expect(holeInputs).toHaveLength(9);
+    expect(holeInputs[3]).toHaveDisplayValue("4");
+  });
+
+  it("copies the last par forward with quick actions", async () => {
+    useSearchParamsMock.mockReturnValue(new URLSearchParams());
+    const fetchMock = vi.fn((url: unknown) => {
+      if (url === "/api/v0/players?limit=100&offset=0") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ players: [] }),
+        }) as Promise<Response>;
+      }
+      if (typeof url === "string" && url.startsWith("/api/v0/matches?")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [],
+        }) as Promise<Response>;
+      }
+      throw new Error(`Unexpected fetch to ${String(url)}`);
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    render(<RecordDiscGolfPage />);
+
+    const user = userEvent.setup();
+    const advancedToggle = screen.getByRole("button", { name: /advanced setup/i });
+    await user.click(advancedToggle);
+    expect(advancedToggle).toHaveAttribute("aria-expanded", "true");
+    const holeInputs = await screen.findAllByLabelText<HTMLInputElement>(/hole \d+/i);
+    const firstHoleInput = holeInputs[0];
+    fireEvent.change(firstHoleInput, { target: { value: "4" } });
+
+    await user.click(
+      screen.getByRole("button", { name: /copy previous hole par to remaining/i }),
+    );
+
+    const lastHoleInput = holeInputs[holeInputs.length - 1];
+    expect(lastHoleInput).toHaveDisplayValue("4");
   });
 });

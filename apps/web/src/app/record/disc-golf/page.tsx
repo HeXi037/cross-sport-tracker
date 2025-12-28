@@ -46,6 +46,46 @@ const PLAYER_FETCH_LIMIT = 100;
 const DEFAULT_HOLE_COUNT = 18;
 const MAX_HOLE_COUNT = 36;
 
+const PAR_PRESETS = [
+  {
+    id: "18-standard",
+    label: "18-hole · Mostly par 3",
+    holeCount: 18,
+    pars: [
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "4",
+      "3",
+      "3",
+      "3",
+      "3",
+      "4",
+      "3",
+      "3",
+      "3",
+      "3",
+      "4",
+      "3",
+    ],
+  },
+  {
+    id: "18-short",
+    label: "18-hole · All par 3",
+    holeCount: 18,
+    pars: Array.from({ length: 18 }, () => "3"),
+  },
+  {
+    id: "9-standard",
+    label: "9-hole · Par 3/4 mix",
+    holeCount: 9,
+    pars: ["3", "3", "3", "4", "3", "4", "3", "3", "3"],
+  },
+];
+
 function parsePositiveInteger(value: unknown): number | null {
   if (typeof value === "number") {
     if (!Number.isFinite(value)) return null;
@@ -175,6 +215,9 @@ function DiscGolfForm() {
   const [matchDetailsError, setMatchDetailsError] = useState<string | null>(null);
   const [loadingMatchDetails, setLoadingMatchDetails] = useState(false);
   const [existingScores, setExistingScores] = useState<ScoreMap | null>(null);
+  const [selectedPreset, setSelectedPreset] = useState<string>("custom");
+  const [showAdvancedSetup, setShowAdvancedSetup] = useState(false);
+  const [lastEditedParIndex, setLastEditedParIndex] = useState<number | null>(null);
 
   const hasMatchId = Boolean(currentMatchId);
 
@@ -331,6 +374,8 @@ function DiscGolfForm() {
           holesFromConfig ??
           parsePositiveInteger(holeCountInput) ??
           DEFAULT_HOLE_COUNT;
+        setSelectedPreset("custom");
+        setLastEditedParIndex(null);
         if (parEntries && parEntries.length) {
           setPars(parEntries.map((entry) => (entry ? String(entry) : "")));
           setHoleCountInput(String(parEntries.length));
@@ -453,6 +498,8 @@ function DiscGolfForm() {
 
   const handleHoleCountChange = (value: string) => {
     setHoleCountInput(value);
+    setSelectedPreset("custom");
+    setLastEditedParIndex(null);
     setSetupError(null);
   };
 
@@ -462,6 +509,8 @@ function DiscGolfForm() {
       next[index] = value;
       return next;
     });
+    setSelectedPreset("custom");
+    setLastEditedParIndex(index);
     setParErrors((previous) => {
       if (!previous.has(index)) {
         return previous;
@@ -471,6 +520,35 @@ function DiscGolfForm() {
       return next;
     });
     setSetupError(null);
+  };
+
+  const applyPreset = (presetId: string) => {
+    const preset = PAR_PRESETS.find((entry) => entry.id === presetId);
+    if (!preset) {
+      setSelectedPreset("custom");
+      return;
+    }
+    setSelectedPreset(preset.id);
+    setPars(preset.pars);
+    setHoleCountInput(String(preset.holeCount));
+    setLastEditedParIndex(preset.holeCount - 1);
+  };
+
+  const copyLastParForward = () => {
+    setPars((previous) => {
+      const sourceIndex = lastEditedParIndex ?? 0;
+      const sourceValue = previous[sourceIndex];
+      if (!sourceValue || !sourceValue.trim()) {
+        return previous;
+      }
+      return previous.map((value, idx) => (idx > sourceIndex ? sourceValue : value));
+    });
+    setParErrors((prev) => (prev.size ? new Set() : prev));
+  };
+
+  const setAllPars = (value: string) => {
+    setPars((previous) => previous.map(() => value));
+    setParErrors((prev) => (prev.size ? new Set() : prev));
   };
 
   const startMatch = async () => {
@@ -664,6 +742,22 @@ function DiscGolfForm() {
           </p>
         )}
         <div className="form-grid form-grid--two">
+          <label className="form-field" htmlFor="disc-golf-course-preset">
+            <span className="form-label">Course presets</span>
+            <select
+              id="disc-golf-course-preset"
+              value={selectedPreset}
+              onChange={(event) => applyPreset(event.target.value)}
+              disabled={hasMatchId}
+            >
+              <option value="custom">Custom</option>
+              {PAR_PRESETS.map((preset) => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="form-field" htmlFor="disc-golf-hole-count">
             <span className="form-label">Number of holes</span>
             <input
@@ -678,35 +772,72 @@ function DiscGolfForm() {
             />
           </label>
         </div>
-        <fieldset className="form-fieldset">
-          <legend className="form-legend">Par by hole</legend>
-          <div
-            className="form-grid form-grid--two"
-            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))" }}
+        <div className="form-stack">
+          <button
+            type="button"
+            aria-expanded={showAdvancedSetup}
+            aria-controls="disc-golf-advanced-setup"
+            onClick={() => setShowAdvancedSetup((previous) => !previous)}
           >
-            {pars.map((value, index) => (
-              <label
-                key={`disc-golf-par-${index}`}
-                className="form-field"
-                htmlFor={`disc-golf-par-${index}`}
-              >
-                <span className="form-label">Hole {index + 1}</span>
-                <input
-                  id={`disc-golf-par-${index}`}
-                  type="number"
-                  min={1}
-                  value={value}
-                  onChange={(event) =>
-                    handleParChange(index, event.target.value)
-                  }
-                  disabled={hasMatchId}
-                  aria-invalid={parErrors.has(index)}
-                  inputMode="numeric"
-                />
-              </label>
-            ))}
-          </div>
-        </fieldset>
+            {showAdvancedSetup ? "Hide advanced setup" : "Show advanced setup"}
+          </button>
+          {showAdvancedSetup ? (
+            <div id="disc-golf-advanced-setup">
+              <fieldset className="form-fieldset">
+                <legend className="form-legend">Par by hole</legend>
+                <div className="form-grid form-grid--two" style={{ gap: "0.5rem" }}>
+                  <div className="form-grid form-grid--two" style={{ gridColumn: "1/-1" }}>
+                    <button
+                      type="button"
+                      onClick={copyLastParForward}
+                      disabled={hasMatchId}
+                    >
+                      Copy previous hole par to remaining
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAllPars("3")}
+                      disabled={hasMatchId}
+                    >
+                      Set all to 3
+                    </button>
+                  </div>
+                  <div
+                    className="form-grid form-grid--two"
+                    style={{
+                      gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+                      gridColumn: "1/-1",
+                    }}
+                  >
+                    {pars.map((value, index) => (
+                      <label
+                        key={`disc-golf-par-${index}`}
+                        className="form-field"
+                        htmlFor={`disc-golf-par-${index}`}
+                      >
+                        <span className="form-label">Hole {index + 1}</span>
+                        <input
+                          id={`disc-golf-par-${index}`}
+                          type="number"
+                          min={1}
+                          value={value}
+                          onChange={(event) =>
+                            handleParChange(index, event.target.value)
+                          }
+                          disabled={hasMatchId}
+                          aria-invalid={parErrors.has(index)}
+                          inputMode="numeric"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </fieldset>
+            </div>
+          ) : (
+            <div id="disc-golf-advanced-setup" aria-hidden hidden />
+          )}
+        </div>
         {setupError && <p>{setupError}</p>}
         <div className="form-grid form-grid--two">
           <button type="button" onClick={startMatch} disabled={creatingMatch}>

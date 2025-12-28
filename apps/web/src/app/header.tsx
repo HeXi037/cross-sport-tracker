@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { type MouseEvent, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { SESSION_CHANGED_EVENT, SESSION_ENDED_EVENT, currentUsername, isAdmin, logout } from '../lib/api';
 import { ensureTrailingSlash } from '../lib/routes';
@@ -62,6 +62,31 @@ export default function Header() {
     router.push('/');
   };
 
+  const formatHref = (path: string) =>
+    path.includes('?') ? path : ensureTrailingSlash(path);
+
+  const handleNavClick = (href: string, onNavigate?: () => void) => (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    onNavigate?.();
+    setOpen(false);
+    router.push(href);
+  };
+
+  const homeHref = formatHref('/');
+  const playersHref = formatHref('/players');
+  const matchesHref = formatHref('/matches');
+  const recordHref = formatHref('/record');
+  const tournamentsHref = formatHref('/tournaments');
+  const leaderboardHref = formatHref('/leaderboard?sport=all');
+  const demoHref = formatHref('/demo');
+  const profileHref = formatHref('/profile');
+  const loginHref = formatHref('/login');
+  const adminMatchesHref = formatHref('/admin/matches');
+  const adminMatchHistoryHref = formatHref('/admin/match-history');
+  const adminUsersHref = formatHref('/admin/users');
+  const adminClubsHref = formatHref('/admin/clubs');
+  const adminBadgesHref = formatHref('/admin/badges');
+
   return (
     <header className="nav">
       <button
@@ -105,70 +130,70 @@ export default function Header() {
           </li>
           <li>
             <Link
-              href="/"
+              href={homeHref}
               className={linkClassName('/')}
               aria-current={linkAriaCurrent('/')}
-              onClick={() => setOpen(false)}
+              onClick={handleNavClick(homeHref)}
             >
               {headerT('links.home')}
             </Link>
           </li>
           <li>
             <Link
-              href={ensureTrailingSlash('/players')}
+              href={playersHref}
               className={linkClassName('/players')}
               aria-current={linkAriaCurrent('/players')}
-              onClick={() => setOpen(false)}
+              onClick={handleNavClick(playersHref)}
             >
               {headerT('links.players')}
             </Link>
           </li>
           <li>
             <Link
-              href={ensureTrailingSlash('/matches')}
+              href={matchesHref}
               className={linkClassName('/matches')}
               aria-current={linkAriaCurrent('/matches')}
-              onClick={() => setOpen(false)}
+              onClick={handleNavClick(matchesHref)}
             >
               {headerT('links.matches')}
             </Link>
           </li>
           <li>
             <Link
-              href={ensureTrailingSlash('/record')}
+              href={recordHref}
               className={linkClassName('/record')}
               aria-current={linkAriaCurrent('/record')}
-              onClick={() => setOpen(false)}
+              onClick={handleNavClick(recordHref)}
             >
               {headerT('links.record')}
             </Link>
           </li>
           <li>
             <Link
-              href={ensureTrailingSlash('/tournaments')}
+              href={tournamentsHref}
               className={linkClassName('/tournaments')}
               aria-current={linkAriaCurrent('/tournaments')}
-              onClick={() => setOpen(false)}
+              onClick={handleNavClick(tournamentsHref)}
             >
               {headerT('links.tournaments')}
             </Link>
           </li>
           <li>
             <Link
-              href={ensureTrailingSlash('/leaderboard?sport=all')}
+              href={leaderboardHref}
               className={linkClassName('/leaderboard')}
               aria-current={linkAriaCurrent('/leaderboard')}
-              onClick={() => setOpen(false)}
+              onClick={handleNavClick(leaderboardHref)}
             >
               {headerT('links.leaderboards')}
             </Link>
           </li>
           <li>
             <Link
-              href={ensureTrailingSlash('/demo')}
+              href={demoHref}
               className={`${linkClassName('/demo')} nav-link--quiet`}
               aria-current={linkAriaCurrent('/demo')}
-              onClick={() => setOpen(false)}
+              onClick={handleNavClick(demoHref)}
             >
               {headerT('links.demo')}
             </Link>
@@ -177,50 +202,50 @@ export default function Header() {
             <>
               <li>
                 <Link
-                  href={ensureTrailingSlash('/admin/matches')}
+                  href={adminMatchesHref}
                   className={linkClassName('/admin/matches')}
                   aria-current={linkAriaCurrent('/admin/matches')}
-                  onClick={() => setOpen(false)}
+                  onClick={handleNavClick(adminMatchesHref)}
                 >
                   {headerT('links.adminMatches')}
                 </Link>
               </li>
               <li>
                 <Link
-                  href={ensureTrailingSlash('/admin/match-history')}
+                  href={adminMatchHistoryHref}
                   className={linkClassName('/admin/match-history')}
                   aria-current={linkAriaCurrent('/admin/match-history')}
-                  onClick={() => setOpen(false)}
+                  onClick={handleNavClick(adminMatchHistoryHref)}
                 >
                   {headerT('links.adminMatchHistory')}
                 </Link>
               </li>
               <li>
                 <Link
-                  href={ensureTrailingSlash('/admin/users')}
+                  href={adminUsersHref}
                   className={linkClassName('/admin/users')}
                   aria-current={linkAriaCurrent('/admin/users')}
-                  onClick={() => setOpen(false)}
+                  onClick={handleNavClick(adminUsersHref)}
                 >
                   {headerT('links.adminUsers')}
                 </Link>
               </li>
               <li>
                 <Link
-                  href={ensureTrailingSlash('/admin/clubs')}
+                  href={adminClubsHref}
                   className={linkClassName('/admin/clubs')}
                   aria-current={linkAriaCurrent('/admin/clubs')}
-                  onClick={() => setOpen(false)}
+                  onClick={handleNavClick(adminClubsHref)}
                 >
                   {headerT('links.adminClubs')}
                 </Link>
               </li>
               <li>
                 <Link
-                  href={ensureTrailingSlash('/admin/badges')}
+                  href={adminBadgesHref}
                   className={linkClassName('/admin/badges')}
                   aria-current={linkAriaCurrent('/admin/badges')}
-                  onClick={() => setOpen(false)}
+                  onClick={handleNavClick(adminBadgesHref)}
                 >
                   {headerT('links.adminBadges')}
                 </Link>
@@ -231,10 +256,10 @@ export default function Header() {
             <>
               <li>
                 <Link
-                  href={ensureTrailingSlash('/profile')}
+                  href={profileHref}
                   className={linkClassName('/profile')}
                   aria-current={linkAriaCurrent('/profile')}
-                  onClick={() => setOpen(false)}
+                  onClick={handleNavClick(profileHref)}
                 >
                   {headerT('links.profile')}
                 </Link>
@@ -252,13 +277,10 @@ export default function Header() {
           ) : (
             <li>
               <Link
-                href={ensureTrailingSlash('/login')}
+                href={loginHref}
                 className={linkClassName('/login')}
                 aria-current={linkAriaCurrent('/login')}
-                onClick={() => {
-                  rememberLoginRedirect();
-                  setOpen(false);
-                }}
+                onClick={handleNavClick(loginHref, rememberLoginRedirect)}
               >
                 {headerT('links.login')}
               </Link>

@@ -846,9 +846,8 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     [withRegion],
   );
 
-  const handleSportChange = useCallback(
-    (event: ChangeEvent<HTMLSelectElement>) => {
-      const nextSport = event.target.value as LeaderboardSport;
+  const handleSportSelect = useCallback(
+    (nextSport: LeaderboardSport) => {
       if (!nextSport || nextSport === sport) {
         return;
       }
@@ -858,6 +857,14 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       });
     },
     [getSportHref, router, sport],
+  );
+
+  const handleSportChange = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      const nextSport = event.target.value as LeaderboardSport;
+      handleSportSelect(nextSport);
+    },
+    [handleSportSelect],
   );
 
   const regionDescription = useMemo(() => {
@@ -1924,37 +1931,10 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           <nav
             aria-label="Leaderboard sports"
             aria-controls={RESULTS_TABLE_ID}
-            className="leaderboard-nav"
+            className={`leaderboard-nav${isOverflowing ? " leaderboard-nav--overflow" : ""}`}
           >
-            <ul
-              ref={tablistRef}
-              role="tablist"
-              className={`leaderboard-tablist${
-                isOverflowing ? " leaderboard-tablist--overflow" : ""
-              }`}
-            >
-              {navItems.map((item) => {
-                const isActive = item.id === sport;
-                return (
-                  <li key={item.id} className="leaderboard-tablist__item">
-                    <Link
-                      href={getSportHref(item.id)}
-                      role="tab"
-                      aria-selected={isActive}
-                      aria-current={isActive ? "page" : undefined}
-                      aria-controls={RESULTS_TABLE_ID}
-                      className={`leaderboard-tab${
-                        isActive ? " leaderboard-tab--active" : ""
-                      }`}
-                    >
-                      {item.label}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
             {isOverflowing ? (
-              <div className="leaderboard-nav-select">
+              <div className="leaderboard-nav-select leaderboard-nav-select--primary">
                 <label
                   className="leaderboard-nav-select__label"
                   htmlFor="leaderboard-sport-more"
@@ -1975,6 +1955,34 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                 </select>
               </div>
             ) : null}
+            <ul
+              ref={tablistRef}
+              role="tablist"
+              className={`leaderboard-tablist${
+                isOverflowing ? " leaderboard-tablist--overflow" : ""
+              }`}
+            >
+              {navItems.map((item) => {
+                const isActive = item.id === sport;
+                return (
+                  <li key={item.id} className="leaderboard-tablist__item">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      aria-current={isActive ? "page" : undefined}
+                      aria-controls={RESULTS_TABLE_ID}
+                      className={`leaderboard-tab${
+                        isActive ? " leaderboard-tab--active" : ""
+                      }`}
+                      onClick={() => handleSportSelect(item.id)}
+                    >
+                      {item.label}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </nav>
         </section>
       </header>

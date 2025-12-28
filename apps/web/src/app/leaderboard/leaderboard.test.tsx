@@ -174,9 +174,48 @@ describe("Leaderboard", () => {
 
     await waitFor(() =>
       expect(
-        screen.queryByRole("combobox", { name: /select a sport/i }),
+        screen.queryByRole("combobox", { name: /more sports/i }),
       ).not.toBeInTheDocument(),
     );
+  });
+
+  it("switches sports with a single tap and updates the heading", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+
+    const view = await renderLeaderboard({ sport: "padel" });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    replaceMock.mockClear();
+
+    await user.click(screen.getByRole("tab", { name: "Disc Golf" }));
+
+    await waitFor(() =>
+      expect(replaceMock).toHaveBeenCalledWith(
+        "/leaderboard/?sport=disc_golf",
+        { scroll: false },
+      ),
+    );
+
+    updateMockLocation("/leaderboard/?sport=disc_golf");
+    view.rerender(
+      <NextIntlClientProvider locale="en-GB" messages={enMessages}>
+        <Leaderboard sport="disc_golf" />
+      </NextIntlClientProvider>,
+    );
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "Disc Golf Leaderboard",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: "Disc Golf" }),
+    ).toHaveAttribute("aria-selected", "true");
   });
 
   it("renders the leaderboard table inside a scrollable wrapper while loading", async () => {

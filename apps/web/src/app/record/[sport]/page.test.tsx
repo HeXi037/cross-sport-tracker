@@ -57,7 +57,7 @@ function getPlayerSelects() {
 }
 
 function bowlingRollLabel(playerName: string, frame: number, roll: number) {
-  return `${playerName} frame ${frame} roll ${roll} score`;
+  return `Frame ${frame}, Roll ${roll} score for ${playerName}`;
 }
 
 describe("resolveRecordSportRoute", () => {

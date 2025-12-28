@@ -2442,16 +2442,20 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                         const isFrameInvalid =
                           shouldShowEntryErrors &&
                           entryFieldError?.frameIndex === frameIdx;
+                        const frameLegendId = `bowling-${idx}-${frameIdx}-legend`;
                         return (
-                          <div
+                          <fieldset
                             key={frameIdx}
                             className={`bowling-frame-card${
                               isFrameInvalid ? " bowling-frame-card--invalid" : ""
                             }`}
                           >
-                            <span className="bowling-frame-label">
-                              Frame {frameIdx + 1}
-                            </span>
+                            <legend
+                              id={frameLegendId}
+                              className="bowling-frame-label"
+                            >
+                              Frame {frameIdx + 1} – {playerLabel}
+                            </legend>
                             <div
                               className={`bowling-rolls bowling-rolls--${frame.length}`}
                             >
@@ -2495,9 +2499,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                   (entryFieldError?.rollIndex === null ||
                                     entryFieldError?.rollIndex === rollIdx);
                                 const rollLabelId = `${inputId}-label`;
-                                const rollLabel = `${playerLabel} frame ${
-                                  frameIdx + 1
-                                } roll ${rollIdx + 1} score`;
+                                const rollLabel = `Frame ${frameIdx + 1}, Roll ${
+                                  rollIdx + 1
+                                } score for ${playerLabel}`;
                                 return (
                                   <div key={rollIdx} className="bowling-roll-field">
                                     <label
@@ -2505,8 +2509,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                       className="bowling-roll-label"
                                       htmlFor={inputId}
                                     >
-                                      Roll {rollIdx + 1}
-                                      <span className="sr-only">{` for ${rollLabel}`}</span>
+                                      {rollLabel}
                                     </label>
                                     <input
                                       id={inputId}
@@ -2545,9 +2548,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                     <div
                                       className="bowling-roll-actions"
                                       role="group"
-                                      aria-label={`${playerLabel} frame ${
-                                        frameIdx + 1
-                                      } roll ${rollIdx + 1} shortcuts`}
+                                      aria-label={`Frame ${frameIdx + 1}, Roll ${
+                                        rollIdx + 1
+                                      } shortcuts for ${playerLabel}`}
                                     >
                                       <button
                                         type="button"
@@ -2616,7 +2619,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                             >
                               Total: {displayTotal != null ? displayTotal : "—"}
                             </span>
-                          </div>
+                          </fieldset>
                         );
                       })}
                     </div>

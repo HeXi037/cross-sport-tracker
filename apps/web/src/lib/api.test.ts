@@ -33,6 +33,12 @@ describe('isAdmin', () => {
     expect(isAdmin()).toBe(true);
   });
 
+  it('returns true when the cookie value is percent-encoded', () => {
+    const hint = buildSessionHint({ is_admin: true, username: 'encoded' });
+    document.cookie = `session_hint=${encodeURIComponent(hint)}`;
+    expect(isAdmin()).toBe(true);
+  });
+
   it('returns false when token has is_admin false', () => {
     const hint = buildSessionHint({ is_admin: false });
     document.cookie = `session_hint=${hint}`;

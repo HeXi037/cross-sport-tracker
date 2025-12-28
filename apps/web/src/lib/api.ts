@@ -503,8 +503,14 @@ type SessionHint = {
 
 function parseSessionHint(raw: string | null): SessionHint | null {
   if (!raw) return null;
+  let normalized = raw;
   try {
-    const decoded = base64UrlDecode(raw);
+    normalized = decodeURIComponent(raw);
+  } catch {
+    // Ignore decoding errors and fall back to the raw value.
+  }
+  try {
+    const decoded = base64UrlDecode(normalized);
     const parsed = JSON.parse(decoded) as SessionHint;
     if (parsed && typeof parsed === "object") {
       return parsed;

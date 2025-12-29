@@ -894,6 +894,7 @@ export type StageSchedulePayload = {
   playerIds: string[];
   rulesetId?: string | null;
   courtCount?: number | null;
+  bestOf?: number | null;
 };
 
 export type StageScheduleResponse = {
@@ -1009,7 +1010,7 @@ export async function listTournamentStages(
   return res.json();
 }
 
-export async function scheduleAmericanoStage(
+export async function scheduleStage(
   tournamentId: string,
   stageId: string,
   payload: StageSchedulePayload
@@ -1024,6 +1025,8 @@ export async function scheduleAmericanoStage(
   );
   return res.json();
 }
+
+export const scheduleAmericanoStage = scheduleStage;
 
 export async function fetchStageStandings(
   tournamentId: string,

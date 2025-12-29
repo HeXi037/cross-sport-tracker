@@ -7,7 +7,7 @@ import {
   createStage,
   createTournament,
   getTournament,
-  scheduleAmericanoStage,
+  scheduleStage,
   fetchStageStandings,
   listStageMatches,
   listTournamentStages,
@@ -15,6 +15,7 @@ import {
   updateTournament,
   type StageScheduleMatch,
   type StageStandings,
+  type TournamentSummary,
 } from "../../lib/api";
 import { useSessionSnapshot } from "../../lib/useSessionSnapshot";
 
@@ -28,7 +29,7 @@ vi.mock("../../lib/api", async () => {
     createStage: vi.fn(),
     createTournament: vi.fn(),
     getTournament: vi.fn(),
-    scheduleAmericanoStage: vi.fn(),
+    scheduleStage: vi.fn(),
     fetchStageStandings: vi.fn(),
     listStageMatches: vi.fn(),
     listTournamentStages: vi.fn(),
@@ -45,7 +46,7 @@ const mockedApiFetch = vi.mocked(apiFetch);
 const mockedCreateTournament = vi.mocked(createTournament);
 const mockedCreateStage = vi.mocked(createStage);
 const mockedGetTournament = vi.mocked(getTournament);
-const mockedScheduleAmericanoStage = vi.mocked(scheduleAmericanoStage);
+const mockedScheduleStage = vi.mocked(scheduleStage);
 const mockedFetchStageStandings = vi.mocked(fetchStageStandings);
 const mockedListStageMatches = vi.mocked(listStageMatches);
 const mockedListTournamentStages = vi.mocked(listTournamentStages);
@@ -80,7 +81,7 @@ describe("Tournaments flows", () => {
     mockedCreateTournament.mockReset();
     mockedCreateStage.mockReset();
     mockedGetTournament.mockReset();
-    mockedScheduleAmericanoStage.mockReset();
+    mockedScheduleStage.mockReset();
     mockedFetchStageStandings.mockReset();
     mockedListStageMatches.mockReset();
     mockedListTournamentStages.mockReset();
@@ -165,7 +166,7 @@ describe("Tournaments flows", () => {
         ],
       },
     ];
-    mockedScheduleAmericanoStage.mockResolvedValue({
+    mockedScheduleStage.mockResolvedValue({
       stageId: "s1",
       matches: scheduledMatches,
     });
@@ -195,17 +196,146 @@ describe("Tournaments flows", () => {
       type: "americano",
       config: { format: "americano" },
     });
-    expect(mockedScheduleAmericanoStage).toHaveBeenCalledWith("t-new", "s1", {
+    expect(mockedScheduleStage).toHaveBeenCalledWith("t-new", "s1", {
       playerIds: ["p1", "p2", "p3", "p4"],
       rulesetId: "padel-default",
       courtCount: 1,
     });
 
     expect(
-      await screen.findByText(/Created Winter Americano with 1 scheduled match./i)
+      await screen.findByText(/Created Winter Americano \(Americano\) with 1 scheduled match./i)
     ).toBeInTheDocument();
     expect(screen.getByText("Existing Cup")).toBeInTheDocument();
     expect(screen.getByText("Winter Americano")).toBeInTheDocument();
+  });
+
+  it("creates round-robin tournaments for other sports", async () => {
+    const playerList = [
+      { id: "p1", name: "Jamie" },
+      { id: "p2", name: "Kai" },
+      { id: "p3", name: "Lee" },
+    ];
+    mockedApiFetch.mockImplementation(async (path: RequestInfo | URL) => {
+      const url = typeof path === "string" ? path : path.toString();
+      if (url.includes("/sports")) {
+        return jsonResponse([
+          { id: "padel", name: "Padel" },
+          { id: "tennis", name: "Tennis" },
+        ]);
+      }
+      if (url.includes("/players")) {
+        return jsonResponse({ players: playerList });
+      }
+      if (url.includes("/rulesets?sport=tennis")) {
+        return jsonResponse([{ id: "tennis-default", name: "Tennis Default" }]);
+      }
+      return jsonResponse([]);
+    });
+
+    const initial: TournamentSummary[] = [];
+
+    mockedCreateTournament.mockResolvedValue({
+      id: "t-tennis",
+      sport: "tennis",
+      name: "Spring Ladder",
+      createdByUserId: "admin",
+    });
+    mockedCreateStage.mockResolvedValue({
+      id: "stage-tennis",
+      tournamentId: "t-tennis",
+      type: "round_robin",
+      config: { format: "round_robin", bestOf: 5 },
+    });
+
+    const scheduledMatches: StageScheduleMatch[] = [
+      {
+        id: "tm1",
+        sport: "tennis",
+        stageId: "stage-tennis",
+        bestOf: 5,
+        playedAt: null,
+        location: null,
+        isFriendly: false,
+        rulesetId: "tennis-default",
+        participants: [
+          { id: "pa", side: "A", playerIds: ["p1"] },
+          { id: "pb", side: "B", playerIds: ["p2"] },
+        ],
+      },
+      {
+        id: "tm2",
+        sport: "tennis",
+        stageId: "stage-tennis",
+        bestOf: 5,
+        playedAt: null,
+        location: null,
+        isFriendly: false,
+        rulesetId: "tennis-default",
+        participants: [
+          { id: "pc", side: "A", playerIds: ["p1"] },
+          { id: "pd", side: "B", playerIds: ["p3"] },
+        ],
+      },
+      {
+        id: "tm3",
+        sport: "tennis",
+        stageId: "stage-tennis",
+        bestOf: 5,
+        playedAt: null,
+        location: null,
+        isFriendly: false,
+        rulesetId: "tennis-default",
+        participants: [
+          { id: "pe", side: "A", playerIds: ["p2"] },
+          { id: "pf", side: "B", playerIds: ["p3"] },
+        ],
+      },
+    ];
+    mockedScheduleStage.mockResolvedValue({
+      stageId: "stage-tennis",
+      matches: scheduledMatches,
+    });
+
+    render(<TournamentsClient initialTournaments={initial} loadError={false} />);
+
+    const nameInput = await screen.findByLabelText("Tournament name");
+    fireEvent.change(nameInput, { target: { value: "Spring Ladder" } });
+
+    const sportSelect = await screen.findByLabelText("Sport");
+    fireEvent.change(sportSelect, { target: { value: "tennis" } });
+
+    const formatSelect = await screen.findByLabelText("Stage format");
+    fireEvent.change(formatSelect, { target: { value: "round_robin" } });
+
+    const bestOfSelect = await screen.findByLabelText("Best of sets (optional)");
+    fireEvent.change(bestOfSelect, { target: { value: "5" } });
+
+    const listbox = await screen.findByRole("listbox", { name: /available players/i });
+    await selectPlayers(listbox, ["Jamie", "Kai", "Lee"]);
+
+    const submitButton = screen.getByRole("button", { name: /create and schedule/i });
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(mockedCreateTournament).toHaveBeenCalledWith({
+        sport: "tennis",
+        name: "Spring Ladder",
+      });
+    });
+    expect(mockedCreateStage).toHaveBeenCalledWith("t-tennis", {
+      type: "round_robin",
+      config: { format: "round_robin", bestOf: 5 },
+    });
+    expect(mockedScheduleStage).toHaveBeenCalledWith("t-tennis", "stage-tennis", {
+      playerIds: ["p1", "p2", "p3"],
+      rulesetId: "tennis-default",
+      bestOf: 5,
+    });
+
+    expect(
+      await screen.findByText(/Created Spring Ladder \(Round robin\) with 3 scheduled matches\./i)
+    ).toBeInTheDocument();
+    expect(screen.getByText("Spring Ladder")).toBeInTheDocument();
   });
 
   it("restricts deletion to creators when not an admin", async () => {
@@ -328,7 +458,7 @@ describe("Tournaments flows", () => {
 
     expect(
       await screen.findByText(
-        "You can only edit padel Americano tournaments that you created."
+        "You can only edit tournaments that you created."
       )
     ).toBeInTheDocument();
   });
@@ -341,7 +471,7 @@ describe("Tournaments flows", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Logged-in organisers can create padel Americano tournaments and manage the ones they created."
+        "Logged-in organisers can create supported formats and manage the tournaments they created."
       )
     ).toBeInTheDocument();
     expect(
@@ -431,4 +561,3 @@ describe("Tournaments flows", () => {
     });
   });
 });
-

@@ -69,6 +69,34 @@ class _AmericanoPlayerState:
     order: int
 
 
+async def _get_existing_match(
+    stage_id: str, session: AsyncSession
+) -> str | None:
+    return (
+        await session.execute(
+            select(Match.id).where(
+                Match.stage_id == stage_id,
+                Match.deleted_at.is_(None),
+            )
+        )
+    ).scalars().first()
+
+
+async def _validated_players(
+    player_ids: Sequence[str], session: AsyncSession
+) -> list[str]:
+    unique_players = _unique_player_ids(player_ids)
+    registered = (
+        await session.execute(
+            select(Player.id).where(Player.id.in_(unique_players))
+        )
+    ).scalars().all()
+    missing = sorted(set(unique_players) - set(registered))
+    if missing:
+        raise ValueError(f"unknown players: {', '.join(missing)}")
+    return unique_players
+
+
 async def schedule_americano(
     stage_id: str,
     sport_id: str,
@@ -77,6 +105,7 @@ async def schedule_americano(
     *,
     ruleset_id: str | None = None,
     court_count: int = 1,
+    best_of: int | None = None,
 ) -> list[tuple[Match, list[MatchParticipant]]]:
     """Create Americano pairings for a stage.
 
@@ -105,25 +134,11 @@ async def schedule_americano(
 
     total_rounds = len(unique_players) // gcd(len(unique_players), players_per_round)
 
-    existing_match = (
-        await session.execute(
-            select(Match.id).where(
-                Match.stage_id == stage_id,
-                Match.deleted_at.is_(None),
-            )
-        )
-    ).scalars().first()
+    existing_match = await _get_existing_match(stage_id, session)
     if existing_match:
         raise ValueError("stage already has scheduled matches")
 
-    registered = (
-        await session.execute(
-            select(Player.id).where(Player.id.in_(unique_players))
-        )
-    ).scalars().all()
-    missing = sorted(set(unique_players) - set(registered))
-    if missing:
-        raise ValueError(f"unknown players: {', '.join(missing)}")
+    unique_players = await _validated_players(unique_players, session)
 
     resolved_ruleset = await _resolve_ruleset(session, sport_id, ruleset_id)
 
@@ -151,7 +166,7 @@ async def schedule_americano(
                 sport_id=sport_id,
                 stage_id=stage_id,
                 ruleset_id=resolved_ruleset,
-                best_of=None,
+                best_of=best_of,
                 played_at=None,
                 location=None,
                 details=None,
@@ -178,6 +193,195 @@ async def schedule_americano(
         for state in active_states:
             state.order = next_order
             next_order += 1
+
+    await session.flush()
+    await recompute_stage_standings(stage_id, session)
+    return created
+
+
+@dataclass
+class _BracketSlot:
+    player_id: str | None = None
+    winner_from: str | None = None
+
+
+def _next_power_of_two(value: int) -> int:
+    if value < 1:
+        return 1
+    power = 1
+    while power < value:
+        power <<= 1
+    return power
+
+
+async def schedule_round_robin(
+    stage_id: str,
+    sport_id: str,
+    player_ids: Sequence[str],
+    session: AsyncSession,
+    *,
+    ruleset_id: str | None = None,
+    best_of: int | None = None,
+) -> list[tuple[Match, list[MatchParticipant]]]:
+    unique_players = _unique_player_ids(player_ids)
+    if len(unique_players) < 2:
+        raise ValueError("Round-robin scheduling requires at least two players")
+
+    existing_match = await _get_existing_match(stage_id, session)
+    if existing_match:
+        raise ValueError("stage already has scheduled matches")
+
+    await _validated_players(unique_players, session)
+    resolved_ruleset = await _resolve_ruleset(session, sport_id, ruleset_id)
+
+    roster = list(unique_players)
+    if len(roster) % 2 == 1:
+        roster.append(None)
+
+    matches: list[tuple[Match, list[MatchParticipant]]] = []
+    total_rounds = len(roster) - 1
+    for round_index in range(total_rounds):
+        for idx in range(len(roster) // 2):
+            a = roster[idx]
+            b = roster[-(idx + 1)]
+            if not a or not b:
+                continue
+            match_id = uuid.uuid4().hex
+            match = Match(
+                id=match_id,
+                sport_id=sport_id,
+                stage_id=stage_id,
+                ruleset_id=resolved_ruleset,
+                best_of=best_of,
+                played_at=None,
+                location=None,
+                details=None,
+                is_friendly=False,
+            )
+            session.add(match)
+            participants = [
+                MatchParticipant(
+                    id=uuid.uuid4().hex,
+                    match_id=match_id,
+                    side="A",
+                    player_ids=[a],
+                ),
+                MatchParticipant(
+                    id=uuid.uuid4().hex,
+                    match_id=match_id,
+                    side="B",
+                    player_ids=[b],
+                ),
+            ]
+            session.add_all(participants)
+            matches.append((match, participants))
+
+        # Rotate roster for next round (except the first element).
+        anchor = roster[0]
+        middle = roster[1:]
+        middle = [middle[-1], *middle[:-1]]
+        roster = [anchor, *middle]
+
+    await session.flush()
+    await recompute_stage_standings(stage_id, session)
+    return matches
+
+
+async def schedule_single_elim(
+    stage_id: str,
+    sport_id: str,
+    player_ids: Sequence[str],
+    session: AsyncSession,
+    *,
+    ruleset_id: str | None = None,
+    best_of: int | None = None,
+) -> list[tuple[Match, list[MatchParticipant]]]:
+    unique_players = _unique_player_ids(player_ids)
+    if len(unique_players) < 2:
+        raise ValueError("Knockout scheduling requires at least two players")
+
+    existing_match = await _get_existing_match(stage_id, session)
+    if existing_match:
+        raise ValueError("stage already has scheduled matches")
+
+    await _validated_players(unique_players, session)
+    resolved_ruleset = await _resolve_ruleset(session, sport_id, ruleset_id)
+
+    bracket_size = _next_power_of_two(len(unique_players))
+    seeds: list[_BracketSlot] = [
+        _BracketSlot(player_id=pid) for pid in unique_players
+    ]
+    if bracket_size > len(seeds):
+        seeds.extend([_BracketSlot() for _ in range(bracket_size - len(seeds))])
+
+    rounds: list[list[_BracketSlot]] = [seeds]
+    created: list[tuple[Match, list[MatchParticipant]]] = []
+
+    while len(rounds[-1]) > 1:
+        current = rounds[-1]
+        next_round: list[_BracketSlot] = []
+
+        for index in range(0, len(current), 2):
+            left = current[index]
+            right = current[index + 1] if index + 1 < len(current) else _BracketSlot()
+
+            if (
+                not left.player_id
+                and not right.player_id
+                and not left.winner_from
+                and not right.winner_from
+            ):
+                next_round.append(_BracketSlot())
+                continue
+
+            match_id = uuid.uuid4().hex
+            match = Match(
+                id=match_id,
+                sport_id=sport_id,
+                stage_id=stage_id,
+                ruleset_id=resolved_ruleset,
+                best_of=best_of,
+                played_at=None,
+                location=None,
+                details=None,
+                is_friendly=False,
+            )
+            session.add(match)
+
+            participants: list[MatchParticipant] = []
+            if left.player_id:
+                participants.append(
+                    MatchParticipant(
+                        id=uuid.uuid4().hex,
+                        match_id=match_id,
+                        side="A",
+                        player_ids=[left.player_id],
+                    )
+                )
+            if right.player_id:
+                participants.append(
+                    MatchParticipant(
+                        id=uuid.uuid4().hex,
+                        match_id=match_id,
+                        side="B",
+                        player_ids=[right.player_id],
+                    )
+                )
+
+            if participants:
+                session.add_all(participants)
+            created.append((match, participants))
+
+            if left.player_id and not right.player_id:
+                next_round.append(_BracketSlot(player_id=left.player_id))
+            elif right.player_id and not left.player_id:
+                next_round.append(_BracketSlot(player_id=right.player_id))
+            elif not left.player_id and not right.player_id and not left.winner_from and not right.winner_from:
+                next_round.append(_BracketSlot())
+            else:
+                next_round.append(_BracketSlot(winner_from=match_id))
+
+        rounds.append(next_round)
 
     await session.flush()
     await recompute_stage_standings(stage_id, session)

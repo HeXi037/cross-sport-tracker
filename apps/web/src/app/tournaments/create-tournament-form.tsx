@@ -11,9 +11,10 @@ import {
   apiFetch,
   createStage,
   createTournament,
-  scheduleAmericanoStage,
+  scheduleStage,
   type ApiError,
   type StageScheduleMatch,
+  type StageSchedulePayload,
   type TournamentSummary,
 } from "../../lib/api";
 import type { PlayerInfo } from "../../components/PlayerName";
@@ -36,12 +37,45 @@ interface RulesetOption {
   name: string;
 }
 
+interface StageFormatOption {
+  id: string;
+  name: string;
+  minPlayers: number;
+  description: string;
+  supportsCourtCount?: boolean;
+  supportsBestOf?: boolean;
+}
+
 interface CreateTournamentFormProps {
   onCreated?: (tournament: TournamentSummary) => void;
 }
 
-const MIN_AMERICANO_PLAYERS = 4;
 const COURT_OPTIONS = [1, 2, 3, 4, 5, 6];
+const BEST_OF_OPTIONS = [1, 3, 5];
+
+const STAGE_FORMATS: StageFormatOption[] = [
+  {
+    id: "americano",
+    name: "Americano",
+    minPlayers: 4,
+    description: "Players rotate partners each round and compete in doubles pairings.",
+    supportsCourtCount: true,
+  },
+  {
+    id: "round_robin",
+    name: "Round robin",
+    minPlayers: 2,
+    description: "Everyone plays everyone else once. Great for ladders and leagues.",
+    supportsBestOf: true,
+  },
+  {
+    id: "single_elim",
+    name: "Knockout",
+    minPlayers: 2,
+    description: "A single-elimination bracket that advances winners each round.",
+    supportsBestOf: true,
+  },
+];
 
 type LoadStatus = "idle" | "loading" | "success" | "error";
 
@@ -57,6 +91,12 @@ export default function CreateTournamentForm({
   const [rulesets, setRulesets] = useState<RulesetOption[]>([]);
   const [sportId, setSportId] = useState("");
   const [rulesetId, setRulesetId] = useState("");
+  const [stageType, setStageType] = useState(
+    STAGE_FORMATS[0]?.id ?? "americano"
+  );
+  const [bestOf, setBestOf] = useState<number | null>(
+    STAGE_FORMATS.find((format) => format.id === stageType)?.supportsBestOf ? 3 : null
+  );
   const [name, setName] = useState("");
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [playerSearch, setPlayerSearch] = useState("");
@@ -91,10 +131,7 @@ export default function CreateTournamentForm({
         setSportId("");
         return;
       }
-      if (!admin) {
-        const padel = data.find((sport) => sport.id === "padel");
-        setSportId(padel?.id ?? data[0].id);
-      } else if (!sportId || !data.some((sport) => sport.id === sportId)) {
+      if (!sportId || !data.some((sport) => sport.id === sportId)) {
         setSportId(data[0].id);
       }
     } catch (err) {
@@ -103,7 +140,7 @@ export default function CreateTournamentForm({
       setSportsStatus("error");
       setSportsError("Unable to load sports. Try again.");
     }
-  }, [admin, loggedIn, sportId]);
+  }, [loggedIn, sportId]);
 
   const loadPlayers = useCallback(async () => {
     if (!loggedIn) return;
@@ -171,6 +208,16 @@ export default function CreateTournamentForm({
     loadRulesets(sportId);
   }, [loadRulesets, loggedIn, sportId]);
 
+  useEffect(() => {
+    resetFeedback();
+    const format = STAGE_FORMATS.find((option) => option.id === stageType);
+    if (!format?.supportsBestOf) {
+      setBestOf(null);
+    } else if (bestOf == null) {
+      setBestOf(3);
+    }
+  }, [bestOf, resetFeedback, stageType]);
+
   const playerLookup = useMemo(() => {
     const map = new Map<string, PlayerInfo>();
     players.forEach((player) => {
@@ -197,8 +244,10 @@ export default function CreateTournamentForm({
       return;
     }
 
-    if (selectedPlayers.length < MIN_AMERICANO_PLAYERS) {
-      setError("Americano tournaments require at least four players.");
+    if (selectedPlayers.length < minPlayers) {
+      setError(
+        `${formatLabel} stages require at least ${minPlayers} player${minPlayers === 1 ? "" : "s"}.`
+      );
       return;
     }
 
@@ -207,20 +256,29 @@ export default function CreateTournamentForm({
 
     try {
       const tournament = await createTournament({ sport: sportId, name: trimmedName });
+      const stageConfig: Record<string, unknown> = { format: stageType };
+      if (supportsBestOf && bestOf != null) {
+        stageConfig.bestOf = bestOf;
+      }
       const stage = await createStage(tournament.id, {
-        type: "americano",
-        config: { format: "americano" },
+        type: stageType,
+        config: stageConfig,
       });
-      const schedule = await scheduleAmericanoStage(tournament.id, stage.id, {
+      const schedulePayload: StageSchedulePayload = {
         playerIds: selectedPlayers,
         rulesetId: rulesetId || undefined,
-        courtCount,
-      });
+      };
+      if (requiresCourtCount) {
+        schedulePayload.courtCount = courtCount;
+      }
+      if (supportsBestOf && bestOf != null) {
+        schedulePayload.bestOf = bestOf;
+      }
+      const schedule = await scheduleStage(tournament.id, stage.id, schedulePayload);
+      const matchCount = schedule.matches.length;
       setScheduledMatches(schedule.matches);
       setSuccess(
-        `Created ${tournament.name} with ${schedule.matches.length} scheduled match${
-          schedule.matches.length === 1 ? "" : "es"
-        }.`
+        `Created ${tournament.name} (${formatLabel}) with ${matchCount} scheduled match${matchCount === 1 ? "" : "es"}.`
       );
       onCreated?.(tournament);
       setName("");
@@ -231,7 +289,7 @@ export default function CreateTournamentForm({
       console.error("Failed to create tournament", err);
       const apiError = err as ApiError | undefined;
       if (apiError?.status === 403) {
-        setError("Only padel Americano tournaments can be created without an admin account.");
+        setError("You do not have permission to create or schedule this tournament.");
       } else {
         setError("Unable to create tournament. Please try again.");
       }
@@ -239,6 +297,17 @@ export default function CreateTournamentForm({
       setCreating(false);
     }
   };
+
+  const stageFormat =
+    useMemo(
+      () =>
+        STAGE_FORMATS.find((format) => format.id === stageType) ?? STAGE_FORMATS[0],
+      [stageType]
+    ) ?? STAGE_FORMATS[0];
+  const minPlayers = stageFormat?.minPlayers ?? 2;
+  const requiresCourtCount = Boolean(stageFormat?.supportsCourtCount);
+  const supportsBestOf = Boolean(stageFormat?.supportsBestOf);
+  const formatLabel = stageFormat?.name ?? "Stage";
 
   const selectedCount = selectedPlayers.length;
   const filteredPlayers = useMemo(() => {
@@ -294,23 +363,22 @@ export default function CreateTournamentForm({
   }, [filteredPlayerIds, selectedPlayers, resetFeedback]);
 
   const playerValidationMessage =
-    selectedCount >= MIN_AMERICANO_PLAYERS
-      ? `Ready to schedule with ${selectedCount} player${selectedCount === 1 ? "" : "s"}. Use the search box to adjust the roster.`
-      : `Use the search box to add at least ${MIN_AMERICANO_PLAYERS} players before generating the Americano schedule.`;
+    selectedCount >= minPlayers
+      ? `Ready to schedule a ${formatLabel.toLowerCase()} stage with ${selectedCount} player${selectedCount === 1 ? "" : "s"}. Use the search box to adjust the roster.`
+      : `Use the search box to add at least ${minPlayers} player${minPlayers === 1 ? "" : "s"} before generating the ${formatLabel.toLowerCase()} schedule.`;
 
   const title = admin
-    ? "Admin: Create Americano tournament"
-    : "Create an Americano tournament";
+    ? "Admin: Create a tournament"
+    : "Create a tournament";
 
   if (!loggedIn) {
     return (
       <section className="card" style={{ padding: 16 }}>
         <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>
-          Sign in to create an Americano tournament
+          Sign in to create a tournament
         </h2>
         <p className="form-hint">
-          Log in to create padel Americano tournaments, schedule matches, and share them
-          with your club.
+          Log in to create tournaments, schedule matches, and share them with your club.
         </p>
       </section>
     );
@@ -321,7 +389,7 @@ export default function CreateTournamentForm({
       <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>{title}</h2>
       {!admin && (
         <p className="form-hint" style={{ marginBottom: 12 }}>
-          Padel is currently the only sport supported for self-service Americano tournaments.
+          Choose any supported sport and format. Rulesets and scheduling options will update automatically.
         </p>
       )}
       <form onSubmit={handleSubmit} aria-label="Create tournament">
@@ -338,7 +406,7 @@ export default function CreateTournamentForm({
                 setName(event.target.value);
                 resetFeedback();
               }}
-              placeholder="Autumn Americano"
+              placeholder="Autumn Open"
             />
           </div>
           <div className="form-field">
@@ -352,7 +420,7 @@ export default function CreateTournamentForm({
                 setSportId(event.target.value);
                 resetFeedback();
               }}
-              disabled={sportsStatus === "loading" || !admin}
+              disabled={sportsStatus === "loading"}
             >
               {sports.map((sport) => (
                 <option key={sport.id} value={sport.id}>
@@ -374,11 +442,29 @@ export default function CreateTournamentForm({
                 </button>
               </p>
             )}
-            {!admin && sportId !== "padel" && (
-              <p className="error" role="alert">
-                Padel must be selected for Americano tournaments.
-              </p>
-            )}
+          </div>
+          <div className="form-field">
+            <label className="form-label" htmlFor="tournament-format">
+              Stage format
+            </label>
+            <select
+              id="tournament-format"
+              value={stageType}
+              onChange={(event) => {
+                setStageType(event.target.value);
+                resetFeedback();
+              }}
+            >
+              {STAGE_FORMATS.map((format) => (
+                <option key={format.id} value={format.id}>
+                  {format.name}
+                </option>
+              ))}
+            </select>
+            <p className="form-hint">
+              {stageFormat.description} Minimum roster: {minPlayers} player
+              {minPlayers === 1 ? "" : "s"}.
+            </p>
           </div>
           <div className="form-field">
             <label className="form-label" htmlFor="tournament-ruleset">
@@ -412,29 +498,61 @@ export default function CreateTournamentForm({
               </p>
             )}
           </div>
-          <div className="form-field">
-            <label className="form-label" htmlFor="tournament-courts">
-              Courts in play
-            </label>
-            <select
-              id="tournament-courts"
-              value={courtCount}
-              onChange={(event) => {
-                const value = Number(event.target.value);
-                setCourtCount(Number.isNaN(value) ? 1 : value);
-                resetFeedback();
-              }}
-            >
-              {COURT_OPTIONS.map((count) => (
-                <option key={count} value={count}>
-                  {`${count} court${count === 1 ? "" : "s"}`}
-                </option>
-              ))}
-            </select>
-            <p className="form-hint">
-              Choose how many matches should run at the same time (1–6 courts).
-            </p>
-          </div>
+          {supportsBestOf && (
+            <div className="form-field">
+              <label className="form-label" htmlFor="stage-best-of">
+                Best of sets (optional)
+              </label>
+              <select
+                id="stage-best-of"
+                value={bestOf ?? ""}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (!value) {
+                    setBestOf(null);
+                  } else {
+                    const parsed = Number(value);
+                    setBestOf(Number.isFinite(parsed) ? parsed : null);
+                  }
+                }}
+              >
+                <option value="">Use sport default</option>
+                {BEST_OF_OPTIONS.map((sets) => (
+                  <option key={sets} value={sets}>
+                    Best of {sets}
+                  </option>
+                ))}
+              </select>
+              <p className="form-hint">
+                Choose how many sets decide each match for this stage.
+              </p>
+            </div>
+          )}
+          {requiresCourtCount && (
+            <div className="form-field">
+              <label className="form-label" htmlFor="tournament-courts">
+                Courts in play
+              </label>
+              <select
+                id="tournament-courts"
+                value={courtCount}
+                onChange={(event) => {
+                  const value = Number(event.target.value);
+                  setCourtCount(Number.isNaN(value) ? 1 : value);
+                  resetFeedback();
+                }}
+              >
+                {COURT_OPTIONS.map((count) => (
+                  <option key={count} value={count}>
+                    {`${count} court${count === 1 ? "" : "s"}`}
+                  </option>
+                ))}
+              </select>
+              <p className="form-hint">
+                Choose how many matches should run at the same time (1–6 courts).
+              </p>
+            </div>
+          )}
           <fieldset className="form-fieldset">
             <legend className="form-legend">Players</legend>
             <p className="form-hint" style={{ marginBottom: 12 }}>
@@ -519,4 +637,3 @@ export default function CreateTournamentForm({
     </section>
   );
 }
-

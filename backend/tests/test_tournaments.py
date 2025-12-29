@@ -1,5 +1,6 @@
 import os
 import sys
+import uuid
 from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
@@ -208,7 +209,7 @@ async def test_normal_user_can_create_americano_stage():
 
 
 @pytest.mark.anyio
-async def test_normal_user_cannot_create_non_americano_stage():
+async def test_normal_user_can_create_round_robin_stage_for_other_sport():
     from app import db
     from app.models import Sport, Tournament, Stage, StageStanding, User
     from app.routers import tournaments
@@ -230,7 +231,7 @@ async def test_normal_user_cannot_create_non_americano_stage():
         )
 
     async with db.AsyncSessionLocal() as session:
-        session.add(Sport(id="padel", name="Padel"))
+        session.add(Sport(id="tennis", name="Tennis"))
         session.add(
             User(
                 id="player1",
@@ -252,9 +253,10 @@ async def test_normal_user_cannot_create_non_americano_stage():
     app.dependency_overrides[get_current_user] = _owner_dep
 
     with TestClient(app) as client:
-        tid = client.post("/tournaments", json={"sport": "padel", "name": "Club Night"}).json()["id"]
+        tid = client.post("/tournaments", json={"sport": "tennis", "name": "Club Night"}).json()["id"]
         resp = client.post(f"/tournaments/{tid}/stages", json={"type": "round_robin"})
-        assert resp.status_code == 403
+        assert resp.status_code == 200
+        assert resp.json()["type"] == "round_robin"
 
 
 @pytest.mark.anyio
@@ -362,7 +364,7 @@ async def test_normal_user_can_delete_own_americano():
         )
 
     async with db.AsyncSessionLocal() as session:
-        session.add(Sport(id="padel", name="Padel"))
+        session.add(Sport(id="tennis", name="Tennis"))
         session.add(
             User(
                 id="player1",
@@ -384,10 +386,10 @@ async def test_normal_user_can_delete_own_americano():
 
     with TestClient(app) as client:
         tid = client.post(
-            "/tournaments", json={"sport": "padel", "name": "Local Americano"}
+            "/tournaments", json={"sport": "tennis", "name": "Local Ladder"}
         ).json()["id"]
         sid = client.post(
-            f"/tournaments/{tid}/stages", json={"type": "americano"}
+            f"/tournaments/{tid}/stages", json={"type": "round_robin"}
         ).json()["id"]
 
     async with db.AsyncSessionLocal() as session:
@@ -405,12 +407,12 @@ async def test_normal_user_can_delete_own_americano():
         session.add(match)
         session.add(
             MatchParticipant(
-                id="mp1", match_id="m1", side="A", player_ids=["p1", "p2"]
+                id="mp1", match_id="m1", side="A", player_ids=["p1"]
             )
         )
         session.add(
             MatchParticipant(
-                id="mp2", match_id="m1", side="B", player_ids=["p3", "p4"]
+                id="mp2", match_id="m1", side="B", player_ids=["p3"]
             )
         )
         session.add(
@@ -532,7 +534,7 @@ async def test_normal_user_cannot_delete_other_users_tournament():
 
 
 @pytest.mark.anyio
-async def test_normal_user_can_update_own_padel_tournament():
+async def test_normal_user_can_update_own_tournament():
     from app import db
     from app.models import Sport, Tournament, User
     from app.routers import tournaments
@@ -548,7 +550,7 @@ async def test_normal_user_can_update_own_padel_tournament():
         )
 
     async with db.AsyncSessionLocal() as session:
-        session.add(Sport(id="padel", name="Padel"))
+        session.add(Sport(id="tennis", name="Tennis"))
         session.add(
             User(
                 id="owner",
@@ -571,14 +573,14 @@ async def test_normal_user_can_update_own_padel_tournament():
 
     with TestClient(app) as client:
         tid = client.post(
-            "/tournaments", json={"sport": "padel", "name": "Club Americano"}
+            "/tournaments", json={"sport": "tennis", "name": "Club Ladder"}
         ).json()["id"]
 
         resp = client.patch(
-            f"/tournaments/{tid}", json={"name": "Club Americano Finals"}
+            f"/tournaments/{tid}", json={"name": "Club Ladder Finals"}
         )
         assert resp.status_code == 200
-        assert resp.json()["name"] == "Club Americano Finals"
+        assert resp.json()["name"] == "Club Ladder Finals"
 
 
 @pytest.mark.anyio
@@ -645,59 +647,6 @@ async def test_normal_user_cannot_update_other_users_tournament():
         )
         assert resp.status_code == 403
 
-
-@pytest.mark.anyio
-async def test_normal_user_cannot_update_non_padel_tournament():
-    from app import db
-    from app.models import Sport, Tournament, User
-    from app.routers import tournaments
-    from app.routers.auth import get_current_user
-
-    db.engine = None
-    db.AsyncSessionLocal = None
-    engine = db.get_engine()
-    async with engine.begin() as conn:
-        await conn.run_sync(
-            db.Base.metadata.create_all,
-            tables=[Sport.__table__, Tournament.__table__, User.__table__],
-        )
-
-    async with db.AsyncSessionLocal() as session:
-        session.add(Sport(id="padel", name="Padel"))
-        session.add(Sport(id="tennis", name="Tennis"))
-        session.add(
-            User(
-                id="owner",
-                username="owner",
-                password_hash="hashed",
-                is_admin=False,
-            )
-        )
-        session.add(
-            Tournament(
-                id="tennis1",
-                sport_id="tennis",
-                name="Club Tennis Night",
-                created_by_user_id="owner",
-            )
-        )
-        await session.commit()
-
-    app = _configured_app()
-    app.include_router(tournaments.router)
-
-    owner = SimpleNamespace(id="owner", is_admin=False)
-
-    async def _owner_dep():
-        return owner
-
-    app.dependency_overrides[get_current_user] = _owner_dep
-
-    with TestClient(app) as client:
-        resp = client.patch(
-            "/tournaments/tennis1", json={"name": "Updated Tennis Night"}
-        )
-        assert resp.status_code == 403
 
 @pytest.mark.anyio
 async def test_admin_can_delete_user_tournament():
@@ -886,6 +835,117 @@ async def test_owner_can_schedule_their_americano_stage(monkeypatch):
         assert payload["stageId"] == sid
         assert len(payload["matches"]) == 1
 
+
+@pytest.mark.anyio
+async def test_owner_can_schedule_round_robin_stage(monkeypatch):
+    from app import db
+    from app.models import (
+        Match,
+        MatchAuditLog,
+        MatchParticipant,
+        Player,
+        RuleSet,
+        ScoreEvent,
+        Sport,
+        Stage,
+        StageStanding,
+        Tournament,
+        User,
+    )
+    from app.routers import tournaments
+    from app.routers.auth import get_current_user
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            db.Base.metadata.create_all,
+            tables=[
+                Sport.__table__,
+                Tournament.__table__,
+                Stage.__table__,
+                Player.__table__,
+                RuleSet.__table__,
+                Match.__table__,
+                MatchAuditLog.__table__,
+                MatchParticipant.__table__,
+                StageStanding.__table__,
+                ScoreEvent.__table__,
+                User.__table__,
+            ],
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        session.add(Sport(id="tennis", name="Tennis"))
+        session.add(RuleSet(id="tennis-default", sport_id="tennis", name="Tennis", config={}))
+        for idx in range(3):
+            session.add(Player(id=f"tp{idx+1}", name=f"Tennis Player {idx+1}"))
+        session.add(
+            User(
+                id="organiser",
+                username="organiser",
+                password_hash="hashed",
+                is_admin=False,
+            )
+        )
+        await session.commit()
+
+    app = _configured_app()
+    app.include_router(tournaments.router)
+
+    organiser = SimpleNamespace(id="organiser", is_admin=False)
+
+    async def _organiser_dep():
+        return organiser
+
+    app.dependency_overrides[get_current_user] = _organiser_dep
+
+    async def _noop_update_ratings(*args, **kwargs):
+        return None
+
+    async def _noop_update_metrics(*args, **kwargs):
+        return None
+
+    async def _noop_broadcast(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr("app.routers.matches.update_ratings", _noop_update_ratings)
+    monkeypatch.setattr(
+        "app.routers.matches.update_player_metrics", _noop_update_metrics
+    )
+    monkeypatch.setattr("app.routers.matches.broadcast", _noop_broadcast)
+
+    with TestClient(app) as client:
+        tid = client.post(
+            "/tournaments", json={"sport": "tennis", "name": "Round Robin Masters"}
+        ).json()["id"]
+        sid = client.post(
+            f"/tournaments/{tid}/stages",
+            json={"type": "round_robin"},
+        ).json()["id"]
+
+        resp = client.post(
+            f"/tournaments/{tid}/stages/{sid}/schedule",
+            json={
+                "playerIds": ["tp1", "tp2", "tp3"],
+                "rulesetId": "tennis-default",
+                "bestOf": 3,
+            },
+        )
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert payload["stageId"] == sid
+        assert len(payload["matches"]) == 3
+        pairings = {
+            frozenset(
+                pid for part in match["participants"] for pid in part.get("playerIds", [])
+            )
+            for match in payload["matches"]
+        }
+        assert {frozenset({"tp1", "tp2"}), frozenset({"tp1", "tp3"}), frozenset({"tp2", "tp3"})}.issubset(pairings)
+        assert all(match["bestOf"] == 3 for match in payload["matches"])
+
 @pytest.mark.anyio
 async def test_stage_schedule_rejects_invalid_type(monkeypatch):
     from app import db
@@ -974,11 +1034,10 @@ async def test_stage_schedule_rejects_invalid_type(monkeypatch):
             "/tournaments", json={"sport": "padel", "name": "Winter Cup"}
         ).json()["id"]
 
-        stage_resp = client.post(
-            f"/tournaments/{tid}/stages", json={"type": "round_robin"}
-        )
-        assert stage_resp.status_code == 200
-        sid = stage_resp.json()["id"]
+        sid = uuid.uuid4().hex
+        async with db.AsyncSessionLocal() as session:
+            session.add(Stage(id=sid, tournament_id=tid, type="manual", config=None))
+            await session.commit()
 
         resp = client.post(
             f"/tournaments/{tid}/stages/{sid}/schedule",
@@ -987,6 +1046,121 @@ async def test_stage_schedule_rejects_invalid_type(monkeypatch):
         assert resp.status_code == 400
         payload = resp.json()
         assert payload["detail"] == "stage type does not support automatic scheduling"
+
+
+@pytest.mark.anyio
+async def test_schedule_single_elim_generates_bracket(monkeypatch):
+    from app import db
+    from app.models import (
+        Sport,
+        Tournament,
+        Stage,
+        Player,
+        RuleSet,
+        Match,
+        MatchAuditLog,
+        MatchParticipant,
+        StageStanding,
+        ScoreEvent,
+        User,
+    )
+    from app.routers import tournaments, matches
+    from app.routers.admin import require_admin
+    from app.routers.auth import get_current_user
+
+    db.engine = None
+    db.AsyncSessionLocal = None
+    engine = db.get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(
+            db.Base.metadata.create_all,
+            tables=[
+                Sport.__table__,
+                Tournament.__table__,
+                Stage.__table__,
+                Player.__table__,
+                RuleSet.__table__,
+                Match.__table__,
+                MatchAuditLog.__table__,
+                MatchParticipant.__table__,
+                StageStanding.__table__,
+                ScoreEvent.__table__,
+                User.__table__,
+            ],
+        )
+
+    async with db.AsyncSessionLocal() as session:
+        session.add(Sport(id="pickleball", name="Pickleball"))
+        session.add(RuleSet(id="pickle-default", sport_id="pickleball", name="Pickleball", config={}))
+        for idx in range(4):
+            session.add(Player(id=f"pb{idx+1}", name=f"Player {idx+1}"))
+        session.add(
+            User(
+                id="admin",
+                username="admin",
+                password_hash="hashed",
+                is_admin=True,
+            )
+        )
+        await session.commit()
+
+    app = _configured_app()
+    app.include_router(tournaments.router)
+    app.include_router(matches.router)
+
+    admin_user = SimpleNamespace(id="admin", is_admin=True)
+
+    async def _admin_dep():
+        return admin_user
+
+    app.dependency_overrides[require_admin] = _admin_dep
+    app.dependency_overrides[get_current_user] = _admin_dep
+
+    async def _noop_update_ratings(*args, **kwargs):
+        return None
+
+    async def _noop_update_metrics(*args, **kwargs):
+        return None
+
+    async def _noop_broadcast(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr("app.routers.matches.update_ratings", _noop_update_ratings)
+    monkeypatch.setattr(
+        "app.routers.matches.update_player_metrics", _noop_update_metrics
+    )
+    monkeypatch.setattr("app.routers.matches.broadcast", _noop_broadcast)
+
+    with TestClient(app) as client:
+        tid = client.post(
+            "/tournaments", json={"sport": "pickleball", "name": "Knockout Cup"}
+        ).json()["id"]
+        sid = client.post(
+            f"/tournaments/{tid}/stages",
+            json={"type": "single_elim"},
+        ).json()["id"]
+
+        resp = client.post(
+            f"/tournaments/{tid}/stages/{sid}/schedule",
+            json={
+                "playerIds": ["pb1", "pb2", "pb3", "pb4"],
+                "rulesetId": "pickle-default",
+                "bestOf": 5,
+            },
+        )
+
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert payload["stageId"] == sid
+        assert len(payload["matches"]) == 3  # semifinals + final
+        semifinal_pairs = {
+            frozenset(pid for part in match["participants"] for pid in part.get("playerIds", []))
+            for match in payload["matches"]
+            if any(part.get("playerIds") for part in match["participants"])
+        }
+        assert frozenset({"pb1", "pb2"}) in semifinal_pairs
+        assert frozenset({"pb3", "pb4"}) in semifinal_pairs
+        assert all(match["bestOf"] == 5 for match in payload["matches"])
 
 
 @pytest.mark.anyio
@@ -1371,6 +1545,9 @@ async def test_list_stage_matches_filters_and_includes_stage_id():
         MatchParticipant,
         ScoreEvent,
         Player,
+        Rating,
+        PlayerMetric,
+        GlickoRating,
     )
     from app.routers import tournaments, matches
 
@@ -1389,6 +1566,9 @@ async def test_list_stage_matches_filters_and_includes_stage_id():
                 MatchParticipant.__table__,
                 ScoreEvent.__table__,
                 Player.__table__,
+                Rating.__table__,
+                PlayerMetric.__table__,
+                GlickoRating.__table__,
             ],
         )
 

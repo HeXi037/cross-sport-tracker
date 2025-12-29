@@ -102,6 +102,9 @@ export default function StageScheduleTable({
                     {match.rulesetId && (
                       <div className="form-hint">Ruleset: {match.rulesetId}</div>
                     )}
+                    {typeof match.bestOf === "number" && match.bestOf > 0 && (
+                      <div className="form-hint">Best of {match.bestOf}</div>
+                    )}
                   </th>
                   {resolvedSides.map((side) => {
                     const participant = participantsBySide.get(side);
@@ -121,4 +124,3 @@ export default function StageScheduleTable({
     </section>
   );
 }
-

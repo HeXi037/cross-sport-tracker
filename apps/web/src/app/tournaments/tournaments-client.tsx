@@ -62,13 +62,12 @@ export default function TournamentsClient({
     if (!isLoggedIn || !userId) {
       return () => false;
     }
-    return (tournament: TournamentSummary) =>
-      tournament.createdByUserId === userId && tournament.sport === "padel";
+    return (tournament: TournamentSummary) => tournament.createdByUserId === userId;
   }, [isAdmin, isLoggedIn, userId]);
 
   const handleDelete = async (tournament: TournamentSummary) => {
     if (!canManage(tournament)) {
-      setError("You can only delete Americano tournaments that you created.");
+      setError("You can only delete tournaments that you created.");
       return;
     }
     if (deletingId) return;
@@ -89,7 +88,7 @@ export default function TournamentsClient({
       console.error("Failed to delete tournament", err);
       const apiError = err as ApiError | undefined;
       if (apiError?.status === 403) {
-        setError("You can only delete Americano tournaments that you created.");
+        setError("You can only delete tournaments that you created.");
       } else if (apiError?.status === 404) {
         setError("This tournament no longer exists.");
         setTournaments((prev) => prev.filter((t) => t.id !== tournament.id));
@@ -103,7 +102,7 @@ export default function TournamentsClient({
 
   const handleStartEdit = (tournament: TournamentSummary) => {
     if (!canManage(tournament)) {
-      setError("You can only edit padel Americano tournaments that you created.");
+      setError("You can only edit tournaments that you created.");
       return;
     }
     setStatus(null);
@@ -124,7 +123,7 @@ export default function TournamentsClient({
   ) => {
     event.preventDefault();
     if (!canManage(tournament)) {
-      setError("You can only edit padel Americano tournaments that you created.");
+      setError("You can only edit tournaments that you created.");
       handleCancelEdit();
       return;
     }
@@ -154,7 +153,7 @@ export default function TournamentsClient({
       console.error("Failed to update tournament", err);
       const apiError = err as ApiError | undefined;
       if (apiError?.status === 403) {
-        setError("You can only edit padel Americano tournaments that you created.");
+        setError("You can only edit tournaments that you created.");
       } else if (apiError?.status === 404) {
         setError("This tournament no longer exists.");
         setTournaments((prev) => prev.filter((item) => item.id !== tournament.id));
@@ -193,14 +192,14 @@ export default function TournamentsClient({
             >
               <li>Admins can create, edit, and delete tournaments for any sport.</li>
               <li>
-                Logged-in organisers can create padel Americano tournaments and manage the ones
-                they created.
+                Logged-in organisers can create supported formats and manage the tournaments they
+                created.
               </li>
               <li>Contact an admin to manage tournaments created by other organisers.</li>
             </ul>
             {!isLoggedIn && (
               <p className="form-hint" style={{ marginTop: 12 }}>
-                Sign in to create padel Americano tournaments and manage their schedules.
+                Sign in to create tournaments and manage their schedules.
               </p>
             )}
           </section>
@@ -219,7 +218,7 @@ export default function TournamentsClient({
               <p className="form-hint">
                 {isAdmin
                   ? "You can edit or delete any tournament."
-                  : "You can edit or delete padel Americano tournaments that you created."}
+                  : "You can edit or delete tournaments that you created."}
               </p>
             </div>
             {error && (
@@ -339,4 +338,3 @@ export default function TournamentsClient({
     </div>
   );
 }
-

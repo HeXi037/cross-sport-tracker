@@ -11,6 +11,7 @@ from ..models import (
     Match,
     MatchParticipant,
     ScoreEvent,
+    Sport,
     User,
 )
 from ..schemas import (
@@ -27,7 +28,12 @@ from ..schemas import (
     MatchSummaryParticipantOut,
 )
 from ..exceptions import http_problem
-from ..services.tournaments import normalize_stage_type, schedule_americano
+from ..services.tournaments import (
+    normalize_stage_type,
+    schedule_americano,
+    schedule_round_robin,
+    schedule_single_elim,
+)
 from .auth import get_current_user
 from ..time_utils import coerce_utc
 
@@ -40,11 +46,12 @@ async def create_tournament(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    if not user.is_admin and body.sport != "padel":
+    sport_exists = await session.get(Sport, body.sport)
+    if not sport_exists:
         raise http_problem(
-            status_code=403,
-            detail="forbidden",
-            code="tournament_forbidden",
+            status_code=400,
+            detail="sport not found",
+            code="tournament_invalid",
         )
     tid = uuid.uuid4().hex
     t = Tournament(
@@ -125,19 +132,12 @@ async def update_tournament(
             createdByUserId=tournament.created_by_user_id,
         )
 
-    if not user.is_admin:
-        if tournament.created_by_user_id != user.id or tournament.sport_id != "padel":
-            raise http_problem(
-                status_code=403,
-                detail="forbidden",
-                code="tournament_forbidden",
-            )
-        if "sport" in payload and payload["sport"] not in (None, "padel"):
-            raise http_problem(
-                status_code=403,
-                detail="forbidden",
-                code="tournament_forbidden",
-            )
+    if not user.is_admin and tournament.created_by_user_id != user.id:
+        raise http_problem(
+            status_code=403,
+            detail="forbidden",
+            code="tournament_forbidden",
+        )
 
     if "name" in payload:
         new_name = (payload["name"] or "").strip()
@@ -191,13 +191,12 @@ async def create_stage(
             code="stage_type_unsupported",
         )
 
-    if not user.is_admin:
-        if t.created_by_user_id != user.id or t.sport_id != "padel" or stage_type != "americano":
-            raise http_problem(
-                status_code=403,
-                detail="forbidden",
-                code="tournament_forbidden",
-            )
+    if not user.is_admin and t.created_by_user_id != user.id:
+        raise http_problem(
+            status_code=403,
+            detail="forbidden",
+            code="tournament_forbidden",
+        )
 
     sid = uuid.uuid4().hex
     s = Stage(
@@ -230,34 +229,12 @@ async def delete_tournament(
             code="tournament_not_found",
         )
 
-    if not user.is_admin:
-        if tournament.created_by_user_id != user.id or tournament.sport_id != "padel":
-            raise http_problem(
-                status_code=403,
-                detail="forbidden",
-                code="tournament_forbidden",
-            )
-        stage_types = (
-            await session.execute(
-                select(Stage.type).where(Stage.tournament_id == tournament_id)
-            )
-        ).scalars().all()
-        if stage_types:
-            has_americano = False
-            for raw_type in stage_types:
-                try:
-                    normalized = normalize_stage_type(raw_type)
-                except ValueError:
-                    normalized = raw_type
-                if normalized == "americano":
-                    has_americano = True
-                    break
-            if not has_americano:
-                raise http_problem(
-                    status_code=403,
-                    detail="forbidden",
-                    code="tournament_forbidden",
-                )
+    if not user.is_admin and tournament.created_by_user_id != user.id:
+        raise http_problem(
+            status_code=403,
+            detail="forbidden",
+            code="tournament_forbidden",
+        )
 
     stage_ids = (
         await session.execute(
@@ -367,27 +344,44 @@ async def schedule_stage(
     except ValueError:
         stage_type = stage.type
 
-    if stage_type != "americano":
-        raise http_problem(
-            status_code=400,
-            detail="stage type does not support automatic scheduling",
-            code="stage_schedule_unsupported",
-        )
-
     try:
-        created = await schedule_americano(
-            stage.id,
-            tournament.sport_id,
-            body.playerIds,
-            session,
-            ruleset_id=body.rulesetId,
-            court_count=body.courtCount or 1,
-        )
+        if stage_type == "americano":
+            created = await schedule_americano(
+                stage.id,
+                tournament.sport_id,
+                body.playerIds,
+                session,
+                ruleset_id=body.rulesetId,
+                court_count=body.courtCount or 1,
+                best_of=body.bestOf,
+            )
+        elif stage_type == "round_robin":
+            created = await schedule_round_robin(
+                stage.id,
+                tournament.sport_id,
+                body.playerIds,
+                session,
+                ruleset_id=body.rulesetId,
+                best_of=body.bestOf,
+            )
+        elif stage_type == "single_elim":
+            created = await schedule_single_elim(
+                stage.id,
+                tournament.sport_id,
+                body.playerIds,
+                session,
+                ruleset_id=body.rulesetId,
+                best_of=body.bestOf,
+            )
+        else:
+            raise ValueError("stage type does not support automatic scheduling")
     except ValueError as exc:
         raise http_problem(
             status_code=400,
             detail=str(exc),
-            code="stage_schedule_invalid",
+            code="stage_schedule_unsupported"
+            if "does not support" in str(exc)
+            else "stage_schedule_invalid",
         )
 
     await session.commit()
@@ -526,4 +520,3 @@ async def list_stage_matches(
         )
         for match in matches
     ]
-

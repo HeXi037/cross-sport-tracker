@@ -2,6 +2,8 @@ import { render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { act } from "react";
 import { vi } from "vitest";
+import { NextIntlClientProvider } from "next-intl";
+import enGbMessages from "../../../messages/en-GB.json";
 import { formatDate } from "../../../lib/i18n";
 
 type NextNotFoundError = Error & { digest?: string };
@@ -94,7 +96,11 @@ const GAME_TOOLTIP_TEXT =
 
 async function renderMatchDetail(mid: string) {
   await act(async () => {
-    render(await MatchDetailPage({ params: { mid } }));
+    render(
+      <NextIntlClientProvider locale="en-GB" messages={enGbMessages}>
+        {await MatchDetailPage({ params: { mid } })}
+      </NextIntlClientProvider>
+    );
   });
 }
 

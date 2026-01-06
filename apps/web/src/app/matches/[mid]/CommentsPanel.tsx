@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import {
   SESSION_CHANGED_EVENT,
   SESSION_ENDED_EVENT,
@@ -54,6 +55,7 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const locale = useLocale();
   const timeZone = useTimeZone();
+  const discussionT = useTranslations("MatchDiscussion");
 
   const { data, error, isLoading, isValidating, mutate } = useApiSWR<CommentPage>(
     `/v0/matches/${matchId}/comments`,
@@ -239,10 +241,9 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
         />
         {!session.loggedIn && (
           <p className="text-muted">
-            {/* TODO: localize helper copy. */}
-            Log in to join the conversation.{" "}
+            {discussionT("comments.helper")}{" "}
             <a className="button button--link" href="/login">
-              Log in
+              {discussionT("comments.cta")}
             </a>
           </p>
         )}

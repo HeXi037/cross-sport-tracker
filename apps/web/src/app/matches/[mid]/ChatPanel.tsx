@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import {
   SESSION_CHANGED_EVENT,
   SESSION_ENDED_EVENT,
@@ -47,6 +48,7 @@ export default function ChatPanel({ matchId }: { matchId: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const locale = useLocale();
   const timeZone = useTimeZone();
+  const discussionT = useTranslations("MatchDiscussion");
 
   const { data, error, isLoading, mutate } = useApiSWR<ChatPage>(
     `/v0/matches/${matchId}/chat`,
@@ -157,10 +159,9 @@ export default function ChatPanel({ matchId }: { matchId: string }) {
         />
         {!session.loggedIn && (
           <p className="text-muted">
-            {/* TODO: localize helper copy. */}
-            Log in to chat with other fans.{" "}
+            {discussionT("chat.helper")}{" "}
             <a className="button button--link" href="/login">
-              Log in
+              {discussionT("chat.cta")}
             </a>
           </p>
         )}

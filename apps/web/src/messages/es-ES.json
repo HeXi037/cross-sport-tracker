@@ -102,6 +102,16 @@
       "points": "Puntos"
     }
   },
+  "MatchDiscussion": {
+    "chat": {
+      "helper": "Inicia sesión para chatear con otros aficionados.",
+      "cta": "Iniciar sesión"
+    },
+    "comments": {
+      "helper": "Inicia sesión para unirte a la conversación.",
+      "cta": "Iniciar sesión"
+    }
+  },
   "Header": {
     "links": {
       "home": "Inicio",

@@ -102,6 +102,16 @@
       "points": "Points"
     }
   },
+  "MatchDiscussion": {
+    "chat": {
+      "helper": "Log in to chat with other fans.",
+      "cta": "Log in"
+    },
+    "comments": {
+      "helper": "Log in to join the conversation.",
+      "cta": "Log in"
+    }
+  },
   "Header": {
     "links": {
       "home": "Home",

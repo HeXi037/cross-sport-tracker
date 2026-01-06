@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
+import { act } from "react";
 import { vi } from "vitest";
 import { formatDate } from "../../../lib/i18n";
 
@@ -91,6 +92,12 @@ import MatchNotFound from "./not-found";
 const GAME_TOOLTIP_TEXT =
   "Game totals are only shown for sports that track them.";
 
+async function renderMatchDetail(mid: string) {
+  await act(async () => {
+    render(await MatchDetailPage({ params: { mid } }));
+  });
+}
+
 describe("MatchDetailPage", () => {
   afterEach(() => {
     vi.clearAllMocks();
@@ -120,7 +127,7 @@ describe("MatchDetailPage", () => {
         ],
       });
 
-    render(await MatchDetailPage({ params: { mid: "m1" } }));
+    await renderMatchDetail("m1");
 
     const locale = "en-GB";
     const expectedDate = formatDate(match.playedAt, locale);
@@ -164,7 +171,7 @@ describe("MatchDetailPage", () => {
         ],
       });
 
-    render(await MatchDetailPage({ params: { mid: "m1" } }));
+    await renderMatchDetail("m1");
 
     const locale = "en-GB";
     const expectedDate = formatDate(new Date(match.playedAt), locale);
@@ -211,7 +218,7 @@ describe("MatchDetailPage", () => {
       })
       .mockResolvedValueOnce({ ok: true, json: async () => [] });
 
-    render(await MatchDetailPage({ params: { mid: "m2" } }));
+    await renderMatchDetail("m2");
 
     const heading = screen.getByRole("heading", { level: 1 });
     expect(heading).toHaveTextContent("Ann vs Ben vs Cam");
@@ -249,7 +256,7 @@ describe("MatchDetailPage", () => {
         ],
       });
 
-    render(await MatchDetailPage({ params: { mid: "m6" } }));
+    await renderMatchDetail("m6");
 
     const meta = screen.getByText(
       (text, element) =>
@@ -289,7 +296,7 @@ describe("MatchDetailPage", () => {
       })
       .mockResolvedValueOnce({ ok: true, json: async () => [] });
 
-    render(await MatchDetailPage({ params: { mid: "m7" } }));
+    await renderMatchDetail("m7");
 
     const prediction = await screen.findByText(
       "Alice had a 66% chance to beat Bob"
@@ -324,7 +331,7 @@ describe("MatchDetailPage", () => {
         ],
       });
 
-    render(await MatchDetailPage({ params: { mid: "m6" } }));
+    await renderMatchDetail("m6");
 
     const meta = screen.getByText(
       (text, element) =>
@@ -377,7 +384,7 @@ describe("MatchDetailPage", () => {
         ],
       });
 
-    render(await MatchDetailPage({ params: { mid: "m7" } }));
+    await renderMatchDetail("m7");
 
     expect(
       screen.getByRole("heading", { level: 2, name: /participants/i })
@@ -467,7 +474,7 @@ describe("MatchDetailPage", () => {
         ],
       });
 
-    render(await MatchDetailPage({ params: { mid: "m3" } }));
+    await renderMatchDetail("m3");
 
     const table = await screen.findByRole("table", { name: /racket scoreboard/i });
     const rows = within(table).getAllByRole("row");
@@ -547,7 +554,7 @@ describe("MatchDetailPage", () => {
         ],
       });
 
-    render(await MatchDetailPage({ params: { mid: "m4" } }));
+    await renderMatchDetail("m4");
 
     const table = await screen.findByRole("table", { name: /racket scoreboard/i });
     const rows = within(table).getAllByRole("row");
@@ -618,7 +625,7 @@ describe("MatchDetailPage", () => {
         ],
       });
 
-    render(await MatchDetailPage({ params: { mid: "m5" } }));
+    await renderMatchDetail("m5");
 
     const scoreboard = await screen.findByRole("table", {
       name: /racket scoreboard/i,
@@ -685,7 +692,7 @@ describe("MatchDetailPage", () => {
         ],
       });
 
-    render(await MatchDetailPage({ params: { mid: "m4" } }));
+    await renderMatchDetail("m4");
 
     const table = await screen.findByRole("table", { name: /disc golf scoreboard/i });
     expect(within(table).getByText("H1")).toBeInTheDocument();
@@ -739,7 +746,7 @@ describe("MatchDetailPage", () => {
         ],
       });
 
-    render(await MatchDetailPage({ params: { mid: "m5" } }));
+    await renderMatchDetail("m5");
 
     const table = await screen.findByRole("table", { name: /racket scoreboard/i });
     const rows = within(table).getAllByRole("row");
@@ -794,7 +801,7 @@ describe("MatchDetailPage", () => {
   it("shows a helpful message when a match cannot be loaded", async () => {
     apiFetchMock.mockRejectedValueOnce(new Error("offline"));
 
-    render(await MatchDetailPage({ params: { mid: "missing" } }));
+    await renderMatchDetail("missing");
 
     expect(
       screen.getByRole("heading", { level: 1, name: /match unavailable/i })
@@ -823,7 +830,7 @@ describe("MatchDetailPage", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => [] })
       .mockResolvedValueOnce({ ok: true, json: async () => [] });
 
-    render(await MatchDetailPage({ params: { mid: "m6" } }));
+    await renderMatchDetail("m6");
 
     expect(
       screen.getByText(/could not reach the player service/i)
@@ -892,7 +899,7 @@ describe("MatchDetailPage", () => {
       .replace(/=+$/, "");
     document.cookie = `session_hint=${adminHint}; path=/`;
 
-    render(await MatchDetailPage({ params: { mid: "m-admin" } }));
+    await renderMatchDetail("m-admin");
 
     const heading = await screen.findByRole("heading", {
       name: /admin · match history/i,

@@ -14,7 +14,7 @@ import {
   getTimeExample,
 } from "../../../lib/i18n";
 import { saveUserSettings } from "../../user-settings";
-import RecordSportForm from "./RecordSportForm";
+import RecordSportForm, { getBowlingRollAriaLabel } from "./RecordSportForm";
 import { resolveRecordSportRoute } from "./resolveRecordSportRoute";
 import enMessages from "../../../messages/en-GB.json";
 
@@ -57,7 +57,7 @@ function getPlayerSelects() {
 }
 
 function bowlingRollLabel(playerName: string, frame: number, roll: number) {
-  return `Frame ${frame}, Roll ${roll} score for ${playerName}`;
+  return getBowlingRollAriaLabel(playerName, frame - 1, roll - 1);
 }
 
 describe("resolveRecordSportRoute", () => {

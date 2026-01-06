@@ -1564,7 +1564,12 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   );
 
   const renderSortableHeader = useCallback(
-    (column: SortableColumn, label: string, style: CSSProperties) => {
+    (
+      column: SortableColumn,
+      label: string,
+      style: CSSProperties,
+      useNativeElements: boolean,
+    ) => {
       const direction = getSortForColumn(column);
       const ariaSort = getAriaSort(column);
       const actionHint =
@@ -1573,8 +1578,12 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           : direction === "descending"
             ? "Currently sorted descending. Sort ascending."
             : "Not sorted. Sort descending.";
+      const ColumnElement = useNativeElements ? "th" : "div";
+      const columnProps = useNativeElements
+        ? { "aria-sort": ariaSort, scope: "col" as const }
+        : { role: "columnheader", "aria-sort": ariaSort };
       return (
-        <div role="columnheader" aria-sort={ariaSort} style={style}>
+        <ColumnElement {...columnProps} style={style}>
           <button
             type="button"
             onClick={() => toggleSort(column)}
@@ -1601,62 +1610,88 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                   : "↕"}
             </span>
           </button>
-        </div>
+        </ColumnElement>
       );
     },
     [getAriaSort, getSortForColumn, toggleSort],
   );
 
-  const TableHeader = () => (
-    <div role="rowgroup">
-      <div role="row" style={headerRowStyle}>
-        <div
-          role="columnheader"
-          aria-sort={sortState ? "none" : "ascending"}
-          style={headerCellStyle}
-        >
-          #
-        </div>
-        <div role="columnheader" style={headerCellStyle}>
-          Player
-        </div>
-        {sport === ALL_SPORTS && (
-          <div role="columnheader" style={headerCellStyle}>
-            Sport
-          </div>
-        )}
-        {renderSortableHeader("rating", "Rating", headerCellStyle)}
-        <div role="columnheader" style={headerCellStyle}>
-          Win chance vs #1
-        </div>
-        {isBowling ? (
-          <>
-            <div role="columnheader" style={headerCellStyle}>
-              Highest score
-            </div>
-            <div role="columnheader" style={headerCellStyle}>
-              Average score
-            </div>
-            {renderSortableHeader("matches", "Matches played", headerCellStyle)}
-            <div role="columnheader" style={lastHeaderCellStyle}>
-              Std. deviation (consistency)
-            </div>
-          </>
-        ) : (
-          <>
-            {renderSortableHeader("wins", "W", headerCellStyle)}
-            <div role="columnheader" style={headerCellStyle}>
-              L
-            </div>
-            {renderSortableHeader("matches", "Matches", headerCellStyle)}
-            <div role="columnheader" style={lastHeaderCellStyle}>
-              Win%
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
+  const TableHeader = ({ useNativeElements = false }: { useNativeElements?: boolean }) => {
+    const GroupElement = useNativeElements ? "thead" : "div";
+    const RowElement = useNativeElements ? "tr" : "div";
+    const ColumnElement = useNativeElements ? "th" : "div";
+    const groupProps = useNativeElements ? {} : { role: "rowgroup" };
+    const rowProps = useNativeElements ? {} : { role: "row" };
+    const columnHeaderProps = useNativeElements
+      ? { scope: "col" as const }
+      : { role: "columnheader" };
+
+    return (
+      <GroupElement {...groupProps}>
+        <RowElement {...rowProps} style={headerRowStyle}>
+          <ColumnElement
+            {...columnHeaderProps}
+            aria-sort={sortState ? "none" : "ascending"}
+            style={headerCellStyle}
+          >
+            #
+          </ColumnElement>
+          <ColumnElement {...columnHeaderProps} style={headerCellStyle}>
+            Player
+          </ColumnElement>
+          {sport === ALL_SPORTS && (
+            <ColumnElement {...columnHeaderProps} style={headerCellStyle}>
+              Sport
+            </ColumnElement>
+          )}
+          {renderSortableHeader(
+            "rating",
+            "Rating",
+            headerCellStyle,
+            useNativeElements,
+          )}
+          <ColumnElement {...columnHeaderProps} style={headerCellStyle}>
+            Win chance vs #1
+          </ColumnElement>
+          {isBowling ? (
+            <>
+              <ColumnElement {...columnHeaderProps} style={headerCellStyle}>
+                Highest score
+              </ColumnElement>
+              <ColumnElement {...columnHeaderProps} style={headerCellStyle}>
+                Average score
+              </ColumnElement>
+              {renderSortableHeader(
+                "matches",
+                "Matches played",
+                headerCellStyle,
+                useNativeElements,
+              )}
+              <ColumnElement {...columnHeaderProps} style={lastHeaderCellStyle}>
+                Std. deviation (consistency)
+              </ColumnElement>
+            </>
+          ) : (
+            <>
+              {renderSortableHeader("wins", "W", headerCellStyle, useNativeElements)}
+              <ColumnElement {...columnHeaderProps} style={headerCellStyle}>
+                L
+              </ColumnElement>
+              {renderSortableHeader(
+                "matches",
+                "Matches",
+                headerCellStyle,
+                useNativeElements,
+              )}
+              <ColumnElement {...columnHeaderProps} style={lastHeaderCellStyle}>
+                Win%
+              </ColumnElement>
+            </>
+          )}
+        </RowElement>
+      </GroupElement>
+    );
+  };
 
   const sortedLeaders = useMemo(() => {
     if (!sortState) {
@@ -2186,7 +2221,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             <caption id={RESULTS_TABLE_CAPTION_ID} className="sr-only">
               {captionText}
             </caption>
-            <TableHeader />
+            <TableHeader useNativeElements />
             <tbody>
               {Array.from({ length: 5 }).map((_, i) => (
                 <tr

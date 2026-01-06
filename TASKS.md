@@ -3,8 +3,8 @@
 The current Vitest run exposes a couple of actionable gaps. Capture them here so they can be prioritized and tracked to completion.
 
 ## pnpm test fails from the repository root
-- [ ] Introduce a workspace manifest (for example, `pnpm-workspace.yaml`) or a root-level `package.json` so running `pnpm test -- --runInBand` at the repo root resolves the web app package instead of aborting with `ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND`.
-- [ ] Alternatively, document that application-specific tests must be invoked from `apps/web/` until the workspace is wired up, and update any CI helpers that assume the root command works. (Choose one approach.)
+- [x] Ensure the workspace manifest and root `package.json` route `pnpm test -- --runInBand` from the repo root to `@cst/web` without importer manifest errors.
+- [x] Document the root-level test invocation so CI and contributors can rely on it instead of running tests from `apps/web/`.
 
 ## Bowling record page test missing score placeholders
 - [ ] Audit `apps/web/src/app/record/[sport]/page.tsx` to confirm how bowling score inputs are labelled and decide whether the UI should expose placeholders, visible labels, or `aria-label`s for each score field.

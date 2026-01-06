@@ -4,6 +4,6 @@
   "version": "0.0.0",
   "packageManager": "pnpm@10.11.0",
   "scripts": {
-    "test": "pnpm --filter @cst/web test -- --watch=false"
+    "test": "pnpm --filter @cst/web test --watch=false"
   }
 }

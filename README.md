@@ -85,7 +85,7 @@ Use pnpm from the repository root (workspace config includes `apps/web`):
 
 ```
 pnpm install --filter @cst/web --frozen-lockfile
-pnpm test -- --runInBand --watch=false
+pnpm test -- --runInBand
 ```
 
 Deploy: Single VPS with Docker Compose; Caddy for HTTPS; nightly pg_dump backups
@@ -307,4 +307,3 @@ uvicorn app.main:app --reload --port 8000
 cd apps/web
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api npm run dev
 ```
-

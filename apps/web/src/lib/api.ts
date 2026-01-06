@@ -483,7 +483,14 @@ export async function apiFetch(path: string, init?: ApiRequestInit) {
   try {
     return await executeFetch(path, init, 0);
   } catch (err) {
-    console.error("API request failed", err);
+    const status = (err as { status?: number } | null)?.status;
+    const suppressLogging =
+      typeof process !== "undefined" &&
+      process?.env?.NODE_ENV === "test" &&
+      status === 401;
+    if (!suppressLogging) {
+      console.error("API request failed", err);
+    }
     throw err;
   }
 }

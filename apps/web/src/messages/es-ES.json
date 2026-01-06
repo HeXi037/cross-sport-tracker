@@ -87,6 +87,44 @@
     "title": "Partidos",
     "emptyInitial": "Todavía no hay partidos.",
     "emptyPage": "No hay partidos en esta página.",
+    "chat": {
+      "title": "Chat en directo",
+      "label": "Mensaje de chat",
+      "placeholder": {
+        "authenticated": "Saluda",
+        "guest": "Inicia sesión para chatear"
+      },
+      "helper": "Inicia sesión para chatear con otros aficionados.",
+      "empty": "Todavía no hay chat.",
+      "errors": {
+        "load": "No se pudo cargar el chat."
+      },
+      "actions": {
+        "delete": "Eliminar",
+        "send": "Enviar"
+      }
+    },
+    "comments": {
+      "title": "Comentarios",
+      "label": "Añadir un comentario",
+      "placeholder": {
+        "authenticated": "Comparte tus ideas",
+        "guest": "Inicia sesión para comentar"
+      },
+      "helper": "Inicia sesión para unirte a la conversación.",
+      "empty": "Todavía no hay comentarios.",
+      "replies": {
+        "hide": "Ocultar respuestas",
+        "viewMore": "Ver respuestas ({count} más)"
+      },
+      "errors": {
+        "load": "No se pudieron cargar los comentarios."
+      },
+      "actions": {
+        "delete": "Eliminar",
+        "post": "Publicar"
+      }
+    },
     "errors": {
       "load": "Error al cargar los partidos. Inténtalo de nuevo más tarde.",
       "forbidden": "No tienes permiso para ver estos partidos.",

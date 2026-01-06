@@ -87,6 +87,44 @@
     "title": "Matches",
     "emptyInitial": "No matches yet.",
     "emptyPage": "No matches on this page.",
+    "chat": {
+      "title": "Live chat",
+      "label": "Chat message",
+      "placeholder": {
+        "authenticated": "Say hello",
+        "guest": "Log in to chat"
+      },
+      "helper": "Log in to chat with other fans.",
+      "empty": "No chat yet.",
+      "errors": {
+        "load": "Could not load chat."
+      },
+      "actions": {
+        "delete": "Delete",
+        "send": "Send"
+      }
+    },
+    "comments": {
+      "title": "Comments",
+      "label": "Add a comment",
+      "placeholder": {
+        "authenticated": "Share your thoughts",
+        "guest": "Log in to comment"
+      },
+      "helper": "Log in to join the conversation.",
+      "empty": "No comments yet.",
+      "replies": {
+        "hide": "Hide replies",
+        "viewMore": "View replies ({count} more)"
+      },
+      "errors": {
+        "load": "Could not load comments."
+      },
+      "actions": {
+        "delete": "Delete",
+        "post": "Post"
+      }
+    },
     "errors": {
       "load": "Failed to load matches. Try again later.",
       "forbidden": "You do not have permission to view these matches.",

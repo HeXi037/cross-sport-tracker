@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import {
   SESSION_CHANGED_EVENT,
   SESSION_ENDED_EVENT,
@@ -52,6 +53,8 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
     {}
   );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const t = useTranslations("Matches.comments");
+  const commonT = useTranslations("Common");
   const locale = useLocale();
   const timeZone = useTimeZone();
 
@@ -198,7 +201,7 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
             type="button"
             onClick={() => void remove(comment.id, comment.userId)}
           >
-            Delete
+            {t("actions.delete")}
           </button>
         )}
         {hasManyReplies && (
@@ -208,7 +211,9 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
             onClick={() => toggleReplies(comment.id)}
             aria-expanded={isExpanded}
           >
-            {isExpanded ? "Hide replies" : `View replies (${hiddenCount} more)`}
+            {isExpanded
+              ? t("replies.hide")
+              : t("replies.viewMore", { count: hiddenCount })}
           </button>
         )}
         {visibleReplies.length > 0 && (
@@ -222,10 +227,10 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
 
   return (
     <section className="card">
-      <h2 className="heading">Comments</h2>
+      <h2 className="heading">{t("title")}</h2>
       <form className="stack" onSubmit={submit}>
         <label className="sr-only" htmlFor="match-comment">
-          Add a comment
+          {t("label")}
         </label>
         <textarea
           id="match-comment"
@@ -233,16 +238,19 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
           value={content}
           maxLength={MAX_LENGTH}
           onChange={(e) => setContent(e.target.value)}
-          placeholder={session.loggedIn ? "Share your thoughts" : "Log in to comment"}
+          placeholder={
+            session.loggedIn
+              ? t("placeholder.authenticated")
+              : t("placeholder.guest")
+          }
           disabled={submitting || !session.loggedIn}
           rows={3}
         />
         {!session.loggedIn && (
           <p className="text-muted">
-            {/* TODO: localize helper copy. */}
-            Log in to join the conversation.{" "}
+            {t("helper")}{" "}
             <a className="button button--link" href="/login">
-              Log in
+              {commonT("actions.login")}
             </a>
           </p>
         )}
@@ -251,18 +259,20 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
             {content.length}/{MAX_LENGTH}
           </small>
           <button type="submit" disabled={submitting || !session.loggedIn}>
-            {submitting ? "Posting…" : "Post"}
+            {submitting ? commonT("status.saving") : t("actions.post")}
           </button>
         </div>
       </form>
       {feedback && (
         <p className={`status status--${feedback.type}`}>{feedback.message}</p>
       )}
-      {error && <p className="status status--error">Could not load comments.</p>}
-      {(isLoading || isValidating) && <p>Loading…</p>}
+      {error && <p className="status status--error">{t("errors.load")}</p>}
+      {(isLoading || isValidating) && <p>{commonT("status.loading")}</p>}
       <ul className="stack">
         {comments.map((c) => renderComment(c, 0))}
-        {!comments.length && !isLoading && <li className="text-muted">No comments yet.</li>}
+        {!comments.length && !isLoading && (
+          <li className="text-muted">{t("empty")}</li>
+        )}
       </ul>
     </section>
   );

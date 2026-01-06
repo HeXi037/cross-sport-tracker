@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import {
   SESSION_CHANGED_EVENT,
   SESSION_ENDED_EVENT,
@@ -45,6 +46,8 @@ export default function ChatPanel({ matchId }: { matchId: string }) {
     admin: isAdmin(),
   }));
   const inputRef = useRef<HTMLInputElement>(null);
+  const t = useTranslations("Matches.chat");
+  const commonT = useTranslations("Common");
   const locale = useLocale();
   const timeZone = useTimeZone();
 
@@ -140,10 +143,10 @@ export default function ChatPanel({ matchId }: { matchId: string }) {
 
   return (
     <section className="card">
-      <h2 className="heading">Live chat</h2>
+      <h2 className="heading">{t("title")}</h2>
       <form className="stack" onSubmit={send}>
         <label className="sr-only" htmlFor="chat-message">
-          Chat message
+          {t("label")}
         </label>
         <input
           id="chat-message"
@@ -152,27 +155,30 @@ export default function ChatPanel({ matchId }: { matchId: string }) {
           value={content}
           maxLength={MAX_LENGTH}
           onChange={(e) => setContent(e.target.value)}
-          placeholder={session.loggedIn ? "Say hello" : "Log in to chat"}
+          placeholder={
+            session.loggedIn
+              ? t("placeholder.authenticated")
+              : t("placeholder.guest")
+          }
           disabled={!session.loggedIn}
         />
         {!session.loggedIn && (
           <p className="text-muted">
-            {/* TODO: localize helper copy. */}
-            Log in to chat with other fans.{" "}
+            {t("helper")}{" "}
             <a className="button button--link" href="/login">
-              Log in
+              {commonT("actions.login")}
             </a>
           </p>
         )}
         <button type="submit" disabled={!session.loggedIn}>
-          Send
+          {t("actions.send")}
         </button>
       </form>
       {feedback && (
         <p className={`status status--${feedback.type}`}>{feedback.message}</p>
       )}
-      {error && <p className="status status--error">Could not load chat.</p>}
-      {isLoading && <p>Loading…</p>}
+      {error && <p className="status status--error">{t("errors.load")}</p>}
+      {isLoading && <p>{commonT("status.loading")}</p>}
       <ul className="stack">
         {(data?.items || []).map((msg) => (
           <li key={msg.id} className="stack">
@@ -189,13 +195,13 @@ export default function ChatPanel({ matchId }: { matchId: string }) {
                 className="button button--link"
                 onClick={() => void remove(msg.id, msg.userId)}
               >
-                Delete
+                {t("actions.delete")}
               </button>
             )}
           </li>
         ))}
         {!data?.items?.length && !isLoading && (
-          <li className="text-muted">No chat yet.</li>
+          <li className="text-muted">{t("empty")}</li>
         )}
       </ul>
     </section>

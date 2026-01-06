@@ -104,12 +104,66 @@
   },
   "MatchDiscussion": {
     "chat": {
+      "title": "Live chat",
+      "label": "Chat message",
+      "placeholders": {
+        "authenticated": "Say hello",
+        "unauthenticated": "Log in to chat"
+      },
       "helper": "Log in to chat with other fans.",
-      "cta": "Log in"
+      "cta": "Log in",
+      "actions": {
+        "send": "Send",
+        "delete": "Delete"
+      },
+      "status": {
+        "loading": "Loading…",
+        "sent": "Message sent."
+      },
+      "errors": {
+        "login": "Log in to chat.",
+        "empty": "Message cannot be empty.",
+        "tooLong": "Message too long.",
+        "send": "Could not send.",
+        "manageLogin": "Log in to manage chat.",
+        "deletePermission": "You can only delete your messages.",
+        "delete": "Could not delete.",
+        "load": "Could not load chat."
+      },
+      "empty": "No chat yet."
     },
     "comments": {
+      "title": "Comments",
+      "label": "Add a comment",
+      "placeholders": {
+        "authenticated": "Share your thoughts",
+        "unauthenticated": "Log in to comment"
+      },
       "helper": "Log in to join the conversation.",
-      "cta": "Log in"
+      "cta": "Log in",
+      "actions": {
+        "post": "Post",
+        "posting": "Posting…",
+        "delete": "Delete",
+        "hideReplies": "Hide replies",
+        "viewReplies": "View replies ({count} more)"
+      },
+      "status": {
+        "loading": "Loading…",
+        "posted": "Comment posted successfully.",
+        "deleted": "Comment deleted."
+      },
+      "errors": {
+        "login": "Log in to add a comment.",
+        "empty": "Comment cannot be empty.",
+        "tooLong": "Comment cannot exceed {maxLength} characters.",
+        "post": "Could not post comment.",
+        "manageLogin": "Log in to manage comments.",
+        "deletePermission": "You can only delete your comments.",
+        "delete": "Could not delete comment.",
+        "load": "Could not load comments."
+      },
+      "empty": "No comments yet."
     }
   },
   "Header": {

@@ -81,16 +81,16 @@ export default function ChatPanel({ matchId }: { matchId: string }) {
   async function send(e: FormEvent) {
     e.preventDefault();
     if (!session.loggedIn) {
-      setFeedback({ type: "error", message: "Log in to chat." });
+      setFeedback({ type: "error", message: discussionT("chat.errors.login") });
       return;
     }
     const trimmed = content.trim();
     if (!trimmed) {
-      setFeedback({ type: "error", message: "Message cannot be empty." });
+      setFeedback({ type: "error", message: discussionT("chat.errors.empty") });
       return;
     }
     if (trimmed.length > MAX_LENGTH) {
-      setFeedback({ type: "error", message: "Message too long." });
+      setFeedback({ type: "error", message: discussionT("chat.errors.tooLong") });
       return;
     }
     try {
@@ -113,21 +113,28 @@ export default function ChatPanel({ matchId }: { matchId: string }) {
         },
         { populateCache: true, revalidate: false }
       );
-      setFeedback({ type: "success", message: "Message sent." });
+      setFeedback({ type: "success", message: discussionT("chat.status.sent") });
     } catch (err) {
       const apiErr = err as ApiError;
-      const message = apiErr?.parsedMessage || apiErr?.message || "Could not send.";
+      const message =
+        apiErr?.parsedMessage || apiErr?.message || discussionT("chat.errors.send");
       setFeedback({ type: "error", message });
     }
   }
 
   async function remove(id: string, ownerId: string) {
     if (!session.loggedIn) {
-      setFeedback({ type: "error", message: "Log in to manage chat." });
+      setFeedback({
+        type: "error",
+        message: discussionT("chat.errors.manageLogin"),
+      });
       return;
     }
     if (!session.admin && session.userId !== ownerId) {
-      setFeedback({ type: "error", message: "You can only delete your messages." });
+      setFeedback({
+        type: "error",
+        message: discussionT("chat.errors.deletePermission"),
+      });
       return;
     }
     try {
@@ -135,17 +142,18 @@ export default function ChatPanel({ matchId }: { matchId: string }) {
       await mutate(undefined, { revalidate: true });
     } catch (err) {
       const apiErr = err as ApiError;
-      const message = apiErr?.parsedMessage || apiErr?.message || "Could not delete.";
+      const message =
+        apiErr?.parsedMessage || apiErr?.message || discussionT("chat.errors.delete");
       setFeedback({ type: "error", message });
     }
   }
 
   return (
     <section className="card">
-      <h2 className="heading">Live chat</h2>
+      <h2 className="heading">{discussionT("chat.title")}</h2>
       <form className="stack" onSubmit={send}>
         <label className="sr-only" htmlFor="chat-message">
-          Chat message
+          {discussionT("chat.label")}
         </label>
         <input
           id="chat-message"
@@ -154,7 +162,11 @@ export default function ChatPanel({ matchId }: { matchId: string }) {
           value={content}
           maxLength={MAX_LENGTH}
           onChange={(e) => setContent(e.target.value)}
-          placeholder={session.loggedIn ? "Say hello" : "Log in to chat"}
+          placeholder={
+            session.loggedIn
+              ? discussionT("chat.placeholders.authenticated")
+              : discussionT("chat.placeholders.unauthenticated")
+          }
           disabled={!session.loggedIn}
         />
         {!session.loggedIn && (
@@ -166,14 +178,16 @@ export default function ChatPanel({ matchId }: { matchId: string }) {
           </p>
         )}
         <button type="submit" disabled={!session.loggedIn}>
-          Send
+          {discussionT("chat.actions.send")}
         </button>
       </form>
       {feedback && (
         <p className={`status status--${feedback.type}`}>{feedback.message}</p>
       )}
-      {error && <p className="status status--error">Could not load chat.</p>}
-      {isLoading && <p>Loading…</p>}
+      {error && (
+        <p className="status status--error">{discussionT("chat.errors.load")}</p>
+      )}
+      {isLoading && <p>{discussionT("chat.status.loading")}</p>}
       <ul className="stack">
         {(data?.items || []).map((msg) => (
           <li key={msg.id} className="stack">
@@ -190,13 +204,13 @@ export default function ChatPanel({ matchId }: { matchId: string }) {
                 className="button button--link"
                 onClick={() => void remove(msg.id, msg.userId)}
               >
-                Delete
+                {discussionT("chat.actions.delete")}
               </button>
             )}
           </li>
         ))}
         {!data?.items?.length && !isLoading && (
-          <li className="text-muted">No chat yet.</li>
+          <li className="text-muted">{discussionT("chat.empty")}</li>
         )}
       </ul>
     </section>

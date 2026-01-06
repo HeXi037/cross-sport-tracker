@@ -104,12 +104,66 @@
   },
   "MatchDiscussion": {
     "chat": {
+      "title": "Chat en vivo",
+      "label": "Mensaje del chat",
+      "placeholders": {
+        "authenticated": "Di hola",
+        "unauthenticated": "Inicia sesión para chatear"
+      },
       "helper": "Inicia sesión para chatear con otros aficionados.",
-      "cta": "Iniciar sesión"
+      "cta": "Iniciar sesión",
+      "actions": {
+        "send": "Enviar",
+        "delete": "Eliminar"
+      },
+      "status": {
+        "loading": "Cargando…",
+        "sent": "Mensaje enviado."
+      },
+      "errors": {
+        "login": "Inicia sesión para chatear.",
+        "empty": "El mensaje no puede estar vacío.",
+        "tooLong": "Mensaje demasiado largo.",
+        "send": "No se pudo enviar.",
+        "manageLogin": "Inicia sesión para gestionar el chat.",
+        "deletePermission": "Solo puedes eliminar tus mensajes.",
+        "delete": "No se pudo eliminar.",
+        "load": "No se pudo cargar el chat."
+      },
+      "empty": "Aún no hay chat."
     },
     "comments": {
+      "title": "Comentarios",
+      "label": "Añadir un comentario",
+      "placeholders": {
+        "authenticated": "Comparte tus ideas",
+        "unauthenticated": "Inicia sesión para comentar"
+      },
       "helper": "Inicia sesión para unirte a la conversación.",
-      "cta": "Iniciar sesión"
+      "cta": "Iniciar sesión",
+      "actions": {
+        "post": "Publicar",
+        "posting": "Publicando…",
+        "delete": "Eliminar",
+        "hideReplies": "Ocultar respuestas",
+        "viewReplies": "Ver respuestas ({count} más)"
+      },
+      "status": {
+        "loading": "Cargando…",
+        "posted": "Comentario publicado correctamente.",
+        "deleted": "Comentario eliminado."
+      },
+      "errors": {
+        "login": "Inicia sesión para añadir un comentario.",
+        "empty": "El comentario no puede estar vacío.",
+        "tooLong": "El comentario no puede exceder los {maxLength} caracteres.",
+        "post": "No se pudo publicar el comentario.",
+        "manageLogin": "Inicia sesión para gestionar los comentarios.",
+        "deletePermission": "Solo puedes eliminar tus comentarios.",
+        "delete": "No se pudo eliminar el comentario.",
+        "load": "No se pudieron cargar los comentarios."
+      },
+      "empty": "Aún no hay comentarios."
     }
   },
   "Header": {

@@ -98,18 +98,21 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!session.loggedIn) {
-      setFeedback({ type: "error", message: "Log in to add a comment." });
+      setFeedback({
+        type: "error",
+        message: discussionT("comments.errors.login"),
+      });
       return;
     }
     const trimmed = content.trim();
     if (!trimmed) {
-      setFeedback({ type: "error", message: "Comment cannot be empty." });
+      setFeedback({ type: "error", message: discussionT("comments.errors.empty") });
       return;
     }
     if (trimmed.length > MAX_LENGTH) {
       setFeedback({
         type: "error",
-        message: `Comment cannot exceed ${MAX_LENGTH} characters.`,
+        message: discussionT("comments.errors.tooLong", { maxLength: MAX_LENGTH }),
       });
       return;
     }
@@ -135,11 +138,16 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
         },
         { populateCache: true, revalidate: false }
       );
-      setFeedback({ type: "success", message: "Comment posted successfully." });
+      setFeedback({
+        type: "success",
+        message: discussionT("comments.status.posted"),
+      });
     } catch (err) {
       const apiErr = err as ApiError;
       const message =
-        apiErr?.parsedMessage || apiErr?.message || "Could not post comment.";
+        apiErr?.parsedMessage ||
+        apiErr?.message ||
+        discussionT("comments.errors.post");
       setFeedback({ type: "error", message });
     } finally {
       setSubmitting(false);
@@ -148,21 +156,29 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
 
   async function remove(id: string, ownerId: string) {
     if (!session.loggedIn) {
-      setFeedback({ type: "error", message: "Log in to manage comments." });
+      setFeedback({
+        type: "error",
+        message: discussionT("comments.errors.manageLogin"),
+      });
       return;
     }
     if (!session.admin && session.userId !== ownerId) {
-      setFeedback({ type: "error", message: "You can only delete your comments." });
+      setFeedback({
+        type: "error",
+        message: discussionT("comments.errors.deletePermission"),
+      });
       return;
     }
     try {
       await apiFetch(`/v0/matches/${matchId}/comments/${id}`, { method: "DELETE" });
       await mutate(undefined, { revalidate: true });
-      setFeedback({ type: "success", message: "Comment deleted." });
+      setFeedback({ type: "success", message: discussionT("comments.status.deleted") });
     } catch (err) {
       const apiErr = err as ApiError;
       const message =
-        apiErr?.parsedMessage || apiErr?.message || "Could not delete comment.";
+        apiErr?.parsedMessage ||
+        apiErr?.message ||
+        discussionT("comments.errors.delete");
       setFeedback({ type: "error", message });
     }
   }
@@ -200,7 +216,7 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
             type="button"
             onClick={() => void remove(comment.id, comment.userId)}
           >
-            Delete
+            {discussionT("comments.actions.delete")}
           </button>
         )}
         {hasManyReplies && (
@@ -210,7 +226,9 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
             onClick={() => toggleReplies(comment.id)}
             aria-expanded={isExpanded}
           >
-            {isExpanded ? "Hide replies" : `View replies (${hiddenCount} more)`}
+            {isExpanded
+              ? discussionT("comments.actions.hideReplies")
+              : discussionT("comments.actions.viewReplies", { count: hiddenCount })}
           </button>
         )}
         {visibleReplies.length > 0 && (
@@ -224,10 +242,10 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
 
   return (
     <section className="card">
-      <h2 className="heading">Comments</h2>
+      <h2 className="heading">{discussionT("comments.title")}</h2>
       <form className="stack" onSubmit={submit}>
         <label className="sr-only" htmlFor="match-comment">
-          Add a comment
+          {discussionT("comments.label")}
         </label>
         <textarea
           id="match-comment"
@@ -235,7 +253,11 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
           value={content}
           maxLength={MAX_LENGTH}
           onChange={(e) => setContent(e.target.value)}
-          placeholder={session.loggedIn ? "Share your thoughts" : "Log in to comment"}
+          placeholder={
+            session.loggedIn
+              ? discussionT("comments.placeholders.authenticated")
+              : discussionT("comments.placeholders.unauthenticated")
+          }
           disabled={submitting || !session.loggedIn}
           rows={3}
         />
@@ -252,18 +274,24 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
             {content.length}/{MAX_LENGTH}
           </small>
           <button type="submit" disabled={submitting || !session.loggedIn}>
-            {submitting ? "Posting…" : "Post"}
+            {submitting
+              ? discussionT("comments.actions.posting")
+              : discussionT("comments.actions.post")}
           </button>
         </div>
       </form>
       {feedback && (
         <p className={`status status--${feedback.type}`}>{feedback.message}</p>
       )}
-      {error && <p className="status status--error">Could not load comments.</p>}
-      {(isLoading || isValidating) && <p>Loading…</p>}
+      {error && (
+        <p className="status status--error">{discussionT("comments.errors.load")}</p>
+      )}
+      {(isLoading || isValidating) && <p>{discussionT("comments.status.loading")}</p>}
       <ul className="stack">
         {comments.map((c) => renderComment(c, 0))}
-        {!comments.length && !isLoading && <li className="text-muted">No comments yet.</li>}
+        {!comments.length && !isLoading && (
+          <li className="text-muted">{discussionT("comments.empty")}</li>
+        )}
       </ul>
     </section>
   );

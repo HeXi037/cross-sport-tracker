@@ -1053,15 +1053,22 @@ describe("RecordSportForm", () => {
     });
 
     const playerLabel = players[0].name;
-    expect(
-      screen.getByLabelText(bowlingRollLabel(playerLabel, 1, 1)),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByLabelText(bowlingRollLabel(playerLabel, 1, 2)),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByLabelText(bowlingRollLabel(playerLabel, 10, 3)),
-    ).toBeInTheDocument();
+    const firstRollLabel = bowlingRollLabel(playerLabel, 1, 1);
+    const secondRollLabel = bowlingRollLabel(playerLabel, 1, 2);
+    const finalRollLabel = bowlingRollLabel(playerLabel, 10, 3);
+    const firstRollInput = screen.getByLabelText(firstRollLabel);
+    const secondRollInput = screen.getByLabelText(secondRollLabel);
+    const finalRollInput = screen.getByLabelText(finalRollLabel);
+
+    expect(firstRollInput).toBeInTheDocument();
+    expect(secondRollInput).toBeInTheDocument();
+    expect(finalRollInput).toBeInTheDocument();
+    expect(screen.getByText(firstRollLabel)).toBeVisible();
+    expect(screen.getByText(secondRollLabel)).toBeVisible();
+    expect(screen.getByText(finalRollLabel)).toBeVisible();
+    expect(firstRollInput).toHaveAttribute("aria-label", firstRollLabel);
+    expect(secondRollInput).toHaveAttribute("aria-label", secondRollLabel);
+    expect(finalRollInput).toHaveAttribute("aria-label", finalRollLabel);
   });
 
   it("validates bowling frames as rolls are entered", async () => {

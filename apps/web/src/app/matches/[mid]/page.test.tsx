@@ -86,6 +86,13 @@ vi.mock("next-intl/server", () => ({
   ),
 }));
 
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string, values?: Record<string, string | number>) =>
+    typeof values?.count !== "undefined"
+      ? key.replace("{count}", String(values.count))
+      : key,
+}));
+
 import MatchDetailPage from "./page";
 import MatchNotFound from "./not-found";
 

@@ -565,6 +565,14 @@ function getBowlingPlayerLabel(
   return player?.name?.trim() ? player.name : `Player ${index + 1}`;
 }
 
+export function getBowlingRollAriaLabel(
+  playerLabel: string,
+  frameIndex: number,
+  rollIndex: number,
+): string {
+  return `Frame ${frameIndex + 1}, roll ${rollIndex + 1} – ${playerLabel}`;
+}
+
 function sanitizeBowlingRollInput(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -2499,9 +2507,11 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                   (entryFieldError?.rollIndex === null ||
                                     entryFieldError?.rollIndex === rollIdx);
                                 const rollLabelId = `${inputId}-label`;
-                                const rollLabel = `Frame ${frameIdx + 1}, Roll ${
-                                  rollIdx + 1
-                                } score for ${playerLabel}`;
+                                const rollLabel = getBowlingRollAriaLabel(
+                                  playerLabel,
+                                  frameIdx,
+                                  rollIdx,
+                                );
                                 return (
                                   <div key={rollIdx} className="bowling-roll-field">
                                     <label

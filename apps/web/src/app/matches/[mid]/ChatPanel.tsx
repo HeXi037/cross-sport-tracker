@@ -50,6 +50,7 @@ export default function ChatPanel({ matchId }: { matchId: string }) {
   const commonT = useTranslations("Common");
   const locale = useLocale();
   const timeZone = useTimeZone();
+  const discussionT = useTranslations("MatchDiscussion");
 
   const { data, error, isLoading, mutate } = useApiSWR<ChatPage>(
     `/v0/matches/${matchId}/chat`,

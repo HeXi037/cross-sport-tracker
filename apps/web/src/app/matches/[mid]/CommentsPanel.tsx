@@ -57,6 +57,7 @@ export default function CommentsPanel({ matchId }: { matchId: string }) {
   const commonT = useTranslations("Common");
   const locale = useLocale();
   const timeZone = useTimeZone();
+  const discussionT = useTranslations("MatchDiscussion");
 
   const { data, error, isLoading, isValidating, mutate } = useApiSWR<CommentPage>(
     `/v0/matches/${matchId}/comments`,

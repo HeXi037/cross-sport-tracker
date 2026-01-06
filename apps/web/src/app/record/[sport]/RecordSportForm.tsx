@@ -570,7 +570,7 @@ export function getBowlingRollAriaLabel(
   frameIndex: number,
   rollIndex: number,
 ): string {
-  return `Frame ${frameIndex + 1}, roll ${rollIndex + 1} score for ${playerLabel}`;
+  return `Frame ${frameIndex + 1}, roll ${rollIndex + 1} – ${playerLabel}`;
 }
 
 function sanitizeBowlingRollInput(value: string): string | null {

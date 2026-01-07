@@ -172,7 +172,7 @@ async def leaderboard(
                 for entry in players_payload:
                     if not isinstance(entry, dict):
                         continue
-                    pid = entry.get("id")
+                    pid = entry.get("id") or entry.get("playerId") or entry.get("player_id")
                     total_score = entry.get("total")
                     if (
                         isinstance(pid, str)

@@ -1558,8 +1558,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     });
   }, []);
 
+  type AriaSort = "none" | SortDirection;
   const getAriaSort = useCallback(
-    (column: SortableColumn) => getSortForColumn(column) ?? "none",
+    (column: SortableColumn): AriaSort => getSortForColumn(column) ?? "none",
     [getSortForColumn],
   );
 

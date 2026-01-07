@@ -3372,6 +3372,7 @@ html.theme-dark .record-sport-card:hover {
 .bowling-frame-label {
   font-weight: 600;
   text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .bowling-rolls {
@@ -3391,12 +3392,17 @@ html.theme-dark .record-sport-card:hover {
   display: grid;
   gap: 0.35rem;
   justify-items: center;
+  min-width: 0;
 }
 
 .bowling-roll-label {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   color: var(--color-text-muted);
+  text-align: center;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.1;
 }
 
 .bowling-roll-field input {

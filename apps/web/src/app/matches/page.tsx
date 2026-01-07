@@ -22,6 +22,7 @@ import {
   getNumericEntries,
   isRecord,
   normalizeSetScoreEntry,
+  normalizeSportId,
 } from "../../lib/match-summary";
 
 export const dynamic = "force-dynamic";
@@ -123,8 +124,44 @@ function formatMetadata(
 function formatSummary(
   s: MatchSummaryData | null | undefined,
   labels: { sets: string; games: string; points: string },
+  sport?: string | null,
 ): string {
   if (!s) return "";
+  const normalizedSport = normalizeSportId(sport);
+  const renderRecord = (scores: Record<string, number>) =>
+    Object.keys(scores)
+      .sort()
+      .map((key) => scores[key])
+      .join("-");
+
+  if (normalizedSport === "bowling") {
+    const scoreRecord = isRecord((s as { score?: unknown }).score)
+      ? getNumericEntries((s as { score?: unknown }).score)
+      : [];
+    if (scoreRecord.length) {
+      return renderRecord(Object.fromEntries(scoreRecord));
+    }
+
+    const players = (s as { players?: unknown }).players;
+    if (Array.isArray(players)) {
+      const totals: Record<string, number> = {};
+      players.forEach((player, index) => {
+        if (!isRecord(player)) return;
+        const total = (player as { total?: unknown }).total;
+        if (typeof total !== "number" || !Number.isFinite(total)) return;
+        const side =
+          typeof (player as { side?: unknown }).side === "string"
+            ? String((player as { side?: unknown }).side)
+            : String.fromCharCode(65 + index);
+        totals[side] = total;
+      });
+      const totalEntries = getNumericEntries(totals);
+      if (totalEntries.length) {
+        return renderRecord(Object.fromEntries(totalEntries));
+      }
+    }
+  }
+
   if (Array.isArray(s.set_scores) && s.set_scores.length) {
     const formatted = s.set_scores
       .map((set) => {
@@ -225,7 +262,7 @@ export default async function MatchesPage(
         {hasMatches ? (
           <ul className="match-list">
             {matches.map((m) => {
-              const summaryText = formatSummary(m.summary, summaryLabels);
+              const summaryText = formatSummary(m.summary, summaryLabels, m.sport);
               const playedAtText =
                 m.playedAt && hasTimeComponent(m.playedAt)
                   ? formatDateTime(m.playedAt, locale, 'compact', timeZone)

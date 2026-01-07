@@ -3323,12 +3323,12 @@ html.theme-dark .record-sport-card:hover {
 }
 
 .bowling-entry {
-  border: 1px solid rgba(10, 31, 68, 0.12);
+  border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
   border-radius: 8px;
   padding: 0.75rem;
   display: grid;
   gap: 0.75rem;
-  background: rgba(10, 31, 68, 0.02);
+  background: color-mix(in srgb, var(--color-surface-elevated) 80%, var(--color-surface));
 }
 
 .bowling-entry-header {
@@ -3357,7 +3357,7 @@ html.theme-dark .record-sport-card:hover {
 
 .bowling-frame-card {
   background: var(--color-surface);
-  border: 1px solid rgba(10, 31, 68, 0.08);
+  border: 1px solid color-mix(in srgb, var(--color-text) 10%, transparent);
   border-radius: 6px;
   padding: 0.75rem;
   display: grid;
@@ -3396,7 +3396,7 @@ html.theme-dark .record-sport-card:hover {
 .bowling-roll-label {
   font-size: 0.75rem;
   font-weight: 600;
-  color: rgba(10, 31, 68, 0.7);
+  color: var(--color-text-muted);
 }
 
 .bowling-roll-field input {
@@ -3409,12 +3409,12 @@ html.theme-dark .record-sport-card:hover {
 }
 
 .bowling-roll-input::placeholder {
-  color: rgba(10, 31, 68, 0.45);
+  color: color-mix(in srgb, var(--color-text-muted) 70%, transparent);
 }
 
 .bowling-roll-input--invalid {
   border-color: var(--color-accent-red);
-  background: rgba(186, 12, 47, 0.12);
+  background: color-mix(in srgb, var(--color-accent-red) 18%, var(--color-surface));
 }
 
 .bowling-roll-input--invalid:focus {
@@ -3432,17 +3432,17 @@ html.theme-dark .record-sport-card:hover {
   font-size: 0.75rem;
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
-  border: 1px solid rgba(10, 31, 68, 0.15);
-  background: rgba(10, 31, 68, 0.05);
-  color: inherit;
+  border: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
+  background: color-mix(in srgb, var(--color-text) 6%, var(--color-surface));
+  color: var(--color-text);
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
 .bowling-roll-action:hover:not(:disabled),
 .bowling-roll-action:focus-visible:not(:disabled) {
-  background: rgba(10, 31, 68, 0.12);
-  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-accent-blue) 12%, var(--color-surface));
+  color: var(--color-accent-blue);
 }
 
 .bowling-roll-action:disabled {
@@ -3463,7 +3463,7 @@ html.theme-dark .record-sport-card:hover {
 
 .bowling-frame-total {
   font-size: 0.75rem;
-  color: rgba(10, 31, 68, 0.7);
+  color: var(--color-text-muted);
 }
 
 .bowling-legend {
@@ -3474,7 +3474,7 @@ html.theme-dark .record-sport-card:hover {
 
 .bowling-info-icon {
   font-size: 0.85rem;
-  color: rgba(10, 31, 68, 0.7);
+  color: var(--color-text-muted);
   cursor: help;
 }
 

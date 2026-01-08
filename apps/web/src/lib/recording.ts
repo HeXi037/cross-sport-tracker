@@ -51,6 +51,12 @@ const RECORD_SPORTS: Record<string, RecordSportMeta> = {
     form: "dynamic",
     implemented: true,
   },
+  tennis: {
+    id: "tennis",
+    slug: "tennis",
+    form: "dynamic",
+    implemented: true,
+  },
 };
 
 function titleizeSlug(slug: string): string {

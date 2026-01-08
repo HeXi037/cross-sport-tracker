@@ -748,6 +748,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         gamesNeededOptions: [2, 3],
         invalidSeriesMessage:
           "Table tennis matches finish when a side wins two or three games. Adjust the game scores.",
+        maxPointsPerGame: 11,
+        allowScoresBeyondMax: true,
+        requiredWinningMargin: 2,
       };
     }
     return null;

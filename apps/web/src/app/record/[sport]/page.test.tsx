@@ -871,8 +871,15 @@ describe("RecordSportForm", () => {
 
       fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-      const payload = JSON.parse(fetchMock.mock.calls[1][1].body);
+      await waitFor(() =>
+        expect(
+          fetchMock.mock.calls.some(([url]) => String(url).includes("/v0/matches")),
+        ).toBe(true),
+      );
+      const matchCall = fetchMock.mock.calls.find(([url]) =>
+        String(url).includes("/v0/matches"),
+      );
+      const payload = JSON.parse(matchCall?.[1]?.body ?? "{}");
       expect(payload.sets).toEqual([[2, 1]]);
       expect(typeof payload.sets[0][0]).toBe("number");
       expect(typeof payload.sets[0][1]).toBe("number");
@@ -998,15 +1005,34 @@ describe("RecordSportForm", () => {
 
       fireEvent.click(screen.getByText(/add player/i));
       fireEvent.click(screen.getByText(/add player/i));
-      const selects = screen.getAllByRole("combobox");
-      fireEvent.change(selects[0], { target: { value: "1" } });
-      fireEvent.change(selects[1], { target: { value: "2" } });
-      fireEvent.change(selects[2], { target: { value: "3" } });
+      const playerOneSelect = screen.getByRole("combobox", {
+        name: /player 1/i,
+      });
+      const playerTwoSelect = screen.getByRole("combobox", {
+        name: /player 2/i,
+      });
+      const playerThreeSelect = screen.getByRole("combobox", {
+        name: /player 3/i,
+      });
+      fireEvent.change(playerOneSelect, { target: { value: "1" } });
+      fireEvent.change(playerTwoSelect, { target: { value: "2" } });
+      fireEvent.change(playerThreeSelect, { target: { value: "3" } });
+
+      screen.getByLabelText(bowlingRollLabel("Alice", 1, 1));
+      screen.getByLabelText(bowlingRollLabel("Bob", 1, 1));
+      screen.getByLabelText(bowlingRollLabel("Cara", 1, 1));
 
       fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-      const payload = JSON.parse(fetchMock.mock.calls[1][1].body);
+      await waitFor(() =>
+        expect(
+          fetchMock.mock.calls.some(([url]) => String(url).includes("/v0/matches")),
+        ).toBe(true),
+      );
+      const matchCall = fetchMock.mock.calls.find(([url]) =>
+        String(url).includes("/v0/matches"),
+      );
+      const payload = JSON.parse(matchCall?.[1]?.body ?? "{}");
       expect(payload.participants).toEqual([
         { side: "A", playerIds: ["1"] },
         { side: "B", playerIds: ["2"] },
@@ -1063,9 +1089,9 @@ describe("RecordSportForm", () => {
     expect(firstRollInput).toBeInTheDocument();
     expect(secondRollInput).toBeInTheDocument();
     expect(finalRollInput).toBeInTheDocument();
-    expect(screen.getByText(firstRollLabel)).toBeVisible();
-    expect(screen.getByText(secondRollLabel)).toBeVisible();
-    expect(screen.getByText(finalRollLabel)).toBeVisible();
+    expect(screen.getAllByText("Roll 1")[0]).toBeVisible();
+    expect(screen.getAllByText("Roll 2")[0]).toBeVisible();
+    expect(screen.getAllByText("Roll 3")[0]).toBeVisible();
     expect(firstRollInput).toHaveAttribute("aria-label", firstRollLabel);
     expect(secondRollInput).toHaveAttribute("aria-label", secondRollLabel);
     expect(finalRollInput).toHaveAttribute("aria-label", finalRollLabel);

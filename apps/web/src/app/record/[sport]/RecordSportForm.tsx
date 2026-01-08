@@ -570,7 +570,7 @@ export function getBowlingRollAriaLabel(
   frameIndex: number,
   rollIndex: number,
 ): string {
-  return `Frame ${frameIndex + 1}, roll ${rollIndex + 1} – ${playerLabel}`;
+  return `Frame ${frameIndex + 1} – ${playerLabel} Roll ${rollIndex + 1}`;
 }
 
 function sanitizeBowlingRollInput(value: string): string | null {
@@ -2507,7 +2507,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                   (entryFieldError?.rollIndex === null ||
                                     entryFieldError?.rollIndex === rollIdx);
                                 const rollLabelId = `${inputId}-label`;
-                                const rollLabel = getBowlingRollAriaLabel(
+                                const rollLabel = `Roll ${rollIdx + 1}`;
+                                const rollAccessibleLabel = getBowlingRollAriaLabel(
                                   playerLabel,
                                   frameIdx,
                                   rollIdx,
@@ -2551,8 +2552,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                           rollIdx,
                                         )
                                       }
-                                      aria-labelledby={rollLabelId}
-                                      aria-label={rollLabel}
+                                      aria-label={rollAccessibleLabel}
                                       aria-invalid={isRollInvalid || undefined}
                                     />
                                     <div

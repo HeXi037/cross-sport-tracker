@@ -68,6 +68,12 @@ const sportVisuals: Record<string, SportVisual> = {
     accentDark: "linear-gradient(135deg, #2e1631, #1b0f22)",
     description: "Perfect for fast rallies, deuce points, and multi-game matches.",
   },
+  tennis: {
+    icon: "🎾",
+    accent: "linear-gradient(135deg, #e0f7d4, #f7fff0)",
+    accentDark: "linear-gradient(135deg, #1a3a1c, #102414)",
+    description: "Track sets, tie-breaks, and match momentum with ease.",
+  },
 };
 
 export default async function RecordPage() {

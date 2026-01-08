@@ -100,9 +100,9 @@ const SPORT_COPY: Record<string, Record<string, SportCopy>> = {
       playersHint:
         'Select the competitors for each side. Leave unused slots blank for forfeits.',
       scoringHint:
-        'Enter the points for each game in order. Leave unused games blank—matches end when a side wins two games (best of three) or three games (best of five).',
+        'Enter the points for each game in order. Games go to 11 and must be won by two. Leave unused games blank—matches end when a side wins two games (best of three) or three games (best of five).',
       confirmationMessage: 'Save this table tennis result?',
-      gameScorePlaceholder: 'Points to 11 for this game (e.g. 11)',
+      gameScorePlaceholder: 'Points to 11 for this game (win by 2, e.g. 11)',
     },
     'en-au': {
       matchDetailsHint:

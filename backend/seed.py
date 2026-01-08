@@ -74,6 +74,12 @@ async def main():
                 config={"pointsTo": 11, "winBy": 2, "bestOf": 3},
             ),
             RuleSet(
+                id="table-tennis-standard",
+                sport_id="table_tennis",
+                name="Table Tennis standard",
+                config={"pointsTo": 11, "winBy": 2, "bestOf": 5},
+            ),
+            RuleSet(
                 id="disc-golf-standard",
                 sport_id="disc_golf",
                 name="Disc Golf standard",

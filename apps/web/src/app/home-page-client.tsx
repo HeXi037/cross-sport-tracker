@@ -23,6 +23,7 @@ import {
   getNumericEntries,
   isRecord,
   normalizeSetScoreEntry,
+  normalizeSportId,
   type MatchSummaryData,
 } from '../lib/match-summary';
 
@@ -34,8 +35,43 @@ interface Sport {
 function formatSummary(
   summary: MatchSummaryData | null | undefined,
   labels: { sets: string; games: string; points: string },
+  sport?: string | null,
 ): string {
   if (!summary) return '';
+  const normalizedSport = normalizeSportId(sport);
+
+  if (normalizedSport === 'bowling') {
+    const renderRecord = (scores: Record<string, number>) =>
+      Object.keys(scores)
+        .sort()
+        .map((key) => scores[key])
+        .join('-');
+    const scoreRecord = isRecord((summary as { score?: unknown }).score)
+      ? getNumericEntries((summary as { score?: unknown }).score)
+      : [];
+    if (scoreRecord.length) {
+      return renderRecord(Object.fromEntries(scoreRecord));
+    }
+
+    const players = (summary as { players?: unknown }).players;
+    if (Array.isArray(players)) {
+      const totals: Record<string, number> = {};
+      players.forEach((player, index) => {
+        if (!isRecord(player)) return;
+        const total = (player as { total?: unknown }).total;
+        if (typeof total !== 'number' || !Number.isFinite(total)) return;
+        const side =
+          typeof (player as { side?: unknown }).side === 'string'
+            ? String((player as { side?: unknown }).side)
+            : String.fromCharCode(65 + index);
+        totals[side] = total;
+      });
+      const totalEntries = getNumericEntries(totals);
+      if (totalEntries.length) {
+        return renderRecord(Object.fromEntries(totalEntries));
+      }
+    }
+  }
 
   if (Array.isArray(summary.set_scores) && summary.set_scores.length) {
     const formatted = summary.set_scores
@@ -595,7 +631,7 @@ export default function HomePageClient({
                 games: matchesT('summary.games'),
                 points: matchesT('summary.points'),
               };
-              const summaryText = formatSummary(m.summary, summaryLabels);
+              const summaryText = formatSummary(m.summary, summaryLabels, m.sport);
               const participantSides = Object.entries(m.players)
                 .sort(([a], [b]) => a.localeCompare(b))
                 .map(([, players]) => players);

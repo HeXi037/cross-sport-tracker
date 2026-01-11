@@ -286,6 +286,10 @@ img {
   padding: clamp(16px, 4vw, 32px);
 }
 
+.container--wide {
+  width: min(1280px, 100% - 32px);
+}
+
 .heading {
   margin-top: 0;
   color: var(--color-heading);

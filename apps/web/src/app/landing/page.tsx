@@ -32,7 +32,7 @@ export default function LandingPage() {
           <h1 className="hero__title">{t('title')}</h1>
           <p className="hero__subtitle">{t('subtitle')}</p>
           <div className="hero__actions">
-            <Link href="/demo" className="button hero__cta">
+            <Link href="/login" className="button hero__cta">
               {t('primaryCta')}
             </Link>
           </div>
@@ -62,7 +62,7 @@ export default function LandingPage() {
             <li>{t('workflowItems.share')}</li>
           </ul>
           <div className="hero__actions">
-            <Link href="/demo" className="button hero__cta">
+            <Link href="/login" className="button hero__cta">
               {t('primaryCta')}
             </Link>
           </div>

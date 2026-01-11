@@ -1921,7 +1921,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   }, [hasMore, loadMore, leaders.length, shouldVirtualize]);
 
   return (
-    <main className="container">
+    <main className="container container--wide">
       <p className="sr-only" aria-live="polite">
         {statusMessage}
       </p>

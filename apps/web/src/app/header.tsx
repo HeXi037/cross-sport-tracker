@@ -78,7 +78,6 @@ export default function Header() {
   const recordHref = formatHref('/record');
   const tournamentsHref = formatHref('/tournaments');
   const leaderboardHref = formatHref('/leaderboard?sport=all');
-  const demoHref = formatHref('/demo');
   const profileHref = formatHref('/profile');
   const loginHref = formatHref('/login');
   const adminMatchesHref = formatHref('/admin/matches');
@@ -186,16 +185,6 @@ export default function Header() {
               onClick={handleNavClick(leaderboardHref)}
             >
               {headerT('links.leaderboards')}
-            </Link>
-          </li>
-          <li>
-            <Link
-              href={demoHref}
-              className={`${linkClassName('/demo')} nav-link--quiet`}
-              aria-current={linkAriaCurrent('/demo')}
-              onClick={handleNavClick(demoHref)}
-            >
-              {headerT('links.demo')}
             </Link>
           </li>
           {admin && (

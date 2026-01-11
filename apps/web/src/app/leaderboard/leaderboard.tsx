@@ -1525,6 +1525,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       textAlign: "left" as const,
       padding: "4px 16px 4px 0",
       background: "var(--leaderboard-table-header-bg)",
+      whiteSpace: "nowrap" as const,
     }),
     [],
   );

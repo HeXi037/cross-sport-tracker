@@ -244,7 +244,18 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [tableWidth, setTableWidth] = useState(0);
   type SortDirection = "ascending" | "descending";
-  type SortableColumn = "rating" | "wins" | "matches";
+  type SortableColumn =
+    | "player"
+    | "sport"
+    | "rating"
+    | "winChance"
+    | "wins"
+    | "losses"
+    | "matches"
+    | "winPercent"
+    | "highestScore"
+    | "averageScore"
+    | "standardDeviation";
   const [sortState, setSortState] = useState<
     { column: SortableColumn; direction: SortDirection } | null
   >(null);
@@ -1637,13 +1648,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           >
             #
           </ColumnElement>
-          <ColumnElement {...columnHeaderProps} style={headerCellStyle}>
-            Player
-          </ColumnElement>
+          {renderSortableHeader("player", "Player", headerCellStyle, useNativeElements)}
           {sport === ALL_SPORTS && (
-            <ColumnElement {...columnHeaderProps} style={headerCellStyle}>
-              Sport
-            </ColumnElement>
+            renderSortableHeader("sport", "Sport", headerCellStyle, useNativeElements)
           )}
           {renderSortableHeader(
             "rating",
@@ -1651,42 +1658,60 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             headerCellStyle,
             useNativeElements,
           )}
-          <ColumnElement {...columnHeaderProps} style={headerCellStyle}>
-            Win chance vs #1
-          </ColumnElement>
+          {renderSortableHeader(
+            "winChance",
+            "Win chance vs #1",
+            headerCellStyle,
+            useNativeElements,
+          )}
           {isBowling ? (
             <>
-              <ColumnElement {...columnHeaderProps} style={headerCellStyle}>
-                Highest score
-              </ColumnElement>
-              <ColumnElement {...columnHeaderProps} style={headerCellStyle}>
-                Average score
-              </ColumnElement>
+              {renderSortableHeader(
+                "highestScore",
+                "Highest score",
+                headerCellStyle,
+                useNativeElements,
+              )}
+              {renderSortableHeader(
+                "averageScore",
+                "Average score",
+                headerCellStyle,
+                useNativeElements,
+              )}
               {renderSortableHeader(
                 "matches",
                 "Matches played",
                 headerCellStyle,
                 useNativeElements,
               )}
-              <ColumnElement {...columnHeaderProps} style={lastHeaderCellStyle}>
-                Std. deviation (consistency)
-              </ColumnElement>
+              {renderSortableHeader(
+                "standardDeviation",
+                "Std. deviation (consistency)",
+                lastHeaderCellStyle,
+                useNativeElements,
+              )}
             </>
           ) : (
             <>
               {renderSortableHeader("wins", "W", headerCellStyle, useNativeElements)}
-              <ColumnElement {...columnHeaderProps} style={headerCellStyle}>
-                L
-              </ColumnElement>
+              {renderSortableHeader(
+                "losses",
+                "L",
+                headerCellStyle,
+                useNativeElements,
+              )}
               {renderSortableHeader(
                 "matches",
                 "Matches",
                 headerCellStyle,
                 useNativeElements,
               )}
-              <ColumnElement {...columnHeaderProps} style={lastHeaderCellStyle}>
-                Win%
-              </ColumnElement>
+              {renderSortableHeader(
+                "winPercent",
+                "Win%",
+                lastHeaderCellStyle,
+                useNativeElements,
+              )}
             </>
           )}
         </RowElement>
@@ -1694,16 +1719,55 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     );
   };
 
+  const sortCollator = useMemo(
+    () =>
+      new Intl.Collator(locale, {
+        usage: "sort",
+        sensitivity: "base",
+        numeric: true,
+      }),
+    [locale],
+  );
+
+  const getWinProbability = useCallback(
+    (leader: Leader) => {
+      const topRatedPlayerId = topRatedLeader?.playerId;
+      const topRatedRating = topRatedLeader?.rating;
+      if (
+        typeof topRatedRating !== "number" ||
+        !Number.isFinite(topRatedRating) ||
+        topRatedPlayerId == null
+      ) {
+        return null;
+      }
+      if (leader.playerId === topRatedPlayerId) {
+        return null;
+      }
+      return computeExpectedWinProbability(leader.rating, topRatedRating);
+    },
+    [computeExpectedWinProbability, topRatedLeader],
+  );
+
   const sortedLeaders = useMemo(() => {
     if (!sortState) {
       return leaders;
     }
-    const getComparableValue = (leader: Leader) => {
+    const getComparableValue = (
+      leader: Leader,
+    ): number | string | null => {
       switch (sortState.column) {
+        case "player":
+          return leader.playerName ?? "";
+        case "sport":
+          return leader.sport ? formatSportName(leader.sport) : "";
         case "rating":
           return leader.rating ?? null;
+        case "winChance":
+          return getWinProbability(leader);
         case "wins":
           return leader.setsWon ?? null;
+        case "losses":
+          return leader.setsLost ?? null;
         case "matches": {
           if (isBowling) {
             return leader.matchesPlayed ?? leader.sets ?? null;
@@ -1713,16 +1777,26 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           const total = won + lost;
           return total === 0 ? 0 : total;
         }
+        case "winPercent": {
+          const won = leader.setsWon ?? 0;
+          const lost = leader.setsLost ?? 0;
+          const total = won + lost;
+          return total === 0 ? null : (won / total) * 100;
+        }
+        case "highestScore":
+          return leader.highestScore ?? null;
+        case "averageScore":
+          return leader.averageScore ?? null;
+        case "standardDeviation":
+          return leader.standardDeviation ?? null;
         default:
           return null;
       }
     };
-    const normalizeValue = (value: number | null) =>
-      typeof value === "number" && Number.isFinite(value) ? value : null;
     const directionFactor = sortState.direction === "ascending" ? 1 : -1;
     return [...leaders].sort((a, b) => {
-      const aValue = normalizeValue(getComparableValue(a));
-      const bValue = normalizeValue(getComparableValue(b));
+      const aValue = getComparableValue(a);
+      const bValue = getComparableValue(b);
       if (aValue == null && bValue == null) {
         return (a.rank ?? 0) - (b.rank ?? 0);
       }
@@ -1732,12 +1806,32 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       if (bValue == null) {
         return -1;
       }
+      if (typeof aValue === "string" || typeof bValue === "string") {
+        const result = sortCollator.compare(String(aValue), String(bValue));
+        if (result === 0) {
+          return (a.rank ?? 0) - (b.rank ?? 0);
+        }
+        return result * directionFactor;
+      }
       if (aValue === bValue) {
         return (a.rank ?? 0) - (b.rank ?? 0);
       }
-      return (aValue - bValue) * directionFactor;
+      const aNumber =
+        typeof aValue === "number" && Number.isFinite(aValue) ? aValue : null;
+      const bNumber =
+        typeof bValue === "number" && Number.isFinite(bValue) ? bValue : null;
+      if (aNumber == null && bNumber == null) {
+        return (a.rank ?? 0) - (b.rank ?? 0);
+      }
+      if (aNumber == null) {
+        return 1;
+      }
+      if (bNumber == null) {
+        return -1;
+      }
+      return (aNumber - bNumber) * directionFactor;
     });
-  }, [isBowling, leaders, sortState]);
+  }, [getWinProbability, isBowling, leaders, sortCollator, sortState]);
 
   useEffect(() => {
     const element = tableContainerRef.current;

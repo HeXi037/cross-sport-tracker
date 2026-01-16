@@ -84,7 +84,7 @@ describe("Header navigation", () => {
     pushMock.mockClear();
 
     fireEvent.click(screen.getByRole("link", { name: "links.leaderboards" }));
-    expect(pushMock).toHaveBeenCalledWith("/leaderboard?sport=all");
+    expect(pushMock).toHaveBeenCalledWith("/leaderboard");
     expect(pushMock).toHaveBeenCalledTimes(1);
   });
 
@@ -106,7 +106,7 @@ describe("Header navigation", () => {
     pushMock.mockClear();
     fireEvent.click(menuToggle);
     fireEvent.click(screen.getByRole("link", { name: "links.leaderboards" }));
-    expect(pushMock).toHaveBeenCalledWith("/leaderboard?sport=all");
+    expect(pushMock).toHaveBeenCalledWith("/leaderboard");
     expect(pushMock).toHaveBeenCalledTimes(1);
   });
 });

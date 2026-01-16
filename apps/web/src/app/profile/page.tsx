@@ -1243,10 +1243,16 @@ export default function ProfilePage() {
             <option key={zone} value={zone} />
           ))}
         </datalist>
-        <fieldset className="form-field" aria-describedby={PREFERENCES_TIME_FORMAT_HINT_ID}>
+        <fieldset
+          className="form-field"
+          aria-describedby={PREFERENCES_TIME_FORMAT_HINT_ID}
+        >
           <legend className="form-label">Preferred time format</legend>
           <div className="radio-group" style={{ flexWrap: "wrap", gap: "1rem" }}>
-            <label className="radio" style={{ display: "flex", gap: "0.5rem" }}>
+            <label
+              className="radio-group__option"
+              style={{ display: "flex", gap: "0.5rem" }}
+            >
               <input
                 type="radio"
                 name="preferences-time-format"
@@ -1265,7 +1271,10 @@ export default function ProfilePage() {
               />
               <span>24-hour (default)</span>
             </label>
-            <label className="radio" style={{ display: "flex", gap: "0.5rem" }}>
+            <label
+              className="radio-group__option"
+              style={{ display: "flex", gap: "0.5rem" }}
+            >
               <input
                 type="radio"
                 name="preferences-time-format"

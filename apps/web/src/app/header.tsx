@@ -77,7 +77,7 @@ export default function Header() {
   const matchesHref = formatHref('/matches');
   const recordHref = formatHref('/record');
   const tournamentsHref = formatHref('/tournaments');
-  const leaderboardHref = formatHref('/leaderboard?sport=all');
+  const leaderboardHref = formatHref('/leaderboard');
   const profileHref = formatHref('/profile');
   const loginHref = formatHref('/login');
   const adminMatchesHref = formatHref('/admin/matches');

@@ -62,10 +62,6 @@ export default function LeaderboardIndexPage({
     redirectToLeaderboard(ALL_SPORTS, country, clubId);
   }
 
-  if (!rawSport) {
-    redirectToLeaderboard(ALL_SPORTS, country, clubId);
-  }
-
   const sport = sportParam ?? ALL_SPORTS;
 
   return (

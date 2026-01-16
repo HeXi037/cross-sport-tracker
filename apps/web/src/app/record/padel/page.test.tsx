@@ -747,6 +747,8 @@ describe("RecordPadelPage", () => {
       target: { value: "pb2" },
     });
 
+    fireEvent.click(screen.getByRole("button", { name: /3 sets/i }));
+
     fireEvent.change(screen.getByPlaceholderText("Set 1 A"), {
       target: { value: "7" },
     });
@@ -896,6 +898,8 @@ describe("RecordPadelPage", () => {
       target: { value: "4" },
     });
 
+    fireEvent.click(screen.getByRole("button", { name: /3 sets/i }));
+
     fireEvent.click(screen.getByRole("button", { name: /add set/i }));
     fireEvent.change(screen.getByPlaceholderText("Set 2 A"), {
       target: { value: "6" },
@@ -954,6 +958,8 @@ describe("RecordPadelPage", () => {
     fireEvent.change(screen.getByPlaceholderText("Set 1 B"), {
       target: { value: "4" },
     });
+
+    fireEvent.click(screen.getByRole("button", { name: /3 sets/i }));
 
     fireEvent.click(screen.getByRole("button", { name: /add set/i }));
     fireEvent.change(screen.getByPlaceholderText("Set 2 A"), {

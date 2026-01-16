@@ -128,7 +128,7 @@ interface PadelSetAnalysis {
 }
 
 function analysePadelSets(sets: SetScore[], rawBestOf: number): PadelSetAnalysis {
-  const bestOf = VALID_BEST_OF.has(rawBestOf) ? rawBestOf : 3;
+  const bestOf = VALID_BEST_OF.has(rawBestOf) ? rawBestOf : 1;
   const neededWins = Math.floor(bestOf / 2) + 1;
   const errors = sets.map(() => "");
   let completed = 0;
@@ -366,7 +366,7 @@ export default function RecordPadelPage() {
   const router = useRouter();
   const [players, setPlayers] = useState<Player[]>([]);
   const [ids, setIds] = useState<IdMap>({ a1: "", a2: "", b1: "", b2: "" });
-  const [bestOf, setBestOf] = useState("3");
+  const [bestOf, setBestOf] = useState("1");
   const [sets, setSets] = useState<SetScore[]>([{ ...EMPTY_SET }]);
   const [setErrors, setSetErrors] = useState<SetErrors>([""]);  
   const [setTouched, setSetTouched] = useState<SetTouched>([false]);
@@ -442,7 +442,7 @@ export default function RecordPadelPage() {
 
   const bestOfNumber = useMemo(() => {
     const parsed = Number(bestOf);
-    return VALID_BEST_OF.has(parsed) ? parsed : 3;
+    return VALID_BEST_OF.has(parsed) ? parsed : 1;
   }, [bestOf]);
 
   const setAnalysis = useMemo(

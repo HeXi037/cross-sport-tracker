@@ -88,6 +88,23 @@ pnpm install --filter @cst/web --frozen-lockfile
 pnpm test -- --runInBand
 ```
 
+### Backend tests
+
+Run pytest from the repository root so it can pick up `pytest.ini`. Ensure the
+backend database connection string is set; the test suite expects a Postgres
+database you can destroy and recreate.
+
+```bash
+export DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/crosssport_test
+pytest
+```
+
+The CI-style invocation matches the same command used in automation:
+
+```bash
+pytest
+```
+
 Deploy: Single VPS with Docker Compose; Caddy for HTTPS; nightly pg_dump backups
 
 Monorepo Layout

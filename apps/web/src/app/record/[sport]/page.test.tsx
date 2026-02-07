@@ -60,6 +60,12 @@ function bowlingRollLabel(playerName: string, frame: number, roll: number) {
   return getBowlingRollAriaLabel(playerName, frame - 1, roll - 1);
 }
 
+function getBowlingRollInput(playerName: string, frame: number, roll: number) {
+  return screen.getByRole("textbox", {
+    name: bowlingRollLabel(playerName, frame, roll),
+  });
+}
+
 describe("resolveRecordSportRoute", () => {
   afterEach(() => {
     router.push.mockReset();
@@ -1018,9 +1024,9 @@ describe("RecordSportForm", () => {
       fireEvent.change(playerTwoSelect, { target: { value: "2" } });
       fireEvent.change(playerThreeSelect, { target: { value: "3" } });
 
-      screen.getByLabelText(bowlingRollLabel("Alice", 1, 1));
-      screen.getByLabelText(bowlingRollLabel("Bob", 1, 1));
-      screen.getByLabelText(bowlingRollLabel("Cara", 1, 1));
+      getBowlingRollInput("Alice", 1, 1);
+      getBowlingRollInput("Bob", 1, 1);
+      getBowlingRollInput("Cara", 1, 1);
 
       fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
@@ -1082,9 +1088,9 @@ describe("RecordSportForm", () => {
     const firstRollLabel = bowlingRollLabel(playerLabel, 1, 1);
     const secondRollLabel = bowlingRollLabel(playerLabel, 1, 2);
     const finalRollLabel = bowlingRollLabel(playerLabel, 10, 3);
-    const firstRollInput = screen.getByLabelText(firstRollLabel);
-    const secondRollInput = screen.getByLabelText(secondRollLabel);
-    const finalRollInput = screen.getByLabelText(finalRollLabel);
+    const firstRollInput = screen.getByRole("textbox", { name: firstRollLabel });
+    const secondRollInput = screen.getByRole("textbox", { name: secondRollLabel });
+    const finalRollInput = screen.getByRole("textbox", { name: finalRollLabel });
 
     expect(firstRollInput).toBeInTheDocument();
     expect(secondRollInput).toBeInTheDocument();
@@ -1113,12 +1119,8 @@ describe("RecordSportForm", () => {
     fireEvent.change(select, { target: { value: "1" } });
 
     const playerName = players[0].name;
-    const firstRoll = screen.getByLabelText(
-      bowlingRollLabel(playerName, 1, 1),
-    );
-    const secondRoll = screen.getByLabelText(
-      bowlingRollLabel(playerName, 1, 2),
-    );
+    const firstRoll = getBowlingRollInput(playerName, 1, 1);
+    const secondRoll = getBowlingRollInput(playerName, 1, 2);
 
     fireEvent.change(firstRoll, { target: { value: "10" } });
     expect((secondRoll as HTMLInputElement).value).toBe("");
@@ -1163,22 +1165,14 @@ describe("RecordSportForm", () => {
     const playerName = players[0].name;
 
     for (let frame = 1; frame <= 9; frame += 1) {
-      const roll1 = screen.getByLabelText(
-        bowlingRollLabel(playerName, frame, 1),
-      );
-      const roll2 = screen.getByLabelText(
-        bowlingRollLabel(playerName, frame, 2),
-      );
+      const roll1 = getBowlingRollInput(playerName, frame, 1);
+      const roll2 = getBowlingRollInput(playerName, frame, 2);
       fireEvent.change(roll1, { target: { value: "3" } });
       fireEvent.change(roll2, { target: { value: "4" } });
     }
 
-    const finalRoll1 = screen.getByLabelText(
-      bowlingRollLabel(playerName, 10, 1),
-    );
-    const finalRoll2 = screen.getByLabelText(
-      bowlingRollLabel(playerName, 10, 2),
-    );
+    const finalRoll1 = getBowlingRollInput(playerName, 10, 1);
+    const finalRoll2 = getBowlingRollInput(playerName, 10, 2);
     fireEvent.change(finalRoll1, { target: { value: "3" } });
     fireEvent.change(finalRoll2, { target: { value: "4" } });
 

@@ -2147,6 +2147,38 @@ html.theme-dark .record-sport-card:hover {
   border-style: dashed;
 }
 
+.player-detail__social-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.player-detail__social-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--color-text) 10%, var(--color-surface-elevated));
+  color: var(--color-text);
+  text-decoration: none;
+  border: 1px solid var(--color-border-subtle);
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.player-detail__social-link:hover,
+.player-detail__social-link:focus-visible {
+  background: color-mix(in srgb, var(--color-accent-blue) 12%, var(--color-surface-elevated));
+  border-color: color-mix(in srgb, var(--color-accent-blue) 45%, var(--color-border-subtle));
+  color: var(--color-accent-blue);
+}
+
+.player-detail__social-link:focus-visible {
+  outline: 2px solid var(--color-accent-blue);
+  outline-offset: 2px;
+}
+
 .player-detail__view-nav {
   display: flex;
   flex-wrap: wrap;

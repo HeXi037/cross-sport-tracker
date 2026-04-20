@@ -847,31 +847,14 @@ export default async function PlayerPage({
               </p>
             ) : null}
             {player.social_links && player.social_links.length ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: "0.5rem",
-                  marginTop: "0.75rem",
-                }}
-              >
+              <div className="player-detail__social-links">
                 {player.social_links.map((link) => (
                   <a
                     key={link.id}
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "0.35rem",
-                      padding: "0.35rem 0.75rem",
-                      borderRadius: "9999px",
-                      backgroundColor: "#f4f4f4",
-                      color: "inherit",
-                      textDecoration: "none",
-                      border: "1px solid #e0e0e0",
-                    }}
+                    className="player-detail__social-link"
                     title={link.url}
                   >
                     <span aria-hidden="true">{iconForSocialLink(link)}</span>

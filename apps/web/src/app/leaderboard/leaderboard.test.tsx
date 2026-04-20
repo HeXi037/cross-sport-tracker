@@ -590,6 +590,91 @@ describe("Leaderboard", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("resets an incompatible club when the country changes", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+    fetchClubsSpy
+      .mockResolvedValueOnce([
+        { id: "club-123", name: "Club 123" },
+        { id: "club-se", name: "Club Sweden" },
+      ])
+      .mockResolvedValueOnce([{ id: "club-us", name: "Club USA" }]);
+    updateMockLocation("/leaderboard/padel?country=SE&clubId=club-123");
+
+    await renderLeaderboard({ sport: "padel", country: "SE", clubId: "club-123" });
+
+    await waitFor(() =>
+      expect(fetchClubsSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ sport: "padel", country: "SE" }),
+      ),
+    );
+
+    const countrySelect = screen.getByRole("combobox", { name: "Country" });
+    await user.clear(countrySelect);
+    await user.type(countrySelect, "us");
+    await user.click(
+      await screen.findByRole("option", { name: /United States of America \(US\)/i }),
+    );
+
+    await waitFor(() =>
+      expect(fetchClubsSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ sport: "padel", country: "US" }),
+      ),
+    );
+
+    const clubSelect = screen.getByRole("combobox", { name: "Club" });
+    await waitFor(() => expect(clubSelect).toHaveValue(""));
+  });
+
+  it("narrows club options based on current sport and country", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+    fetchClubsSpy
+      .mockResolvedValueOnce([
+        { id: "club-123", name: "Club 123" },
+        { id: "club-se", name: "Club Sweden" },
+      ])
+      .mockResolvedValueOnce([{ id: "club-us", name: "Club USA" }]);
+    updateMockLocation("/leaderboard/padel?country=SE");
+
+    await renderLeaderboard({ sport: "padel", country: "SE" });
+
+    await waitFor(() =>
+      expect(fetchClubsSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ sport: "padel", country: "SE" }),
+      ),
+    );
+
+    let clubSelect = screen.getByRole("combobox", { name: "Club" });
+    expect(within(clubSelect).getByRole("option", { name: "Club 123" })).toBeInTheDocument();
+    expect(within(clubSelect).queryByRole("option", { name: "Club USA" })).not.toBeInTheDocument();
+
+    const countrySelect = screen.getByRole("combobox", { name: "Country" });
+    await user.clear(countrySelect);
+    await user.type(countrySelect, "us");
+    await user.click(
+      await screen.findByRole("option", { name: /United States of America \(US\)/i }),
+    );
+
+    await waitFor(() =>
+      expect(fetchClubsSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ sport: "padel", country: "US" }),
+      ),
+    );
+
+    clubSelect = screen.getByRole("combobox", { name: "Club" });
+    await waitFor(() =>
+      expect(within(clubSelect).getByRole("option", { name: "Club USA" })).toBeInTheDocument(),
+    );
+    expect(within(clubSelect).queryByRole("option", { name: "Club 123" })).not.toBeInTheDocument();
+  });
+
   it("shows validation feedback when the URL references unsupported filters", async () => {
     const fetchMock = vi
       .fn()
@@ -610,12 +695,6 @@ describe("Leaderboard", () => {
     expect(countryAlert).toHaveAttribute("role", "alert");
     expect(countryAlert).toHaveAttribute("id", "leaderboard-country-error");
 
-    const clubAlert = await screen.findByText(
-      "We don't recognise the club \"club-missing\". Please choose an option from the list.",
-    );
-    expect(clubAlert).toHaveAttribute("role", "alert");
-    expect(clubAlert).toHaveAttribute("id", "leaderboard-club-error");
-
     const countrySelect = screen.getByRole("combobox", { name: "Country" });
     expect(countrySelect).toHaveAttribute("aria-invalid", "true");
     expect(countrySelect).toHaveAttribute(
@@ -624,11 +703,7 @@ describe("Leaderboard", () => {
     );
 
     const clubSelect = screen.getByRole("combobox", { name: "Club" });
-    expect(clubSelect).toHaveAttribute("aria-invalid", "true");
-    expect(clubSelect).toHaveAttribute(
-      "aria-describedby",
-      expect.stringContaining("leaderboard-club-error"),
-    );
+    expect(clubSelect).not.toHaveAttribute("aria-invalid", "true");
 
     await waitFor(() =>
       expect(replaceMock).toHaveBeenCalledWith("/leaderboard/padel", { scroll: false }),

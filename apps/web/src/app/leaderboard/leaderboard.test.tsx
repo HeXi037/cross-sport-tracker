@@ -542,6 +542,13 @@ describe("Leaderboard", () => {
         { scroll: false },
       ),
     );
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(([url]) =>
+          String(url).includes("country=SE"),
+        ),
+      ).toBe(true),
+    );
 
     await waitFor(() =>
       expect(replaceMock).toHaveBeenCalledWith(

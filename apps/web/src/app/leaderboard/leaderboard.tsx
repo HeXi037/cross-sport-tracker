@@ -210,7 +210,6 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const initialCountry = normalizeCountry(country);
   const initialClubId = normalizeClubId(clubId);
 
-  const [draftCountry, setDraftCountry] = useState(initialCountry);
   const [filters, setFilters] = useState<Filters>({
     country: initialCountry,
     clubId: initialClubId,
@@ -257,6 +256,10 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const [sortState, setSortState] = useState<
     { column: SortableColumn; direction: SortDirection } | null
   >(null);
+  const previousFilterPropsRef = useRef<{
+    country?: string | null;
+    clubId?: string | null;
+  } | null>(null);
 
   const resultsCount = leaders.length;
   const hasResults = resultsCount > 0;
@@ -376,15 +379,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     return sport;
   }, [sport]);
 
-  const clubScopeCountry = normalizeCountry(draftCountry || appliedCountry);
-
-  useEffect(() => {
-    if (country === undefined) {
-      return;
-    }
-    const normalized = normalizeCountry(country);
-    setDraftCountry((prev) => (prev === normalized ? prev : normalized));
-  }, [country]);
+  const clubScopeCountry = normalizeCountry(appliedCountry);
 
   useEffect(() => {
     let cancelled = false;
@@ -423,6 +418,12 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     if (!hasCountryProp && !hasClubProp) {
       return;
     }
+    const previousFilterProps = previousFilterPropsRef.current;
+    const shouldSyncFromProps =
+      !previousFilterProps ||
+      previousFilterProps.country !== country ||
+      previousFilterProps.clubId !== clubId;
+    previousFilterPropsRef.current = { country, clubId };
 
     const normalizedCountry = hasCountryProp
       ? normalizeCountry(country)
@@ -464,6 +465,10 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       nextErrors.clubId = `We don't recognise the club "${label}". Please choose an option from the list.`;
     }
     setFilterErrors(nextErrors);
+
+    if (!shouldSyncFromProps) {
+      return;
+    }
 
     setFilters((prev) => {
       const nextCountry =
@@ -608,7 +613,6 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     if (!hasCountryParam && preferredCountry) {
       url.searchParams.set("country", preferredCountry);
       if (appliedCountry !== preferredCountry) {
-        setDraftCountry(preferredCountry);
         setFilters((prev) =>
           prev.country === preferredCountry
             ? prev
@@ -1148,7 +1152,6 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const handleCountryChange = useCallback(
     (next: string) => {
       const normalizedCountry = normalizeCountry(next);
-      setDraftCountry(normalizedCountry);
       if (!normalizedCountry) {
         applyNextFilters({ country: "", clubId: "" });
         return;
@@ -1178,7 +1181,6 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   );
 
   const handleClear = () => {
-    setDraftCountry("");
     setFilterErrors({});
     const cleared = { country: "", clubId: "" };
     setFilters((prev) =>
@@ -2226,7 +2228,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             </label>
             <CountrySelect
               id="leaderboard-country"
-              value={draftCountry}
+              value={appliedCountry}
               onChange={handleCountryChange}
               placeholder="Select a country"
               style={{

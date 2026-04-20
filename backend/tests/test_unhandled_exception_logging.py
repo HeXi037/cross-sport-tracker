@@ -26,8 +26,10 @@ def test_unhandled_exception_logs_traceback(caplog):
         response = client.get("/boom")
 
     assert response.status_code == 500
+    payload = response.json()
+    assert payload["detail"] == "An unexpected error occurred"
+    assert "boom" not in response.text
     record = next((r for r in caplog.records if r.message == "Unhandled exception"), None)
     assert record is not None
     assert record.exc_info[0] is ValueError
     assert "ValueError: boom" in caplog.text
-

@@ -169,7 +169,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     problem = ProblemDetail(
         title="Internal Server Error",
         status=500,
-        detail=str(exc),
+        detail="An unexpected error occurred",
         code="internal_server_error",
     )
     return JSONResponse(

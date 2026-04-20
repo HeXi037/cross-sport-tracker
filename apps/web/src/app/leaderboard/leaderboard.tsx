@@ -1133,10 +1133,47 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     withRegion,
   ]);
 
-  const applyNextFilters = useCallback(
-    (nextFilters: Filters) => {
+  const handleCountryChange = useCallback(
+    (next: string) => {
+      const normalizedCountry = normalizeCountry(next);
+      const normalizedCurrentClubId = normalizeClubId(appliedClubId);
+
+      let nextFilters: Filters = {
+        country: normalizedCountry,
+        clubId: normalizedCurrentClubId,
+      };
+      let errors = validateFilters(nextFilters.country, nextFilters.clubId);
+
+      if (errors.country) {
+        return;
+      }
+
+      if (errors.clubId) {
+        nextFilters = { ...nextFilters, clubId: "" };
+        errors = validateFilters(nextFilters.country, nextFilters.clubId);
+        if (errors.country || errors.clubId) {
+          return;
+        }
+      }
+
+      setFilters((prev) =>
+        prev.country === nextFilters.country && prev.clubId === nextFilters.clubId
+          ? prev
+          : nextFilters
+      );
+      updateFiltersInQuery(nextFilters);
+    },
+    [appliedClubId, updateFiltersInQuery, validateFilters],
+  );
+
+  const handleClubChange = useCallback(
+    (next: string) => {
+      const nextFilters: Filters = {
+        country: appliedCountry,
+        clubId: normalizeClubId(next),
+      };
       const errors = validateFilters(nextFilters.country, nextFilters.clubId);
-      if (Object.keys(errors).length > 0) {
+      if (errors.country || errors.clubId) {
         return;
       }
       setFilters((prev) =>
@@ -1146,38 +1183,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       );
       updateFiltersInQuery(nextFilters);
     },
-    [updateFiltersInQuery, validateFilters],
-  );
-
-  const handleCountryChange = useCallback(
-    (next: string) => {
-      const normalizedCountry = normalizeCountry(next);
-      if (!normalizedCountry) {
-        applyNextFilters({ country: "", clubId: "" });
-        return;
-      }
-      if (!countryCodes.has(normalizedCountry)) {
-        setFilterErrors((prev) =>
-          prev.country || prev.clubId ? { ...prev, country: undefined } : prev
-        );
-        return;
-      }
-      applyNextFilters({
-        country: normalizedCountry,
-        clubId: "",
-      });
-    },
-    [applyNextFilters, countryCodes],
-  );
-
-  const handleClubChange = useCallback(
-    (next: string) => {
-      applyNextFilters({
-        country: appliedCountry,
-        clubId: normalizeClubId(next),
-      });
-    },
-    [appliedCountry, applyNextFilters],
+    [appliedCountry, updateFiltersInQuery, validateFilters],
   );
 
   const handleClear = () => {

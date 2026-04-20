@@ -7,20 +7,27 @@ Hosting: Cheap, self-hosted on a single VPS via Docker Compose + nginx.
 
 Environment Variables
 
+### Canonical runtime-required variables
+
 | Variable | Required | Description | Example |
 | --- | --- | --- | --- |
-| `JWT_SECRET` | Yes | High-entropy secret used to sign access tokens. Must be at least 32 random characters; never commit it to source control. | `JWT_SECRET=wJ9s3qYB0e1rT6pV9mX2zC5uA8fL4dH` |
-| `ADMIN_SECRET` | When creating admins | Shared secret that must match the `X-Admin-Secret` header to create administrator accounts. Treat as sensitive and rotate if exposed. | `ADMIN_SECRET=admin-signup-secret-9f36` |
-| `FLAGGED_IPS` | No | Comma-separated list of IPs that should receive a stricter signup rate limit (`1/hour` instead of `5/minute`). Leave blank to use the default rate limits. | `FLAGGED_IPS=203.0.113.42,198.51.100.7` |
-| `ALLOWED_ORIGINS` | Yes | Comma-separated CORS allowlist for trusted frontends. Wildcards (`*`) are rejected; the API refuses to start unless a trusted origin is supplied. | `ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com` |
-| `ALLOW_CREDENTIALS` | No (defaults to `true`) | Enables credentialed CORS requests. Combine with `ALLOWED_ORIGINS` to allow cookies/headers to flow to trusted domains. | `ALLOW_CREDENTIALS=true` |
 | `DATABASE_URL` | Yes | SQLAlchemy database URL for Postgres (async driver recommended). Contains database credentials—handle securely. | `DATABASE_URL=postgresql+asyncpg://postgres:supersecret@db:5432/crosssport` |
-| `REDIS_URL` | No (defaults to `redis://localhost:6379`) | Connection string for the Redis instance that backs WebSocket fan-out. Include credentials if your Redis deployment requires them. | `REDIS_URL=redis://cache:6379/0` |
-| `API_PREFIX` | No (defaults to `/api`) | Base path mounted by the FastAPI application. Update if reverse-proxying the API under a different prefix. | `API_PREFIX=/api` |
-| `SENTRY_DSN` | No | Sentry project DSN. When provided, the API initializes Sentry error and performance reporting. | `SENTRY_DSN=https://public@o0.ingest.sentry.io/0` |
-| `SENTRY_ENVIRONMENT` | No | Environment label attached to Sentry events (e.g., `production`, `staging`). | `SENTRY_ENVIRONMENT=production` |
-| `SENTRY_TRACES_SAMPLE_RATE` | No (defaults to `0.0`) | Fraction between 0.0 and 1.0 controlling how many requests to send as performance traces. | `SENTRY_TRACES_SAMPLE_RATE=0.25` |
-| `SENTRY_PROFILES_SAMPLE_RATE` | No (defaults to `0.0`) | Fraction between 0.0 and 1.0 controlling how many traced requests also include profiling data. | `SENTRY_PROFILES_SAMPLE_RATE=0.1` |
+| `JWT_SECRET` | Yes | High-entropy secret used to sign JWT access tokens. Must be at least 32 random characters; never commit it to source control. | `JWT_SECRET=wJ9s3qYB0e1rT6pV9mX2zC5uA8fL4dH` |
+| `ALLOWED_ORIGINS` | Yes | Comma-separated CORS allowlist for trusted frontends. Wildcards (`*`) are rejected; the API refuses to start unless a trusted origin is supplied. | `ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com` |
+| `ADMIN_SECRET` | Required for admin creation | Shared secret that must match the `X-Admin-Secret` header on administrator-account creation endpoints. Treat as sensitive and rotate if exposed. | `ADMIN_SECRET=admin-signup-secret-9f36` |
+
+### Optional runtime variables
+
+| Variable | Default | Description | Example |
+| --- | --- | --- | --- |
+| `ALLOW_CREDENTIALS` | `true` | Enables credentialed CORS requests. Combine with `ALLOWED_ORIGINS` to allow cookies/headers to flow to trusted domains. | `ALLOW_CREDENTIALS=true` |
+| `FLAGGED_IPS` | _(unset)_ | Comma-separated list of IPs that should receive a stricter signup rate limit (`1/hour` instead of `5/minute`). Leave blank to use the default rate limits. | `FLAGGED_IPS=203.0.113.42,198.51.100.7` |
+| `REDIS_URL` | `redis://localhost:6379` | Connection string for the Redis instance that backs WebSocket fan-out. Include credentials if your Redis deployment requires them. | `REDIS_URL=redis://cache:6379/0` |
+| `API_PREFIX` | `/api` | Base path mounted by the FastAPI application. Update if reverse-proxying the API under a different prefix. | `API_PREFIX=/api` |
+| `SENTRY_DSN` | _(unset)_ | Sentry project DSN. When provided, the API initializes Sentry error and performance reporting. | `SENTRY_DSN=https://public@o0.ingest.sentry.io/0` |
+| `SENTRY_ENVIRONMENT` | _(unset)_ | Environment label attached to Sentry events (e.g., `production`, `staging`). | `SENTRY_ENVIRONMENT=production` |
+| `SENTRY_TRACES_SAMPLE_RATE` | `0.0` | Fraction between 0.0 and 1.0 controlling how many requests to send as performance traces. | `SENTRY_TRACES_SAMPLE_RATE=0.25` |
+| `SENTRY_PROFILES_SAMPLE_RATE` | `0.0` | Fraction between 0.0 and 1.0 controlling how many traced requests also include profiling data. | `SENTRY_PROFILES_SAMPLE_RATE=0.1` |
 
 > !!!Secrets such as `JWT_SECRET`, `ADMIN_SECRET`, and database credentials in `DATABASE_URL` should be stored in a secure secrets manager or environment configuration outside of version control!!!
 

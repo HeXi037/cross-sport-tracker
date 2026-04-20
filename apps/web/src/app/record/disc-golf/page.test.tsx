@@ -54,7 +54,7 @@ describe("RecordDiscGolfPage", () => {
   });
 
   it("posts hole events", async () => {
-    const fetchMock = vi.fn((url: unknown, init: RequestInit | undefined) => {
+    const fetchMock = vi.fn((url: unknown) => {
       if (url === "/api/v0/players?limit=100&offset=0") {
         return Promise.resolve({
           ok: true,
@@ -272,7 +272,7 @@ describe("RecordDiscGolfPage", () => {
 
   it("creates a new match and enables scoring when requested", async () => {
     useSearchParamsMock.mockReturnValue(new URLSearchParams());
-    const fetchMock = vi.fn((url: unknown, init: RequestInit | undefined) => {
+    const fetchMock = vi.fn((url: unknown) => {
       if (url === "/api/v0/players?limit=100&offset=0") {
         return Promise.resolve({
           ok: true,

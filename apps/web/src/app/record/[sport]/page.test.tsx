@@ -256,7 +256,7 @@ describe("RecordSportForm", () => {
 
     const fetchMock = vi
       .fn()
-      .mockImplementation((input: RequestInfo, _init?: RequestInit) => {
+      .mockImplementation((input: RequestInfo) => {
         const url = typeof input === "string" ? input : input?.toString();
         if (url?.includes("/v0/players")) {
           return Promise.resolve({ ok: true, json: async () => ({ players }) });
@@ -633,7 +633,7 @@ describe("RecordSportForm", () => {
     fetchClubsSpy.mockResolvedValue(clubs);
 
     const fetchMock = vi.fn().mockImplementation(
-      (input: RequestInfo, init?: RequestInit) => {
+      (input: RequestInfo) => {
         const url = typeof input === "string" ? input : input?.toString();
         if (url?.includes("/v0/players")) {
           return Promise.resolve({ ok: true, json: async () => ({ players }) });

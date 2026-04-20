@@ -1019,7 +1019,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
           setPadelAmericanoTarget(parsed.tieTarget);
         }
       }
-    } catch (err) {
+    } catch {
       // Ignore malformed stored data
     }
   }, [isPadelAmericano]);
@@ -1044,7 +1044,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         PADEL_AMERICANO_STORAGE_KEY,
         JSON.stringify(payload),
       );
-    } catch (err) {
+    } catch {
       // Ignore persistence failures (e.g. private mode)
     }
   }, [

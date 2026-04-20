@@ -6,7 +6,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ChangeEvent,
   CSSProperties,
-  FormEvent,
   forwardRef,
   type HTMLAttributes,
   startTransition,
@@ -212,7 +211,6 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const initialClubId = normalizeClubId(clubId);
 
   const [draftCountry, setDraftCountry] = useState(initialCountry);
-  const [draftClubId, setDraftClubId] = useState(initialClubId);
   const [filters, setFilters] = useState<Filters>({
     country: initialCountry,
     clubId: initialClubId,
@@ -378,7 +376,15 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     return sport;
   }, [sport]);
 
-  const clubScopeCountry = normalizeCountry(draftCountry);
+  const clubScopeCountry = normalizeCountry(draftCountry || appliedCountry);
+
+  useEffect(() => {
+    if (country === undefined) {
+      return;
+    }
+    const normalized = normalizeCountry(country);
+    setDraftCountry((prev) => (prev === normalized ? prev : normalized));
+  }, [country]);
 
   useEffect(() => {
     let cancelled = false;
@@ -412,22 +418,6 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   }, [clubScopeCountry, clubScopeSport]);
 
   useEffect(() => {
-    if (country === undefined) {
-      return;
-    }
-    const normalized = normalizeCountry(country);
-    setDraftCountry((prev) => (prev === normalized ? prev : normalized));
-  }, [country]);
-
-  useEffect(() => {
-    if (clubId === undefined) {
-      return;
-    }
-    const normalized = normalizeClubId(clubId);
-    setDraftClubId((prev) => (prev === normalized ? prev : normalized));
-  }, [clubId]);
-
-  useEffect(() => {
     const hasCountryProp = country !== undefined;
     const hasClubProp = clubId !== undefined;
     if (!hasCountryProp && !hasClubProp) {
@@ -455,6 +445,26 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             ? ""
             : normalizedClubId;
 
+    const nextErrors: FilterErrors = {};
+    if (
+      normalizedCountry !== undefined &&
+      normalizedCountry !== "" &&
+      !countryCodes.has(normalizedCountry)
+    ) {
+      nextErrors.country = `We don't support country code "${normalizedCountry}". Please pick a country from the list.`;
+    }
+    if (
+      normalizedClubId !== undefined &&
+      normalizedClubId !== "" &&
+      !nextErrors.country &&
+      clubsLoaded &&
+      !clubIds.has(normalizedClubId)
+    ) {
+      const label = clubNameById.get(normalizedClubId) ?? normalizedClubId;
+      nextErrors.clubId = `We don't recognise the club "${label}". Please choose an option from the list.`;
+    }
+    setFilterErrors(nextErrors);
+
     setFilters((prev) => {
       const nextCountry =
         sanitizedCountry === undefined ? prev.country : sanitizedCountry;
@@ -466,7 +476,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       }
       return { country: nextCountry, clubId: nextClubId };
     });
-  }, [clubId, clubsLoaded, clubIds, country, countryCodes]);
+  }, [clubId, clubsLoaded, clubIds, clubNameById, country, countryCodes]);
 
   const validateFilters = useCallback(
     (countryCode: string, clubIdentifier: string) => {
@@ -551,9 +561,6 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     if (!clubsLoaded) {
       return;
     }
-    if (draftClubId && !clubIds.has(draftClubId)) {
-      setDraftClubId("");
-    }
     const isAppliedCountryScope = appliedCountry === clubScopeCountry;
     if (isAppliedCountryScope && appliedClubId && !clubIds.has(appliedClubId)) {
       const nextFilters = { country: appliedCountry, clubId: "" };
@@ -568,7 +575,6 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     clubIds,
     clubScopeCountry,
     clubsLoaded,
-    draftClubId,
     updateFiltersInQuery,
   ]);
 
@@ -997,20 +1003,8 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     return topByRank ?? topByRating;
   }, [leaders]);
 
-  const normalizedDraftCountry = normalizeCountry(draftCountry);
-  const normalizedDraftClubId = normalizeClubId(draftClubId);
-  const hasDraftChanges =
-    normalizedDraftCountry !== appliedCountry ||
-    normalizedDraftClubId !== appliedClubId;
-  const canApply = supportsFilters && hasDraftChanges;
-  const hasDraftValues = Boolean(normalizedDraftCountry || normalizedDraftClubId);
   const hasAppliedFilters = Boolean(appliedCountry || appliedClubId);
-  const canClear = supportsFilters
-    ? hasDraftValues || hasAppliedFilters
-    : hasAppliedFilters;
-  useEffect(() => {
-    validateFilters(normalizedDraftCountry, normalizedDraftClubId);
-  }, [normalizedDraftClubId, normalizedDraftCountry, validateFilters]);
+  const canClear = hasAppliedFilters;
   const countryErrorId = filterErrors.country ? "leaderboard-country-error" : undefined;
   const clubErrorId = filterErrors.clubId ? "leaderboard-club-error" : undefined;
 
@@ -1135,31 +1129,56 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     withRegion,
   ]);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!supportsFilters || !hasDraftChanges) {
-      return;
-    }
-    const nextCountry = normalizedDraftCountry;
-    const nextClubId = normalizedDraftClubId;
-    const errors = validateFilters(nextCountry, nextClubId);
-    if (Object.keys(errors).length > 0) {
-      return;
-    }
-    const nextFilters = { country: nextCountry, clubId: nextClubId };
-    setDraftCountry(nextCountry);
-    setDraftClubId(nextClubId);
-    setFilters((prev) =>
-      prev.country === nextCountry && prev.clubId === nextClubId
-        ? prev
-        : nextFilters
-    );
-    updateFiltersInQuery(nextFilters);
-  };
+  const applyNextFilters = useCallback(
+    (nextFilters: Filters) => {
+      const errors = validateFilters(nextFilters.country, nextFilters.clubId);
+      if (Object.keys(errors).length > 0) {
+        return;
+      }
+      setFilters((prev) =>
+        prev.country === nextFilters.country && prev.clubId === nextFilters.clubId
+          ? prev
+          : nextFilters
+      );
+      updateFiltersInQuery(nextFilters);
+    },
+    [updateFiltersInQuery, validateFilters],
+  );
+
+  const handleCountryChange = useCallback(
+    (next: string) => {
+      const normalizedCountry = normalizeCountry(next);
+      setDraftCountry(normalizedCountry);
+      if (!normalizedCountry) {
+        applyNextFilters({ country: "", clubId: "" });
+        return;
+      }
+      if (!countryCodes.has(normalizedCountry)) {
+        setFilterErrors((prev) =>
+          prev.country || prev.clubId ? { ...prev, country: undefined } : prev
+        );
+        return;
+      }
+      applyNextFilters({
+        country: normalizedCountry,
+        clubId: "",
+      });
+    },
+    [applyNextFilters, countryCodes],
+  );
+
+  const handleClubChange = useCallback(
+    (next: string) => {
+      applyNextFilters({
+        country: appliedCountry,
+        clubId: normalizeClubId(next),
+      });
+    },
+    [appliedCountry, applyNextFilters],
+  );
 
   const handleClear = () => {
     setDraftCountry("");
-    setDraftClubId("");
     setFilterErrors({});
     const cleared = { country: "", clubId: "" };
     setFilters((prev) =>
@@ -2188,7 +2207,6 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
 
       {supportsFilters ? (
         <form
-          onSubmit={handleSubmit}
           aria-label="Leaderboard filters"
           aria-controls={RESULTS_TABLE_ID}
           style={{
@@ -2209,7 +2227,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             <CountrySelect
               id="leaderboard-country"
               value={draftCountry}
-              onChange={(next) => setDraftCountry(normalizeCountry(next))}
+              onChange={handleCountryChange}
               placeholder="Select a country"
               style={{
                 padding: "0.35rem",
@@ -2242,8 +2260,8 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             Club
           </label>
           <ClubSelect
-            value={draftClubId}
-            onChange={(next) => setDraftClubId(normalizeClubId(next))}
+            value={appliedClubId}
+            onChange={handleClubChange}
             options={clubOptions}
             placeholder="Search for a club"
             searchInputId="leaderboard-club-search"
@@ -2268,28 +2286,6 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           </div>
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <button
-              type="submit"
-              aria-controls={RESULTS_TABLE_ID}
-              style={{
-                padding: "0.4rem 0.9rem",
-                borderRadius: "4px",
-                border: canApply
-                  ? "1px solid var(--color-button-primary-border)"
-                  : "1px solid var(--color-button-disabled-border)",
-                background: canApply
-                  ? "var(--color-button-primary-bg)"
-                  : "var(--color-button-disabled-bg)",
-                color: canApply
-                  ? "var(--color-button-primary-text)"
-                  : "var(--color-button-disabled-text)",
-                cursor: canApply ? "pointer" : "not-allowed",
-                opacity: canApply ? 1 : 0.7,
-              }}
-              disabled={!canApply}
-            >
-              Apply
-            </button>
-            <button
               type="button"
               onClick={handleClear}
               aria-controls={RESULTS_TABLE_ID}
@@ -2307,6 +2303,15 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
               Clear
             </button>
           </div>
+          <p
+            style={{
+              margin: 0,
+              fontSize: "0.8rem",
+              color: "var(--color-text-muted)",
+            }}
+          >
+            Filters apply automatically.
+          </p>
         </form>
       ) : (
         <div

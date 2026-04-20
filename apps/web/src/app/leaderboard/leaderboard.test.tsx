@@ -524,10 +524,12 @@ describe("Leaderboard", () => {
 
     await waitFor(() => expect(fetchClubsSpy).toHaveBeenCalled());
 
-    const countrySelect = (await screen.findByRole("combobox", {
+    const countrySelect = await screen.findByRole("combobox", {
       name: "Country",
-    })) as HTMLSelectElement;
-    await user.selectOptions(countrySelect, "SE");
+    });
+    await user.clear(countrySelect);
+    await user.type(countrySelect, "swed");
+    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
 
     const clubSelect = (await screen.findByRole("combobox", {
       name: "Club",
@@ -567,7 +569,9 @@ describe("Leaderboard", () => {
 
     const user = userEvent.setup();
     const countrySelect = screen.getByRole("combobox", { name: "Country" });
-    await user.selectOptions(countrySelect, "SE");
+    await user.clear(countrySelect);
+    await user.type(countrySelect, "swed");
+    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
 
     const clubSelect = screen.getByRole("combobox", { name: "Club" });
     await user.selectOptions(clubSelect, "club-123");
@@ -727,8 +731,8 @@ describe("Leaderboard", () => {
       </NextIntlClientProvider>,
     );
 
-    const countrySelect = (await screen.findByRole("combobox", { name: "Country" })) as HTMLSelectElement;
-    await waitFor(() => expect(countrySelect.value).toBe("SE"));
+    const countrySelect = await screen.findByRole("combobox", { name: "Country" });
+    await waitFor(() => expect(countrySelect).toHaveValue("Sweden"));
   });
 
   it("preserves additional query params when updating filters", async () => {
@@ -742,8 +746,10 @@ describe("Leaderboard", () => {
 
     await renderLeaderboard({ sport: "padel" });
 
-    const countrySelect = (await screen.findByLabelText("Country")) as HTMLSelectElement;
-    await user.selectOptions(countrySelect, "SE");
+    const countrySelect = await screen.findByLabelText("Country");
+    await user.clear(countrySelect);
+    await user.type(countrySelect, "swed");
+    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
     const applyButton = screen.getByRole("button", { name: "Apply" });
 
     const initialCallCount = replaceMock.mock.calls.length;

@@ -630,10 +630,29 @@ export interface ClubSummary {
   name: string;
 }
 
+export type FetchClubsOptions = ApiRequestInit & {
+  sport?: string | null;
+  country?: string | null;
+};
+
 export async function fetchClubs(
-  init?: ApiRequestInit
+  options?: FetchClubsOptions
 ): Promise<ClubSummary[]> {
-  const res = await apiFetch("/v0/clubs", init);
+  const params = new URLSearchParams();
+  if (options?.sport) {
+    params.set("sport", options.sport);
+  }
+  if (options?.country) {
+    params.set("country", options.country);
+  }
+  const query = params.toString();
+  const path = query ? `/v0/clubs?${query}` : "/v0/clubs";
+  const init = options ? { ...options } : undefined;
+  if (init) {
+    delete init.sport;
+    delete init.country;
+  }
+  const res = await apiFetch(path, init);
   return res.json();
 }
 

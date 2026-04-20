@@ -12,7 +12,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app import db
 from app.exceptions import DomainException, ProblemDetail
-from app.models import Club, Player, RefreshToken, User
+from app.models import Club, Player, Rating, RefreshToken, Sport, User
 from app.routers import auth, clubs
 
 os.environ["ADMIN_SECRET"] = "admintest"
@@ -71,8 +71,10 @@ def setup_db():
                 tables=[
                     User.__table__,
                     RefreshToken.__table__,
+                    Sport.__table__,
                     Player.__table__,
                     Club.__table__,
+                    Rating.__table__,
                 ],
             )
 
@@ -180,5 +182,85 @@ def test_create_club_conflict(async_client) -> None:
         assert duplicate.status_code == 409
         payload = duplicate.json()
         assert payload["code"] == "club_exists"
+
+    loop.run_until_complete(scenario())
+
+
+def test_list_clubs_supports_country_and_sport_filters(async_client) -> None:
+    client, loop = async_client
+
+    async def scenario() -> None:
+        token = await create_admin_token(client)
+        for club_id, club_name in (
+            ("club-se-padel", "Club SE Padel"),
+            ("club-se-bowl", "Club SE Bowl"),
+            ("club-us-padel", "Club US Padel"),
+        ):
+            response = await client.post(
+                "/clubs",
+                json={"id": club_id, "name": club_name},
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            assert response.status_code in {201, 409}
+
+        async with db.AsyncSessionLocal() as session:
+            session.add_all(
+                [
+                    Sport(id="padel", name="Padel"),
+                    Sport(id="bowling", name="Bowling"),
+                ]
+            )
+            session.add_all(
+                [
+                    Player(
+                        id="player-se-padel",
+                        name="Player SE Padel",
+                        location="SE",
+                        club_id="club-se-padel",
+                    ),
+                    Player(
+                        id="player-se-bowl",
+                        name="Player SE Bowl",
+                        location="SE",
+                        club_id="club-se-bowl",
+                    ),
+                    Player(
+                        id="player-us-padel",
+                        name="Player US Padel",
+                        location="US",
+                        club_id="club-us-padel",
+                    ),
+                ]
+            )
+            session.add_all(
+                [
+                    Rating(id="rating-se-padel", player_id="player-se-padel", sport_id="padel", value=1000),
+                    Rating(id="rating-se-bowl", player_id="player-se-bowl", sport_id="bowling", value=1000),
+                    Rating(id="rating-us-padel", player_id="player-us-padel", sport_id="padel", value=1000),
+                ]
+            )
+            await session.commit()
+
+        country_only = await client.get("/clubs", params={"country": "SE"})
+        assert country_only.status_code == 200
+        assert [club["id"] for club in country_only.json()] == [
+            "club-se-bowl",
+            "club-se-padel",
+        ]
+
+        sport_and_country = await client.get(
+            "/clubs", params={"country": "SE", "sport": "padel"}
+        )
+        assert sport_and_country.status_code == 200
+        assert sport_and_country.json() == [
+            {"id": "club-se-padel", "name": "Club SE Padel"}
+        ]
+
+        sport_only = await client.get("/clubs", params={"sport": "padel"})
+        assert sport_only.status_code == 200
+        assert [club["id"] for club in sport_only.json()] == [
+            "club-se-padel",
+            "club-us-padel",
+        ]
 
     loop.run_until_complete(scenario())

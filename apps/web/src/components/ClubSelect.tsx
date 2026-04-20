@@ -24,6 +24,7 @@ function normalizeSearchText(text: string): string {
 interface ClubSelectProps {
   value: string;
   onChange: (clubId: string) => void;
+  options?: ClubSummary[];
   placeholder?: string;
   name?: string;
   disabled?: boolean;
@@ -41,6 +42,7 @@ type LoadStatus = "idle" | "loading" | "loaded" | "error";
 export default function ClubSelect({
   value,
   onChange,
+  options: providedOptions,
   placeholder = "Select a club",
   name,
   disabled = false,
@@ -54,7 +56,9 @@ export default function ClubSelect({
 }: ClubSelectProps) {
   const reactId = useId();
   const [options, setOptions] = useState<ClubSummary[]>([]);
-  const [status, setStatus] = useState<LoadStatus>("idle");
+  const [status, setStatus] = useState<LoadStatus>(
+    providedOptions ? "loaded" : "idle",
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [dirtySearch, setDirtySearch] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -78,6 +82,9 @@ export default function ClubSelect({
     ariaLabel ?? (selectIdProp ? undefined : "Select club");
 
   const loadOptions = useCallback(async () => {
+    if (providedOptions) {
+      return;
+    }
     if (status === "loading" || status === "loaded") {
       return;
     }
@@ -93,7 +100,18 @@ export default function ClubSelect({
       console.error("Failed to load clubs", err);
       setStatus("error");
     }
-  }, [status]);
+  }, [providedOptions, status]);
+
+  useEffect(() => {
+    if (!providedOptions) {
+      return;
+    }
+    const sorted = [...providedOptions].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+    );
+    setOptions(sorted);
+    setStatus("loaded");
+  }, [providedOptions]);
 
   const handleFocus = useCallback(
     (event: FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -163,10 +181,13 @@ export default function ClubSelect({
     if (disabled) {
       return;
     }
+    if (providedOptions) {
+      return;
+    }
     if (status === "idle") {
       void loadOptions();
     }
-  }, [disabled, loadOptions, status]);
+  }, [disabled, loadOptions, providedOptions, status]);
 
   useEffect(() => {
     if (dirtySearch) {

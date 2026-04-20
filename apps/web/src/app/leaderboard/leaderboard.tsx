@@ -371,11 +371,22 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     return map;
   }, [clubOptions]);
 
+  const clubScopeSport = useMemo(() => {
+    if (sport === ALL_SPORTS || sport === MASTER_SPORT) {
+      return "";
+    }
+    return sport;
+  }, [sport]);
+
+  const clubScopeCountry = normalizeCountry(draftCountry);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const clubs = await fetchClubs({
+          sport: clubScopeSport || undefined,
+          country: clubScopeCountry || undefined,
           cache: "force-cache",
           next: { revalidate: 3600 },
         });
@@ -398,7 +409,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [clubScopeCountry, clubScopeSport]);
 
   useEffect(() => {
     if (country === undefined) {
@@ -535,6 +546,31 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     },
     [pathname, router, searchParamsString],
   );
+
+  useEffect(() => {
+    if (!clubsLoaded) {
+      return;
+    }
+    if (draftClubId && !clubIds.has(draftClubId)) {
+      setDraftClubId("");
+    }
+    const isAppliedCountryScope = appliedCountry === clubScopeCountry;
+    if (isAppliedCountryScope && appliedClubId && !clubIds.has(appliedClubId)) {
+      const nextFilters = { country: appliedCountry, clubId: "" };
+      setFilters((prev) =>
+        prev.clubId === "" ? prev : { country: prev.country, clubId: "" }
+      );
+      updateFiltersInQuery(nextFilters);
+    }
+  }, [
+    appliedClubId,
+    appliedCountry,
+    clubIds,
+    clubScopeCountry,
+    clubsLoaded,
+    draftClubId,
+    updateFiltersInQuery,
+  ]);
 
   useEffect(() => {
     updateFiltersInQuery(filters);
@@ -2208,6 +2244,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           <ClubSelect
             value={draftClubId}
             onChange={(next) => setDraftClubId(normalizeClubId(next))}
+            options={clubOptions}
             placeholder="Search for a club"
             searchInputId="leaderboard-club-search"
             selectId="leaderboard-club-select"

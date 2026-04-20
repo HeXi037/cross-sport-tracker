@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
 from ..exceptions import ProblemDetail, http_problem
-from ..models import Club, User
+from ..models import Club, Player, Rating, User
 from ..schemas import ClubCreate, ClubOut
 from .admin import require_admin
 
@@ -41,6 +43,27 @@ async def create_club(
 
 
 @router.get("", response_model=list[ClubOut])
-async def list_clubs(session: AsyncSession = Depends(get_session)) -> list[ClubOut]:
-    rows = (await session.execute(select(Club).order_by(Club.name))).scalars().all()
+async def list_clubs(
+    sport: Annotated[str | None, Query(description="Optional sport id filter")] = None,
+    country: Annotated[
+        str | None, Query(description="Optional country/location filter")
+    ] = None,
+    session: AsyncSession = Depends(get_session),
+) -> list[ClubOut]:
+    stmt = select(Club)
+    if sport or country:
+        stmt = (
+            stmt.join(Player, Player.club_id == Club.id)
+            .where(Player.deleted_at.is_(None))
+            .distinct()
+        )
+        if sport:
+            stmt = stmt.join(
+                Rating,
+                (Rating.player_id == Player.id) & (Rating.sport_id == sport),
+            )
+        if country:
+            stmt = stmt.where(Player.location == country)
+
+    rows = (await session.execute(stmt.order_by(Club.name))).scalars().all()
     return [_to_club_out(club) for club in rows]

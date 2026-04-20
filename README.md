@@ -88,6 +88,10 @@ pnpm install --filter @cst/web --frozen-lockfile
 pnpm test -- --runInBand
 ```
 
+### Package manager policy
+
+This monorepo is **pnpm-only**. Do not commit `package-lock.json` files (CI will fail if one is added).
+
 Deploy: Single VPS with Docker Compose; Caddy for HTTPS; nightly pg_dump backups
 
 Monorepo Layout
@@ -268,8 +272,8 @@ python seed.py  # adds default sports, rulesets, demo club & test players
 
 ### Web
 ```bash
-cd ../apps/web
-npm install
+cd ..
+pnpm install --filter @cst/web --frozen-lockfile
 ```
 
 Progressive Web App (PWA)
@@ -280,8 +284,8 @@ Progressive Web App (PWA)
 
   ```bash
   cd apps/web
-  npm run build
-  npm run start
+  pnpm run build
+  pnpm run start
   ```
 
 - Install prompts follow your browser's "Add to Home Screen"/"Install app" flow. Cached pages, scripts, and same-origin API
@@ -305,5 +309,5 @@ uvicorn app.main:app --reload --port 8000
 **Terminal 2 - Web**
 ```bash
 cd apps/web
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api npm run dev
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api pnpm run dev
 ```

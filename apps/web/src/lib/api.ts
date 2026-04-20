@@ -647,7 +647,11 @@ export async function fetchClubs(
   }
   const query = params.toString();
   const path = query ? `/v0/clubs?${query}` : "/v0/clubs";
-  const { sport: _sport, country: _country, ...init } = options ?? {};
+  const init = options ? { ...options } : undefined;
+  if (init) {
+    delete init.sport;
+    delete init.country;
+  }
   const res = await apiFetch(path, init);
   return res.json();
 }

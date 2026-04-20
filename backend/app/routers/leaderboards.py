@@ -109,18 +109,10 @@ async def leaderboard(
     total_entries = len(all_rows) if all_rows is not None else 0
     if not isinstance(total_entries, int):
         total_entries = int(total_entries or 0)
-    # Map player_id -> current rank and rating
-    current_rank_map = {
-        row.Rating.player_id: i + 1 for i, row in enumerate(all_rows)
-    }
-    current_rating_map = {
-        row.Rating.player_id: row.Rating.value for row in all_rows
-    }
-    rows = all_rows[offset : offset + limit]
-    distribution = _rating_distribution([row.Rating.value for row in all_rows])
+    all_player_ids = [r.Rating.player_id for r in all_rows]
 
     # Precompute set stats for players returned by the ranking query.
-    player_ids = [r.Rating.player_id for r in rows]
+    player_ids = [r.Rating.player_id for r in all_rows]
     set_stats = {pid: {"won": 0, "lost": 0} for pid in player_ids}
 
     if player_ids:
@@ -208,6 +200,42 @@ async def leaderboard(
                 "standard_deviation": float(std_dev),
             }
 
+    rating_value_map: dict[str, float] = {
+        row.Rating.player_id: row.Rating.value for row in all_rows
+    }
+    if base_sport_id == "bowling":
+        for pid in all_player_ids:
+            bowling = bowling_stats.get(pid)
+            if isinstance(bowling, dict):
+                highest_score = bowling.get("highest_score")
+                if isinstance(highest_score, (int, float)):
+                    rating_value_map[pid] = float(highest_score)
+        all_rows.sort(
+            key=lambda row: (
+                rating_value_map.get(row.Rating.player_id, float("-inf")),
+                bowling_stats.get(row.Rating.player_id, {}).get(
+                    "average_score", float("-inf")
+                ),
+                row.Rating.value,
+            ),
+            reverse=True,
+        )
+
+    current_rank_map = {
+        row.Rating.player_id: i + 1 for i, row in enumerate(all_rows)
+    }
+    current_rating_map = {
+        row.Rating.player_id: rating_value_map.get(row.Rating.player_id, row.Rating.value)
+        for row in all_rows
+    }
+    rows = all_rows[offset : offset + limit]
+    distribution = _rating_distribution(
+        [
+            rating_value_map.get(row.Rating.player_id, row.Rating.value)
+            for row in all_rows
+        ]
+    )
+
     # Build rating history for the sport using RATING score events
     rating_stmt = (
         select(ScoreEvent)
@@ -251,7 +279,10 @@ async def leaderboard(
     prev_rank_map = {pid: i + 1 for i, (pid, _) in enumerate(prev_sorted)}
 
     leaders = []
-    current_subset_ratings = {row.Rating.player_id: row.Rating.value for row in rows}
+    current_subset_ratings = {
+        row.Rating.player_id: rating_value_map.get(row.Rating.player_id, row.Rating.value)
+        for row in rows
+    }
     for r in rows:
         pid = r.Rating.player_id
         stats = set_stats.get(pid, {"won": 0, "lost": 0})
@@ -273,17 +304,18 @@ async def leaderboard(
             bowling.get("standard_deviation") if isinstance(bowling, dict) else None
         )
         win_probabilities = {}
+        player_rating = rating_value_map.get(pid, r.Rating.value)
         for opp_id, opp_rating in current_subset_ratings.items():
             if opp_id == pid:
                 continue
-            win_probabilities[opp_id] = _elo_win_probability(r.Rating.value, opp_rating)
+            win_probabilities[opp_id] = _elo_win_probability(player_rating, opp_rating)
 
         leaders.append(
             LeaderboardEntryOut(
                 rank=curr_rank,
                 playerId=pid,
                 playerName=r.Player.name,
-                rating=r.Rating.value,
+                rating=rating_value_map.get(pid, r.Rating.value),
                 rankChange=prev_rank - curr_rank,
                 sets=won + lost,
                 setsWon=won,

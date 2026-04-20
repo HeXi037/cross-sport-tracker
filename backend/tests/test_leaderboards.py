@@ -360,7 +360,11 @@ def test_bowling_leaderboard_includes_score_stats():
         resp = client.get("/leaderboards", params={"sport": "bowling"})
         assert resp.status_code == 200
         data = resp.json()
+        assert [entry["playerId"] for entry in data["leaders"]] == ["b1", "b3", "b2"]
         leaders = {entry["playerId"]: entry for entry in data["leaders"]}
+        assert leaders["b1"]["rating"] == 220
+        assert leaders["b3"]["rating"] == 190
+        assert leaders["b2"]["rating"] == 180
         assert leaders["b1"]["matchesPlayed"] == 2
         assert leaders["b1"]["highestScore"] == 220
         assert leaders["b1"]["averageScore"] == pytest.approx(215.0)
@@ -373,7 +377,7 @@ def test_bowling_leaderboard_includes_score_stats():
         assert leaders["b3"]["highestScore"] == 190
         assert leaders["b3"]["averageScore"] == pytest.approx(190.0)
         assert leaders["b3"]["standardDeviation"] == pytest.approx(0.0)
-        assert data["ratingDistribution"]["maximum"] == 1010
+        assert data["ratingDistribution"]["maximum"] == 220
         assert leaders["b1"]["winProbabilities"]["b2"] == pytest.approx(
-            leaderboards._elo_win_probability(1010, 1000)
+            leaderboards._elo_win_probability(220, 180)
         )

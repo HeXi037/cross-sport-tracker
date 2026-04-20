@@ -512,7 +512,7 @@ describe("Leaderboard", () => {
     expect(screen.getByText("Cara")).toBeInTheDocument();
   });
 
-  it("lets users filter the combined leaderboard", async () => {
+  it("updates combined leaderboard filters immediately on selection change", async () => {
     const user = userEvent.setup();
     const fetchMock = vi
       .fn()
@@ -536,27 +536,22 @@ describe("Leaderboard", () => {
     })) as HTMLSelectElement;
     await user.selectOptions(clubSelect, "club-123");
 
-    const applyButton = screen.getByRole("button", { name: "Apply" });
-    expect(applyButton).not.toBeDisabled();
-
-    const initialCallCount = replaceMock.mock.calls.length;
-    await user.click(applyButton);
-
     await waitFor(() =>
-      expect(replaceMock.mock.calls.length).toBeGreaterThan(initialCallCount),
+      expect(replaceMock).toHaveBeenCalledWith(
+        "/leaderboard?sport=all&country=SE",
+        { scroll: false },
+      ),
     );
 
-    const lastCall = replaceMock.mock.calls.at(-1);
-    expect(lastCall).toBeDefined();
-    const [href] = lastCall!;
-    const url = new URL(href as string, "https://example.test");
-    expect(url.pathname).toBe("/leaderboard");
-    expect(url.searchParams.get("sport")).toBe("all");
-    expect(url.searchParams.get("country")).toBe("SE");
-    expect(url.searchParams.get("clubId")).toBe("club-123");
+    await waitFor(() =>
+      expect(replaceMock).toHaveBeenCalledWith(
+        "/leaderboard?sport=all&country=SE&clubId=club-123",
+        { scroll: false },
+      ),
+    );
   });
 
-  it("lets users apply structured region filters", async () => {
+  it("applies structured region filters without requiring an Apply click", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue({ ok: true, json: async () => [] });
@@ -576,14 +571,19 @@ describe("Leaderboard", () => {
     const clubSelect = screen.getByRole("combobox", { name: "Club" });
     await user.selectOptions(clubSelect, "club-123");
 
-    replaceMock.mockClear();
-
-    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
 
     await waitFor(() =>
       expect(replaceMock).toHaveBeenCalledWith(
         "/leaderboard/padel?country=SE&clubId=club-123",
         { scroll: false },
+      ),
+    );
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("sport=padel&country=SE&clubId=club-123"),
+        expect.anything(),
       ),
     );
 
@@ -825,12 +825,11 @@ describe("Leaderboard", () => {
     await user.clear(countrySelect);
     await user.type(countrySelect, "swed");
     await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
-    const applyButton = screen.getByRole("button", { name: "Apply" });
-
-    const initialCallCount = replaceMock.mock.calls.length;
-    await user.click(applyButton);
     await waitFor(() =>
-      expect(replaceMock.mock.calls.length).toBeGreaterThan(initialCallCount)
+      expect(replaceMock).toHaveBeenCalledWith(
+        "/leaderboard?sport=padel&foo=bar&country=SE",
+        { scroll: false },
+      ),
     );
 
     let lastCall = replaceMock.mock.calls.at(-1);
@@ -845,10 +844,11 @@ describe("Leaderboard", () => {
     await waitFor(() => expect(fetchClubsSpy).toHaveBeenCalled());
     await user.selectOptions(clubSelect, "club-123");
 
-    const postCountryCallCount = replaceMock.mock.calls.length;
-    await user.click(applyButton);
     await waitFor(() =>
-      expect(replaceMock.mock.calls.length).toBeGreaterThan(postCountryCallCount)
+      expect(replaceMock).toHaveBeenCalledWith(
+        "/leaderboard?sport=padel&foo=bar&country=SE&clubId=club-123",
+        { scroll: false },
+      )
     );
 
     lastCall = replaceMock.mock.calls.at(-1);
@@ -935,10 +935,7 @@ describe("Leaderboard", () => {
       screen.getByRole("form", { name: "Leaderboard filters" }),
     ).toHaveAttribute("aria-controls", "leaderboard-results");
 
-    expect(screen.getByRole("button", { name: "Apply" })).toHaveAttribute(
-      "aria-controls",
-      "leaderboard-results",
-    );
+    expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
 
     const clearButtons = screen.getAllByRole("button", { name: "Clear" });
     const filterClear = clearButtons.find((button) =>

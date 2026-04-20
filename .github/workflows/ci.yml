@@ -5,6 +5,18 @@ on:
   pull_request:
 
 jobs:
+  package-manager-guardrails:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure pnpm-only lockfiles
+        run: |
+          if find . -name package-lock.json -not -path "*/node_modules/*" | grep -q .; then
+            echo "package-lock.json detected. This repository is pnpm-only."
+            find . -name package-lock.json -not -path "*/node_modules/*"
+            exit 1
+          fi
+
   test:
     runs-on: ubuntu-latest
     steps:

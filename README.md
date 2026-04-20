@@ -86,12 +86,13 @@ Timezone: Store UTC; render client TZ (default Australia/Melbourne). API accepts
 
 Testing targets: Engines ≥ 90% coverage; Playwright E2E for core flows
 
-### Frontend tests
+### Frontend checks (run before merge)
 
-Use pnpm from the repository root (workspace config includes `apps/web`):
+Use pnpm from the repository root (workspace config includes `apps/web`). Lint is required and should pass before opening or merging a PR:
 
 ```
 pnpm install --filter @cst/web --frozen-lockfile
+pnpm --filter @cst/web lint
 pnpm test -- --runInBand
 ```
 

@@ -2214,7 +2214,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       ) : null}
 
       {supportsFilters ? (
-        <section
+        <form
           aria-label="Leaderboard filters"
           aria-controls={RESULTS_TABLE_ID}
           style={{
@@ -2320,7 +2320,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           >
             Filters apply automatically.
           </p>
-        </section>
+        </form>
       ) : (
         <div
           style={{

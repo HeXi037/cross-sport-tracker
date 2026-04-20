@@ -47,6 +47,8 @@ jobs:
           cache: 'pnpm'
       - name: Install frontend dependencies
         run: pnpm install --filter @cst/web --frozen-lockfile
+      - name: Run web lint
+        run: pnpm --filter @cst/web lint
       - name: Run web tests
         env:
           CI: true

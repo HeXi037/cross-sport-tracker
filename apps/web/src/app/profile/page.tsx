@@ -603,7 +603,7 @@ export default function ProfilePage() {
       if (password) body.password = password;
 
       try {
-        const res = await updateMe(body);
+        await updateMe(body);
         persistSession();
       } catch (err) {
         const status = (err as Error & { status?: number }).status;

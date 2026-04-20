@@ -142,11 +142,9 @@ export default function PlayerCharts({
   }
 
   if (!rankingData.length) {
-    let wins = 0;
     let rank = 100;
     matchesWithOutcome.forEach((match, index) => {
       if (match.playerWon) {
-        wins += 1;
         rank = Math.max(rank - 1, 1);
       } else {
         rank += 1;

@@ -316,7 +316,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       return;
     }
 
-    let candidate = previousUrlRef.current ?? getStoredPreviousUrl();
+    const candidate = previousUrlRef.current ?? getStoredPreviousUrl();
     const currentPath = canonicalizePathname(currentUrl.pathname || "/");
     const currentSearch = currentUrl.search ?? "";
     const currentHash = currentUrl.hash ?? "";
@@ -1509,13 +1509,13 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     [columnTemplate],
   );
 
-  const VirtualRowGroup = useMemo(
-    () =>
-      forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-        (props, ref) => <div ref={ref} role="rowgroup" {...props} />,
-      ),
-    [],
-  );
+  const VirtualRowGroup = useMemo(() => {
+    const Component = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+      (props, ref) => <div ref={ref} role="rowgroup" {...props} />,
+    );
+    Component.displayName = "VirtualRowGroup";
+    return Component;
+  }, []);
 
   const headerCellStyle = useMemo(
     () => ({

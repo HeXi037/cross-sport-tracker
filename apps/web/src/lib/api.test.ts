@@ -70,14 +70,18 @@ describe('ensureAbsoluteApiUrl', () => {
 });
 
 describe('apiBase', () => {
+  type GlobalWithOptionalWindow = typeof globalThis & {
+    window?: Window & typeof globalThis;
+  };
+  const globalWithWindow = globalThis as GlobalWithOptionalWindow;
   const originalWindow = globalThis.window;
 
   beforeEach(() => {
-    (globalThis as any).window = undefined;
+    globalWithWindow.window = undefined;
   });
 
   afterEach(() => {
-    (globalThis as any).window = originalWindow;
+    globalWithWindow.window = originalWindow;
   });
 
   it('uses INTERNAL_API_BASE_URL on the server', () => {

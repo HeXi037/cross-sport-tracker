@@ -77,6 +77,14 @@ export type SessionEndDetail = {
 };
 let refreshPromise: Promise<void> | null = null;
 let sessionChannel: BroadcastChannel | null = null;
+type GlobalWithOptionalFetch = typeof globalThis & {
+  fetch?: typeof fetch;
+};
+
+function getActiveFetch(): typeof fetch {
+  return (globalThis as GlobalWithOptionalFetch).fetch ?? fetch;
+}
+
 if (typeof window !== "undefined" && "BroadcastChannel" in window) {
   sessionChannel = new BroadcastChannel(SESSION_CHANNEL_NAME);
 }
@@ -123,18 +131,6 @@ export function setSessionHintCookie(value: string | null | undefined): void {
   )}; path=/; max-age=${maxAgeSeconds}; samesite=lax${secure}`;
 }
 
-async function getServerCookie(name: string): Promise<string | null> {
-  if (typeof window !== "undefined") return getClientCookie(name);
-  try {
-    const { cookies } = await import("next/headers");
-    const store = cookies();
-    const value = store.get(name)?.value ?? null;
-    return value ?? null;
-  } catch {
-    return null;
-  }
-}
-
 function notifySessionChanged(detail?: SessionEndDetail | null) {
   if (typeof window === "undefined") return;
   if (detail) {
@@ -170,7 +166,7 @@ async function refreshAccessToken(): Promise<boolean> {
   refreshPromise = (async () => {
     let response: Response;
     try {
-      const activeFetch = (globalThis as any).fetch ?? fetch;
+      const activeFetch = getActiveFetch();
       response = await activeFetch(apiUrl("/v0/auth/refresh"), {
         method: "POST",
         credentials: "include",
@@ -391,7 +387,7 @@ async function executeFetch(
   let res: Response | undefined;
   try {
     // Use globalThis.fetch to ensure test-time global.fetch replacement is used.
-    const activeFetch = (globalThis as any).fetch ?? fetch;
+    const activeFetch = getActiveFetch();
     const credentials = init?.credentials ?? "include";
     res = await activeFetch(apiUrl(path), { ...init, headers, credentials });
   } catch (err) {

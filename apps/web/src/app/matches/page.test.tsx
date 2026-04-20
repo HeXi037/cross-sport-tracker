@@ -184,7 +184,7 @@ describe("MatchesPage", () => {
   });
 
   it("disables pagination buttons when at bounds", async () => {
-    const fetchMock = setupFetchMock([createMatch()]);
+    setupFetchMock([createMatch()]);
 
     const page = await MatchesPage({ searchParams: {} });
     render(page);
@@ -227,7 +227,7 @@ describe("MatchesPage", () => {
       }),
     ];
 
-    const fetchMock = setupFetchMock(matches);
+    setupFetchMock(matches);
 
     const page = await MatchesPage({ searchParams: {} });
     const { container } = render(page);
@@ -253,7 +253,7 @@ describe("MatchesPage", () => {
   it("disables the next button when the API reports no more results", async () => {
     const matches = [createMatch({ id: "m1" }), createMatch({ id: "m2" })];
 
-    const fetchMock = setupFetchMock(matches, {
+    setupFetchMock(matches, {
       headers: {
         "X-Has-More": "false",
         "X-Next-Offset": "4",

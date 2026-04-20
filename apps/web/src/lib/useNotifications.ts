@@ -64,7 +64,6 @@ export function useNotifications(
     error,
     isLoading,
     isValidating,
-    size,
     setSize,
     mutate,
   } = useSWRInfinite<NotificationListResponse, ApiError>(getKey, fetchNotificationPage, {

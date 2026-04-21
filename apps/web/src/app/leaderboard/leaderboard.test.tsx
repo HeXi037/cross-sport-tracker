@@ -11,6 +11,16 @@ import enMessages from "../../messages/en-GB.json";
 
 const mockIntersectionObservers: MockIntersectionObserver[] = [];
 
+type SortTestLeader = {
+  rank: number;
+  playerId: string;
+  playerName: string;
+  rating: number;
+  setsWon: number;
+  setsLost: number;
+};
+
+
 class MockIntersectionObserver {
   callback: IntersectionObserverCallback;
   elements = new Set<Element>();
@@ -1129,41 +1139,14 @@ describe("Leaderboard", () => {
     expect(filterClear).toHaveAttribute("aria-controls", "leaderboard-results");
   });
 
-  it("supports shift-click multi-column sorting and applies tie-breakers", async () => {
-    const user = userEvent.setup();
-    const response = [
-      {
-        rank: 1,
-        playerId: "1",
-        playerName: "Alice",
-        rating: 1000,
-        setsWon: 2,
-        setsLost: 1,
-      },
-      {
-        rank: 2,
-        playerId: "2",
-        playerName: "Bob",
-        rating: 1000,
-        setsWon: 6,
-        setsLost: 0,
-      },
-      {
-        rank: 3,
-        playerId: "3",
-        playerName: "Cara",
-        rating: 900,
-        setsWon: 1,
-        setsLost: 5,
-      },
-    ];
+  const setupSortableLeaderboard = async (response: SortTestLeader[]) => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue({ ok: true, json: async () => response });
     global.fetch = fetchMock as typeof fetch;
 
     await renderLeaderboard({ sport: "padel" });
-    await screen.findByText("Alice");
+    await screen.findByText(response[0]?.playerName ?? "");
     const table = screen.getByRole("table");
 
     const getRenderedPlayerOrder = () =>
@@ -1180,20 +1163,106 @@ describe("Leaderboard", () => {
       expect(getRenderedPlayerOrder().length).toBeGreaterThan(0),
     );
 
-    expect(getRenderedPlayerOrder()).toEqual(["Alice", "Bob", "Cara"]);
+    return {
+      getRenderedPlayerOrder,
+      ratingButton: () => screen.getByRole("button", { name: /^Rating\./i }),
+      matchesButton: () => screen.getByRole("button", { name: /^Matches\./i }),
+    };
+  };
 
-    await user.click(screen.getByRole("button", { name: /^Rating\./i }));
-    expect(getRenderedPlayerOrder()).toEqual(["Alice", "Bob", "Cara"]);
-    const ratingButton = screen.getByRole("button", { name: /^Rating\./i });
-    expect(ratingButton).toHaveClass("leaderboard-sortable-header-button--active");
-    expect(ratingButton.closest("[role='columnheader']")).toHaveClass(
-      "leaderboard-sortable-header-cell--active",
-    );
+  it("keeps single-column sort cycling unchanged without Shift", async () => {
+    const user = userEvent.setup();
+    const response: SortTestLeader[] = [
+      { rank: 1, playerId: "1", playerName: "Charlie", rating: 1000, setsWon: 2, setsLost: 2 },
+      { rank: 2, playerId: "2", playerName: "Alice", rating: 1200, setsWon: 1, setsLost: 1 },
+      { rank: 3, playerId: "3", playerName: "Bob", rating: 1100, setsWon: 3, setsLost: 0 },
+    ];
+
+    const { getRenderedPlayerOrder, ratingButton } = await setupSortableLeaderboard(response);
+
+    expect(getRenderedPlayerOrder()).toEqual(["Charlie", "Alice", "Bob"]);
+
+    await user.click(ratingButton());
+    expect(getRenderedPlayerOrder()).toEqual(["Alice", "Bob", "Charlie"]);
+
+    await user.click(ratingButton());
+    expect(getRenderedPlayerOrder()).toEqual(["Charlie", "Bob", "Alice"]);
+
+    await user.click(ratingButton());
+    expect(getRenderedPlayerOrder()).toEqual(["Charlie", "Alice", "Bob"]);
+  });
+
+  it("adds a secondary sort criterion on Shift+click", async () => {
+    const user = userEvent.setup();
+    const response: SortTestLeader[] = [
+      { rank: 1, playerId: "1", playerName: "Alice", rating: 1000, setsWon: 2, setsLost: 1 },
+      { rank: 2, playerId: "2", playerName: "Bob", rating: 1000, setsWon: 6, setsLost: 0 },
+      { rank: 3, playerId: "3", playerName: "Cara", rating: 900, setsWon: 1, setsLost: 5 },
+    ];
+
+    const { getRenderedPlayerOrder, ratingButton, matchesButton } =
+      await setupSortableLeaderboard(response);
+
+    await user.click(ratingButton());
 
     await user.keyboard("[ShiftLeft>]");
-    await user.click(screen.getByRole("button", { name: /^Matches\./i }));
+    await user.click(matchesButton());
+    await user.keyboard("[/ShiftLeft]");
+
+    expect(getRenderedPlayerOrder()).toEqual(["Bob", "Alice", "Cara"]);
+    expect(ratingButton()).toHaveAccessibleName(/Hold Shift while clicking to add or update this column/i);
+    expect(matchesButton()).toHaveAccessibleName(/Hold Shift while clicking to add or update this column/i);
+    const ratingHeader = ratingButton().closest("[role='columnheader']");
+    const matchesHeader = matchesButton().closest("[role='columnheader']");
+    expect(ratingHeader).not.toBeNull();
+    expect(matchesHeader).not.toBeNull();
+    expect(within(ratingHeader as HTMLElement).getByText("1")).toBeInTheDocument();
+    expect(within(matchesHeader as HTMLElement).getByText("2")).toBeInTheDocument();
+  });
+
+  it("uses secondary criteria as tie-breakers in priority order", async () => {
+    const user = userEvent.setup();
+    const response: SortTestLeader[] = [
+      { rank: 1, playerId: "1", playerName: "Alice", rating: 1000, setsWon: 2, setsLost: 1 },
+      { rank: 2, playerId: "2", playerName: "Bob", rating: 1000, setsWon: 6, setsLost: 0 },
+      { rank: 3, playerId: "3", playerName: "Cara", rating: 900, setsWon: 5, setsLost: 3 },
+      { rank: 4, playerId: "4", playerName: "Dina", rating: 900, setsWon: 1, setsLost: 4 },
+    ];
+
+    const { getRenderedPlayerOrder, ratingButton, matchesButton } =
+      await setupSortableLeaderboard(response);
+
+    await user.click(ratingButton());
+    await user.keyboard("[ShiftLeft>]");
+    await user.click(matchesButton());
+    await user.keyboard("[/ShiftLeft]");
+
+    expect(getRenderedPlayerOrder()).toEqual(["Bob", "Alice", "Cara", "Dina"]);
+  });
+
+  it("removes only one criterion when it cycles to none", async () => {
+    const user = userEvent.setup();
+    const response: SortTestLeader[] = [
+      { rank: 1, playerId: "1", playerName: "Alice", rating: 1000, setsWon: 2, setsLost: 1 },
+      { rank: 2, playerId: "2", playerName: "Bob", rating: 1000, setsWon: 6, setsLost: 0 },
+      { rank: 3, playerId: "3", playerName: "Cara", rating: 900, setsWon: 1, setsLost: 5 },
+    ];
+
+    const { getRenderedPlayerOrder, ratingButton, matchesButton } =
+      await setupSortableLeaderboard(response);
+
+    await user.click(ratingButton());
+    await user.keyboard("[ShiftLeft>]");
+    await user.click(matchesButton());
     await user.keyboard("[/ShiftLeft]");
     expect(getRenderedPlayerOrder()).toEqual(["Bob", "Alice", "Cara"]);
+
+    await user.keyboard("[ShiftLeft>]");
+    await user.click(matchesButton());
+    await user.click(matchesButton());
+    await user.keyboard("[/ShiftLeft]");
+
+    expect(getRenderedPlayerOrder()).toEqual(["Alice", "Bob", "Cara"]);
   });
 
   it("reuses cached sport results when revisiting a previously viewed sport", async () => {

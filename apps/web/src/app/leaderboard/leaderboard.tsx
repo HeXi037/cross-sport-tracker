@@ -2307,8 +2307,9 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                 opacity: canClear ? 1 : 0.7,
               }}
               disabled={!canClear}
+              aria-label="Reset filters"
             >
-              Clear
+              Reset filters
             </button>
           </div>
           <p
@@ -2340,6 +2341,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
               <button
                 type="button"
                 onClick={handleClear}
+                aria-label="Reset filters"
                 style={{
                   padding: "0.4rem 0.9rem",
                   borderRadius: "4px",
@@ -2349,7 +2351,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
                   cursor: "pointer",
                 }}
               >
-                Clear region filters
+                Reset filters
               </button>
             </div>
           )}

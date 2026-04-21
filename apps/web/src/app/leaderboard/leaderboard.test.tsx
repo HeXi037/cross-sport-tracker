@@ -868,7 +868,7 @@ describe("Leaderboard", () => {
     expect(url.searchParams.get("clubId")).toBe("club-123");
 
     const clearButton = screen
-      .getAllByRole("button", { name: "Clear" })
+      .getAllByRole("button", { name: "Reset filters" })
       .find((button): button is HTMLButtonElement =>
         button.getAttribute("aria-controls") === "leaderboard-results"
       );
@@ -944,7 +944,7 @@ describe("Leaderboard", () => {
 
     expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
 
-    const clearButtons = screen.getAllByRole("button", { name: "Clear" });
+    const clearButtons = screen.getAllByRole("button", { name: "Reset filters" });
     const filterClear = clearButtons.find((button) =>
       button.getAttribute("aria-controls") === "leaderboard-results"
     );

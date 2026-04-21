@@ -3363,6 +3363,36 @@ html.theme-dark .record-sport-card:hover {
   min-width: 360px;
 }
 
+.leaderboard-sortable-header-cell--active {
+  background: color-mix(
+    in srgb,
+    var(--color-accent-blue) 10%,
+    var(--leaderboard-table-header-bg)
+  ) !important;
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--color-accent-blue) 65%, transparent);
+}
+
+.leaderboard-sortable-header-button {
+  transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.leaderboard-sortable-header-button:hover {
+  background: color-mix(in srgb, var(--color-accent-blue) 8%, transparent);
+}
+
+.leaderboard-sortable-header-button--active {
+  background: color-mix(in srgb, var(--color-accent-blue) 18%, transparent) !important;
+  color: var(--color-text-strong, var(--color-text));
+}
+
+.leaderboard-sortable-header-icon {
+  color: color-mix(in srgb, var(--color-text) 72%, transparent);
+}
+
+.leaderboard-sortable-header-icon--active {
+  color: var(--color-accent-blue);
+}
+
 .scoreboard-table .leaderboard-col-rank {
   width: 56px;
   text-align: center;

@@ -218,6 +218,29 @@ describe("Leaderboard", () => {
     ).toHaveAttribute("aria-selected", "true");
   });
 
+  it("retains country and club filters when switching sports", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+
+    await renderLeaderboard({ sport: "padel", country: "SE", clubId: "club-123" });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    replaceMock.mockClear();
+
+    await user.click(screen.getByRole("tab", { name: "Disc Golf" }));
+
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledTimes(1));
+    const [nextHref] = replaceMock.mock.calls[0] ?? [];
+    const url = new URL(nextHref as string, "https://example.test");
+    expect(url.pathname).toBe("/leaderboard/");
+    expect(url.searchParams.get("sport")).toBe("disc_golf");
+    expect(url.searchParams.get("country")).toBe("SE");
+    expect(url.searchParams.get("clubId")).toBe("club-123");
+  });
+
   it("renders the leaderboard table inside a scrollable wrapper while loading", async () => {
     const pendingFetch = new Promise<Response>(() => {});
     global.fetch = vi.fn().mockReturnValue(pendingFetch) as unknown as typeof fetch;
@@ -1104,6 +1127,68 @@ describe("Leaderboard", () => {
     );
     expect(filterClear).toBeDefined();
     expect(filterClear).toHaveAttribute("aria-controls", "leaderboard-results");
+  });
+
+  it("supports shift-click multi-column sorting and applies tie-breakers", async () => {
+    const user = userEvent.setup();
+    const response = [
+      {
+        rank: 1,
+        playerId: "1",
+        playerName: "Alice",
+        rating: 1000,
+        setsWon: 2,
+        setsLost: 1,
+      },
+      {
+        rank: 2,
+        playerId: "2",
+        playerName: "Bob",
+        rating: 1000,
+        setsWon: 6,
+        setsLost: 0,
+      },
+      {
+        rank: 3,
+        playerId: "3",
+        playerName: "Cara",
+        rating: 900,
+        setsWon: 1,
+        setsLost: 5,
+      },
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => response });
+    global.fetch = fetchMock as typeof fetch;
+
+    await renderLeaderboard({ sport: "padel" });
+    await screen.findByText("Alice");
+    const table = screen.getByRole("table");
+
+    const getRenderedPlayerOrder = () =>
+      within(table)
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => {
+          const cells = within(row).getAllByRole("cell");
+          return cells[1]?.textContent?.trim();
+        })
+        .filter((name): name is string => Boolean(name));
+
+    await waitFor(() =>
+      expect(getRenderedPlayerOrder().length).toBeGreaterThan(0),
+    );
+
+    expect(getRenderedPlayerOrder()).toEqual(["Alice", "Bob", "Cara"]);
+
+    await user.click(screen.getByRole("button", { name: /^Rating\./i }));
+    expect(getRenderedPlayerOrder()).toEqual(["Alice", "Bob", "Cara"]);
+
+    await user.keyboard("[ShiftLeft>]");
+    await user.click(screen.getByRole("button", { name: /^Matches\./i }));
+    await user.keyboard("[/ShiftLeft]");
+    expect(getRenderedPlayerOrder()).toEqual(["Bob", "Alice", "Cara"]);
   });
 
   it("reuses cached sport results when revisiting a previously viewed sport", async () => {

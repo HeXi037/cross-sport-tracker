@@ -597,6 +597,43 @@ describe("Leaderboard", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("narrows country suggestions with type-ahead and applies the selected country immediately", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+    updateMockLocation("/leaderboard/padel");
+
+    await renderLeaderboard({ sport: "padel" });
+
+    const countrySelect = await screen.findByRole("combobox", { name: "Country" });
+    await user.type(countrySelect, "swed");
+
+    expect(
+      await screen.findByRole("option", { name: /Sweden \(SE\)/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: /United States of America \(US\)/i }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("option", { name: /Sweden \(SE\)/i }));
+
+    expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(replaceMock).toHaveBeenCalledWith(
+        "/leaderboard/padel?country=SE",
+        { scroll: false },
+      ),
+    );
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("sport=padel&country=SE"),
+        expect.anything(),
+      ),
+    );
+  });
+
   it("resets an incompatible club when the country changes", async () => {
     const user = userEvent.setup();
     const fetchMock = vi
@@ -680,6 +717,78 @@ describe("Leaderboard", () => {
       expect(within(clubSelect).getByRole("option", { name: "Club USA" })).toBeInTheDocument(),
     );
     expect(within(clubSelect).queryByRole("option", { name: "Club 123" })).not.toBeInTheDocument();
+  });
+
+  it("scopes club fetches and options to the active sport and country", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+    fetchClubsSpy
+      .mockResolvedValueOnce([{ id: "club-padel-se", name: "Padel Sweden" }])
+      .mockResolvedValueOnce([{ id: "club-disc-se", name: "Disc Sweden" }])
+      .mockResolvedValueOnce([{ id: "club-disc-us", name: "Disc USA" }]);
+    updateMockLocation("/leaderboard/padel?country=SE");
+
+    const view = await renderLeaderboard({ sport: "padel", country: "SE" });
+
+    await waitFor(() =>
+      expect(fetchClubsSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ sport: "padel", country: "SE" }),
+      ),
+    );
+    let clubSelect = screen.getByRole("combobox", { name: "Club" });
+    expect(
+      within(clubSelect).getByRole("option", { name: "Padel Sweden" }),
+    ).toBeInTheDocument();
+    expect(
+      within(clubSelect).queryByRole("option", { name: "Disc Sweden" }),
+    ).not.toBeInTheDocument();
+
+    updateMockLocation("/leaderboard/disc_golf?country=SE");
+    view.rerender(
+      <NextIntlClientProvider locale="en-GB" messages={enMessages}>
+        <Leaderboard sport="disc_golf" country="SE" />
+      </NextIntlClientProvider>,
+    );
+
+    await waitFor(() =>
+      expect(fetchClubsSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ sport: "disc_golf", country: "SE" }),
+      ),
+    );
+    clubSelect = screen.getByRole("combobox", { name: "Club" });
+    await waitFor(() =>
+      expect(
+        within(clubSelect).getByRole("option", { name: "Disc Sweden" }),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      within(clubSelect).queryByRole("option", { name: "Padel Sweden" }),
+    ).not.toBeInTheDocument();
+
+    const countrySelect = screen.getByRole("combobox", { name: "Country" });
+    await user.clear(countrySelect);
+    await user.type(countrySelect, "us");
+    await user.click(
+      await screen.findByRole("option", { name: /United States of America \(US\)/i }),
+    );
+
+    await waitFor(() =>
+      expect(fetchClubsSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ sport: "disc_golf", country: "US" }),
+      ),
+    );
+    clubSelect = screen.getByRole("combobox", { name: "Club" });
+    await waitFor(() =>
+      expect(
+        within(clubSelect).getByRole("option", { name: "Disc USA" }),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      within(clubSelect).queryByRole("option", { name: "Disc Sweden" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows validation feedback when the URL references unsupported filters", async () => {
@@ -889,6 +998,51 @@ describe("Leaderboard", () => {
     expect(url.searchParams.has("clubId")).toBe(false);
     expect(countrySelect.value).toBe("");
     expect(clubSelect.value).toBe("");
+  });
+
+  it("resets filters to an unfiltered state and removes country and club query params", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    global.fetch = fetchMock as typeof fetch;
+    fetchClubsSpy.mockResolvedValue([{ id: "club-se", name: "Club Sweden" }]);
+    updateMockLocation("/leaderboard/padel?country=SE&clubId=club-se");
+
+    await renderLeaderboard({ sport: "padel", country: "SE", clubId: "club-se" });
+
+    const countrySelect = await screen.findByRole("combobox", { name: "Country" });
+    const clubSelect = (await screen.findByRole("combobox", {
+      name: "Club",
+    })) as HTMLSelectElement;
+    expect(countrySelect).toHaveValue("Sweden");
+    expect(clubSelect).toHaveValue("club-se");
+
+    const resetButton = screen
+      .getAllByRole("button", { name: "Reset filters" })
+      .find((button): button is HTMLButtonElement =>
+        button.getAttribute("aria-controls") === "leaderboard-results"
+      );
+    expect(resetButton).toBeDefined();
+    await user.click(resetButton!);
+
+    await waitFor(() =>
+      expect(replaceMock).toHaveBeenCalledWith("/leaderboard/padel", { scroll: false }),
+    );
+    expect(countrySelect).toHaveValue("");
+    expect(clubSelect).toHaveValue("");
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("sport=padel&limit=50&offset=0"),
+        expect.anything(),
+      ),
+    );
+    const lastUrl = fetchMock.mock.calls.at(-1)?.[0];
+    expect(lastUrl).toBeDefined();
+    const params = new URL(String(lastUrl), "https://example.test").searchParams;
+    expect(params.has("country")).toBe(false);
+    expect(params.has("clubId")).toBe(false);
   });
 
   it("annotates the leaderboard table for accessibility", async () => {

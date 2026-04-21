@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
-    "test": "vitest"
+    "test": "node scripts/run-vitest.mjs"
   },
   "dependencies": {
     "@zxcvbn-ts/core": "^3.0.4",

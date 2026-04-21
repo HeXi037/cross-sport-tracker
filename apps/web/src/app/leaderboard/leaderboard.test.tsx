@@ -228,14 +228,19 @@ describe("Leaderboard", () => {
     ).toHaveAttribute("aria-selected", "true");
   });
 
-  it("retains country and club filters when switching sports", async () => {
+  it("retains country and club filters when switching sports tabs", async () => {
     const user = userEvent.setup();
     const fetchMock = vi
       .fn()
       .mockResolvedValue({ ok: true, json: async () => [] });
     global.fetch = fetchMock as typeof fetch;
+    updateMockLocation("/leaderboard?sport=padel&country=SE&clubId=club-123");
 
-    await renderLeaderboard({ sport: "padel", country: "SE", clubId: "club-123" });
+    const view = await renderLeaderboard({
+      sport: "padel",
+      country: "SE",
+      clubId: "club-123",
+    });
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     replaceMock.mockClear();
@@ -249,6 +254,18 @@ describe("Leaderboard", () => {
     expect(url.searchParams.get("sport")).toBe("disc_golf");
     expect(url.searchParams.get("country")).toBe("SE");
     expect(url.searchParams.get("clubId")).toBe("club-123");
+
+    updateMockLocation("/leaderboard?sport=disc_golf&country=SE&clubId=club-123");
+    view.rerender(
+      <NextIntlClientProvider locale="en-GB" messages={enMessages}>
+        <Leaderboard sport="disc_golf" country="SE" clubId="club-123" />
+      </NextIntlClientProvider>,
+    );
+
+    const countrySelect = await screen.findByRole("combobox", { name: "Country" });
+    const clubSelect = await screen.findByRole("combobox", { name: "Club" });
+    expect(countrySelect).toHaveValue("Sweden");
+    expect(clubSelect).toHaveValue("club-123");
   });
 
   it("renders the leaderboard table inside a scrollable wrapper while loading", async () => {

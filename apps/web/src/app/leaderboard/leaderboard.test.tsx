@@ -1184,6 +1184,11 @@ describe("Leaderboard", () => {
 
     await user.click(screen.getByRole("button", { name: /^Rating\./i }));
     expect(getRenderedPlayerOrder()).toEqual(["Alice", "Bob", "Cara"]);
+    const ratingButton = screen.getByRole("button", { name: /^Rating\./i });
+    expect(ratingButton).toHaveClass("leaderboard-sortable-header-button--active");
+    expect(ratingButton.closest("[role='columnheader']")).toHaveClass(
+      "leaderboard-sortable-header-cell--active",
+    );
 
     await user.keyboard("[ShiftLeft>]");
     await user.click(screen.getByRole("button", { name: /^Matches\./i }));

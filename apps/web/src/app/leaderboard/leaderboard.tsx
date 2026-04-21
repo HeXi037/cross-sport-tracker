@@ -1671,6 +1671,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       useNativeElements: boolean,
     ) => {
       const direction = getSortForColumn(column);
+      const isSorted = direction !== undefined;
       const ariaSort = getAriaSort(column);
       const sortPriority = getSortPriority(column);
       const actionHint =
@@ -1686,11 +1687,18 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         ? { "aria-sort": ariaSort, scope: "col" as const }
         : { role: "columnheader", "aria-sort": ariaSort };
       return (
-        <ColumnElement {...columnProps} style={style}>
+        <ColumnElement
+          {...columnProps}
+          style={style}
+          className={isSorted ? "leaderboard-sortable-header-cell--active" : undefined}
+        >
           <button
             type="button"
             onClick={(event) => toggleSort(column, event.shiftKey)}
             aria-label={`${label}. ${actionHint}${shiftHint}`}
+            className={`leaderboard-sortable-header-button${
+              isSorted ? " leaderboard-sortable-header-button--active" : ""
+            }`}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -1699,14 +1707,13 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
               margin: 0,
               border: "none",
               borderRadius: "0.45rem",
-              background:
-                direction == null
-                  ? "transparent"
-                  : "color-mix(in srgb, var(--color-accent-blue) 16%, var(--leaderboard-table-header-bg))",
-              color: "inherit",
+              background: "transparent",
+              color: isSorted
+                ? "var(--color-text-strong, var(--color-text))"
+                : "inherit",
               font: "inherit",
               cursor: "pointer",
-              fontWeight: direction == null ? 500 : 700,
+              fontWeight: isSorted ? 700 : 500,
             }}
           >
             <span>{label}</span>
@@ -1730,18 +1737,21 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
               </span>
             ) : null}
             <span
+              className={`leaderboard-sortable-header-icon${
+                isSorted ? " leaderboard-sortable-header-icon--active" : ""
+              }`}
               aria-hidden="true"
               style={{
-                fontSize: direction == null ? "0.88em" : "1em",
-                fontWeight: direction == null ? 500 : 800,
-                opacity: direction == null ? 0.8 : 1,
+                fontSize: isSorted ? "1.08em" : "0.98em",
+                fontWeight: isSorted ? 800 : 600,
+                opacity: isSorted ? 1 : 0.92,
               }}
             >
               {direction === "ascending"
-                ? "⬆"
+                ? "▲"
                 : direction === "descending"
-                  ? "⬇"
-                  : "⇅"}
+                  ? "▼"
+                  : "↕"}
             </span>
           </button>
         </ColumnElement>

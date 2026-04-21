@@ -253,9 +253,8 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     | "highestScore"
     | "averageScore"
     | "standardDeviation";
-  const [sortState, setSortState] = useState<
-    { column: SortableColumn; direction: SortDirection } | null
-  >(null);
+  type SortCriterion = { column: SortableColumn; direction: SortDirection };
+  const [sortCriteria, setSortCriteria] = useState<SortCriterion[]>([]);
   const previousFilterPropsRef = useRef<{
     country?: string | null;
     clubId?: string | null;
@@ -1617,19 +1616,44 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
 
   const getSortForColumn = useCallback(
     (column: SortableColumn): SortDirection | undefined =>
-      sortState?.column === column ? sortState.direction : undefined,
-    [sortState],
+      sortCriteria.find((criterion) => criterion.column === column)?.direction,
+    [sortCriteria],
   );
 
-  const toggleSort = useCallback((column: SortableColumn) => {
-    setSortState((prev) => {
-      if (!prev || prev.column !== column) {
-        return { column, direction: "descending" };
+  const getSortPriority = useCallback(
+    (column: SortableColumn): number | null => {
+      const index = sortCriteria.findIndex((criterion) => criterion.column === column);
+      return index === -1 ? null : index + 1;
+    },
+    [sortCriteria],
+  );
+
+  const toggleSort = useCallback((column: SortableColumn, additive = false) => {
+    setSortCriteria((prev) => {
+      const existingIndex = prev.findIndex((criterion) => criterion.column === column);
+      const existing = existingIndex === -1 ? null : prev[existingIndex];
+
+      if (!additive) {
+        if (!existing) {
+          return [{ column, direction: "descending" }];
+        }
+        if (existing.direction === "descending") {
+          return [{ column, direction: "ascending" }];
+        }
+        return [];
       }
-      if (prev.direction === "descending") {
-        return { column, direction: "ascending" };
+
+      if (!existing) {
+        return [...prev, { column, direction: "descending" }];
       }
-      return null;
+
+      if (existing.direction === "descending") {
+        const next = [...prev];
+        next[existingIndex] = { column, direction: "ascending" };
+        return next;
+      }
+
+      return prev.filter((criterion) => criterion.column !== column);
     });
   }, []);
 
@@ -1648,12 +1672,15 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     ) => {
       const direction = getSortForColumn(column);
       const ariaSort = getAriaSort(column);
+      const sortPriority = getSortPriority(column);
       const actionHint =
         direction === "ascending"
-          ? "Currently sorted ascending. Clear sort."
+          ? "Currently sorted ascending. Click to clear this sort."
           : direction === "descending"
-            ? "Currently sorted descending. Sort ascending."
-            : "Not sorted. Sort descending.";
+            ? "Currently sorted descending. Click to sort ascending."
+            : "Not sorted. Click to sort descending.";
+      const shiftHint =
+        " Hold Shift while clicking to add or update this column in multi-column sorting.";
       const ColumnElement = useNativeElements ? "th" : "div";
       const columnProps = useNativeElements
         ? { "aria-sort": ariaSort, scope: "col" as const }
@@ -1662,34 +1689,65 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         <ColumnElement {...columnProps} style={style}>
           <button
             type="button"
-            onClick={() => toggleSort(column)}
-            aria-label={`${label}. ${actionHint}`}
+            onClick={(event) => toggleSort(column, event.shiftKey)}
+            aria-label={`${label}. ${actionHint}${shiftHint}`}
             style={{
               display: "inline-flex",
               alignItems: "center",
               gap: "0.35rem",
-              padding: 0,
+              padding: "0.2rem 0.45rem",
               margin: 0,
               border: "none",
-              background: "transparent",
+              borderRadius: "0.45rem",
+              background:
+                direction == null
+                  ? "transparent"
+                  : "color-mix(in srgb, var(--color-accent-blue) 16%, var(--leaderboard-table-header-bg))",
               color: "inherit",
               font: "inherit",
               cursor: "pointer",
+              fontWeight: direction == null ? 500 : 700,
             }}
           >
             <span>{label}</span>
-            <span aria-hidden="true" style={{ fontSize: "0.75em" }}>
+            {sortPriority != null ? (
+              <span
+                aria-hidden="true"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minWidth: "1.1rem",
+                  height: "1.1rem",
+                  borderRadius: "999px",
+                  background:
+                    "color-mix(in srgb, var(--color-accent-blue) 25%, transparent)",
+                  fontSize: "0.72em",
+                  lineHeight: 1,
+                }}
+              >
+                {sortPriority}
+              </span>
+            ) : null}
+            <span
+              aria-hidden="true"
+              style={{
+                fontSize: direction == null ? "0.88em" : "1em",
+                fontWeight: direction == null ? 500 : 800,
+                opacity: direction == null ? 0.8 : 1,
+              }}
+            >
               {direction === "ascending"
-                ? "▲"
+                ? "⬆"
                 : direction === "descending"
-                  ? "▼"
-                  : "↕"}
+                  ? "⬇"
+                  : "⇅"}
             </span>
           </button>
         </ColumnElement>
       );
     },
-    [getAriaSort, getSortForColumn, toggleSort],
+    [getAriaSort, getSortForColumn, getSortPriority, toggleSort],
   );
 
   const TableHeader = ({ useNativeElements = false }: { useNativeElements?: boolean }) => {
@@ -1707,7 +1765,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         <RowElement {...rowProps} style={headerRowStyle}>
           <ColumnElement
             {...columnHeaderProps}
-            aria-sort={sortState ? "none" : "ascending"}
+            aria-sort={sortCriteria.length > 0 ? "none" : "ascending"}
             style={headerCellStyle}
           >
             #
@@ -1813,13 +1871,14 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   );
 
   const sortedLeaders = useMemo(() => {
-    if (!sortState) {
+    if (sortCriteria.length === 0) {
       return leaders;
     }
     const getComparableValue = (
       leader: Leader,
+      column: SortableColumn,
     ): number | string | null => {
-      switch (sortState.column) {
+      switch (column) {
         case "player":
           return leader.playerName ?? "";
         case "sport":
@@ -1857,45 +1916,48 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           return null;
       }
     };
-    const directionFactor = sortState.direction === "ascending" ? 1 : -1;
     return [...leaders].sort((a, b) => {
-      const aValue = getComparableValue(a);
-      const bValue = getComparableValue(b);
-      if (aValue == null && bValue == null) {
-        return (a.rank ?? 0) - (b.rank ?? 0);
-      }
-      if (aValue == null) {
-        return 1;
-      }
-      if (bValue == null) {
-        return -1;
-      }
-      if (typeof aValue === "string" || typeof bValue === "string") {
-        const result = sortCollator.compare(String(aValue), String(bValue));
-        if (result === 0) {
-          return (a.rank ?? 0) - (b.rank ?? 0);
+      for (const criterion of sortCriteria) {
+        const aValue = getComparableValue(a, criterion.column);
+        const bValue = getComparableValue(b, criterion.column);
+        if (aValue == null && bValue == null) {
+          continue;
         }
-        return result * directionFactor;
+        if (aValue == null) {
+          return 1;
+        }
+        if (bValue == null) {
+          return -1;
+        }
+        const directionFactor = criterion.direction === "ascending" ? 1 : -1;
+        if (typeof aValue === "string" || typeof bValue === "string") {
+          const result = sortCollator.compare(String(aValue), String(bValue));
+          if (result !== 0) {
+            return result * directionFactor;
+          }
+          continue;
+        }
+        if (aValue === bValue) {
+          continue;
+        }
+        const aNumber =
+          typeof aValue === "number" && Number.isFinite(aValue) ? aValue : null;
+        const bNumber =
+          typeof bValue === "number" && Number.isFinite(bValue) ? bValue : null;
+        if (aNumber == null && bNumber == null) {
+          continue;
+        }
+        if (aNumber == null) {
+          return 1;
+        }
+        if (bNumber == null) {
+          return -1;
+        }
+        return (aNumber - bNumber) * directionFactor;
       }
-      if (aValue === bValue) {
-        return (a.rank ?? 0) - (b.rank ?? 0);
-      }
-      const aNumber =
-        typeof aValue === "number" && Number.isFinite(aValue) ? aValue : null;
-      const bNumber =
-        typeof bValue === "number" && Number.isFinite(bValue) ? bValue : null;
-      if (aNumber == null && bNumber == null) {
-        return (a.rank ?? 0) - (b.rank ?? 0);
-      }
-      if (aNumber == null) {
-        return 1;
-      }
-      if (bNumber == null) {
-        return -1;
-      }
-      return (aNumber - bNumber) * directionFactor;
+      return (a.rank ?? 0) - (b.rank ?? 0);
     });
-  }, [getWinProbability, isBowling, leaders, sortCollator, sortState]);
+  }, [getWinProbability, isBowling, leaders, sortCollator, sortCriteria]);
 
   useEffect(() => {
     const element = tableContainerRef.current;
@@ -1972,7 +2034,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           }}
         >
           <div role="cell" style={cellStyle}>
-            {sortState ? index + 1 : row.rank}
+            {sortCriteria.length > 0 ? index + 1 : row.rank}
           </div>
           <div role="cell" style={cellStyle}>
             {row.playerName}
@@ -2036,7 +2098,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       isBowling,
       lastCellStyle,
       rowGridStyle,
-      sortState,
+      sortCriteria,
       sport,
       topRatedLeader,
     ],

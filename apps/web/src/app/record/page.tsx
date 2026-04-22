@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { type CSSProperties } from "react";
+import { getTranslations } from "next-intl/server";
 import { apiFetch } from "../../lib/api";
 import { recordPathForSport } from "../../lib/routes";
 import {
@@ -77,6 +78,50 @@ const sportVisuals: Record<string, SportVisual> = {
 };
 
 export default async function RecordPage() {
+  let t: (key: string) => string;
+  try {
+    t = await getTranslations("Record");
+  } catch {
+    const fallback: Record<string, string> = {
+      "recordPage.hero.kicker": "Record faster",
+      "recordPage.hero.title": "Record a match",
+      "recordPage.hero.subtitle":
+        "Pick your sport and start logging scores with the exact fields, sets, and summaries you need. Share results instantly or keep them as a personal streak.",
+      "recordPage.hero.badges.quickSetup": "Quick setup",
+      "recordPage.hero.badges.liveScoreFriendly": "Live score-friendly",
+      "recordPage.hero.badges.mobileReady": "Mobile ready",
+      "recordPage.hero.availableSports": "Available sports",
+      "recordPage.hero.readyToTrack": "ready to track",
+      "recordPage.hero.description":
+        "Each one comes with a tailored form so you can focus on the match, not the paperwork.",
+      "recordPage.grid.kicker": "Choose your sport",
+      "recordPage.grid.title": "Beautiful scorecards in a tap",
+      "recordPage.grid.subtitle":
+        "From racquet sports to precision throws, select a sport to open a form tuned to its rules. Save matches, share highlights, and keep your streak alive.",
+      "recordPage.grid.pill.title": "Built for quick entry",
+      "recordPage.grid.pill.caption": "Tap, score, and publish without losing momentum.",
+      "recordPage.empty": "No sports found.",
+      "recordPage.sportDescriptions.badminton":
+        "Track shuttle rallies, sets, and decisive points in seconds.",
+      "recordPage.sportDescriptions.bowling":
+        "Log frames, strikes, and spares to keep the leaderboard honest.",
+      "recordPage.sportDescriptions.discGolf":
+        "Capture every hole score with a layout built for the course.",
+      "recordPage.sportDescriptions.padel":
+        "Serve, volley, and record match momentum without missing a point.",
+      "recordPage.sportDescriptions.padelAmericano":
+        "Made for round-robin rotations and quick score updates.",
+      "recordPage.sportDescriptions.pickleball":
+        "Dial in rally scoring and side outs for every game you play.",
+      "recordPage.sportDescriptions.tableTennis":
+        "Perfect for fast rallies, deuce points, and multi-game matches.",
+      "recordPage.sportDescriptions.tennis":
+        "Track sets, tie-breaks, and match momentum with ease.",
+      "recordPage.sportDescriptions.default":
+        "Capture scores, sets, and moments with a tailored form.",
+    };
+    t = (key: string) => fallback[key] ?? key;
+  }
   let sports: Sport[] = [];
   try {
     const res = await apiFetch("/v0/sports", {
@@ -127,8 +172,26 @@ export default async function RecordPage() {
       icon: "🏅",
       accent: "linear-gradient(135deg, #e5edff, #f4f7ff)",
       accentDark: "linear-gradient(135deg, #16284a, #0f172a)",
-      description: "Capture scores, sets, and moments with a tailored form.",
+      description: t("recordPage.sportDescriptions.default"),
     } satisfies SportVisual;
+    const sportDescription =
+      sport.id === "badminton"
+        ? t("recordPage.sportDescriptions.badminton")
+        : sport.id === "bowling"
+          ? t("recordPage.sportDescriptions.bowling")
+          : sport.id === "disc_golf"
+            ? t("recordPage.sportDescriptions.discGolf")
+            : sport.id === "padel"
+              ? t("recordPage.sportDescriptions.padel")
+              : sport.id === "padel_americano"
+                ? t("recordPage.sportDescriptions.padelAmericano")
+                : sport.id === "pickleball"
+                  ? t("recordPage.sportDescriptions.pickleball")
+                  : sport.id === "table_tennis"
+                    ? t("recordPage.sportDescriptions.tableTennis")
+                    : sport.id === "tennis"
+                      ? t("recordPage.sportDescriptions.tennis")
+                      : visual.description;
 
     const style: RecordCardStyle = {
       "--record-accent": visual.accent,
@@ -138,6 +201,7 @@ export default async function RecordPage() {
     return {
       ...sport,
       ...visual,
+      description: sportDescription,
       style,
     };
   });
@@ -145,30 +209,27 @@ export default async function RecordPage() {
   return (
     <main className="record-page">
       <section className="record-hero container">
-        <p className="record-hero__kicker">Record faster</p>
+        <p className="record-hero__kicker">{t("recordPage.hero.kicker")}</p>
         <div className="record-hero__content">
           <div className="record-hero__intro">
-            <h1 className="record-hero__title">Record a match</h1>
+            <h1 className="record-hero__title">{t("recordPage.hero.title")}</h1>
             <p className="record-hero__subtitle">
-              Pick your sport and start logging scores with the exact fields, sets,
-              and summaries you need. Share results instantly or keep them as a
-              personal streak.
+              {t("recordPage.hero.subtitle")}
             </p>
             <div className="record-hero__badges" aria-hidden>
-              <span className="record-badge">Quick setup</span>
-              <span className="record-badge">Live score-friendly</span>
-              <span className="record-badge">Mobile ready</span>
+              <span className="record-badge">{t("recordPage.hero.badges.quickSetup")}</span>
+              <span className="record-badge">{t("recordPage.hero.badges.liveScoreFriendly")}</span>
+              <span className="record-badge">{t("recordPage.hero.badges.mobileReady")}</span>
             </div>
           </div>
           <div className="record-hero__card" role="presentation">
-            <p className="record-hero__label">Available sports</p>
+            <p className="record-hero__label">{t("recordPage.hero.availableSports")}</p>
             <div className="record-hero__stat">
               {implementedSports.length}
-              <span className="record-hero__stat-caption">ready to track</span>
+              <span className="record-hero__stat-caption">{t("recordPage.hero.readyToTrack")}</span>
             </div>
             <p className="record-hero__description">
-              Each one comes with a tailored form so you can focus on the match,
-              not the paperwork.
+              {t("recordPage.hero.description")}
             </p>
           </div>
         </div>
@@ -177,27 +238,25 @@ export default async function RecordPage() {
       <section className="container record-grid-section">
         <header className="record-grid-header">
           <div>
-            <p className="record-hero__kicker">Choose your sport</p>
-            <h2 className="record-grid-title">Beautiful scorecards in a tap</h2>
+            <p className="record-hero__kicker">{t("recordPage.grid.kicker")}</p>
+            <h2 className="record-grid-title">{t("recordPage.grid.title")}</h2>
             <p className="record-grid-subtitle">
-              From racquet sports to precision throws, select a sport to open a form
-              tuned to its rules. Save matches, share highlights, and keep your
-              streak alive.
+              {t("recordPage.grid.subtitle")}
             </p>
           </div>
           <div className="record-grid-pill" aria-hidden>
             <span className="record-grid-pill__icon">⚡</span>
             <div>
-              <div className="record-grid-pill__title">Built for quick entry</div>
+              <div className="record-grid-pill__title">{t("recordPage.grid.pill.title")}</div>
               <div className="record-grid-pill__caption">
-                Tap, score, and publish without losing momentum.
+                {t("recordPage.grid.pill.caption")}
               </div>
             </div>
           </div>
         </header>
 
         {decoratedSports.length === 0 ? (
-          <p className="record-empty">No sports found.</p>
+          <p className="record-empty">{t("recordPage.empty")}</p>
         ) : (
           <ul className="sport-list record-grid" role="list">
             {decoratedSports.map((sport) => (

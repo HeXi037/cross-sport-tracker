@@ -74,14 +74,14 @@
     }
   },
   "BackLink": {
-    "back": "\u2190 Back",
-    "home": "\u2190 Back to home",
-    "matches": "\u2190 Back to matches",
-    "players": "\u2190 Back to players",
-    "tournaments": "\u2190 Back to tournaments",
-    "record": "\u2190 Back to recording",
-    "leaderboards": "\u2190 Back to leaderboards",
-    "profile": "\u2190 Back to profile"
+    "back": "← Back",
+    "home": "← Back to home",
+    "matches": "← Back to matches",
+    "players": "← Back to players",
+    "tournaments": "← Back to tournaments",
+    "record": "← Back to recording",
+    "leaderboards": "← Back to leaderboards",
+    "profile": "← Back to profile"
   },
   "Matches": {
     "title": "Matches",
@@ -265,7 +265,10 @@
       "addSet": "Add Set",
       "change": "Change",
       "now": "Now",
-      "today": "Today"
+      "today": "Today",
+      "apply": "Apply",
+      "remove": "Remove",
+      "addPlayer": "Add player"
     },
     "fields": {
       "club": {
@@ -283,6 +286,14 @@
       "friendly": {
         "label": "Mark as friendly",
         "hint": "Friendly matches appear in match history but do not impact leaderboards or player statistics."
+      },
+      "date": {
+        "label": "Date",
+        "example": "Example: {dateExample}",
+        "formatHint": "Date format follows your profile preferences."
+      },
+      "startTime": {
+        "label": "Start time"
       }
     },
     "hints": {
@@ -290,7 +301,23 @@
     },
     "messages": {
       "matchRecorded": "Match recorded!",
-      "padelAmericanoSaved": "Padel Americano tie saved. Update the players and scores to record the next tie."
+      "padelAmericanoSaved": "Padel Americano tie saved. Update the players and scores to record the next tie.",
+      "selectSport": "Select a sport",
+      "selectPlayerForEachEntry": "Please select a player for each entry.",
+      "addAtLeastTwoBowlingPlayers": "Add at least two bowling players.",
+      "selectUniquePlayers": "Please select unique players.",
+      "saveFailed": "Failed to save. Please review players/scores and try again.",
+      "selectPlayersForBothSides": "Please select players for both sides.",
+      "invalidGameScores": "Invalid game scores. Please review and try again.",
+      "enterWholeNumberScores": "Enter whole-number scores for both teams.",
+      "padelRequiresWinner": "Padel matches require a winner. Adjust the set totals.",
+      "padelFinishAtTwoSets": "Padel matches finish when a side wins two sets. Adjust the totals.",
+      "padelMaxOneLosingSet": "Padel matches allow at most one set for the losing side. Adjust the totals.",
+      "resolveDuplicateNames": "Resolve duplicate player names before saving.",
+      "loginRequired": "You need to be logged in to record matches. Please log in or sign up.",
+      "duplicateNamesReturned": "Duplicate player names returned: {names}. Each player name must be unique before saving.",
+      "gamesWonSoFar": "Games won so far: Team A {winsA} – Team B {winsB}.",
+      "gameTeamPoints": "Game {gameNumber} – Team {team} points"
     },
     "padel": {
       "hints": {
@@ -308,7 +335,107 @@
       "tieTargetHint": "Total points on offer in the tie. Common picks: 16 (four serves each pair), 24 (six serves), or 32 (eight serves).",
       "tieTargetRequired": "Pop in a positive tie target before saving your padel Americano tie.",
       "tieTargetMismatchPrefix": "Padel Americano totals need to match your tie target of",
-      "tieTargetMismatchSuffix": "points. Tweak the scores."
+      "tieTargetMismatchSuffix": "points. Tweak the scores.",
+      "tips": {
+        "heading": "Recording a padel Americano tie",
+        "intro": "Review the Americano rotation before saving each tie so every player pairing is captured accurately.",
+        "signInTitle": "Sign in first:",
+        "signInBody": "logging in keeps all of your Americano ties together and lets you resume an unfinished session.",
+        "pairingsTitle": "Set the pairings:",
+        "pairingsBody": "Americanos are always doubles, so pick the two players on each side exactly as shown on your rotation sheet.",
+        "scoreTitle": "Capture the score:",
+        "scoreBody": "enter the total points earned by each pair (for example Team A 24 – Team B 20 in a race to 32). Use the target your club prefers if it differs from 32.",
+        "detailsTitle": "Note session details:",
+        "detailsBody": "record the date, start time and venue so everyone can find the tie later. Mark it as friendly for social hits.",
+        "fixturesTitle": "Need fixtures?",
+        "fixturesBody": "Generate a full Americano schedule before logging results here so you can follow the rotation without leaving this page."
+      }
+    },
+    "sections": {
+      "matchType": "Match type",
+      "matchDetails": "Match details",
+      "players": "Players",
+      "playersAndScores": "Players and scores",
+      "matchScore": "Match score"
+    },
+    "matchType": {
+      "singles": "Singles",
+      "doubles": "Doubles"
+    },
+    "teams": {
+      "teamA": "Team A",
+      "teamB": "Team B",
+      "teamAPlayer1": "Team A player 1",
+      "teamAPlayer2": "Team A player 2",
+      "teamBPlayer1": "Team B player 1",
+      "teamBPlayer2": "Team B player 2",
+      "teamAScore": "Team A score",
+      "teamBScore": "Team B score"
+    },
+    "players": {
+      "selectPlayer": "Select player",
+      "recent": "Recent",
+      "allPlayers": "All players",
+      "searchPlaceholder": "Search players",
+      "searchTeamAOptions": "Search Team A options",
+      "searchTeamABench": "Search Team A bench",
+      "searchTeamBOptions": "Search Team B options",
+      "searchTeamBBench": "Search Team B bench",
+      "useLastMatchPlayers": "Use last match players",
+      "useFavouritePairing": "Use favourite pairing",
+      "choosePairing": "Choose a pairing",
+      "swapTeams": "Swap teams",
+      "rotatePlayers": "Rotate players"
+    },
+    "bowling": {
+      "infoIconLabel": "Bowling scoring input help",
+      "infoIconTitle": "Enter 0-10 for pins. Use X for strikes, / to finish a spare, and - for gutters.",
+      "playerLabel": "Player {number}",
+      "totalLabel": "Total: {total}",
+      "rollLabel": "Roll {number}",
+      "rollPlaceholder": "--",
+      "shortcutsAriaLabel": "Frame {frame}, Roll {roll} shortcuts for {player}",
+      "shortcutStrike": "Set to strike (10 pins)",
+      "shortcutGutter": "Set to gutter (0 pins)",
+      "shortcutSpare": "Set to spare (fill frame to 10 pins)",
+      "maxPlayers": "Maximum {max} players",
+      "frameLabel": "Frame {frame} – {player}"
+    },
+    "recordPage": {
+      "hero": {
+        "kicker": "Record faster",
+        "title": "Record a match",
+        "subtitle": "Pick your sport and start logging scores with the exact fields, sets, and summaries you need. Share results instantly or keep them as a personal streak.",
+        "badges": {
+          "quickSetup": "Quick setup",
+          "liveScoreFriendly": "Live score-friendly",
+          "mobileReady": "Mobile ready"
+        },
+        "availableSports": "Available sports",
+        "readyToTrack": "ready to track",
+        "description": "Each one comes with a tailored form so you can focus on the match, not the paperwork."
+      },
+      "grid": {
+        "kicker": "Choose your sport",
+        "title": "Beautiful scorecards in a tap",
+        "subtitle": "From racquet sports to precision throws, select a sport to open a form tuned to its rules. Save matches, share highlights, and keep your streak alive.",
+        "pill": {
+          "title": "Built for quick entry",
+          "caption": "Tap, score, and publish without losing momentum."
+        }
+      },
+      "empty": "No sports found.",
+      "sportDescriptions": {
+        "badminton": "Track shuttle rallies, sets, and decisive points in seconds.",
+        "bowling": "Log frames, strikes, and spares to keep the leaderboard honest.",
+        "discGolf": "Capture every hole score with a layout built for the course.",
+        "padel": "Serve, volley, and record match momentum without missing a point.",
+        "padelAmericano": "Made for round-robin rotations and quick score updates.",
+        "pickleball": "Dial in rally scoring and side outs for every game you play.",
+        "tableTennis": "Perfect for fast rallies, deuce points, and multi-game matches.",
+        "tennis": "Track sets, tie-breaks, and match momentum with ease.",
+        "default": "Capture scores, sets, and moments with a tailored form."
+      }
     }
   }
 }

@@ -1872,18 +1872,18 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     setSuccessMessage(null);
 
     if (!sport) {
-      setError("Select a sport");
+      setError(recordT("messages.selectSport"));
       return;
     }
 
     if (isBowling) {
       if (bowlingEntries.some((entry) => !entry.playerId)) {
-        setError("Please select a player for each entry.");
+        setError(recordT("messages.selectPlayerForEachEntry"));
         return;
       }
 
       if (bowlingEntries.length < 2) {
-        setError("Add at least two bowling players.");
+        setError(recordT("messages.addAtLeastTwoBowlingPlayers"));
         return;
       }
 
@@ -1939,7 +1939,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       const names = participants.map((p) => p!.playerId);
       const uniqueIds = new Set(names);
       if (uniqueIds.size !== names.length) {
-        setError("Please select unique players.");
+        setError(recordT("messages.selectUniquePlayers"));
         return;
       }
 
@@ -1989,7 +1989,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         router.push(`/matches`);
       } catch (err) {
         console.error(err);
-        setError("Failed to save. Please review players/scores and try again.");
+        setError(recordT("messages.saveFailed"));
       } finally {
         setSubmitting(false);
       }
@@ -1997,14 +1997,14 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     }
 
     if (!ids.a1 || !ids.b1) {
-      setError("Please select players for both sides.");
+      setError(recordT("messages.selectPlayersForBothSides"));
       return;
     }
 
     const selections = [ids.a1, ids.a2, ids.b1, ids.b2].filter(Boolean);
     const uniqueSelections = new Set(selections);
     if (uniqueSelections.size !== selections.length) {
-      setError("Please select unique players.");
+      setError(recordT("messages.selectUniquePlayers"));
       return;
     }
 
@@ -2013,7 +2013,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
     const teamB = [ids.b1, ids.b2].filter(Boolean).map((id) => byId.get(id) || "");
 
     if (!teamA.length || !teamB.length) {
-      setError("Please select players for both sides.");
+      setError(recordT("messages.selectPlayersForBothSides"));
       return;
     }
 
@@ -2027,7 +2027,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         const message =
           seriesErr instanceof Error
             ? seriesErr.message
-            : "Invalid game scores. Please review and try again.";
+            : recordT("messages.invalidGameScores");
         setError(message);
         return;
       }
@@ -2035,7 +2035,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
       const parsedA = parseNonNegativeInteger(scoreA);
       const parsedB = parseNonNegativeInteger(scoreB);
       if (parsedA === null || parsedB === null) {
-        setError("Enter whole-number scores for both teams.");
+        setError(recordT("messages.enterWholeNumberScores"));
         return;
       }
 
@@ -2053,18 +2053,18 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         }
       } else if (isStandardPadel) {
         if (parsedA === parsedB) {
-          setError("Padel matches require a winner. Adjust the set totals.");
+          setError(recordT("messages.padelRequiresWinner"));
           return;
         }
         const winner = Math.max(parsedA, parsedB);
         const loser = Math.min(parsedA, parsedB);
         if (winner !== 2) {
-          setError("Padel matches finish when a side wins two sets. Adjust the totals.");
+          setError(recordT("messages.padelFinishAtTwoSets"));
           return;
         }
         if (loser > 1) {
           setError(
-            "Padel matches allow at most one set for the losing side. Adjust the totals.",
+            recordT("messages.padelMaxOneLosingSet"),
           );
           return;
         }
@@ -2131,9 +2131,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
           apiError.parsedMessage ?? apiError.message,
         );
         setDuplicatePlayerNames(duplicates);
-        setError("Resolve duplicate player names before saving.");
+        setError(recordT("messages.resolveDuplicateNames"));
       } else {
-        setError("Failed to save. Please review players/scores and try again.");
+        setError(recordT("messages.saveFailed"));
       }
     } finally {
       setSubmitting(false);
@@ -2148,28 +2148,32 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
           aria-labelledby="padel-americano-tips-heading"
         >
           <h2 id="padel-americano-tips-heading" className="heading">
-            Recording a padel Americano tie
+            {recordT("padelAmericano.tips.heading")}
           </h2>
           <p className="padel-americano-tips__intro">
-            Review the Americano rotation before saving each tie so every player pairing is captured accurately.
+            {recordT("padelAmericano.tips.intro")}
           </p>
           <ul className="padel-americano-tips__list">
             <li>
-              <strong>Sign in first:</strong> logging in keeps all of your Americano ties together and lets you resume an unfinished session.
+              <strong>{recordT("padelAmericano.tips.signInTitle")}</strong>{" "}
+              {recordT("padelAmericano.tips.signInBody")}
             </li>
             <li>
-              <strong>Set the pairings:</strong> Americanos are always doubles, so pick the two players on each side exactly as shown on your rotation sheet.
+              <strong>{recordT("padelAmericano.tips.pairingsTitle")}</strong>{" "}
+              {recordT("padelAmericano.tips.pairingsBody")}
             </li>
             <li>
-              <strong>Capture the score:</strong> enter the total points earned by each pair (for example Team A 24 – Team B 20 in a race to 32). Use the target your club prefers if it differs from 32.
+              <strong>{recordT("padelAmericano.tips.scoreTitle")}</strong>{" "}
+              {recordT("padelAmericano.tips.scoreBody")}
             </li>
             <li>
-              <strong>Note session details:</strong> record the date, start time and venue so everyone can find the tie later. Mark it as friendly for social hits.
+              <strong>{recordT("padelAmericano.tips.detailsTitle")}</strong>{" "}
+              {recordT("padelAmericano.tips.detailsBody")}
             </li>
           </ul>
           <p className="padel-americano-tips__footer">
-            <strong>Need fixtures?</strong> Generate a full Americano schedule before logging
-            results here so you can follow the rotation without leaving this page.
+            <strong>{recordT("padelAmericano.tips.fixturesTitle")}</strong>{" "}
+            {recordT("padelAmericano.tips.fixturesBody")}
           </p>
         </section>
       )}
@@ -2177,7 +2181,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         {isAnonymous && (
           <div className="login-required-banner" role="note">
             <p>
-              You need to be logged in to record matches. Please log in or sign up.
+              {recordT("messages.loginRequired")}
             </p>
             <Link
               href="/login"
@@ -2190,7 +2194,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         )}
         {supportsSinglesOrDoubles && (
           <fieldset className="form-fieldset" disabled={isAnonymous}>
-            <legend className="form-legend">Match type</legend>
+            <legend className="form-legend">{recordT("sections.matchType")}</legend>
             <div className="radio-group">
               <label
                 className="radio-group__option"
@@ -2204,7 +2208,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                   checked={!doubles}
                   onChange={() => handleToggle(false)}
                 />
-                <span>Singles</span>
+                <span>{recordT("matchType.singles")}</span>
               </label>
               <label
                 className="radio-group__option"
@@ -2218,20 +2222,20 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                   checked={doubles}
                   onChange={() => handleToggle(true)}
                 />
-                <span>Doubles</span>
+                <span>{recordT("matchType.doubles")}</span>
               </label>
             </div>
           </fieldset>
         )}
 
         <fieldset className="form-fieldset" disabled={isAnonymous}>
-          <legend className="form-legend">Match details</legend>
+          <legend className="form-legend">{recordT("sections.matchDetails")}</legend>
           {sportCopy.matchDetailsHint && (
             <p className="form-hint">{sportCopy.matchDetailsHint}</p>
           )}
           <div className="form-grid form-grid--two">
             <label className="form-field" htmlFor="record-date">
-              <span className="form-label">Date</span>
+              <span className="form-label">{recordT("fields.date.label")}</span>
               <input
                 id="record-date"
                 type="date"
@@ -2245,7 +2249,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                 Example: {dateExample}
               </span>
               <span id={dateLocaleHintId} className="form-hint">
-                Date format follows your profile preferences.
+                {recordT("fields.date.formatHint")}
               </span>
               <div className="form-chip-row">
                 <button
@@ -2258,7 +2262,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
               </div>
             </label>
             <label className="form-field" htmlFor="record-time">
-              <span className="form-label">Start time</span>
+              <span className="form-label">{recordT("fields.startTime.label")}</span>
               <input
                 id="record-time"
                 type="time"
@@ -2380,8 +2384,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
               <span
                 className="bowling-info-icon"
                 role="img"
-                aria-label="Bowling scoring input help"
-                title="Enter 0-10 for pins. Use X for strikes, / to finish a spare, and - for gutters."
+                aria-label={recordT("bowling.infoIconLabel")}
+                title={recordT("bowling.infoIconTitle")}
               >
                 ⓘ
               </span>
@@ -2417,7 +2421,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                             handleBowlingPlayerChange(idx, e.target.value)
                           }
                         >
-                          <option value="">Select player</option>
+                          <option value="">{recordT("players.selectPlayer")}</option>
                           {players.map((p) => (
                             <option key={p.id} value={p.id}>
                               {p.name}
@@ -2435,7 +2439,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                             className="link-button"
                             onClick={() => handleRemoveBowlingPlayer(idx)}
                           >
-                            Remove
+                            {recordT("actions.remove")}
                           </button>
                         )}
                       </div>
@@ -2467,7 +2471,10 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                               id={frameLegendId}
                               className="bowling-frame-label"
                             >
-                              Frame {frameIdx + 1} – {playerLabel}
+                              {recordT("bowling.frameLabel", {
+                                frame: frameIdx + 1,
+                                player: playerLabel,
+                              })}
                             </legend>
                             <div
                               className={`bowling-rolls bowling-rolls--${frame.length}`}
@@ -2537,7 +2544,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                       inputMode="numeric"
                                       pattern="[0-9]*"
                                       maxLength={2}
-                                      placeholder="--"
+                                      placeholder={recordT("bowling.rollPlaceholder")}
                                       value={roll}
                                       disabled={!isRollEnabled}
                                       onChange={(e) =>
@@ -2563,9 +2570,11 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                     <div
                                       className="bowling-roll-actions"
                                       role="group"
-                                      aria-label={`Frame ${frameIdx + 1}, Roll ${
-                                        rollIdx + 1
-                                      } shortcuts for ${playerLabel}`}
+                                      aria-label={recordT("bowling.shortcutsAriaLabel", {
+                                        frame: frameIdx + 1,
+                                        roll: rollIdx + 1,
+                                        player: playerLabel,
+                                      })}
                                     >
                                       <button
                                         type="button"
@@ -2580,7 +2589,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                             "10",
                                           )
                                         }
-                                        aria-label="Set to strike (10 pins)"
+                                        aria-label={recordT("bowling.shortcutStrike")}
                                       >
                                         X
                                       </button>
@@ -2597,7 +2606,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                             "0",
                                           )
                                         }
-                                        aria-label="Set to gutter (0 pins)"
+                                        aria-label={recordT("bowling.shortcutGutter")}
                                       >
                                         –
                                       </button>
@@ -2615,7 +2624,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                                             spareValue,
                                           )
                                         }
-                                        aria-label="Set to spare (fill frame to 10 pins)"
+                                        aria-label={recordT("bowling.shortcutSpare")}
                                       >
                                         /
                                       </button>
@@ -2652,7 +2661,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                   bowlingMaxReached ? bowlingMaxHintId : undefined
                 }
               >
-                Add player
+                {recordT("actions.addPlayer")}
               </button>
               {bowlingMaxReached && (
                 <p
@@ -2661,7 +2670,9 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                   role="status"
                   aria-live="polite"
                 >
-                  Maximum {MAX_BOWLING_PLAYERS} players
+                  {recordT("bowling.maxPlayers", {
+                    max: MAX_BOWLING_PLAYERS,
+                  })}
                 </p>
               )}
             </div>
@@ -2669,7 +2680,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
         ) : (
           <>
             <fieldset className="form-fieldset" disabled={isAnonymous}>
-              <legend className="form-legend">Players</legend>
+              <legend className="form-legend">{recordT("sections.players")}</legend>
               {sportCopy.playersHint && (
                 <p className="form-hint">{sportCopy.playersHint}</p>
               )}
@@ -2680,11 +2691,11 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                   onClick={handleApplyLastMatch}
                   disabled={!playerPreferences.lastSelection}
                 >
-                  Use last match players
+                  {recordT("players.useLastMatchPlayers")}
                 </button>
                 <div className="player-actions__favourite">
                   <label className="form-label" htmlFor="record-favourite-pairing">
-                    Use favourite pairing
+                    {recordT("players.useFavouritePairing")}
                   </label>
                   <div className="player-actions__row">
                     <select
@@ -2692,7 +2703,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                       value={selectedPairingKey}
                       onChange={(event) => setSelectedPairingKey(event.target.value)}
                     >
-                      <option value="">Choose a pairing</option>
+                      <option value="">{recordT("players.choosePairing")}</option>
                       {favouritePairingOptions.map((pairing) => (
                         <option key={pairing.key} value={pairing.key}>
                           {pairing.label}
@@ -2706,7 +2717,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                       onClick={handleApplyPairing}
                       disabled={!selectedPairingKey}
                     >
-                      Apply
+                      {recordT("actions.apply")}
                     </button>
                   </div>
                 </div>
@@ -2717,23 +2728,23 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                   className="button-secondary"
                   onClick={handleSwapTeams}
                 >
-                  Swap teams
+                  {recordT("players.swapTeams")}
                 </button>
                 <button
                   type="button"
                   className="button-secondary"
                   onClick={handleRotatePositions}
                 >
-                  Rotate players
+                  {recordT("players.rotatePlayers")}
                 </button>
               </div>
               <div className="team-grid">
                 <div className="team-card">
-                  <div className="team-card__header">Team A</div>
+                  <div className="team-card__header">{recordT("teams.teamA")}</div>
                   <div className="team-card__content">
                     <div className="form-field">
                       <label className="form-label" htmlFor="record-player-a1">
-                        Team A player 1
+                        {recordT("teams.teamAPlayer1")}
                       </label>
                       <input
                         id="record-player-a1-search"
@@ -2742,8 +2753,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                         onChange={(event) =>
                           handlePlayerSearchChange("a1", event.target.value)
                         }
-                        placeholder="Search players"
-                        aria-label="Search Team A options"
+                        placeholder={recordT("players.searchPlaceholder")}
+                        aria-label={recordT("players.searchTeamAOptions")}
                       />
                       <select
                         id="record-player-a1"
@@ -2756,14 +2767,14 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                         }
                         aria-describedby={duplicateHintId}
                       >
-                        <option value="">Select player</option>
+                        <option value="">{recordT("players.selectPlayer")}</option>
                         {filteredPlayerOptions("a1").meOption.map((option) => (
                           <option key={`me-${option.id}`} value={option.id}>
                             {option.name}
                           </option>
                         ))}
                         {filteredPlayerOptions("a1").recentOptions.length > 0 && (
-                          <optgroup label="Recent">
+                          <optgroup label={recordT("players.recent")}>
                             {filteredPlayerOptions("a1").recentOptions.map((option) => (
                               <option key={`recent-${option.id}`} value={option.id}>
                                 {option.name}
@@ -2771,7 +2782,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                             ))}
                           </optgroup>
                         )}
-                        <optgroup label="All players">
+                        <optgroup label={recordT("players.allPlayers")}>
                           {filteredPlayerOptions("a1").remaining.map((option) => (
                             <option key={option.id} value={option.id}>
                               {option.name}
@@ -2783,7 +2794,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                     {doubles && (
                       <div className="form-field">
                         <label className="form-label" htmlFor="record-player-a2">
-                          Team A player 2
+                          {recordT("teams.teamAPlayer2")}
                         </label>
                         <input
                           id="record-player-a2-search"
@@ -2792,8 +2803,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                           onChange={(event) =>
                             handlePlayerSearchChange("a2", event.target.value)
                           }
-                          placeholder="Search players"
-                          aria-label="Search Team A bench"
+                          placeholder={recordT("players.searchPlaceholder")}
+                          aria-label={recordT("players.searchTeamABench")}
                         />
                         <select
                           id="record-player-a2"
@@ -2806,14 +2817,14 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                           }
                           aria-describedby={duplicateHintId}
                         >
-                          <option value="">Select player</option>
+                          <option value="">{recordT("players.selectPlayer")}</option>
                           {filteredPlayerOptions("a2").meOption.map((option) => (
                             <option key={`me-${option.id}`} value={option.id}>
                               {option.name}
                             </option>
                           ))}
                           {filteredPlayerOptions("a2").recentOptions.length > 0 && (
-                            <optgroup label="Recent">
+                            <optgroup label={recordT("players.recent")}>
                               {filteredPlayerOptions("a2").recentOptions.map((option) => (
                                 <option key={`recent-${option.id}`} value={option.id}>
                                   {option.name}
@@ -2821,7 +2832,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                               ))}
                             </optgroup>
                           )}
-                          <optgroup label="All players">
+                          <optgroup label={recordT("players.allPlayers")}>
                             {filteredPlayerOptions("a2").remaining.map((option) => (
                               <option key={option.id} value={option.id}>
                                 {option.name}
@@ -2834,11 +2845,11 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                   </div>
                 </div>
                 <div className="team-card">
-                  <div className="team-card__header">Team B</div>
+                  <div className="team-card__header">{recordT("teams.teamB")}</div>
                   <div className="team-card__content">
                     <div className="form-field">
                       <label className="form-label" htmlFor="record-player-b1">
-                        Team B player 1
+                        {recordT("teams.teamBPlayer1")}
                       </label>
                       <input
                         id="record-player-b1-search"
@@ -2847,8 +2858,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                         onChange={(event) =>
                           handlePlayerSearchChange("b1", event.target.value)
                         }
-                        placeholder="Search players"
-                        aria-label="Search Team B options"
+                        placeholder={recordT("players.searchPlaceholder")}
+                        aria-label={recordT("players.searchTeamBOptions")}
                       />
                       <select
                         id="record-player-b1"
@@ -2861,14 +2872,14 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                         }
                         aria-describedby={duplicateHintId}
                       >
-                        <option value="">Select player</option>
+                        <option value="">{recordT("players.selectPlayer")}</option>
                         {filteredPlayerOptions("b1").meOption.map((option) => (
                           <option key={`me-${option.id}`} value={option.id}>
                             {option.name}
                           </option>
                         ))}
                         {filteredPlayerOptions("b1").recentOptions.length > 0 && (
-                          <optgroup label="Recent">
+                          <optgroup label={recordT("players.recent")}>
                             {filteredPlayerOptions("b1").recentOptions.map((option) => (
                               <option key={`recent-${option.id}`} value={option.id}>
                                 {option.name}
@@ -2876,7 +2887,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                             ))}
                           </optgroup>
                         )}
-                        <optgroup label="All players">
+                        <optgroup label={recordT("players.allPlayers")}>
                           {filteredPlayerOptions("b1").remaining.map((option) => (
                             <option key={option.id} value={option.id}>
                               {option.name}
@@ -2888,7 +2899,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                     {doubles && (
                       <div className="form-field">
                         <label className="form-label" htmlFor="record-player-b2">
-                          Team B player 2
+                          {recordT("teams.teamBPlayer2")}
                         </label>
                         <input
                           id="record-player-b2-search"
@@ -2897,8 +2908,8 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                           onChange={(event) =>
                             handlePlayerSearchChange("b2", event.target.value)
                           }
-                          placeholder="Search players"
-                          aria-label="Search Team B bench"
+                          placeholder={recordT("players.searchPlaceholder")}
+                          aria-label={recordT("players.searchTeamBBench")}
                         />
                         <select
                           id="record-player-b2"
@@ -2911,14 +2922,14 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                           }
                           aria-describedby={duplicateHintId}
                         >
-                          <option value="">Select player</option>
+                          <option value="">{recordT("players.selectPlayer")}</option>
                           {filteredPlayerOptions("b2").meOption.map((option) => (
                             <option key={`me-${option.id}`} value={option.id}>
                               {option.name}
                             </option>
                           ))}
                           {filteredPlayerOptions("b2").recentOptions.length > 0 && (
-                            <optgroup label="Recent">
+                            <optgroup label={recordT("players.recent")}>
                               {filteredPlayerOptions("b2").recentOptions.map((option) => (
                                 <option key={`recent-${option.id}`} value={option.id}>
                                   {option.name}
@@ -2926,7 +2937,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                               ))}
                             </optgroup>
                           )}
-                          <optgroup label="All players">
+                          <optgroup label={recordT("players.allPlayers")}>
                             {filteredPlayerOptions("b2").remaining.map((option) => (
                               <option key={option.id} value={option.id}>
                                 {option.name}
@@ -2953,7 +2964,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
             </fieldset>
 
             <fieldset className="form-fieldset" disabled={isAnonymous}>
-              <legend className="form-legend">Match score</legend>
+              <legend className="form-legend">{recordT("sections.matchScore")}</legend>
               {sportCopy.scoringHint && (
                 <p
                   className="form-hint"
@@ -2970,7 +2981,10 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                     role="status"
                     aria-live="polite"
                   >
-                    Games won so far: Team A {gameSeriesSummary.winsA} – Team B {gameSeriesSummary.winsB}.
+                    {recordT("messages.gamesWonSoFar", {
+                      winsA: gameSeriesSummary.winsA,
+                      winsB: gameSeriesSummary.winsB,
+                    })}
                   </p>
                   <div className="form-stack">
                     {gameScores.map((row, index) => {
@@ -3035,7 +3049,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
               ) : (
                 <div className="form-grid form-grid--two">
                   <label className="form-field" htmlFor="record-score-a">
-                    <span className="form-label">Team A score</span>
+                    <span className="form-label">{recordT("teams.teamAScore")}</span>
                     <input
                       id="record-score-a"
                       type="number"
@@ -3048,7 +3062,7 @@ export default function RecordSportForm({ sportId }: RecordSportFormProps) {
                     />
                   </label>
                   <label className="form-field" htmlFor="record-score-b">
-                    <span className="form-label">Team B score</span>
+                    <span className="form-label">{recordT("teams.teamBScore")}</span>
                     <input
                       id="record-score-b"
                       type="number"

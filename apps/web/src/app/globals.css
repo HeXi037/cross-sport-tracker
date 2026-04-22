@@ -639,11 +639,17 @@ input,
 select,
 textarea {
   padding: 0.5rem;
-  border: 1px solid rgba(10, 31, 68, 0.2);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 6px;
   width: 100%;
   background-color: var(--color-surface);
   color: inherit;
+}
+
+select option,
+select optgroup {
+  background-color: var(--color-surface-elevated);
+  color: var(--color-text);
 }
 
 input:focus,

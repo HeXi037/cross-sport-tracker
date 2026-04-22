@@ -74,14 +74,14 @@
     }
   },
   "BackLink": {
-    "back": "\u2190 Volver",
-    "home": "\u2190 Volver al inicio",
-    "matches": "\u2190 Volver a partidos",
-    "players": "\u2190 Volver a jugadores",
-    "tournaments": "\u2190 Volver a torneos",
-    "record": "\u2190 Volver al registro",
-    "leaderboards": "\u2190 Volver a clasificaciones",
-    "profile": "\u2190 Volver al perfil"
+    "back": "← Volver",
+    "home": "← Volver al inicio",
+    "matches": "← Volver a partidos",
+    "players": "← Volver a jugadores",
+    "tournaments": "← Volver a torneos",
+    "record": "← Volver al registro",
+    "leaderboards": "← Volver a clasificaciones",
+    "profile": "← Volver al perfil"
   },
   "Matches": {
     "title": "Partidos",
@@ -265,7 +265,10 @@
       "addSet": "Añadir set",
       "change": "Cambiar",
       "now": "Ahora",
-      "today": "Hoy"
+      "today": "Hoy",
+      "apply": "Aplicar",
+      "remove": "Quitar",
+      "addPlayer": "Añadir jugador"
     },
     "fields": {
       "club": {
@@ -283,6 +286,14 @@
       "friendly": {
         "label": "Marcar como amistoso",
         "hint": "Los partidos amistosos aparecen en el historial pero no afectan a las clasificaciones ni a las estadísticas de los jugadores."
+      },
+      "date": {
+        "label": "Fecha",
+        "example": "Ejemplo: {dateExample}",
+        "formatHint": "El formato de fecha sigue tus preferencias del perfil."
+      },
+      "startTime": {
+        "label": "Hora de inicio"
       }
     },
     "hints": {
@@ -290,7 +301,23 @@
     },
     "messages": {
       "matchRecorded": "¡Partido registrado!",
-      "padelAmericanoSaved": "Encuentro de pádel Americano guardado. Actualiza a los jugadores y los marcadores para registrar el siguiente enfrentamiento."
+      "padelAmericanoSaved": "Encuentro de pádel Americano guardado. Actualiza a los jugadores y los marcadores para registrar el siguiente enfrentamiento.",
+      "selectSport": "Selecciona un deporte",
+      "selectPlayerForEachEntry": "Selecciona un jugador para cada entrada.",
+      "addAtLeastTwoBowlingPlayers": "Añade al menos dos jugadores de bolos.",
+      "selectUniquePlayers": "Selecciona jugadores únicos.",
+      "saveFailed": "No se pudo guardar. Revisa jugadores/puntuaciones e inténtalo de nuevo.",
+      "selectPlayersForBothSides": "Selecciona jugadores para ambos lados.",
+      "invalidGameScores": "Puntuaciones de juego no válidas. Revísalas e inténtalo de nuevo.",
+      "enterWholeNumberScores": "Introduce puntuaciones enteras para ambos equipos.",
+      "padelRequiresWinner": "Los partidos de pádel requieren un ganador. Ajusta los totales de sets.",
+      "padelFinishAtTwoSets": "Los partidos de pádel terminan cuando un lado gana dos sets. Ajusta los totales.",
+      "padelMaxOneLosingSet": "Los partidos de pádel permiten como máximo un set para el lado perdedor. Ajusta los totales.",
+      "resolveDuplicateNames": "Resuelve los nombres de jugador duplicados antes de guardar.",
+      "loginRequired": "Debes iniciar sesión para registrar partidos. Inicia sesión o regístrate.",
+      "duplicateNamesReturned": "Nombres de jugador duplicados devueltos: {names}. Cada nombre de jugador debe ser único antes de guardar.",
+      "gamesWonSoFar": "Juegos ganados hasta ahora: Equipo A {winsA} – Equipo B {winsB}.",
+      "gameTeamPoints": "Juego {gameNumber} – puntos del equipo {team}"
     },
     "padel": {
       "hints": {
@@ -308,7 +335,107 @@
       "tieTargetHint": "Puntos totales disponibles en este enfrentamiento. Opciones habituales: 16 (cuatro saques por pareja), 24 (seis saques) o 32 (ocho saques).",
       "tieTargetRequired": "Introduce un objetivo de tie positivo antes de guardar tu enfrentamiento de pádel Americano.",
       "tieTargetMismatchPrefix": "Los totales de pádel Americano deben coincidir con tu objetivo de",
-      "tieTargetMismatchSuffix": "puntos. Ajusta los marcadores."
+      "tieTargetMismatchSuffix": "puntos. Ajusta los marcadores.",
+      "tips": {
+        "heading": "Registrar un enfrentamiento de pádel Americano",
+        "intro": "Revisa la rotación del Americano antes de guardar cada enfrentamiento para capturar con precisión cada pareja de jugadores.",
+        "signInTitle": "Primero inicia sesión:",
+        "signInBody": "iniciar sesión mantiene juntos todos tus enfrentamientos de Americano y te permite reanudar una sesión inacabada.",
+        "pairingsTitle": "Define las parejas:",
+        "pairingsBody": "los Americanos siempre son dobles, así que elige los dos jugadores de cada lado exactamente como aparece en tu hoja de rotación.",
+        "scoreTitle": "Registra la puntuación:",
+        "scoreBody": "introduce los puntos totales de cada pareja (por ejemplo Equipo A 24 – Equipo B 20 en una carrera a 32). Usa el objetivo que prefiera tu club si es distinto de 32.",
+        "detailsTitle": "Anota los detalles de la sesión:",
+        "detailsBody": "registra la fecha, hora de inicio y sede para que todos puedan encontrar el enfrentamiento después. Márcalo como amistoso para pachangas.",
+        "fixturesTitle": "¿Necesitas enfrentamientos?",
+        "fixturesBody": "Genera un calendario completo de Americano antes de registrar resultados aquí para seguir la rotación sin salir de esta página."
+      }
+    },
+    "sections": {
+      "matchType": "Tipo de partido",
+      "matchDetails": "Detalles del partido",
+      "players": "Jugadores",
+      "playersAndScores": "Jugadores y puntuaciones",
+      "matchScore": "Marcador del partido"
+    },
+    "matchType": {
+      "singles": "Individuales",
+      "doubles": "Dobles"
+    },
+    "teams": {
+      "teamA": "Equipo A",
+      "teamB": "Equipo B",
+      "teamAPlayer1": "Jugador 1 del equipo A",
+      "teamAPlayer2": "Jugador 2 del equipo A",
+      "teamBPlayer1": "Jugador 1 del equipo B",
+      "teamBPlayer2": "Jugador 2 del equipo B",
+      "teamAScore": "Puntuación equipo A",
+      "teamBScore": "Puntuación equipo B"
+    },
+    "players": {
+      "selectPlayer": "Seleccionar jugador",
+      "recent": "Recientes",
+      "allPlayers": "Todos los jugadores",
+      "searchPlaceholder": "Buscar jugadores",
+      "searchTeamAOptions": "Buscar opciones del equipo A",
+      "searchTeamABench": "Buscar banquillo del equipo A",
+      "searchTeamBOptions": "Buscar opciones del equipo B",
+      "searchTeamBBench": "Buscar banquillo del equipo B",
+      "useLastMatchPlayers": "Usar jugadores del último partido",
+      "useFavouritePairing": "Usar emparejamiento favorito",
+      "choosePairing": "Elige un emparejamiento",
+      "swapTeams": "Intercambiar equipos",
+      "rotatePlayers": "Rotar jugadores"
+    },
+    "bowling": {
+      "infoIconLabel": "Ayuda para introducir puntuación de bolos",
+      "infoIconTitle": "Introduce 0-10 para los bolos. Usa X para plenos, / para completar un spare y - para bolas a cero.",
+      "playerLabel": "Jugador {number}",
+      "totalLabel": "Total: {total}",
+      "rollLabel": "Lanzamiento {number}",
+      "rollPlaceholder": "--",
+      "shortcutsAriaLabel": "Atajos del frame {frame}, lanzamiento {roll}, para {player}",
+      "shortcutStrike": "Establecer pleno (10 bolos)",
+      "shortcutGutter": "Establecer bola a cero (0 bolos)",
+      "shortcutSpare": "Establecer spare (completar frame a 10 bolos)",
+      "maxPlayers": "Máximo {max} jugadores",
+      "frameLabel": "Frame {frame} – {player}"
+    },
+    "recordPage": {
+      "hero": {
+        "kicker": "Registra más rápido",
+        "title": "Registrar un partido",
+        "subtitle": "Elige tu deporte y empieza a registrar puntuaciones con los campos, sets y resúmenes exactos que necesitas. Comparte resultados al instante o mantenlos como racha personal.",
+        "badges": {
+          "quickSetup": "Configuración rápida",
+          "liveScoreFriendly": "Preparado para marcadores en vivo",
+          "mobileReady": "Listo para móvil"
+        },
+        "availableSports": "Deportes disponibles",
+        "readyToTrack": "listos para registrar",
+        "description": "Cada uno incluye un formulario adaptado para que te centres en el partido, no en el papeleo."
+      },
+      "grid": {
+        "kicker": "Elige tu deporte",
+        "title": "Bonitas tarjetas de puntuación en un toque",
+        "subtitle": "Desde deportes de raqueta hasta lanzamientos de precisión, selecciona un deporte para abrir un formulario ajustado a sus reglas. Guarda partidos, comparte momentos destacados y mantiene viva tu racha.",
+        "pill": {
+          "title": "Diseñado para entrada rápida",
+          "caption": "Toca, puntúa y publica sin perder el ritmo."
+        }
+      },
+      "empty": "No se encontraron deportes.",
+      "sportDescriptions": {
+        "badminton": "Registra intercambios, sets y puntos decisivos de bádminton en segundos.",
+        "bowling": "Registra frames, plenos y spares para mantener honesta la clasificación.",
+        "discGolf": "Captura cada hoyo con un diseño pensado para el recorrido.",
+        "padel": "Saca, volea y registra el ritmo del partido sin perder un punto.",
+        "padelAmericano": "Diseñado para rotaciones todos contra todos y actualizaciones rápidas de marcador.",
+        "pickleball": "Ajusta la puntuación de los intercambios y cambios de saque en cada juego.",
+        "tableTennis": "Perfecto para intercambios rápidos, puntos de deuce y partidos de varios juegos.",
+        "tennis": "Registra sets, tie-breaks y el ritmo del partido fácilmente.",
+        "default": "Captura puntuaciones, sets y momentos con un formulario adaptado."
+      }
     }
   }
 }

@@ -16,6 +16,7 @@ import type {
   SortDirection,
   SortableColumn,
 } from "../hooks/useSorting";
+import { selectLeaderDerivedMetrics } from "../lib/leaderboardMetrics";
 
 const VIRTUALIZATION_THRESHOLD = 50;
 const VIRTUAL_ROW_HEIGHT = 40;
@@ -350,11 +351,8 @@ export default function LeaderboardTable({
 
   const buildRow = useCallback(
     (row: Leader, index: number, style?: CSSProperties) => {
-      const won = row.setsWon ?? 0;
-      const lost = row.setsLost ?? 0;
-      const total = won + lost;
-      const winPct = !isBowling && total > 0 ? Math.round((won / total) * 100) : null;
-      const matchesPlayed = row.matchesPlayed ?? row.sets ?? null;
+      const derivedMetrics = selectLeaderDerivedMetrics(row);
+      const winPct = !isBowling ? derivedMetrics.winPercentage : null;
       const rowKey = `${row.rank}-${row.playerId}-${row.sport ?? ""}`;
       return (
         <div
@@ -398,7 +396,7 @@ export default function LeaderboardTable({
                 {formatDecimal(row.averageScore ?? null)}
               </div>
               <div role="cell" style={cellStyle}>
-                {formatInteger(matchesPlayed)}
+                {formatInteger(derivedMetrics.bowlingMatchesPlayed)}
               </div>
               <div role="cell" style={lastCellStyle}>
                 {formatDecimal(row.standardDeviation ?? null)}
@@ -413,10 +411,10 @@ export default function LeaderboardTable({
                 {row.setsLost ?? "—"}
               </div>
               <div role="cell" style={cellStyle}>
-                {total || "—"}
+                {derivedMetrics.matchesTotal || "—"}
               </div>
               <div role="cell" style={lastCellStyle}>
-                {winPct != null ? `${winPct}%` : "—"}
+                {winPct != null ? `${Math.round(winPct)}%` : "—"}
               </div>
             </>
           )}

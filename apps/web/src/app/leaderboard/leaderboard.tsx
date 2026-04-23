@@ -5,9 +5,6 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ChangeEvent,
-  CSSProperties,
-  forwardRef,
-  type HTMLAttributes,
   startTransition,
   useCallback,
   useEffect,
@@ -15,7 +12,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { FixedSizeList, type ListChildComponentProps } from "react-window";
 import CountrySelect from "../../components/filters/CountrySelect";
 import ClubSelect from "../../components/filters/ClubSelect";
 import { fetchClubs, type ClubSummary } from "../../lib/api";
@@ -30,6 +26,8 @@ import {
   SPORTS,
   type LeaderboardSport,
 } from "./constants";
+import EmptyState, { type EmptyStateContent } from "./components/EmptyState";
+import LeaderboardTable from "./components/LeaderboardTable";
 import { PREVIOUS_ROUTE_STORAGE_KEY } from "../../lib/navigation-history";
 import { useLeaderboardData, type ID, type Leader } from "./hooks/useLeaderboardData";
 import { useSorting, type SortableColumn } from "./hooks/useSorting";
@@ -58,9 +56,6 @@ const normalizeClubId = (value?: string | null) =>
 
 const RESULTS_TABLE_ID = "leaderboard-results";
 const RESULTS_TABLE_CAPTION_ID = `${RESULTS_TABLE_ID}-caption`;
-const VIRTUALIZATION_THRESHOLD = 50;
-const VIRTUAL_ROW_HEIGHT = 40;
-const MAX_VIRTUALIZED_HEIGHT = 520;
 
 const canonicalizePathname = (pathname: string) => {
   if (pathname === "/" || pathname === "") {
@@ -112,69 +107,6 @@ const getSportDisplayName = (sportId: LeaderboardSport) => {
   return formatSportName(sportId);
 };
 
-type EmptyStateContent = {
-  icon: string;
-  iconLabel: string;
-  title: string;
-  description: string;
-  cta?: { href: string; label: string };
-};
-
-const EmptyState = ({
-  icon,
-  iconLabel,
-  title,
-  description,
-  cta,
-}: EmptyStateContent) => (
-  <div
-    style={{
-      marginTop: "2rem",
-      padding: "2rem 1.5rem",
-      borderRadius: "12px",
-      border: "1px solid var(--color-border-subtle)",
-      background: "var(--color-surface-elevated)",
-      textAlign: "center",
-    }}
-  >
-    <div
-      role="img"
-      aria-label={iconLabel}
-      style={{ fontSize: "2.25rem", marginBottom: "0.75rem" }}
-    >
-      {icon}
-    </div>
-    <h2 style={{ margin: "0 0 0.5rem", fontSize: "1.25rem" }}>{title}</h2>
-    <p
-      style={{
-        margin: "0 0 1.25rem",
-        color: "var(--color-text-muted)",
-        fontSize: "0.95rem",
-      }}
-    >
-      {description}
-    </p>
-    {cta ? (
-      <Link
-        href={cta.href}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "0.5rem 1.25rem",
-          borderRadius: "999px",
-          border: "1px solid var(--color-button-strong-border)",
-          background: "var(--color-button-strong-bg)",
-          color: "var(--color-button-strong-text)",
-          fontWeight: 600,
-          textDecoration: "none",
-        }}
-      >
-        {cta.label}
-      </Link>
-    ) : null}
-  </div>
-);
 
 export default function Leaderboard({ sport, country, clubId }: Props) {
   const router = useRouter();
@@ -204,9 +136,6 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const appliedCountry = filters.country;
   const appliedClubId = filters.clubId;
 
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const tableContainerRef = useRef<HTMLDivElement | null>(null);
-  const [tableWidth, setTableWidth] = useState(0);
   const { sortState, toggleSort, getSortForColumn, getSortPriority, getAriaSort } =
     useSorting([]);
   const previousFilterPropsRef = useRef<{
@@ -1032,82 +961,6 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     [],
   );
 
-  const columnTemplate = useMemo(() => {
-    const columns: string[] = [
-      "56px",
-      "minmax(160px, 1.6fr)",
-    ];
-
-    if (sport === ALL_SPORTS) {
-      columns.push("minmax(120px, 1fr)");
-    }
-
-    columns.push("minmax(90px, 0.7fr)", "minmax(150px, 1fr)");
-
-    if (isBowling) {
-      columns.push(
-        "minmax(120px, 0.9fr)",
-        "minmax(120px, 0.9fr)",
-        "minmax(140px, 1fr)",
-        "minmax(180px, 1fr)",
-      );
-    } else {
-      columns.push("72px", "72px", "96px", "72px");
-    }
-
-    return columns.join(" ");
-  }, [isBowling, sport]);
-
-  const headerRowStyle = useMemo(
-    () => ({
-      display: "grid",
-      gridTemplateColumns: columnTemplate,
-      alignItems: "center",
-    }),
-    [columnTemplate],
-  );
-
-  const rowGridStyle = useMemo(
-    () => ({
-      display: "grid",
-      gridTemplateColumns: columnTemplate,
-      alignItems: "center",
-      borderTop: "1px solid var(--color-border-subtle)",
-      boxSizing: "border-box" as const,
-      height: VIRTUAL_ROW_HEIGHT,
-    }),
-    [columnTemplate],
-  );
-
-  const VirtualRowGroup = useMemo(() => {
-    const Component = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
-      (props, ref) => <div ref={ref} role="rowgroup" {...props} />,
-    );
-    Component.displayName = "VirtualRowGroup";
-    return Component;
-  }, []);
-
-  const headerCellStyle = useMemo(
-    () => ({
-      position: "sticky" as const,
-      top: 0,
-      zIndex: 1,
-      textAlign: "left" as const,
-      padding: "4px 16px 4px 0",
-      background: "var(--leaderboard-table-header-bg)",
-      whiteSpace: "nowrap" as const,
-    }),
-    [],
-  );
-
-  const lastHeaderCellStyle = useMemo(
-    () => ({
-      ...headerCellStyle,
-      padding: "4px 0",
-    }),
-    [headerCellStyle],
-  );
-
   const cellStyle = useMemo(
     () => ({
       padding: "4px 16px 4px 0",
@@ -1121,194 +974,6 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     }),
     [],
   );
-
-  const renderSortableHeader = useCallback(
-    (
-      column: SortableColumn,
-      label: string,
-      style: CSSProperties,
-      useNativeElements: boolean,
-    ) => {
-      const direction = getSortForColumn(column);
-      const isSorted = direction !== undefined;
-      const ariaSort = getAriaSort(column);
-      const sortPriority = getSortPriority(column);
-      const actionHint =
-        direction === "ascending"
-          ? "Currently sorted ascending. Click to clear this sort."
-          : direction === "descending"
-            ? "Currently sorted descending. Click to sort ascending."
-            : "Not sorted. Click to sort descending.";
-      const shiftHint =
-        " Hold Shift while clicking to add or update this column in multi-column sorting.";
-      const ColumnElement = useNativeElements ? "th" : "div";
-      const columnProps = useNativeElements
-        ? { "aria-sort": ariaSort, scope: "col" as const }
-        : { role: "columnheader", "aria-sort": ariaSort };
-      return (
-        <ColumnElement
-          {...columnProps}
-          style={style}
-          className={isSorted ? "leaderboard-sortable-header-cell--active" : undefined}
-        >
-          <button
-            type="button"
-            onClick={(event) => toggleSort(column, event.shiftKey)}
-            aria-label={`${label}. ${actionHint}${shiftHint}`}
-            className={`leaderboard-sortable-header-button${
-              isSorted ? " leaderboard-sortable-header-button--active" : ""
-            }`}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.35rem",
-              padding: "0.2rem 0.45rem",
-              margin: 0,
-              border: "none",
-              borderRadius: "0.45rem",
-              background: "transparent",
-              color: isSorted
-                ? "var(--color-text-strong, var(--color-text))"
-                : "inherit",
-              font: "inherit",
-              cursor: "pointer",
-              fontWeight: isSorted ? 700 : 500,
-            }}
-          >
-            <span>{label}</span>
-            {sortPriority != null ? (
-              <span
-                aria-hidden="true"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  minWidth: "1.1rem",
-                  height: "1.1rem",
-                  borderRadius: "999px",
-                  background:
-                    "color-mix(in srgb, var(--color-accent-blue) 25%, transparent)",
-                  fontSize: "0.72em",
-                  lineHeight: 1,
-                }}
-              >
-                {sortPriority}
-              </span>
-            ) : null}
-            <span
-              className={`leaderboard-sortable-header-icon${
-                isSorted ? " leaderboard-sortable-header-icon--active" : ""
-              }`}
-              aria-hidden="true"
-              style={{
-                fontSize: isSorted ? "1.08em" : "0.98em",
-                fontWeight: isSorted ? 800 : 600,
-                opacity: isSorted ? 1 : 0.92,
-              }}
-            >
-              {direction === "ascending"
-                ? "▲"
-                : direction === "descending"
-                  ? "▼"
-                  : "↕"}
-            </span>
-          </button>
-        </ColumnElement>
-      );
-    },
-    [getAriaSort, getSortForColumn, getSortPriority, toggleSort],
-  );
-
-  const TableHeader = ({ useNativeElements = false }: { useNativeElements?: boolean }) => {
-    const GroupElement = useNativeElements ? "thead" : "div";
-    const RowElement = useNativeElements ? "tr" : "div";
-    const ColumnElement = useNativeElements ? "th" : "div";
-    const groupProps = useNativeElements ? {} : { role: "rowgroup" };
-    const rowProps = useNativeElements ? {} : { role: "row" };
-    const columnHeaderProps = useNativeElements
-      ? { scope: "col" as const }
-      : { role: "columnheader" };
-
-    return (
-      <GroupElement {...groupProps}>
-        <RowElement {...rowProps} style={headerRowStyle}>
-          <ColumnElement
-            {...columnHeaderProps}
-            aria-sort={sortState.length > 0 ? "none" : "ascending"}
-            style={headerCellStyle}
-          >
-            #
-          </ColumnElement>
-          {renderSortableHeader("player", "Player", headerCellStyle, useNativeElements)}
-          {sport === ALL_SPORTS && (
-            renderSortableHeader("sport", "Sport", headerCellStyle, useNativeElements)
-          )}
-          {renderSortableHeader(
-            "rating",
-            "Rating",
-            headerCellStyle,
-            useNativeElements,
-          )}
-          {renderSortableHeader(
-            "winChance",
-            "Win chance vs #1",
-            headerCellStyle,
-            useNativeElements,
-          )}
-          {isBowling ? (
-            <>
-              {renderSortableHeader(
-                "highestScore",
-                "Highest score",
-                headerCellStyle,
-                useNativeElements,
-              )}
-              {renderSortableHeader(
-                "averageScore",
-                "Average score",
-                headerCellStyle,
-                useNativeElements,
-              )}
-              {renderSortableHeader(
-                "matches",
-                "Matches played",
-                headerCellStyle,
-                useNativeElements,
-              )}
-              {renderSortableHeader(
-                "standardDeviation",
-                "Std. deviation (consistency)",
-                lastHeaderCellStyle,
-                useNativeElements,
-              )}
-            </>
-          ) : (
-            <>
-              {renderSortableHeader("wins", "W", headerCellStyle, useNativeElements)}
-              {renderSortableHeader(
-                "losses",
-                "L",
-                headerCellStyle,
-                useNativeElements,
-              )}
-              {renderSortableHeader(
-                "matches",
-                "Matches",
-                headerCellStyle,
-                useNativeElements,
-              )}
-              {renderSortableHeader(
-                "winPercent",
-                "Win%",
-                lastHeaderCellStyle,
-                useNativeElements,
-              )}
-            </>
-          )}
-        </RowElement>
-      </GroupElement>
-    );
-  };
 
   const sortCollator = useMemo(
     () =>
@@ -1428,186 +1093,6 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     });
   }, [getWinProbability, isBowling, leaders, sortCollator, sortState]);
 
-  useEffect(() => {
-    const element = tableContainerRef.current;
-    if (!element) {
-      return;
-    }
-    const updateWidth = () => {
-      const rectWidth = element.getBoundingClientRect().width;
-      const scrollWidth = element.scrollWidth;
-      setTableWidth(Math.max(rectWidth, scrollWidth));
-    };
-    updateWidth();
-
-    if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", updateWidth);
-      return () => {
-        window.removeEventListener("resize", updateWidth);
-      };
-    }
-
-    const observer = new ResizeObserver(() => updateWidth());
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [sortedLeaders.length, loading]);
-
-  const shouldVirtualize =
-    sortedLeaders.length > VIRTUALIZATION_THRESHOLD && tableWidth > 0;
-
-  const virtualizedListHeight = useMemo(
-    () =>
-      Math.min(
-        sortedLeaders.length * VIRTUAL_ROW_HEIGHT,
-        MAX_VIRTUALIZED_HEIGHT,
-      ),
-    [sortedLeaders.length],
-  );
-
-  const buildRow = useCallback(
-    (row: Leader, index: number, style?: CSSProperties) => {
-      const topRatedPlayerId = topRatedLeader?.playerId;
-      const topRatedRating = topRatedLeader?.rating;
-      const won = row.setsWon ?? 0;
-      const lost = row.setsLost ?? 0;
-      const total = won + lost;
-      const winPct =
-        !isBowling && total > 0 ? Math.round((won / total) * 100) : null;
-      const matchesPlayed = row.matchesPlayed ?? row.sets ?? null;
-      const highestScore = row.highestScore ?? null;
-      const averageScore = row.averageScore ?? null;
-      const stdDeviation = row.standardDeviation ?? null;
-      const rowSportName = formatSportName(row.sport);
-      const winProbability =
-        typeof topRatedRating === "number" &&
-        Number.isFinite(topRatedRating) &&
-        topRatedPlayerId != null &&
-        typeof row.rating === "number" &&
-        Number.isFinite(row.rating) &&
-        row.playerId !== topRatedPlayerId
-          ? computeExpectedWinProbability(row.rating, topRatedRating)
-          : null;
-
-      const rowKey = `${row.rank}-${row.playerId}-${row.sport ?? ""}`;
-
-      return (
-        <div
-          key={rowKey}
-          role="row"
-          style={{
-            ...rowGridStyle,
-            ...(style ?? {}),
-            width: "100%",
-            background:
-              index % 2 === 1 ? "rgba(10, 31, 68, 0.02)" : "transparent",
-          }}
-        >
-          <div role="cell" style={cellStyle}>
-            {sortState.length > 0 ? index + 1 : row.rank}
-          </div>
-          <div role="cell" style={cellStyle}>
-            {row.playerName}
-          </div>
-          {sport === ALL_SPORTS && (
-            <div role="cell" style={cellStyle}>
-              {rowSportName}
-            </div>
-          )}
-          <div
-            role="cell"
-            style={cellStyle}
-            title={row.rating != null ? row.rating.toString() : undefined}
-          >
-            {formatRating(row.rating)}
-          </div>
-          <div role="cell" style={cellStyle}>
-            {formatWinProbability(winProbability)}
-          </div>
-          {isBowling ? (
-            <>
-              <div role="cell" style={cellStyle}>
-                {formatInteger(highestScore)}
-              </div>
-              <div role="cell" style={cellStyle}>
-                {formatDecimal(averageScore)}
-              </div>
-              <div role="cell" style={cellStyle}>
-                {formatInteger(matchesPlayed)}
-              </div>
-              <div role="cell" style={lastCellStyle}>
-                {formatDecimal(stdDeviation)}
-              </div>
-            </>
-          ) : (
-            <>
-              <div role="cell" style={cellStyle}>
-                {row.setsWon ?? "—"}
-              </div>
-              <div role="cell" style={cellStyle}>
-                {row.setsLost ?? "—"}
-              </div>
-              <div role="cell" style={cellStyle}>
-                {total || "—"}
-              </div>
-              <div role="cell" style={lastCellStyle}>
-                {winPct != null ? `${winPct}%` : "—"}
-              </div>
-            </>
-          )}
-        </div>
-      );
-    },
-    [
-      cellStyle,
-      computeExpectedWinProbability,
-      formatDecimal,
-      formatInteger,
-      formatRating,
-      formatWinProbability,
-      isBowling,
-      lastCellStyle,
-      rowGridStyle,
-      sortState,
-      sport,
-      topRatedLeader,
-    ],
-  );
-
-  const renderVirtualRow = useCallback(
-    ({ index, style, data }: ListChildComponentProps<Leader[]>) =>
-      buildRow(data[index], index, style),
-    [buildRow],
-  );
-
-  const handleItemsRendered = useCallback(
-    ({ visibleStopIndex }: { visibleStartIndex: number; visibleStopIndex: number }) => {
-      if (hasMore && visibleStopIndex >= sortedLeaders.length - 5) {
-        loadMore();
-      }
-    },
-    [hasMore, loadMore, sortedLeaders.length],
-  );
-
-  useEffect(() => {
-    if (!hasMore || shouldVirtualize) {
-      return;
-    }
-    const target = loadMoreRef.current;
-    if (!target) {
-      return;
-    }
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          loadMore();
-        }
-      });
-    }, { rootMargin: "200px" });
-    observer.observe(target);
-    return () => {
-      observer.disconnect();
-    };
-  }, [hasMore, loadMore, leaders.length, shouldVirtualize]);
 
   return (
     <main className="container container--wide">
@@ -1900,7 +1385,6 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             <caption id={RESULTS_TABLE_CAPTION_ID} className="sr-only">
               {captionText}
             </caption>
-            <TableHeader useNativeElements />
             <tbody>
               {Array.from({ length: 5 }).map((_, i) => (
                 <tr
@@ -2000,50 +1484,27 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           <EmptyState {...emptyStateContent} />
         )
       ) : (
-        <div className="leaderboard-table-wrapper">
-          <div
-            id={RESULTS_TABLE_ID}
-            ref={tableContainerRef}
-            role="table"
-            className="leaderboard-table"
-            style={tableStyle}
-            aria-labelledby={RESULTS_TABLE_CAPTION_ID}
-          >
-            <div id={RESULTS_TABLE_CAPTION_ID} className="sr-only">
-              {captionText}
-            </div>
-            <TableHeader />
-            {shouldVirtualize ? (
-              <FixedSizeList
-                height={virtualizedListHeight}
-                width={tableWidth}
-                itemCount={sortedLeaders.length}
-                itemData={sortedLeaders}
-                itemSize={VIRTUAL_ROW_HEIGHT}
-                onItemsRendered={handleItemsRendered}
-                outerElementType={VirtualRowGroup}
-                itemKey={(index, data) => {
-                  const row = data[index];
-                  return `${row.rank}-${row.playerId}-${row.sport ?? ""}`;
-                }}
-                style={{ overflowX: "hidden" }}
-              >
-                {renderVirtualRow}
-              </FixedSizeList>
-            ) : (
-              <div role="rowgroup">
-                {sortedLeaders.map((row, index) => buildRow(row, index))}
-              </div>
-            )}
-          </div>
-          {hasMore && !shouldVirtualize ? (
-            <div
-              ref={loadMoreRef}
-              aria-hidden="true"
-              style={{ width: "100%", height: "1px" }}
-            />
-          ) : null}
-        </div>
+        <LeaderboardTable
+          leaders={sortedLeaders}
+          sport={sport}
+          isBowling={isBowling}
+          sortState={sortState}
+          onSortChange={toggleSort}
+          getSortForColumn={getSortForColumn}
+          getSortPriority={getSortPriority}
+          getAriaSort={getAriaSort}
+          captionText={captionText}
+          resultsTableId={RESULTS_TABLE_ID}
+          resultsTableCaptionId={RESULTS_TABLE_CAPTION_ID}
+          formatSportName={formatSportName}
+          formatInteger={formatInteger}
+          formatRating={formatRating}
+          formatDecimal={formatDecimal}
+          formatWinProbability={formatWinProbability}
+          getWinProbability={getWinProbability}
+          hasMore={hasMore}
+          loadMore={loadMore}
+        />
       )}
       {isLoadingMore ? (
         <p

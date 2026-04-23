@@ -9,6 +9,7 @@ import {
   useRef,
   type ChangeEvent,
   type FocusEvent,
+  type KeyboardEvent,
 } from "react";
 
 import { fetchClubs, type ClubSummary } from "../../lib/api";
@@ -70,6 +71,7 @@ export default function ClubSelect({
   );
   const [searchTerm, setSearchTerm] = useState("");
   const [dirtySearch, setDirtySearch] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const searchInputId = searchInputIdProp ?? `${reactId}-club-search`;
@@ -139,6 +141,7 @@ export default function ClubSelect({
     (event: ChangeEvent<HTMLInputElement>) => {
       setDirtySearch(true);
       setSearchTerm(event.target.value);
+      setActiveSuggestionIndex(-1);
     },
     []
   );
@@ -237,15 +240,75 @@ export default function ClubSelect({
   );
 
   const suggestionListId = `${reactId}-club-suggestions`;
+  const visibleMatchingOptions = useMemo(
+    () => matchingOptions.slice(0, 5),
+    [matchingOptions]
+  );
+  const hasSuggestions = searchTerm.trim().length > 0 && visibleMatchingOptions.length > 0;
+  const activeSuggestion =
+    activeSuggestionIndex >= 0 && activeSuggestionIndex < visibleMatchingOptions.length
+      ? visibleMatchingOptions[activeSuggestionIndex]
+      : null;
 
   const handleSuggestionSelect = useCallback(
     (club: ClubSummary) => {
       if (disabled) return;
       setDirtySearch(false);
       setSearchTerm(club.name);
+      setActiveSuggestionIndex(-1);
       onChange(club.id);
     },
     [disabled, onChange]
+  );
+
+  const handleSearchKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "ArrowDown") {
+        if (!hasSuggestions) {
+          return;
+        }
+        event.preventDefault();
+        setActiveSuggestionIndex((previous) =>
+          previous < visibleMatchingOptions.length - 1 ? previous + 1 : 0
+        );
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        if (!hasSuggestions) {
+          return;
+        }
+        event.preventDefault();
+        setActiveSuggestionIndex((previous) =>
+          previous > 0 ? previous - 1 : visibleMatchingOptions.length - 1
+        );
+        return;
+      }
+      if (event.key === "Enter") {
+        if (!hasSuggestions || !activeSuggestion) {
+          return;
+        }
+        event.preventDefault();
+        handleSuggestionSelect(activeSuggestion);
+        return;
+      }
+      if (event.key === "Escape") {
+        if (!searchTerm && !hasSuggestions && activeSuggestionIndex < 0) {
+          return;
+        }
+        event.preventDefault();
+        setActiveSuggestionIndex(-1);
+        setDirtySearch(false);
+        setSearchTerm("");
+      }
+    },
+    [
+      activeSuggestion,
+      activeSuggestionIndex,
+      handleSuggestionSelect,
+      hasSuggestions,
+      searchTerm,
+      visibleMatchingOptions.length,
+    ]
   );
 
   return (
@@ -260,10 +323,14 @@ export default function ClubSelect({
           ref={searchInputRef}
           value={searchTerm}
           onChange={handleSearchChange}
+          onKeyDown={handleSearchKeyDown}
           onFocus={handleFocus}
           placeholder={placeholder}
+          role="combobox"
+          aria-expanded={hasSuggestions}
+          aria-activedescendant={activeSuggestion ? `${suggestionListId}-${activeSuggestion.id}` : undefined}
           aria-describedby={ariaDescribedBy}
-          aria-controls={searchTerm.trim() ? suggestionListId : undefined}
+          aria-controls={hasSuggestions ? suggestionListId : undefined}
           disabled={disabled}
           autoComplete="off"
           style={{ flex: 1 }}
@@ -279,7 +346,7 @@ export default function ClubSelect({
           Clear
         </button>
       </div>
-      {searchTerm.trim() && matchingOptions.length ? (
+      {hasSuggestions ? (
         <ul
           id={suggestionListId}
           role="listbox"
@@ -294,23 +361,26 @@ export default function ClubSelect({
             overflowY: "auto",
           }}
         >
-          {matchingOptions.slice(0, 5).map((club) => (
-            <li key={club.id}>
-              <button
-                type="button"
-                onClick={() => handleSuggestionSelect(club)}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "0.5rem 0.75rem",
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-                aria-label={`Select ${club.name}`}
-              >
-                {club.name}
-              </button>
+          {visibleMatchingOptions.map((club, index) => (
+            <li
+              key={club.id}
+              id={`${suggestionListId}-${club.id}`}
+              role="option"
+              aria-selected={index === activeSuggestionIndex}
+              onMouseDown={(event) => {
+                event.preventDefault();
+              }}
+              onClick={() => handleSuggestionSelect(club)}
+              style={{
+                width: "100%",
+                textAlign: "left",
+                padding: "0.5rem 0.75rem",
+                background: index === activeSuggestionIndex ? "rgba(255,255,255,0.08)" : "transparent",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              {club.name}
             </li>
           ))}
         </ul>

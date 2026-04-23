@@ -16,8 +16,8 @@ import {
   useState,
 } from "react";
 import { FixedSizeList, type ListChildComponentProps } from "react-window";
-import CountrySelect from "../../components/CountrySelect";
-import ClubSelect from "../../components/ClubSelect";
+import CountrySelect from "../../components/filters/CountrySelect";
+import ClubSelect from "../../components/filters/ClubSelect";
 import { fetchClubs, type ClubSummary } from "../../lib/api";
 import { COUNTRY_OPTIONS } from "../../lib/countries";
 import { ensureTrailingSlash, recordPathForSport } from "../../lib/routes";

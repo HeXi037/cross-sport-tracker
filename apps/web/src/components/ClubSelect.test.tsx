@@ -2,7 +2,7 @@ import "@testing-library/jest-dom";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import ClubSelect from "./ClubSelect";
+import ClubSelect from "./filters/ClubSelect";
 import { fetchClubs } from "../lib/api";
 
 vi.mock("../lib/api", () => ({
@@ -104,5 +104,29 @@ describe("ClubSelect", () => {
     await user.click(suggestionButton);
 
     expect(handleChange).toHaveBeenCalledWith("club-5");
+  });
+
+  it("uses provided options without fetching fallback data", async () => {
+    const handleChange = vi.fn();
+    render(
+      <ClubSelect
+        value=""
+        onChange={handleChange}
+        options={[
+          { id: "club-1", name: "Provided Club" },
+          { id: "club-2", name: "Fallback Free" },
+        ]}
+      />
+    );
+
+    expect(fetchClubsMock).not.toHaveBeenCalled();
+
+    const user = userEvent.setup();
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Select club" }),
+      "club-1"
+    );
+
+    expect(handleChange).toHaveBeenCalledWith("club-1");
   });
 });

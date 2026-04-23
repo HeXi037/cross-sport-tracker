@@ -1,16 +1,18 @@
 import {
   CSSProperties,
+  Suspense,
   forwardRef,
   HTMLAttributes,
+  lazy,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { FixedSizeList, type ListChildComponentProps } from "react-window";
 import { ALL_SPORTS, type LeaderboardSport } from "../constants";
 import type { Leader } from "../hooks/useLeaderboardData";
+import type { LeaderboardListChildProps } from "./VirtualizedLeaderboardList";
 import type {
   SortCriterion,
   SortDirection,
@@ -21,6 +23,8 @@ import { selectLeaderDerivedMetrics } from "../lib/leaderboardMetrics";
 const VIRTUALIZATION_THRESHOLD = 50;
 const VIRTUAL_ROW_HEIGHT = 40;
 const MAX_VIRTUALIZED_HEIGHT = 520;
+
+const VirtualizedLeaderboardList = lazy(() => import("./VirtualizedLeaderboardList"));
 
 type Props = {
   leaders: Leader[];
@@ -438,7 +442,7 @@ export default function LeaderboardTable({
   );
 
   const renderVirtualRow = useCallback(
-    ({ index, style, data }: ListChildComponentProps<Leader[]>) =>
+    ({ index, style, data }: LeaderboardListChildProps) =>
       buildRow(data[index], index, style),
     [buildRow],
   );
@@ -486,22 +490,24 @@ export default function LeaderboardTable({
         </div>
         <TableHeader />
         {shouldVirtualize ? (
-          <FixedSizeList
-            height={virtualizedListHeight}
-            width={tableWidth}
-            itemCount={leaders.length}
-            itemData={leaders}
-            itemSize={VIRTUAL_ROW_HEIGHT}
-            onItemsRendered={handleItemsRendered}
-            outerElementType={VirtualRowGroup}
-            itemKey={(index, data) => {
-              const row = data[index];
-              return `${row.rank}-${row.playerId}-${row.sport ?? ""}`;
-            }}
-            style={{ overflowX: "hidden" }}
-          >
-            {renderVirtualRow}
-          </FixedSizeList>
+          <Suspense fallback={null}>
+            <VirtualizedLeaderboardList
+              height={virtualizedListHeight}
+              width={tableWidth}
+              itemCount={leaders.length}
+              itemData={leaders}
+              itemSize={VIRTUAL_ROW_HEIGHT}
+              onItemsRendered={handleItemsRendered}
+              outerElementType={VirtualRowGroup}
+              itemKey={(index, data) => {
+                const row = data[index];
+                return `${row.rank}-${row.playerId}-${row.sport ?? ""}`;
+              }}
+              style={{ overflowX: "hidden" }}
+            >
+              {renderVirtualRow}
+            </VirtualizedLeaderboardList>
+          </Suspense>
         ) : (
           <div role="rowgroup">
             {leaders.map((row, index) => buildRow(row, index))}

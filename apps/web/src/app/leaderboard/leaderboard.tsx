@@ -29,8 +29,13 @@ import {
 import EmptyState, { type EmptyStateContent } from "./components/EmptyState";
 import LeaderboardTable from "./components/LeaderboardTable";
 import { PREVIOUS_ROUTE_STORAGE_KEY } from "../../lib/navigation-history";
-import { useLeaderboardData, type ID, type Leader } from "./hooks/useLeaderboardData";
-import { useSorting, type SortableColumn } from "./hooks/useSorting";
+import { useLeaderboardData, type Leader } from "./hooks/useLeaderboardData";
+import { useSorting } from "./hooks/useSorting";
+import {
+  getSortComparableValue,
+  getWinProbabilityAgainstTopPlayer,
+  selectTopRatedLeader,
+} from "./lib/leaderboardMetrics";
 
 type Props = {
   sport: LeaderboardSport;
@@ -742,27 +747,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     [columnDescription, tableCaption],
   );
 
-  const topRatedLeader = useMemo<{ playerId: ID; rating: number } | null>(() => {
-    let topByRank: { playerId: ID; rating: number } | null = null;
-    let topByRating: { playerId: ID; rating: number } | null = null;
-
-    leaders.forEach((leader) => {
-      const rating = leader.rating;
-      if (typeof rating !== "number" || !Number.isFinite(rating)) {
-        return;
-      }
-
-      if (leader.rank === 1) {
-        topByRank = { playerId: leader.playerId, rating };
-      }
-
-      if (!topByRating || rating > topByRating.rating) {
-        topByRating = { playerId: leader.playerId, rating };
-      }
-    });
-
-    return topByRank ?? topByRating;
-  }, [leaders]);
+  const topRatedLeader = useMemo(() => selectTopRatedLeader(leaders), [leaders]);
 
   const hasAppliedFilters = Boolean(appliedCountry || appliedClubId);
   const canClear = hasAppliedFilters;
@@ -985,75 +970,46 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     [locale],
   );
 
+  const winProbabilityByPlayerId = useMemo(
+    () =>
+      new Map(
+        leaders.map((leader) => [
+          leader.playerId,
+          getWinProbabilityAgainstTopPlayer(
+            leader,
+            topRatedLeader,
+            computeExpectedWinProbability,
+          ),
+        ]),
+      ),
+    [computeExpectedWinProbability, leaders, sport, topRatedLeader],
+  );
+
   const getWinProbability = useCallback(
-    (leader: Leader) => {
-      const topRatedPlayerId = topRatedLeader?.playerId;
-      const topRatedRating = topRatedLeader?.rating;
-      if (
-        typeof topRatedRating !== "number" ||
-        !Number.isFinite(topRatedRating) ||
-        topRatedPlayerId == null
-      ) {
-        return null;
-      }
-      if (leader.playerId === topRatedPlayerId) {
-        return null;
-      }
-      return computeExpectedWinProbability(leader.rating, topRatedRating);
-    },
-    [computeExpectedWinProbability, topRatedLeader],
+    (leader: Leader) => winProbabilityByPlayerId.get(leader.playerId) ?? null,
+    [winProbabilityByPlayerId],
   );
 
   const sortedLeaders = useMemo(() => {
     if (sortState.length === 0) {
       return leaders;
     }
-    const getComparableValue = (
-      leader: Leader,
-      column: SortableColumn,
-    ): number | string | null => {
-      switch (column) {
-        case "player":
-          return leader.playerName ?? "";
-        case "sport":
-          return leader.sport ? formatSportName(leader.sport) : "";
-        case "rating":
-          return leader.rating ?? null;
-        case "winChance":
-          return getWinProbability(leader);
-        case "wins":
-          return leader.setsWon ?? null;
-        case "losses":
-          return leader.setsLost ?? null;
-        case "matches": {
-          if (isBowling) {
-            return leader.matchesPlayed ?? leader.sets ?? null;
-          }
-          const won = leader.setsWon ?? 0;
-          const lost = leader.setsLost ?? 0;
-          const total = won + lost;
-          return total === 0 ? 0 : total;
-        }
-        case "winPercent": {
-          const won = leader.setsWon ?? 0;
-          const lost = leader.setsLost ?? 0;
-          const total = won + lost;
-          return total === 0 ? null : (won / total) * 100;
-        }
-        case "highestScore":
-          return leader.highestScore ?? null;
-        case "averageScore":
-          return leader.averageScore ?? null;
-        case "standardDeviation":
-          return leader.standardDeviation ?? null;
-        default:
-          return null;
-      }
-    };
     return [...leaders].sort((a, b) => {
       for (const criterion of sortState) {
-        const aValue = getComparableValue(a, criterion.column);
-        const bValue = getComparableValue(b, criterion.column);
+        const aValue = getSortComparableValue({
+          leader: a,
+          column: criterion.column,
+          isBowling,
+          formatSportName,
+          getWinProbability,
+        });
+        const bValue = getSortComparableValue({
+          leader: b,
+          column: criterion.column,
+          isBowling,
+          formatSportName,
+          getWinProbability,
+        });
         if (aValue == null && bValue == null) {
           continue;
         }
@@ -1091,7 +1047,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       }
       return (a.rank ?? 0) - (b.rank ?? 0);
     });
-  }, [getWinProbability, isBowling, leaders, sortCollator, sortState]);
+  }, [formatSportName, getWinProbability, isBowling, leaders, sortCollator, sortState]);
 
 
   return (

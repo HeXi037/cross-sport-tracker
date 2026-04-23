@@ -32,6 +32,7 @@ import {
 } from "./constants";
 import { PREVIOUS_ROUTE_STORAGE_KEY } from "../../lib/navigation-history";
 import { useLeaderboardData, type ID, type Leader } from "./hooks/useLeaderboardData";
+import { useSorting, type SortableColumn } from "./hooks/useSorting";
 
 type Props = {
   sport: LeaderboardSport;
@@ -206,21 +207,8 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [tableWidth, setTableWidth] = useState(0);
-  type SortDirection = "ascending" | "descending";
-  type SortableColumn =
-    | "player"
-    | "sport"
-    | "rating"
-    | "winChance"
-    | "wins"
-    | "losses"
-    | "matches"
-    | "winPercent"
-    | "highestScore"
-    | "averageScore"
-    | "standardDeviation";
-  type SortCriterion = { column: SortableColumn; direction: SortDirection };
-  const [sortCriteria, setSortCriteria] = useState<SortCriterion[]>([]);
+  const { sortState, toggleSort, getSortForColumn, getSortPriority, getAriaSort } =
+    useSorting([]);
   const previousFilterPropsRef = useRef<{
     country?: string | null;
     clubId?: string | null;
@@ -230,7 +218,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       sport,
       country: appliedCountry,
       club: appliedClubId,
-      sortState: sortCriteria,
+      sortState,
     });
 
 
@@ -1134,55 +1122,6 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
     [],
   );
 
-  const getSortForColumn = useCallback(
-    (column: SortableColumn): SortDirection | undefined =>
-      sortCriteria.find((criterion) => criterion.column === column)?.direction,
-    [sortCriteria],
-  );
-
-  const getSortPriority = useCallback(
-    (column: SortableColumn): number | null => {
-      const index = sortCriteria.findIndex((criterion) => criterion.column === column);
-      return index === -1 ? null : index + 1;
-    },
-    [sortCriteria],
-  );
-
-  const toggleSort = useCallback((column: SortableColumn, additive = false) => {
-    setSortCriteria((prev) => {
-      const existingIndex = prev.findIndex((criterion) => criterion.column === column);
-      const existing = existingIndex === -1 ? null : prev[existingIndex];
-
-      if (!additive) {
-        if (!existing) {
-          return [{ column, direction: "descending" }];
-        }
-        if (existing.direction === "descending") {
-          return [{ column, direction: "ascending" }];
-        }
-        return [];
-      }
-
-      if (!existing) {
-        return [...prev, { column, direction: "descending" }];
-      }
-
-      if (existing.direction === "descending") {
-        const next = [...prev];
-        next[existingIndex] = { column, direction: "ascending" };
-        return next;
-      }
-
-      return prev.filter((criterion) => criterion.column !== column);
-    });
-  }, []);
-
-  type AriaSort = "none" | SortDirection;
-  const getAriaSort = useCallback(
-    (column: SortableColumn): AriaSort => getSortForColumn(column) ?? "none",
-    [getSortForColumn],
-  );
-
   const renderSortableHeader = useCallback(
     (
       column: SortableColumn,
@@ -1295,7 +1234,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
         <RowElement {...rowProps} style={headerRowStyle}>
           <ColumnElement
             {...columnHeaderProps}
-            aria-sort={sortCriteria.length > 0 ? "none" : "ascending"}
+            aria-sort={sortState.length > 0 ? "none" : "ascending"}
             style={headerCellStyle}
           >
             #
@@ -1401,7 +1340,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
   );
 
   const sortedLeaders = useMemo(() => {
-    if (sortCriteria.length === 0) {
+    if (sortState.length === 0) {
       return leaders;
     }
     const getComparableValue = (
@@ -1447,7 +1386,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       }
     };
     return [...leaders].sort((a, b) => {
-      for (const criterion of sortCriteria) {
+      for (const criterion of sortState) {
         const aValue = getComparableValue(a, criterion.column);
         const bValue = getComparableValue(b, criterion.column);
         if (aValue == null && bValue == null) {
@@ -1487,7 +1426,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       }
       return (a.rank ?? 0) - (b.rank ?? 0);
     });
-  }, [getWinProbability, isBowling, leaders, sortCollator, sortCriteria]);
+  }, [getWinProbability, isBowling, leaders, sortCollator, sortState]);
 
   useEffect(() => {
     const element = tableContainerRef.current;
@@ -1564,7 +1503,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
           }}
         >
           <div role="cell" style={cellStyle}>
-            {sortCriteria.length > 0 ? index + 1 : row.rank}
+            {sortState.length > 0 ? index + 1 : row.rank}
           </div>
           <div role="cell" style={cellStyle}>
             {row.playerName}
@@ -1628,7 +1567,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
       isBowling,
       lastCellStyle,
       rowGridStyle,
-      sortCriteria,
+      sortState,
       sport,
       topRatedLeader,
     ],

@@ -2,7 +2,7 @@ import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import CountrySelect from "./CountrySelect";
+import CountrySelect from "./filters/CountrySelect";
 
 describe("CountrySelect", () => {
   it("filters options by country name and code", async () => {
@@ -43,6 +43,29 @@ describe("CountrySelect", () => {
 
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+
+  it("supports custom options", async () => {
+    const handleChange = vi.fn();
+    render(
+      <CountrySelect
+        value=""
+        onChange={handleChange}
+        options={[
+          { code: "XX", name: "Exampleland", continent: "EU" },
+          { code: "YY", name: "Testonia", continent: "EU" },
+        ]}
+      />
+    );
+
+    const user = userEvent.setup();
+    const input = screen.getByRole("combobox");
+
+    await user.type(input, "example");
+    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+
+    expect(handleChange).toHaveBeenCalledWith("XX");
   });
 
   it("preserves empty option equivalent for clearing", async () => {

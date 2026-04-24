@@ -262,8 +262,8 @@ describe("Leaderboard", () => {
       </NextIntlClientProvider>,
     );
 
-    const countrySelect = await screen.findByRole("combobox", { name: "Country" });
-    const clubSelect = await screen.findByRole("combobox", { name: "Club" });
+    const countrySelect = await screen.findByRole("combobox", { name: "Country filter" });
+    const clubSelect = await screen.findByRole("combobox", { name: "Club filter" });
     expect(countrySelect).toHaveValue("Sweden");
     expect(clubSelect).toHaveValue("club-123");
   });
@@ -575,14 +575,14 @@ describe("Leaderboard", () => {
     await waitFor(() => expect(fetchClubsSpy).toHaveBeenCalled());
 
     const countrySelect = await screen.findByRole("combobox", {
-      name: "Country",
+      name: "Country filter",
     });
     await user.clear(countrySelect);
     await user.type(countrySelect, "swed");
     await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
 
     const clubSelect = (await screen.findByRole("combobox", {
-      name: "Club",
+      name: "Club filter",
     })) as HTMLSelectElement;
     await user.selectOptions(clubSelect, "club-123");
 
@@ -620,12 +620,12 @@ describe("Leaderboard", () => {
     await waitFor(() => expect(fetchClubsSpy).toHaveBeenCalled());
 
     const user = userEvent.setup();
-    const countrySelect = screen.getByRole("combobox", { name: "Country" });
+    const countrySelect = screen.getByRole("combobox", { name: "Country filter" });
     await user.clear(countrySelect);
     await user.type(countrySelect, "swed");
     await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
 
-    const clubSelect = screen.getByRole("combobox", { name: "Club" });
+    const clubSelect = screen.getByRole("combobox", { name: "Club filter" });
     await user.selectOptions(clubSelect, "club-123");
 
     expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
@@ -657,7 +657,7 @@ describe("Leaderboard", () => {
 
     await renderLeaderboard({ sport: "padel" });
 
-    const countrySelect = await screen.findByRole("combobox", { name: "Country" });
+    const countrySelect = await screen.findByRole("combobox", { name: "Country filter" });
     await user.type(countrySelect, "swed");
 
     expect(
@@ -706,7 +706,7 @@ describe("Leaderboard", () => {
       ),
     );
 
-    const countrySelect = screen.getByRole("combobox", { name: "Country" });
+    const countrySelect = screen.getByRole("combobox", { name: "Country filter" });
     await user.clear(countrySelect);
     await user.type(countrySelect, "us");
     await user.click(
@@ -719,7 +719,7 @@ describe("Leaderboard", () => {
       ),
     );
 
-    const clubSelect = screen.getByRole("combobox", { name: "Club" });
+    const clubSelect = screen.getByRole("combobox", { name: "Club filter" });
     await waitFor(() => expect(clubSelect).toHaveValue(""));
   });
 
@@ -745,11 +745,11 @@ describe("Leaderboard", () => {
       ),
     );
 
-    let clubSelect = screen.getByRole("combobox", { name: "Club" });
+    let clubSelect = screen.getByRole("combobox", { name: "Club filter" });
     expect(within(clubSelect).getByRole("option", { name: "Club 123" })).toBeInTheDocument();
     expect(within(clubSelect).queryByRole("option", { name: "Club USA" })).not.toBeInTheDocument();
 
-    const countrySelect = screen.getByRole("combobox", { name: "Country" });
+    const countrySelect = screen.getByRole("combobox", { name: "Country filter" });
     await user.clear(countrySelect);
     await user.type(countrySelect, "us");
     await user.click(
@@ -762,7 +762,7 @@ describe("Leaderboard", () => {
       ),
     );
 
-    clubSelect = screen.getByRole("combobox", { name: "Club" });
+    clubSelect = screen.getByRole("combobox", { name: "Club filter" });
     await waitFor(() =>
       expect(within(clubSelect).getByRole("option", { name: "Club USA" })).toBeInTheDocument(),
     );
@@ -788,7 +788,7 @@ describe("Leaderboard", () => {
         expect.objectContaining({ sport: "padel", country: "SE" }),
       ),
     );
-    let clubSelect = screen.getByRole("combobox", { name: "Club" });
+    let clubSelect = screen.getByRole("combobox", { name: "Club filter" });
     expect(
       within(clubSelect).getByRole("option", { name: "Padel Sweden" }),
     ).toBeInTheDocument();
@@ -808,7 +808,7 @@ describe("Leaderboard", () => {
         expect.objectContaining({ sport: "disc_golf", country: "SE" }),
       ),
     );
-    clubSelect = screen.getByRole("combobox", { name: "Club" });
+    clubSelect = screen.getByRole("combobox", { name: "Club filter" });
     await waitFor(() =>
       expect(
         within(clubSelect).getByRole("option", { name: "Disc Sweden" }),
@@ -818,7 +818,7 @@ describe("Leaderboard", () => {
       within(clubSelect).queryByRole("option", { name: "Padel Sweden" }),
     ).not.toBeInTheDocument();
 
-    const countrySelect = screen.getByRole("combobox", { name: "Country" });
+    const countrySelect = screen.getByRole("combobox", { name: "Country filter" });
     await user.clear(countrySelect);
     await user.type(countrySelect, "us");
     await user.click(
@@ -830,7 +830,7 @@ describe("Leaderboard", () => {
         expect.objectContaining({ sport: "disc_golf", country: "US" }),
       ),
     );
-    clubSelect = screen.getByRole("combobox", { name: "Club" });
+    clubSelect = screen.getByRole("combobox", { name: "Club filter" });
     await waitFor(() =>
       expect(
         within(clubSelect).getByRole("option", { name: "Disc USA" }),
@@ -861,14 +861,14 @@ describe("Leaderboard", () => {
     expect(countryAlert).toHaveAttribute("role", "alert");
     expect(countryAlert).toHaveAttribute("id", "leaderboard-country-error");
 
-    const countrySelect = screen.getByRole("combobox", { name: "Country" });
+    const countrySelect = screen.getByRole("combobox", { name: "Country filter" });
     expect(countrySelect).toHaveAttribute("aria-invalid", "true");
     expect(countrySelect).toHaveAttribute(
       "aria-describedby",
       expect.stringContaining("leaderboard-country-error"),
     );
 
-    const clubSelect = screen.getByRole("combobox", { name: "Club" });
+    const clubSelect = screen.getByRole("combobox", { name: "Club filter" });
     expect(clubSelect).not.toHaveAttribute("aria-invalid", "true");
 
     await waitFor(() =>
@@ -972,7 +972,7 @@ describe("Leaderboard", () => {
       </NextIntlClientProvider>,
     );
 
-    const countrySelect = await screen.findByRole("combobox", { name: "Country" });
+    const countrySelect = await screen.findByRole("combobox", { name: "Country filter" });
     await waitFor(() => expect(countrySelect).toHaveValue("Sweden"));
   });
 
@@ -1006,7 +1006,7 @@ describe("Leaderboard", () => {
     expect(url.searchParams.get("sport")).toBe("padel");
     expect(url.searchParams.get("country")).toBe("SE");
 
-    const clubSelect = (await screen.findByRole("combobox", { name: "Club" })) as HTMLSelectElement;
+    const clubSelect = (await screen.findByRole("combobox", { name: "Club filter" })) as HTMLSelectElement;
     await waitFor(() => expect(fetchClubsSpy).toHaveBeenCalled());
     await user.selectOptions(clubSelect, "club-123");
 
@@ -1061,9 +1061,9 @@ describe("Leaderboard", () => {
 
     await renderLeaderboard({ sport: "padel", country: "SE", clubId: "club-se" });
 
-    const countrySelect = await screen.findByRole("combobox", { name: "Country" });
+    const countrySelect = await screen.findByRole("combobox", { name: "Country filter" });
     const clubSelect = (await screen.findByRole("combobox", {
-      name: "Club",
+      name: "Club filter",
     })) as HTMLSelectElement;
     expect(countrySelect).toHaveValue("Sweden");
     expect(clubSelect).toHaveValue("club-se");
@@ -1154,6 +1154,63 @@ describe("Leaderboard", () => {
     );
     expect(filterClear).toBeDefined();
     expect(filterClear).toHaveAttribute("aria-controls", "leaderboard-results");
+
+    expect(
+      screen.getByRole("button", { name: /^Player\./i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^Rating\./i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^Matches\./i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Country filter" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Club filter" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Search clubs filter" }),
+    ).toBeInTheDocument();
+  });
+
+  it("supports smooth keyboard tab navigation through filters and sort controls", async () => {
+    const user = userEvent.setup();
+    const response: SortTestLeader[] = [
+      { rank: 1, playerId: "1", playerName: "Alice", rating: 1200, setsWon: 2, setsLost: 0 },
+      { rank: 2, playerId: "2", playerName: "Bob", rating: 1100, setsWon: 1, setsLost: 1 },
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => response });
+    global.fetch = fetchMock as typeof fetch;
+
+    await renderLeaderboard({ sport: "padel" });
+    await screen.findByText("Alice");
+
+    const countryFilter = screen.getByRole("combobox", { name: "Country filter" });
+    const clubSearch = screen.getByRole("combobox", { name: "Search clubs filter" });
+    const clubFilter = screen.getByRole("combobox", { name: "Club filter" });
+    const playerSort = screen.getByRole("button", { name: /^Player\./i });
+    const ratingSort = screen.getByRole("button", { name: /^Rating\./i });
+    const matchesSort = screen.getByRole("button", { name: /^Matches\./i });
+
+    countryFilter.focus();
+    expect(countryFilter).toHaveFocus();
+    await user.tab();
+    expect(clubSearch).toHaveFocus();
+    await user.tab();
+    expect(clubFilter).toHaveFocus();
+    await user.tab();
+    expect(playerSort).toHaveFocus();
+    await user.tab();
+    expect(ratingSort).toHaveFocus();
+    await user.tab();
+    await user.tab();
+    await user.tab();
+    await user.tab();
+    expect(matchesSort).toHaveFocus();
   });
 
   const setupSortableLeaderboard = async (response: SortTestLeader[]) => {

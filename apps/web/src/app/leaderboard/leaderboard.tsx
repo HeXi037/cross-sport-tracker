@@ -1206,6 +1206,7 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             </label>
             <CountrySelect
               id="leaderboard-country"
+              aria-label="Country filter"
               value={appliedCountry}
               onChange={handleCountryChange}
               placeholder="Select a country"
@@ -1247,6 +1248,8 @@ export default function Leaderboard({ sport, country, clubId }: Props) {
             searchInputId="leaderboard-club-search"
             selectId="leaderboard-club-select"
             className="leaderboard-club-select"
+            ariaLabel="Club filter"
+            searchLabel="Search clubs filter"
             invalid={filterErrors.clubId ? true : false}
             describedById={clubErrorId}
             />
